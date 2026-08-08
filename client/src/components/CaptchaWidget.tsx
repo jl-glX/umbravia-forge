@@ -24,7 +24,12 @@ declare global {
           appearance: "always";
           callback: (token: string) => void;
           "expired-callback": () => void;
-          "error-callback": (errorCode: string) => void;
+          "error-callback": (errorCode: string) => boolean;
+          "timeout-callback": () => void;
+          "unsupported-callback": () => void;
+          retry: "auto";
+          "retry-interval": number;
+          "refresh-expired": "auto";
         },
       ) => string;
       reset: (widgetId: string) => void;
@@ -42,7 +47,12 @@ function loadTurnstile(): Promise<void> {
 
   scriptPromise = new Promise((resolve, reject) => {
     const existing = document.getElementById(SCRIPT_ID) as HTMLScriptElement;
-    const script = existing ?? document.createElement("script");
+    // A previous network or provider failure can leave an inert script element
+    // behind. Reusing it would never emit another load event, so replace only
+    // that runtime element before a controlled retry. No configuration or key
+    // is removed by this operation.
+    if (existing && !window.turnstile) existing.remove();
+    const script = document.createElement("script");
     let settled = false;
     const finish = (error?: Error) => {
       if (settled) return;
@@ -70,7 +80,7 @@ function loadTurnstile(): Promise<void> {
           : new Error("Turnstile did not initialize"),
       );
     script.onerror = () => finish(new Error("Turnstile could not be loaded"));
-    if (!existing) document.head.appendChild(script);
+    document.head.appendChild(script);
   });
 
   return scriptPromise;
@@ -89,6 +99,10 @@ export function CaptchaWidget({
   const widgetId = useRef<string | null>(null);
   const onTokenRef = useRef(onToken);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [providerErrorCode, setProviderErrorCode] = useState<string | null>(
+    null,
+  );
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const [widgetReady, setWidgetReady] = useState(false);
   const [verificationStarted, setVerificationStarted] = useState(false);
   const [verificationSucceeded, setVerificationSucceeded] = useState(false);
@@ -102,6 +116,7 @@ export function CaptchaWidget({
     widgetId.current = null;
     setWidgetReady(false);
     setLoadFailed(false);
+    setProviderErrorCode(null);
     setVerificationStarted(false);
     setVerificationSucceeded(false);
     setHideVerifiedWidget(false);
@@ -112,6 +127,7 @@ export function CaptchaWidget({
       (import.meta.env.DEV ? DEVELOPMENT_SITE_KEY : "");
     if (!sitekey) {
       setLoadFailed(true);
+      setProviderErrorCode("CONFIGURATION_MISSING");
       setWidgetReady(false);
       setVerificationStarted(false);
       setVerificationSucceeded(false);
@@ -158,12 +174,31 @@ export function CaptchaWidget({
           "error-callback": (errorCode) => {
             console.error("[Turnstile] Widget error", { errorCode, action });
             onTokenRef.current("");
+            setProviderErrorCode(errorCode || "PROVIDER_ERROR");
+            setWidgetReady(false);
+            setVerificationStarted(false);
+            setLoadFailed(true);
+            setVerificationSucceeded(false);
+            setHideVerifiedWidget(false);
+            return true;
+          },
+          "timeout-callback": () => {
+            onTokenRef.current("");
+            setVerificationStarted(false);
+            setVerificationSucceeded(false);
+          },
+          "unsupported-callback": () => {
+            onTokenRef.current("");
+            setProviderErrorCode("UNSUPPORTED_BROWSER");
             setWidgetReady(false);
             setVerificationStarted(false);
             setLoadFailed(true);
             setVerificationSucceeded(false);
             setHideVerifiedWidget(false);
           },
+          retry: "auto",
+          "retry-interval": 8_000,
+          "refresh-expired": "auto",
         });
         setWidgetReady(true);
       })
@@ -173,6 +208,7 @@ export function CaptchaWidget({
           message: error instanceof Error ? error.message : "Unknown error",
         });
         setLoadFailed(true);
+        setProviderErrorCode("INITIALIZATION_FAILED");
         setWidgetReady(false);
         setVerificationStarted(false);
         setVerificationSucceeded(false);
@@ -187,7 +223,7 @@ export function CaptchaWidget({
       }
       widgetId.current = null;
     };
-  }, [action, containerId, language]);
+  }, [action, containerId, language, retryAttempt]);
 
   useEffect(() => {
     if (!verificationSucceeded) return;
@@ -224,11 +260,23 @@ export function CaptchaWidget({
     window.turnstile.execute(widgetId.current);
   };
 
+  const retryLoading = () => {
+    onTokenRef.current("");
+    setLoadFailed(false);
+    setProviderErrorCode(null);
+    setWidgetReady(false);
+    setVerificationStarted(false);
+    setVerificationSucceeded(false);
+    setHideVerifiedWidget(false);
+    setRetryAttempt((attempt) => attempt + 1);
+  };
+
   if (loadFailed) {
     const blockingPayload = {
       error: t("captcha.blockingError", { number: "CAPTCHA-001" }),
       code: "CAPTCHA_REQUIRED",
       errorNumber: "CAPTCHA-001",
+      ...(providerErrorCode ? { providerErrorCode } : {}),
     };
     return (
       <div
@@ -236,9 +284,18 @@ export function CaptchaWidget({
         aria-live="assertive"
         className="fixed inset-0 z-[200] flex min-h-screen items-center justify-center bg-slate-950 p-5"
       >
-        <pre className="max-h-[90vh] w-full max-w-3xl overflow-auto whitespace-pre-wrap rounded-2xl border border-red-400/60 bg-slate-900 p-6 text-sm leading-7 text-red-100 shadow-2xl sm:text-base">
-          {JSON.stringify(blockingPayload, null, 2)}
-        </pre>
+        <div className="w-full max-w-3xl space-y-4 rounded-2xl border border-red-400/60 bg-slate-900 p-6 shadow-2xl">
+          <pre className="max-h-[75vh] overflow-auto whitespace-pre-wrap text-sm leading-7 text-red-100 sm:text-base">
+            {JSON.stringify(blockingPayload, null, 2)}
+          </pre>
+          <button
+            type="button"
+            onClick={retryLoading}
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-300/50 bg-red-950/40 px-4 py-2.5 text-sm font-semibold text-red-100 transition hover:bg-red-900/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+          >
+            {t("captcha.retry")}
+          </button>
+        </div>
       </div>
     );
   }

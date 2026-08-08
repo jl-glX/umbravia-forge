@@ -1665,6 +1665,7 @@
     "verifying": "Comprobando el navegador…",
     "blockingError": "la protección automática del navegador no está disponible",
     "loading": "Preparando la protección automática…",
+    "retry": "Reintentar la verificación",
     "protected": "Verificación de Cloudflare Turnstile activa.",
     "label": "Verificación humana",
     "help": "Esta comprobación protege el acceso y el registro frente a automatizaciones abusivas.",

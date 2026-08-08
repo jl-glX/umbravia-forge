@@ -1664,6 +1664,7 @@
     "verifying": "Browser wird geprüft…",
     "blockingError": "der automatische Browserschutz ist nicht verfügbar",
     "loading": "Automatischer Schutz wird vorbereitet…",
+    "retry": "Verifizierung erneut versuchen",
     "protected": "Die Cloudflare-Turnstile-Prüfung ist aktiv.",
     "label": "Bestätigung durch eine Person",
     "help": "Diese Prüfung schützt Anmeldung und Registrierung vor missbräuchlicher Automatisierung.",

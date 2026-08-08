@@ -1651,6 +1651,7 @@
     "verifying": "Checking the browser…",
     "blockingError": "automatic browser protection is unavailable",
     "loading": "Preparing automatic protection…",
+    "retry": "Retry verification",
     "protected": "Cloudflare Turnstile verification is active.",
     "label": "Human verification",
     "help": "This check protects sign-in and registration from abusive automation.",

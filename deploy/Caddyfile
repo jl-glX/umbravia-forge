@@ -1,6 +1,6 @@
 # UMBRAVIA_DOMAIN selects the public hostname; every protection below remains
 # identical when the hostname changes.
-{$UMBRAVIA_DOMAIN:umbravia-forge.duckdns.org} {
+{$UMBRAVIA_DOMAIN:www.umbraviaforge.com} {
 	encode zstd gzip
 
 	@automated_probes {
