@@ -24,7 +24,7 @@ declare global {
           appearance: "always";
           callback: (token: string) => void;
           "expired-callback": () => void;
-          "error-callback": () => void;
+          "error-callback": (errorCode: string) => void;
         },
       ) => string;
       reset: (widgetId: string) => void;
@@ -89,6 +89,7 @@ export function CaptchaWidget({
   const widgetId = useRef<string | null>(null);
   const onTokenRef = useRef(onToken);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [widgetReady, setWidgetReady] = useState(false);
   const [verificationStarted, setVerificationStarted] = useState(false);
   const [verificationSucceeded, setVerificationSucceeded] = useState(false);
   const [hideVerifiedWidget, setHideVerifiedWidget] = useState(false);
@@ -98,11 +99,20 @@ export function CaptchaWidget({
 
   useEffect(() => {
     let disposed = false;
+    widgetId.current = null;
+    setWidgetReady(false);
+    setLoadFailed(false);
+    setVerificationStarted(false);
+    setVerificationSucceeded(false);
+    setHideVerifiedWidget(false);
+    onTokenRef.current("");
+
     const sitekey =
       import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ||
       (import.meta.env.DEV ? DEVELOPMENT_SITE_KEY : "");
     if (!sitekey) {
       setLoadFailed(true);
+      setWidgetReady(false);
       setVerificationStarted(false);
       setVerificationSucceeded(false);
       setHideVerifiedWidget(false);
@@ -139,22 +149,31 @@ export function CaptchaWidget({
             onTokenRef.current(token);
           },
           "expired-callback": () => {
+            setWidgetReady(true);
             setVerificationStarted(false);
             setVerificationSucceeded(false);
             setHideVerifiedWidget(false);
             onTokenRef.current("");
           },
-          "error-callback": () => {
+          "error-callback": (errorCode) => {
+            console.error("[Turnstile] Widget error", { errorCode, action });
             onTokenRef.current("");
+            setWidgetReady(false);
             setVerificationStarted(false);
             setLoadFailed(true);
             setVerificationSucceeded(false);
             setHideVerifiedWidget(false);
           },
         });
+        setWidgetReady(true);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        console.error("[Turnstile] Initialization failed", {
+          action,
+          message: error instanceof Error ? error.message : "Unknown error",
+        });
         setLoadFailed(true);
+        setWidgetReady(false);
         setVerificationStarted(false);
         setVerificationSucceeded(false);
         setHideVerifiedWidget(false);
@@ -166,6 +185,7 @@ export function CaptchaWidget({
       if (widgetId.current && window.turnstile) {
         window.turnstile.remove(widgetId.current);
       }
+      widgetId.current = null;
     };
   }, [action, containerId, language]);
 
@@ -182,6 +202,7 @@ export function CaptchaWidget({
     if (resetSignal && widgetId.current && window.turnstile) {
       onTokenRef.current("");
       setLoadFailed(false);
+      setWidgetReady(true);
       setVerificationStarted(false);
       setVerificationSucceeded(false);
       setHideVerifiedWidget(false);
@@ -191,7 +212,8 @@ export function CaptchaWidget({
 
   const startVerification = () => {
     if (!widgetId.current || !window.turnstile) {
-      setLoadFailed(true);
+      // Loading is asynchronous. A fast click must not turn the normal
+      // initialization window into a fatal CAPTCHA error.
       return;
     }
     onTokenRef.current("");
@@ -232,10 +254,14 @@ export function CaptchaWidget({
         <button
           type="button"
           onClick={startVerification}
-          disabled={verificationStarted}
+          disabled={!widgetReady || verificationStarted}
           className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-wait disabled:opacity-60"
         >
-          {verificationStarted ? t("captcha.verifying") : t("captcha.start")}
+          {!widgetReady
+            ? t("captcha.loading")
+            : verificationStarted
+              ? t("captcha.verifying")
+              : t("captcha.start")}
         </button>
       )}
       <p className="text-xs leading-relaxed text-slate-500">
