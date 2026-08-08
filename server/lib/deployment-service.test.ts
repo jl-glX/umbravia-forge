@@ -60,4 +60,53 @@ describe("systemd deployment service", () => {
       "UMBRAVIA_APP_ENV_FILE:=/etc/umbravia-forge/umbravia-forge.env",
     );
   });
+
+  it("cleans only incomplete, inactive releases and preserves rollback targets", async () => {
+    const updater = await readFile(
+      path.resolve("deploy", "auto-update.sh"),
+      "utf8",
+    );
+
+    expect(updater).toContain("release_is_complete()");
+    expect(updater).toContain('[ -f "$candidate/.umbravia-release-complete" ]');
+    expect(updater).toContain('[ "$candidate" != "$current_target" ]');
+    expect(updater).toContain('[ "$candidate" != "$previous_target" ]');
+    expect(updater).toContain(
+      'remove_incomplete_release "$release_dir" "actualizacion no activada"',
+    );
+    expect(updater).toContain("release_activated=0");
+    expect(updater).toContain("release_activated=1");
+    expect(updater).toContain('rm -rf -- "$build_root"');
+    expect(updater).toContain("cleanup_stale_builds");
+    expect(updater).toContain('rm -f -- "$next_link"');
+    expect(updater).toContain("worktree prune");
+    expect(updater).toContain("trap cleanup EXIT");
+    expect(updater).toContain("trap 'exit 1' HUP INT TERM");
+  });
+
+  it("covers npm, readiness and health failures with the expected cleanup state", async () => {
+    const updater = await readFile(
+      path.resolve("deploy", "auto-update.sh"),
+      "utf8",
+    );
+    const buildNpmCi = updater.indexOf("npm ci --audit=false");
+    const releaseCreated = updater.indexOf("release_created=1");
+    const releaseNpmCi = updater.indexOf("npm ci --omit=dev");
+    const readiness = updater.indexOf(
+      'UMBRAVIA_ENV_FILE="$UMBRAVIA_APP_ENV_FILE"',
+    );
+    const activated = updater.indexOf("release_activated=1");
+    const healthFailure = updater.indexOf(
+      '! health_check "$UMBRAVIA_LOCAL_HEALTH_URL"',
+    );
+    const rollbackCleanup = updater.indexOf("release_activated=0", activated);
+
+    expect(buildNpmCi).toBeGreaterThan(-1);
+    expect(buildNpmCi).toBeLessThan(releaseCreated);
+    expect(releaseNpmCi).toBeGreaterThan(releaseCreated);
+    expect(readiness).toBeGreaterThan(releaseNpmCi);
+    expect(readiness).toBeLessThan(activated);
+    expect(healthFailure).toBeGreaterThan(activated);
+    expect(rollbackCleanup).toBeGreaterThan(healthFailure);
+  });
 });

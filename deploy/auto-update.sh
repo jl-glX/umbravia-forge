@@ -64,6 +64,47 @@ health_check() {
   return 1
 }
 
+release_is_complete() {
+  candidate=$1
+  expected_commit=$2
+  [ -f "$candidate/.umbravia-release-complete" ] || return 1
+  [ -r "$candidate/.umbravia-release-commit" ] || return 1
+  [ "$(sed -n '1p' "$candidate/.umbravia-release-commit")" = "$expected_commit" ] || return 1
+  [ -r "$candidate/package.json" ] || return 1
+  [ -x "$candidate/deploy/check-linux-readiness.sh" ] || return 1
+}
+
+remove_incomplete_release() {
+  candidate=$1
+  reason=$2
+  [ -n "$candidate" ] || return 0
+  [ -d "$candidate" ] || return 0
+
+  candidate_parent=$(dirname "$candidate")
+  [ "$candidate_parent" = "$UMBRAVIA_RELEASES_DIR" ] ||
+    fail "se rechaza limpiar una ruta fuera del directorio de releases: $candidate"
+  [ "$candidate" != "$current_target" ] ||
+    fail "se rechaza limpiar la release activa: $candidate"
+  [ "$candidate" != "$previous_target" ] ||
+    fail "se rechaza limpiar la release reservada para rollback: $candidate"
+
+  log "limpiando release incompleta ($reason): $candidate"
+  rm -rf -- "$candidate"
+}
+
+cleanup_stale_builds() {
+  for stale_build in /var/lib/umbravia-forge-updater/build-*; do
+    [ -e "$stale_build" ] || continue
+    [ "$(dirname "$stale_build")" = "/var/lib/umbravia-forge-updater" ] ||
+      fail "ruta temporal inesperada durante la limpieza: $stale_build"
+    log "limpiando build temporal abandonado: $stale_build"
+    run_as "$UMBRAVIA_BUILD_USER" git -C "$UMBRAVIA_SOURCE_DIR" \
+      worktree remove --force "$stale_build" >/dev/null 2>&1 || true
+    rm -rf -- "$stale_build"
+  done
+  run_as "$UMBRAVIA_BUILD_USER" git -C "$UMBRAVIA_SOURCE_DIR" worktree prune
+}
+
 [ "$(id -u)" -eq 0 ] || fail "el actualizador debe ejecutarse como root"
 
 for command_name in curl flock git install ln mv node npm readlink runuser systemctl; do
@@ -94,6 +135,12 @@ fi
 run_as "$UMBRAVIA_BUILD_USER" git -C "$UMBRAVIA_SOURCE_DIR" fetch --prune origin "$UMBRAVIA_UPDATE_BRANCH"
 remote_commit=$(run_as "$UMBRAVIA_BUILD_USER" git -C "$UMBRAVIA_SOURCE_DIR" rev-parse "origin/$UMBRAVIA_UPDATE_BRANCH")
 
+# El lock ya esta adquirido: ningun updater legitimo puede estar usando estos
+# restos ni el enlace transitorio de activacion.
+cleanup_stale_builds
+next_link="${UMBRAVIA_CURRENT_LINK}.next"
+rm -f -- "$next_link"
+
 current_target=""
 current_commit=""
 if [ -L "$UMBRAVIA_CURRENT_LINK" ]; then
@@ -104,6 +151,7 @@ if [ -L "$UMBRAVIA_CURRENT_LINK" ]; then
     current_commit=$(basename "$current_target")
   fi
 fi
+previous_target="$current_target"
 
 if [ "$current_commit" = "$remote_commit" ]; then
   log "sin cambios: $remote_commit ya esta desplegado"
@@ -121,7 +169,10 @@ fi
 
 release_dir="$UMBRAVIA_RELEASES_DIR/$remote_commit"
 if [ -d "$release_dir" ]; then
-  fail "la release de destino ya existe sin estar activa: $release_dir"
+  if release_is_complete "$release_dir" "$remote_commit"; then
+    fail "la release de destino ya existe, parece completa y no esta activa; se conserva para revision manual: $release_dir"
+  fi
+  remove_incomplete_release "$release_dir" "resto de una ejecucion anterior"
 fi
 
 build_root=$(mktemp -d "/var/lib/umbravia-forge-updater/build-${remote_commit}.XXXXXX")
@@ -130,6 +181,8 @@ case "$build_root" in
   *) fail "ruta temporal inesperada: $build_root" ;;
 esac
 worktree_added=0
+release_created=0
+release_activated=0
 cleanup() {
   if [ "$worktree_added" -eq 1 ]; then
     run_as "$UMBRAVIA_BUILD_USER" git -C "$UMBRAVIA_SOURCE_DIR" worktree remove --force "$build_root" >/dev/null 2>&1 || true
@@ -137,8 +190,12 @@ cleanup() {
   if [ -d "$build_root" ]; then
     rm -rf -- "$build_root"
   fi
+  if [ "$release_created" -eq 1 ] && [ "$release_activated" -eq 0 ]; then
+    remove_incomplete_release "$release_dir" "actualizacion no activada"
+  fi
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
 chown "$UMBRAVIA_BUILD_USER:$UMBRAVIA_BUILD_USER" "$build_root"
 
 log "construyendo $remote_commit en un arbol aislado"
@@ -153,6 +210,7 @@ run_as "$UMBRAVIA_BUILD_USER" sh -c '
 
 install -d -o root -g root -m 0755 "$UMBRAVIA_RELEASES_DIR"
 install -d -o "$UMBRAVIA_APP_USER" -g "$UMBRAVIA_APP_GROUP" -m 0750 "$release_dir"
+release_created=1
 cp -a "$build_root/.deployment-package/." "$release_dir/"
 chown -R "$UMBRAVIA_APP_USER:$UMBRAVIA_APP_GROUP" "$release_dir"
 run_as "$UMBRAVIA_APP_USER" sh -c '
@@ -167,10 +225,15 @@ chmod -R o-rwx "$release_dir"
 
 UMBRAVIA_ENV_FILE="$UMBRAVIA_APP_ENV_FILE" "$release_dir/deploy/check-linux-readiness.sh"
 
-next_link="${UMBRAVIA_CURRENT_LINK}.next"
-rm -f -- "$next_link"
+# Este marcador se escribe al final de la preparacion. Su ausencia identifica una
+# release parcial que una ejecucion posterior puede eliminar con seguridad.
+printf '%s\n' "$remote_commit" >"$release_dir/.umbravia-release-complete"
+chown root:"$UMBRAVIA_APP_GROUP" "$release_dir/.umbravia-release-complete"
+chmod 0640 "$release_dir/.umbravia-release-complete"
+
 ln -s "$release_dir" "$next_link"
 mv -Tf "$next_link" "$UMBRAVIA_CURRENT_LINK"
+release_activated=1
 
 log "activando $remote_commit"
 if ! systemctl restart "$UMBRAVIA_APP_SERVICE" || ! health_check "$UMBRAVIA_LOCAL_HEALTH_URL"; then
@@ -179,6 +242,7 @@ if ! systemctl restart "$UMBRAVIA_APP_SERVICE" || ! health_check "$UMBRAVIA_LOCA
     ln -s "$current_target" "$next_link"
     mv -Tf "$next_link" "$UMBRAVIA_CURRENT_LINK"
     systemctl restart "$UMBRAVIA_APP_SERVICE" || true
+    release_activated=0
   fi
   exit 1
 fi
@@ -189,6 +253,7 @@ if [ -n "$UMBRAVIA_PUBLIC_HEALTH_URL" ] && ! health_check "$UMBRAVIA_PUBLIC_HEAL
     ln -s "$current_target" "$next_link"
     mv -Tf "$next_link" "$UMBRAVIA_CURRENT_LINK"
     systemctl restart "$UMBRAVIA_APP_SERVICE" || true
+    release_activated=0
   fi
   exit 1
 fi

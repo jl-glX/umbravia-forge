@@ -113,6 +113,19 @@ release, la instalación Linux de dependencias y el comprobador de preparación
 se cambia atómicamente el enlace `current`. La release anterior se conserva
 como mecanismo de reversión y se restaura si falla la salud local o pública.
 
+Cada release preparada termina con `.umbravia-release-complete`. Si una fase
+falla después de crear el directorio de release y antes de activarlo, el
+actualizador elimina ese directorio y también su `worktree` temporal. Al
+arrancar, un directorio para el commit remoto sin ese marcador (o con metadatos
+inconsistentes) se considera incompleto, se limpia y se reconstruye. Una
+release marcada como completa que no sea la activa se conserva y provoca un
+error explícito para permitir su revisión manual. Las protecciones de limpieza
+rechazan siempre borrar el destino de `current` o la release anterior reservada
+para rollback. Bajo el mismo `flock`, cada ejecución elimina además enlaces
+`current.next`, builds abandonados y registros obsoletos de `git worktree`; solo
+se consideran temporales los directorios `build-*` dentro del directorio fijo
+del updater.
+
 Instalación inicial:
 
 ```text
