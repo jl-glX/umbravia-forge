@@ -126,6 +126,12 @@ para rollback. Bajo el mismo `flock`, cada ejecución elimina además enlaces
 se consideran temporales los directorios `build-*` dentro del directorio fijo
 del updater.
 
+Antes del comprobador de preparación se normalizan también los permisos que
+`cp -a` haya conservado del paquete: el propietario mantiene escritura, el
+grupo de la aplicación obtiene lectura y acceso a directorios, y otros usuarios
+no obtienen acceso. Así, systemd puede entrar en la nueva release aunque el
+directorio empaquetado tuviera un modo más restrictivo.
+
 Instalación inicial:
 
 ```text

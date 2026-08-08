@@ -82,6 +82,7 @@ describe("systemd deployment service", () => {
     expect(updater).toContain("worktree prune");
     expect(updater).toContain("trap cleanup EXIT");
     expect(updater).toContain("trap 'exit 1' HUP INT TERM");
+    expect(updater).toContain('chmod -R u+rwX,g+rX,o-rwx "$release_dir"');
   });
 
   it("covers npm, readiness and health failures with the expected cleanup state", async () => {

@@ -221,7 +221,11 @@ run_as "$UMBRAVIA_APP_USER" sh -c '
 printf '%s\n' "$remote_commit" >"$release_dir/.umbravia-release-commit"
 chmod 0755 "$release_dir/deploy/check-linux-readiness.sh"
 chown -R root:"$UMBRAVIA_APP_GROUP" "$release_dir"
-chmod -R o-rwx "$release_dir"
+# cp -a conserva los modos del paquete y puede dejar directorios sin permiso de
+# traversal para el grupo de la aplicacion. Normalizamos de forma determinista:
+# propietario con lectura/escritura, grupo con lectura/traversal y ningun acceso
+# para otros, preservando los ejecutables que ya lo fueran.
+chmod -R u+rwX,g+rX,o-rwx "$release_dir"
 
 UMBRAVIA_ENV_FILE="$UMBRAVIA_APP_ENV_FILE" "$release_dir/deploy/check-linux-readiness.sh"
 
