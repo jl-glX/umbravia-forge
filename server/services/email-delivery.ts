@@ -21,7 +21,10 @@ type EmailDeliveryPayload = {
   html?: string;
 };
 type EmailDeliveryKind =
-  "email_verification" | "support_update" | "security_notice";
+  | "email_verification"
+  | "account_recovery"
+  | "support_update"
+  | "security_notice";
 
 export type EmailDeliveryConfiguration = {
   host: string;
@@ -217,6 +220,56 @@ export function buildEmailVerificationMessage(
   };
 }
 
+export function buildAccountRecoveryMessage(
+  name: string,
+  code: string,
+  locale: SupportedLocale,
+): VerificationMessage {
+  const messages: Record<
+    SupportedLocale,
+    { subject: string; greeting: string; instruction: string; expiry: string }
+  > = {
+    es: {
+      subject: "Recupera tu cuenta de Umbravia Forge",
+      greeting: `Hola, ${name}:`,
+      instruction:
+        "Usa este código para establecer una contraseña nueva en Umbravia Forge:",
+      expiry:
+        "El código caduca en 15 minutos y solo puede utilizarse una vez. Si no has solicitado la recuperación, ignora este mensaje y revisa la seguridad de tu cuenta.",
+    },
+    en: {
+      subject: "Recover your Umbravia Forge account",
+      greeting: `Hello, ${name}:`,
+      instruction:
+        "Use this code to set a new password for your Umbravia Forge account:",
+      expiry:
+        "The code expires in 15 minutes and can only be used once. If you did not request recovery, ignore this message and review your account security.",
+    },
+    de: {
+      subject: "Umbravia-Forge-Konto wiederherstellen",
+      greeting: `Hallo, ${name}:`,
+      instruction:
+        "Verwenden Sie diesen Code, um ein neues Passwort für Ihr Umbravia-Forge-Konto festzulegen:",
+      expiry:
+        "Der Code läuft in 15 Minuten ab und kann nur einmal verwendet werden. Wenn Sie die Wiederherstellung nicht angefordert haben, ignorieren Sie diese Nachricht und überprüfen Sie die Sicherheit Ihres Kontos.",
+    },
+    "de-CH": {
+      subject: "Umbravia-Forge-Konto wiederherstellen",
+      greeting: `Hallo, ${name}:`,
+      instruction:
+        "Verwenden Sie diesen Code, um ein neues Passwort für Ihr Umbravia-Forge-Konto festzulegen:",
+      expiry:
+        "Der Code läuft in 15 Minuten ab und kann nur einmal verwendet werden. Wenn Sie die Wiederherstellung nicht angefordert haben, ignorieren Sie diese Nachricht und überprüfen Sie die Sicherheit Ihres Kontos.",
+    },
+  };
+  const message = messages[locale] ?? messages.es;
+  return {
+    subject: message.subject,
+    text: `${message.greeting}\n\n${message.instruction}\n\n${code}\n\n${message.expiry}`,
+    html: `<p>${escapeHtml(message.greeting)}</p><p>${escapeHtml(message.instruction)}</p><p style="font-size:28px;font-weight:700;letter-spacing:0.2em">${escapeHtml(code)}</p><p>${escapeHtml(message.expiry)}</p>`,
+  };
+}
+
 function configuredTransport(configuration: EmailDeliveryConfiguration) {
   const fingerprint = JSON.stringify(configuration);
   if (transporter && fingerprint === transporterFingerprint) return transporter;
@@ -399,6 +452,41 @@ export async function queueEmailVerificationCode(input: {
     "info",
     "EMAIL_VERIFICATION_QUEUED",
     "A verification message was queued for delivery.",
+  );
+  return id;
+}
+
+export async function queueAccountRecoveryCode(input: {
+  userId: string;
+  email: string;
+  name: string;
+  code: string;
+  locale: SupportedLocale;
+  expiresAt: number;
+}): Promise<string> {
+  const message = buildAccountRecoveryMessage(
+    input.name,
+    input.code,
+    input.locale,
+  );
+  const id = await queueEncryptedDelivery({
+    userId: input.userId,
+    kind: "account_recovery",
+    recipient: input.email,
+    locale: input.locale,
+    payload: {
+      email: input.email,
+      locale: input.locale,
+      ...message,
+    },
+    expiresAt: input.expiresAt,
+    supersedePending: true,
+  });
+  publishManagerSignal(
+    "notification",
+    "info",
+    "ACCOUNT_RECOVERY_QUEUED",
+    "An account recovery message was queued for delivery.",
   );
   return id;
 }

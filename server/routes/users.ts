@@ -7,6 +7,7 @@ import {
   deleteUser,
   deleteMultipleUsers,
   updateUserRole,
+  UserDeletionBlockedError,
 } from "../services/users.js";
 import {
   bulkDeleteUsersValidation,
@@ -25,6 +26,21 @@ import { requireRecentFormVerification } from "../middleware/form-verification.j
 export const usersRouter = express.Router();
 usersRouter.use(authenticate, requireRole("admin"));
 usersRouter.use(requireRecentFormVerification);
+
+function sendDeletionError(error: unknown, res: express.Response): void {
+  if (error instanceof UserDeletionBlockedError) {
+    res.status(409).json({
+      error:
+        "This account has records that require retention or ownership review before deletion",
+      code: "USER_DELETION_REQUIRES_REVIEW",
+      blockers: error.blockers,
+    });
+    return;
+  }
+  const message = error instanceof Error ? error.message : "Unknown error";
+  console.error("Error deleting users:", error);
+  res.status(400).json({ error: message });
+}
 
 // Get all users
 usersRouter.get("/", async (req: express.Request, res: express.Response) => {
@@ -152,9 +168,7 @@ usersRouter.delete(
       await deleteUser(req.params.id);
       res.json({ message: "User deleted successfully" });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      console.error("Error deleting user:", error);
-      res.status(400).json({ error: message });
+      sendDeletionError(error, res);
     }
   },
 );
@@ -184,9 +198,7 @@ usersRouter.post(
       await deleteMultipleUsers(userIds);
       res.json({ message: `Deleted ${userIds.length} users` });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      console.error("Error deleting users:", error);
-      res.status(400).json({ error: message });
+      sendDeletionError(error, res);
     }
   },
 );

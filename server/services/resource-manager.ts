@@ -215,6 +215,10 @@ async function cleanupExpiredAuthenticationData(): Promise<number> {
       .where("expiresAt", "<", now)
       .executeTakeFirst(),
     db
+      .deleteFrom("accountRecoveryChallenges")
+      .where("expiresAt", "<", now)
+      .executeTakeFirst(),
+    db
       .deleteFrom("antiAutomationChallenges")
       .where("expiresAt", "<", now)
       .executeTakeFirst(),
@@ -277,6 +281,7 @@ registerTask({
       "authChallenges",
       "webauthnChallenges",
       "emailVerificationChallenges",
+      "accountRecoveryChallenges",
     ] as const;
     let count = 0;
     for (const table of tables) {

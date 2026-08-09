@@ -310,13 +310,52 @@ async function initializeSqliteSchema(
     }
   }
 
+  if (!tableNames.includes("accountRecoveryChallenges")) {
+    console.log("Creating account recovery challenges table...");
+    sqliteDb.exec(`
+      CREATE TABLE accountRecoveryChallenges (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        codeHash TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        expiresAt INTEGER NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        consumedAt INTEGER,
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE UNIQUE INDEX idx_accountRecoveryChallenges_userId
+        ON accountRecoveryChallenges(userId);
+      CREATE INDEX idx_accountRecoveryChallenges_expiresAt
+        ON accountRecoveryChallenges(expiresAt);
+    `);
+  } else {
+    sqliteDb.exec(`
+      DELETE FROM accountRecoveryChallenges
+       WHERE id IN (
+         SELECT id
+           FROM (
+             SELECT id,
+                    ROW_NUMBER() OVER (
+                      PARTITION BY userId
+                      ORDER BY createdAt DESC, id DESC
+                    ) AS duplicatePosition
+               FROM accountRecoveryChallenges
+           ) ranked
+          WHERE duplicatePosition > 1
+       );
+      DROP INDEX IF EXISTS idx_accountRecoveryChallenges_userId;
+      CREATE UNIQUE INDEX idx_accountRecoveryChallenges_userId
+        ON accountRecoveryChallenges(userId);
+    `);
+  }
+
   if (!tableNames.includes("emailDeliveries")) {
     console.log("Creating transactional email deliveries table...");
     sqliteDb.exec(`
       CREATE TABLE emailDeliveries (
         id TEXT PRIMARY KEY,
         userId TEXT,
-        kind TEXT NOT NULL CHECK(kind IN ('email_verification', 'support_update', 'security_notice')),
+        kind TEXT NOT NULL CHECK(kind IN ('email_verification', 'account_recovery', 'support_update', 'security_notice')),
         recipient TEXT NOT NULL,
         locale TEXT NOT NULL,
         payloadEncrypted TEXT NOT NULL,
@@ -345,14 +384,14 @@ async function initializeSqliteSchema(
         "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'emailDeliveries'",
       )
       .get() as { sql?: string } | undefined;
-    if (!deliveryDefinition?.sql?.includes("support_update")) {
+    if (!deliveryDefinition?.sql?.includes("account_recovery")) {
       console.log("Expanding transactional email delivery types...");
       sqliteDb.exec(`
         ALTER TABLE emailDeliveries RENAME TO emailDeliveriesLegacy;
         CREATE TABLE emailDeliveries (
           id TEXT PRIMARY KEY,
           userId TEXT,
-          kind TEXT NOT NULL CHECK(kind IN ('email_verification', 'support_update', 'security_notice')),
+          kind TEXT NOT NULL CHECK(kind IN ('email_verification', 'account_recovery', 'support_update', 'security_notice')),
           recipient TEXT NOT NULL,
           locale TEXT NOT NULL,
           payloadEncrypted TEXT NOT NULL,
@@ -386,7 +425,7 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE antiAutomationChallenges (
         id TEXT PRIMARY KEY,
-        action TEXT NOT NULL CHECK(action IN ('login', 'signup', 'form_access', 'feedback')),
+        action TEXT NOT NULL CHECK(action IN ('login', 'signup', 'recovery', 'form_access', 'feedback')),
         nonce TEXT NOT NULL,
         difficulty INTEGER NOT NULL,
         createdAt INTEGER NOT NULL,
@@ -396,6 +435,32 @@ async function initializeSqliteSchema(
       CREATE INDEX idx_antiAutomationChallenges_expiry
         ON antiAutomationChallenges(expiresAt);
     `);
+  } else {
+    const antiAutomationDefinition = sqliteDb
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'antiAutomationChallenges'",
+      )
+      .get() as { sql?: string } | undefined;
+    if (!antiAutomationDefinition?.sql?.includes("'recovery'")) {
+      console.log("Expanding anti-automation challenge actions...");
+      sqliteDb.exec(`
+        ALTER TABLE antiAutomationChallenges RENAME TO antiAutomationChallengesLegacy;
+        CREATE TABLE antiAutomationChallenges (
+          id TEXT PRIMARY KEY,
+          action TEXT NOT NULL CHECK(action IN ('login', 'signup', 'recovery', 'form_access', 'feedback')),
+          nonce TEXT NOT NULL,
+          difficulty INTEGER NOT NULL,
+          createdAt INTEGER NOT NULL,
+          expiresAt INTEGER NOT NULL,
+          consumedAt INTEGER
+        );
+        INSERT INTO antiAutomationChallenges
+          SELECT * FROM antiAutomationChallengesLegacy;
+        DROP TABLE antiAutomationChallengesLegacy;
+        CREATE INDEX idx_antiAutomationChallenges_expiry
+          ON antiAutomationChallenges(expiresAt);
+      `);
+    }
   }
 
   const usersWithoutSupportId = sqliteDb

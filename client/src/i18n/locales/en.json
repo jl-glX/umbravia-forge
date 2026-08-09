@@ -1004,6 +1004,7 @@
     "deleteSelected": "Delete {{count}}",
     "deleteUserConfirm": "Are you sure you want to delete this user?",
     "deleteUsersConfirm": "Delete {{count}} users?",
+    "deletionReviewRequired": "The account contains data that must be retained or reassigned. Review its tickets, documents and responsibilities before deleting it.",
     "editUser": "Edit user",
     "createUser": "Create user",
     "passwordOptional": "Password (leave empty to keep current)",
@@ -1487,7 +1488,26 @@
   "recovery": {
     "eyebrow": "Access and recovery",
     "title": "Recover account",
-    "description": "This centre gathers the planned methods without simulating operations that are not connected yet.",
+    "description": "Receive a temporary code by email and securely set a new password.",
+    "email": "Email address",
+    "sendCode": "Send recovery code",
+    "sending": "Preparing recovery...",
+    "codeSent": "If a recoverable account exists for that email, you will receive a six-digit code. Check your junk folder too.",
+    "code": "Recovery code",
+    "newPassword": "New password",
+    "confirmPassword": "Repeat new password",
+    "resetPassword": "Set new password",
+    "resetting": "Securing account...",
+    "requestAnotherCode": "Request another code",
+    "completeTitle": "Account recovered",
+    "completeDescription": "The password was changed, previous sessions were revoked and the public support identifier was rotated. You can now sign in again.",
+    "methodsTitle": "Other methods and status",
+    "errors": {
+      "verificationRequired": "Complete the verification before continuing.",
+      "requestFailed": "Recovery could not be prepared. Complete verification again and try later.",
+      "passwordMismatch": "The passwords do not match.",
+      "resetFailed": "The code is invalid or expired, or the password does not meet the requirements."
+    },
     "available": "Available",
     "planned": "Ready to extend",
     "securityTitle": "Recovery must be completed",
@@ -1496,15 +1516,15 @@
     "methods": {
       "password": {
         "title": "Password change",
-        "description": "Will allow a new password to be set after completing valid identity verification."
+        "description": "Set a new password after validating the temporary code sent by email."
       },
       "email": {
         "title": "Recovery email",
-        "description": "Will request a temporary link when an email provider is configured."
+        "description": "Sends a temporary code through the configured transactional email infrastructure."
       },
       "code": {
         "title": "Authentication or recovery code",
-        "description": "Will use protected codes linked to the account in a verifiable flow."
+        "description": "The six-digit code expires after 15 minutes, permits five attempts and can only be used once."
       },
       "passkey": {
         "title": "Passkey",

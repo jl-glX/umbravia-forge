@@ -9,6 +9,7 @@ describe("administrator account safety", () => {
   let database: typeof import("../db/client.js");
   let app: typeof import("../index.js").app;
   let adminCookie: string;
+  let memberCookie: string;
 
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-forge-admin-safety-"));
@@ -20,17 +21,56 @@ describe("administrator account safety", () => {
     await database.initializeDatabase();
     await database.db
       .insertInto("users")
-      .values({
-        id: "protected-admin",
-        email: "protected-admin@example.com",
-        phone: null,
-        name: "Protected Admin",
-        avatarDataUrl: "",
-        password: await auth.hashPassword("ProtectedAdmin123"),
-        role: "admin",
-        sessionIdleTimeoutMinutes: 10_080,
-        createdAt: Date.now(),
-      })
+      .values([
+        {
+          id: "protected-admin",
+          email: "protected-admin@example.com",
+          phone: null,
+          name: "Protected Admin",
+          avatarDataUrl: "",
+          password: await auth.hashPassword("ProtectedAdmin123"),
+          role: "admin",
+          accountStatus: "active",
+          sessionIdleTimeoutMinutes: 10_080,
+          createdAt: Date.now(),
+        },
+        {
+          id: "synthetic-member",
+          email: "synthetic-member@example.com",
+          phone: null,
+          name: "Synthetic Member",
+          avatarDataUrl: "",
+          password: await auth.hashPassword("SyntheticMember123"),
+          role: "member",
+          accountStatus: "active",
+          sessionIdleTimeoutMinutes: 10_080,
+          createdAt: Date.now() + 1,
+        },
+        {
+          id: "retained-member",
+          email: "retained-member@example.com",
+          phone: null,
+          name: "Retained Member",
+          avatarDataUrl: "",
+          password: await auth.hashPassword("RetainedMember123"),
+          role: "member",
+          accountStatus: "active",
+          sessionIdleTimeoutMinutes: 10_080,
+          createdAt: Date.now() + 2,
+        },
+        {
+          id: "deletable-member",
+          email: "deletable-member@example.com",
+          phone: null,
+          name: "Deletable Member",
+          avatarDataUrl: "",
+          password: await auth.hashPassword("DeletableMember123"),
+          role: "member",
+          accountStatus: "active",
+          sessionIdleTimeoutMinutes: 10_080,
+          createdAt: Date.now() + 3,
+        },
+      ])
       .execute();
     app = (await import("../index.js")).app;
     adminCookie = (
@@ -38,6 +78,14 @@ describe("administrator account safety", () => {
         identifier: "protected-admin@example.com",
         password: "ProtectedAdmin123",
         accessPortal: "staff",
+        rememberDevice: false,
+      })
+    ).headers["set-cookie"][0];
+    memberCookie = (
+      await request(app).post("/api/auth/login").send({
+        identifier: "synthetic-member@example.com",
+        password: "SyntheticMember123",
+        accessPortal: "member",
         rememberDevice: false,
       })
     ).headers["set-cookie"][0];
@@ -68,5 +116,123 @@ describe("administrator account safety", () => {
     expect(deleted.body.code).toBe("ADMIN_SELF_DELETE");
     expect(demoted.body.code).toBe("ADMIN_SELF_ROLE_CHANGE");
     expect(bulkDeleted.body.code).toBe("ADMIN_SELF_DELETE");
+  });
+
+  it("keeps member sessions outside administrator routes", async () => {
+    await request(app)
+      .get("/api/users")
+      .set("Cookie", memberCookie)
+      .expect(403, {
+        error: "You do not have permission to perform this action",
+        code: "FORBIDDEN",
+      });
+
+    const users = await request(app)
+      .get("/api/users")
+      .set("Cookie", adminCookie)
+      .expect(200);
+    expect(users.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "synthetic-member",
+          role: "member",
+        }),
+      ]),
+    );
+  });
+
+  it("revokes active sessions whenever an administrator changes a role", async () => {
+    await request(app)
+      .patch("/api/users/synthetic-member/role")
+      .set("Cookie", adminCookie)
+      .send({ role: "admin" })
+      .expect(200);
+
+    await request(app)
+      .get("/api/users")
+      .set("Cookie", memberCookie)
+      .expect(401);
+
+    const promotedCookie = (
+      await request(app).post("/api/auth/login").send({
+        identifier: "synthetic-member@example.com",
+        password: "SyntheticMember123",
+        accessPortal: "staff",
+        rememberDevice: false,
+      })
+    ).headers["set-cookie"][0];
+    await request(app)
+      .get("/api/users")
+      .set("Cookie", promotedCookie)
+      .expect(200);
+
+    await request(app)
+      .patch("/api/users/synthetic-member/role")
+      .set("Cookie", adminCookie)
+      .send({ role: "member" })
+      .expect(200);
+    await request(app)
+      .get("/api/users")
+      .set("Cookie", promotedCookie)
+      .expect(401);
+  });
+
+  it("blocks destructive deletion when retained records need review", async () => {
+    const now = Date.now();
+    await database.db
+      .insertInto("supportTickets")
+      .values({
+        id: "retained-ticket",
+        publicId: "UFS-RETAINED01",
+        facilityId: "primary",
+        requesterUserId: "retained-member",
+        assigneeUserId: null,
+        subject: "Synthetic retention check",
+        category: "account",
+        priority: "normal",
+        status: "open",
+        source: "system",
+        relatedType: null,
+        relatedId: null,
+        context: "{}",
+        firstResponseDueAt: now + 60_000,
+        resolutionDueAt: now + 120_000,
+        firstRespondedAt: null,
+        resolvedAt: null,
+        closedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+
+    const blocked = await request(app)
+      .delete("/api/users/retained-member")
+      .set("Cookie", adminCookie)
+      .expect(409);
+    expect(blocked.body).toMatchObject({
+      code: "USER_DELETION_REQUIRES_REVIEW",
+      blockers: [{ code: "support_tickets", count: 1 }],
+    });
+    await expect(
+      database.db
+        .selectFrom("users")
+        .select("id")
+        .where("id", "=", "retained-member")
+        .executeTakeFirst(),
+    ).resolves.toEqual({ id: "retained-member" });
+  });
+
+  it("still allows deletion of a synthetic account without retained records", async () => {
+    await request(app)
+      .delete("/api/users/deletable-member")
+      .set("Cookie", adminCookie)
+      .expect(200);
+    await expect(
+      database.db
+        .selectFrom("users")
+        .select("id")
+        .where("id", "=", "deletable-member")
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
   });
 });

@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildEmailVerificationMessage,
+  buildAccountRecoveryMessage,
   resetEmailTransportForTests,
   resolveEmailDeliveryConfiguration,
   sendEmailVerificationCode,
@@ -168,5 +169,17 @@ describe("email delivery configuration", () => {
     expect(message.text).toContain("123456");
     expect(message.html).toContain("&lt;script&gt;");
     expect(message.html).not.toContain("<script>");
+  });
+
+  it("builds a localized recovery message without allowing name markup", () => {
+    const message = buildAccountRecoveryMessage(
+      "<img src=x onerror=alert(1)>",
+      "654321",
+      "es",
+    );
+    expect(message.subject).toContain("Umbravia Forge");
+    expect(message.text).toContain("654321");
+    expect(message.html).toContain("&lt;img");
+    expect(message.html).not.toContain("<img");
   });
 });

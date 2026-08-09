@@ -19,6 +19,33 @@ export interface UserUpdate {
   role?: UserRole;
 }
 
+export class UserActionError extends Error {
+  constructor(
+    message: string,
+    readonly code?: string,
+    readonly blockers?: Array<{ code: string; count: number }>,
+  ) {
+    super(message);
+    this.name = "UserActionError";
+  }
+}
+
+async function userActionError(
+  response: Response,
+  fallback: string,
+): Promise<UserActionError> {
+  const payload = (await response.json().catch(() => ({}))) as {
+    error?: string;
+    code?: string;
+    blockers?: Array<{ code: string; count: number }>;
+  };
+  return new UserActionError(
+    payload.error || fallback,
+    payload.code,
+    payload.blockers,
+  );
+}
+
 export function isUserRole(value: string): value is UserRole {
   return USER_ROLES.some((role) => role === value);
 }
@@ -131,8 +158,7 @@ export function useUsers() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to delete user");
+        throw await userActionError(response, "Failed to delete user");
       }
 
       setUsers(users.filter((u) => u.id !== id));
@@ -151,8 +177,7 @@ export function useUsers() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to delete users");
+        throw await userActionError(response, "Failed to delete users");
       }
 
       setUsers(users.filter((u) => !userIds.includes(u.id)));

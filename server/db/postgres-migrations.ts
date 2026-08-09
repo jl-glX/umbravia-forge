@@ -56,10 +56,22 @@ CREATE TABLE IF NOT EXISTS "emailVerificationChallenges" (
 CREATE INDEX IF NOT EXISTS "idx_emailVerificationChallenges_userId" ON "emailVerificationChallenges" ("userId");
 CREATE INDEX IF NOT EXISTS "idx_emailVerificationChallenges_expiresAt" ON "emailVerificationChallenges" ("expiresAt");
 
+CREATE TABLE IF NOT EXISTS "accountRecoveryChallenges" (
+  "id" TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "codeHash" TEXT NOT NULL,
+  "createdAt" BIGINT NOT NULL,
+  "expiresAt" BIGINT NOT NULL,
+  "attempts" INTEGER NOT NULL DEFAULT 0,
+  "consumedAt" BIGINT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_accountRecoveryChallenges_userId" ON "accountRecoveryChallenges" ("userId");
+CREATE INDEX IF NOT EXISTS "idx_accountRecoveryChallenges_expiresAt" ON "accountRecoveryChallenges" ("expiresAt");
+
 CREATE TABLE IF NOT EXISTS "emailDeliveries" (
   "id" TEXT PRIMARY KEY,
   "userId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
-  "kind" TEXT NOT NULL CHECK ("kind" IN ('email_verification', 'support_update', 'security_notice')),
+  "kind" TEXT NOT NULL CHECK ("kind" IN ('email_verification', 'account_recovery', 'support_update', 'security_notice')),
   "recipient" TEXT NOT NULL,
   "locale" TEXT NOT NULL,
   "payloadEncrypted" TEXT NOT NULL,
@@ -80,7 +92,7 @@ CREATE INDEX IF NOT EXISTS "idx_emailDeliveries_expiry" ON "emailDeliveries" ("e
 
 CREATE TABLE IF NOT EXISTS "antiAutomationChallenges" (
   "id" TEXT PRIMARY KEY,
-  "action" TEXT NOT NULL CHECK ("action" IN ('login', 'signup', 'form_access', 'feedback')),
+  "action" TEXT NOT NULL CHECK ("action" IN ('login', 'signup', 'recovery', 'form_access', 'feedback')),
   "nonce" TEXT NOT NULL,
   "difficulty" INTEGER NOT NULL,
   "createdAt" BIGINT NOT NULL,
@@ -910,6 +922,77 @@ CREATE TABLE IF NOT EXISTS "supportKnowledgeArticles" (
   "publishedAt" BIGINT
 );
 CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status" ON "supportKnowledgeArticles" ("status", "category", "updatedAt" DESC);
+`,
+  },
+  {
+    version: 9,
+    name: "account-recovery-flow",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "accountRecoveryChallenges" (
+  "id" TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "codeHash" TEXT NOT NULL,
+  "createdAt" BIGINT NOT NULL,
+  "expiresAt" BIGINT NOT NULL,
+  "attempts" INTEGER NOT NULL DEFAULT 0,
+  "consumedAt" BIGINT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_accountRecoveryChallenges_userId" ON "accountRecoveryChallenges" ("userId");
+CREATE INDEX IF NOT EXISTS "idx_accountRecoveryChallenges_expiresAt" ON "accountRecoveryChallenges" ("expiresAt");
+
+DO $$
+DECLARE delivery_kind_constraint TEXT;
+BEGIN
+  SELECT conname INTO delivery_kind_constraint
+    FROM pg_constraint
+   WHERE conrelid = '"emailDeliveries"'::regclass
+     AND contype = 'c'
+     AND pg_get_constraintdef(oid) LIKE '%kind%';
+  IF delivery_kind_constraint IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE "emailDeliveries" DROP CONSTRAINT %I', delivery_kind_constraint);
+  END IF;
+END $$;
+ALTER TABLE "emailDeliveries"
+  ADD CONSTRAINT "emailDeliveries_kind_check"
+  CHECK ("kind" IN ('email_verification', 'account_recovery', 'support_update', 'security_notice'));
+
+DO $$
+DECLARE action_constraint TEXT;
+BEGIN
+  SELECT conname INTO action_constraint
+    FROM pg_constraint
+   WHERE conrelid = '"antiAutomationChallenges"'::regclass
+     AND contype = 'c'
+     AND pg_get_constraintdef(oid) LIKE '%action%';
+  IF action_constraint IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE "antiAutomationChallenges" DROP CONSTRAINT %I', action_constraint);
+  END IF;
+END $$;
+ALTER TABLE "antiAutomationChallenges"
+  ADD CONSTRAINT "antiAutomationChallenges_action_check"
+  CHECK ("action" IN ('login', 'signup', 'recovery', 'form_access', 'feedback'));
+`,
+  },
+  {
+    version: 10,
+    name: "account-recovery-concurrency-hardening",
+    sql: String.raw`
+DELETE FROM "accountRecoveryChallenges"
+WHERE EXISTS (
+  SELECT 1
+  FROM "accountRecoveryChallenges" newer
+  WHERE newer."userId" = "accountRecoveryChallenges"."userId"
+    AND (
+      newer."createdAt" > "accountRecoveryChallenges"."createdAt"
+      OR (
+        newer."createdAt" = "accountRecoveryChallenges"."createdAt"
+        AND newer."id" > "accountRecoveryChallenges"."id"
+      )
+    )
+);
+DROP INDEX IF EXISTS "idx_accountRecoveryChallenges_userId";
+CREATE UNIQUE INDEX "idx_accountRecoveryChallenges_userId"
+  ON "accountRecoveryChallenges" ("userId");
 `,
   },
 ];
