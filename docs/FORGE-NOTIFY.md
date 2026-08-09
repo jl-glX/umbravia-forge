@@ -64,9 +64,10 @@ SMTP_USER=<opcional, junto a SMTP_PASSWORD>
 SMTP_PASSWORD=<opcional, junto a SMTP_USER>
 EMAIL_FROM=<remitente válido del dominio>
 EMAIL_QUEUE_ENCRYPTION_KEY=<32 bytes aleatorios en base64>
-EMAIL_PUBLIC_MAIL_HOST=<host publicado en el MX, por ejemplo mail.example.com>
+EMAIL_PUBLIC_MAIL_HOST=<host publico del MTA, por ejemplo mail.example.com>
 EMAIL_DKIM_SELECTOR=<selector DKIM publicado>
 EMAIL_PUBLIC_DNS_CHECK=<warn durante preparacion; strict antes de correo real>
+EMAIL_PUBLIC_INBOUND_ENABLED=<false hasta preparar recepcion; true exige MX>
 ```
 
 `EMAIL_QUEUE_ENCRYPTION_KEY` no debe reutilizarse como clave MFA ni guardarse
@@ -77,6 +78,52 @@ Cuando se usa un MTA local, `npm run mail:dns:check -- --env <archivo>` revisa
 MX, resolución directa, PTR/rDNS, SPF, DKIM y DMARC sin imprimir secretos. El
 chequeo de Linux muestra avisos mientras se prepara el DNS y pasa a bloquear la
 activación cuando `EMAIL_PUBLIC_DNS_CHECK=strict`.
+
+## Preparación reproducible del MTA local
+
+`deploy/configure-mail.sh` convierte la propuesta de infraestructura en una
+operación verificable. Por defecto solo muestra el plan:
+
+```text
+./deploy/configure-mail.sh plan
+```
+
+La aplicación exige una ejecución explícita como `root` para instalar y
+configurar. Mantiene Postfix en `loopback-only`, crea un firmador OpenDKIM
+dedicado, conserva cualquier clave DKIM ya existente y genera un manifiesto
+público en `/etc/umbravia-forge/mail/dns-records.txt`. No edita el archivo de
+entorno de la aplicación, no abre el puerto 25 y no activa la recepción de
+correo.
+
+Si detecta un `opendkim.service` ajeno ya activo, se detiene en lugar de
+reemplazarlo. Antes de tocar Postfix conserva una copia de `main.cf` bajo
+`/var/backups/umbravia-forge-mail/` y la restaura si falla la activación.
+
+Ejemplo de preparación del servidor, indicando la IP pública sin convertirla
+en una constante del repositorio:
+
+```text
+sudo UMBRAVIA_PUBLIC_IPV4=<IP_PUBLICA> \
+  ./deploy/configure-mail.sh apply
+```
+
+Después se revisa el manifiesto sin mostrar la clave privada:
+
+```text
+sudo cat /etc/umbravia-forge/mail/dns-records.txt
+```
+
+Los registros A, SPF, DKIM y DMARC se publican en Cloudflare solo después de
+compararlos con los existentes. El host `mail` debe quedar en **DNS only**. El
+MX se mantiene deliberadamente sin publicar hasta que la recepción tenga
+destinos definidos, antispam, manejo de rebotes, supresiones y una prueba de
+relay abierto. La clave privada permanece exclusivamente en el servidor.
+
+El comprobador distingue las dos fronteras. Con
+`EMAIL_PUBLIC_INBOUND_ENABLED=false` valida host, PTR, SPF, DKIM y DMARC sin
+exigir un MX. Solo cuando el valor pasa explícitamente a `true` comprueba que
+el MX apunta al MTA propio. Esto evita anunciar recepción antes de disponer de
+destinos, antispam y tratamiento de rebotes.
 
 ## Ciclo de verificación
 

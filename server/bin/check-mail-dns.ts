@@ -24,11 +24,17 @@ async function main(): Promise<void> {
   const strict =
     process.argv.includes("--strict") ||
     environment.EMAIL_PUBLIC_DNS_CHECK?.toLowerCase() === "strict";
+  const inboundValue =
+    environment.EMAIL_PUBLIC_INBOUND_ENABLED?.trim().toLowerCase() ?? "false";
+  if (!["true", "false"].includes(inboundValue)) {
+    throw new Error("EMAIL_PUBLIC_INBOUND_ENABLED debe ser true o false.");
+  }
   const findings = await assessMailDnsReadiness({
     emailFrom: environment.EMAIL_FROM ?? "",
     expectedMailHost: environment.EMAIL_PUBLIC_MAIL_HOST,
     dkimSelector: environment.EMAIL_DKIM_SELECTOR,
     strictAuthentication: strict,
+    inboundEnabled: inboundValue === "true",
   });
   for (const finding of findings) {
     const prefix =

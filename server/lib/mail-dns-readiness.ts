@@ -29,6 +29,7 @@ export interface MailDnsReadinessInput {
   expectedMailHost?: string;
   dkimSelector?: string;
   strictAuthentication?: boolean;
+  inboundEnabled?: boolean;
 }
 
 const systemResolver: MailDnsResolver = {
@@ -81,50 +82,70 @@ export async function assessMailDnsReadiness(
     ];
   }
 
-  const mxRecords = await optionalLookup(
-    () => resolver.resolveMx(senderDomain),
-    [],
-  );
-  if (mxRecords.length === 0) {
-    findings.push({
-      code: "MX_MISSING",
-      level: "error",
-      message: `${senderDomain} no publica ningun registro MX.`,
-    });
-    return findings;
-  }
-
-  const usableMxRecords = mxRecords.filter(
-    (record) => normalizedHostname(record.exchange).length > 0,
-  );
-  if (usableMxRecords.length === 0) {
-    findings.push({
-      code: "MX_NULL",
-      level: "error",
-      message: `${senderDomain} publica un Null MX y declara que no acepta correo entrante.`,
-    });
-    return findings;
-  }
-
-  const mxHosts = [...usableMxRecords]
-    .sort((left, right) => left.priority - right.priority)
-    .map((record) => normalizedHostname(record.exchange));
-  const expectedMailHost = input.expectedMailHost
+  let expectedMailHost = input.expectedMailHost
     ? normalizedHostname(input.expectedMailHost)
-    : mxHosts[0];
-  if (!expectedMailHost || !mxHosts.includes(expectedMailHost)) {
+    : undefined;
+  if (input.inboundEnabled) {
+    const mxRecords = await optionalLookup(
+      () => resolver.resolveMx(senderDomain),
+      [],
+    );
+    if (mxRecords.length === 0) {
+      findings.push({
+        code: "MX_MISSING",
+        level: "error",
+        message: `${senderDomain} no publica ningun registro MX.`,
+      });
+      return findings;
+    }
+
+    const usableMxRecords = mxRecords.filter(
+      (record) => normalizedHostname(record.exchange).length > 0,
+    );
+    if (usableMxRecords.length === 0) {
+      findings.push({
+        code: "MX_NULL",
+        level: "error",
+        message: `${senderDomain} publica un Null MX y declara que no acepta correo entrante.`,
+      });
+      return findings;
+    }
+
+    const mxHosts = [...usableMxRecords]
+      .sort((left, right) => left.priority - right.priority)
+      .map((record) => normalizedHostname(record.exchange));
+    expectedMailHost ??= mxHosts[0];
+    if (!expectedMailHost || !mxHosts.includes(expectedMailHost)) {
+      findings.push({
+        code: "MX_TARGET_MISMATCH",
+        level: "error",
+        message: `El MX de ${senderDomain} no apunta al host esperado ${expectedMailHost ?? "sin definir"}.`,
+      });
+      return findings;
+    }
     findings.push({
-      code: "MX_TARGET_MISMATCH",
+      code: "MX_READY",
+      level: "pass",
+      message: `MX publico disponible: ${senderDomain} -> ${expectedMailHost}.`,
+    });
+  } else {
+    findings.push({
+      code: "INBOUND_DISABLED",
+      level: "pass",
+      message:
+        "La recepcion SMTP publica permanece desactivada; no se exige MX.",
+    });
+  }
+
+  if (!expectedMailHost) {
+    findings.push({
+      code: "MAIL_HOST_MISSING",
       level: "error",
-      message: `El MX de ${senderDomain} no apunta al host esperado ${expectedMailHost ?? "sin definir"}.`,
+      message:
+        "EMAIL_PUBLIC_MAIL_HOST es obligatorio para comprobar el MTA propio.",
     });
     return findings;
   }
-  findings.push({
-    code: "MX_READY",
-    level: "pass",
-    message: `MX publico disponible: ${senderDomain} -> ${expectedMailHost}.`,
-  });
 
   const [ipv4, ipv6] = await Promise.all([
     optionalLookup(() => resolver.resolve4(expectedMailHost), []),

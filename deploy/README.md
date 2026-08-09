@@ -33,6 +33,9 @@ protegida y validación previa.
   simultáneas tras reinicios.
 - `audit-deployment-package.mjs`: impide empaquetar por accidente repositorios,
   secretos, claves privadas o bases de datos locales.
+- `configure-mail.sh`: prepara de forma explícita e idempotente Postfix y un
+  firmador OpenDKIM aislado, sin abrir SMTP entrante ni modificar secretos de
+  la aplicación.
 
 ## Instalación resumida
 

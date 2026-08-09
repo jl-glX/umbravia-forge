@@ -71,6 +71,7 @@ for (const requiredFile of [
   "deploy/umbravia-forge-update.env.template",
   "deploy/umbravia-forge-update.service",
   "deploy/umbravia-forge-update.timer",
+  "deploy/configure-mail.sh",
 ]) {
   const platformPath = requiredFile.split("/").join(path.sep);
   if (!files.includes(platformPath)) {

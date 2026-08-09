@@ -64,6 +64,29 @@ describe("systemd deployment service", () => {
     );
   });
 
+  it("prepares mail without exposing SMTP or replacing existing security state", async () => {
+    const installer = await readFile(
+      path.resolve("deploy", "configure-mail.sh"),
+      "utf8",
+    );
+
+    expect(installer).toContain("ACTION=${1:-plan}");
+    expect(installer).toContain("inet_interfaces = loopback-only");
+    expect(installer).toContain("127.0.0.1:8891");
+    expect(installer).toContain("se rechaza pisar una configuracion ajena");
+    expect(installer).toContain("systemctl disable --now opendkim.service");
+    expect(installer).toContain("Clave DKIM existente conservada");
+    expect(installer).toContain("No publicar todavia:");
+    expect(installer).not.toMatch(/ufw\s+allow\s+25/);
+    expect(installer).not.toMatch(/firewall-cmd[^\n]+smtp/);
+    expect(installer).not.toMatch(
+      /cat\s+[^\n]*\$KEY_ROOT\/\$DKIM_SELECTOR\.private/,
+    );
+    expect(installer).not.toMatch(
+      /rm\s+(?:-[^\s]+\s+)*[^\n]*(?:umbravia-forge\.env|update\.env)/,
+    );
+  });
+
   it("cleans only incomplete, inactive releases and preserves rollback targets", async () => {
     const updater = await readFile(
       path.resolve("deploy", "auto-update.sh"),
