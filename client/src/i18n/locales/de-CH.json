@@ -1102,7 +1102,8 @@
     "passwordRequired": "Für neue Benutzer ist ein Passwort erforderlich",
     "editUser": "Benutzer bearbeiten",
     "createUser": "Benutzer erstellen",
-    "deleteUsersConfirm": "{{count}}-Benutzer löschen?"
+    "deleteUsersConfirm": "{{count}}-Benutzer löschen?",
+    "deletionReviewRequired": "Das Konto enthält Daten, die aufbewahrt oder neu zugewiesen werden müssen. Prüfen Sie Tickets, Dokumente und Verantwortlichkeiten vor dem Löschen."
   },
   "facilityBranding": {
     "title": "Panel-Anpassung",
@@ -1474,7 +1475,26 @@
   "recovery": {
     "eyebrow": "Zugang und Wiederherstellung",
     "title": "Konto wiederherstellen",
-    "description": "Diese Übersicht bündelt vorgesehene Methoden, ohne noch nicht verbundene Vorgänge vorzutäuschen.",
+    "description": "Erhalten Sie per E-Mail einen zeitlich begrenzten Code und legen Sie sicher ein neues Passwort fest.",
+    "email": "E-Mail-Adresse",
+    "sendCode": "Wiederherstellungscode senden",
+    "sending": "Wiederherstellung wird vorbereitet...",
+    "codeSent": "Wenn für diese E-Mail-Adresse ein wiederherstellbares Konto existiert, erhalten Sie einen sechsstelligen Code. Prüfen Sie auch den Spam-Ordner.",
+    "code": "Wiederherstellungscode",
+    "newPassword": "Neues Passwort",
+    "confirmPassword": "Neues Passwort wiederholen",
+    "resetPassword": "Neues Passwort festlegen",
+    "resetting": "Konto wird gesichert...",
+    "requestAnotherCode": "Neuen Code anfordern",
+    "completeTitle": "Konto wiederhergestellt",
+    "completeDescription": "Das Passwort wurde geändert, frühere Sitzungen wurden widerrufen und die öffentliche Support-ID wurde erneuert. Sie können sich jetzt wieder anmelden.",
+    "methodsTitle": "Weitere Methoden und Status",
+    "errors": {
+      "verificationRequired": "Schliessen Sie die Überprüfung ab, bevor Sie fortfahren.",
+      "requestFailed": "Die Wiederherstellung konnte nicht vorbereitet werden. Führen Sie die Überprüfung erneut durch und versuchen Sie es später noch einmal.",
+      "passwordMismatch": "Die Passwörter stimmen nicht überein.",
+      "resetFailed": "Der Code ist ungültig oder abgelaufen, oder das Passwort erfüllt die Anforderungen nicht."
+    },
     "available": "Verfügbar",
     "planned": "Erweiterbar",
     "securityTitle": "Die Wiederherstellung muss abgeschlossen werden",
@@ -1483,15 +1503,15 @@
     "methods": {
       "password": {
         "title": "Passwort ändern",
-        "description": "Ermöglicht ein neues Passwort nach erfolgreicher Identitätsprüfung."
+        "description": "Legt nach Prüfung des per E-Mail gesendeten temporären Codes ein neues Passwort fest."
       },
       "email": {
         "title": "Wiederherstellungs-E-Mail",
-        "description": "Ermöglicht einen zeitlich begrenzten Link, sobald ein E-Mail-Dienst eingerichtet ist."
+        "description": "Sendet einen temporären Code über die konfigurierte Infrastruktur für Transaktions-E-Mails."
       },
       "code": {
         "title": "Authentifizierungs- oder Wiederherstellungscode",
-        "description": "Verwendet geschützte, mit dem Konto verknüpfte Codes in einem prüfbaren Ablauf."
+        "description": "Der sechsstellige Code läuft nach 15 Minuten ab, erlaubt fünf Versuche und kann nur einmal verwendet werden."
       },
       "passkey": {
         "title": "Passkey",

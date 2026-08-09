@@ -1012,6 +1012,7 @@
     "deleteSelected": "Eliminar {{count}}",
     "deleteUserConfirm": "¿Seguro que quieres eliminar este usuario?",
     "deleteUsersConfirm": "¿Eliminar {{count}} usuarios?",
+    "deletionReviewRequired": "La cuenta contiene datos que deben conservarse o reasignarse. Revisa sus tickets, documentos y responsabilidades antes de eliminarla.",
     "editUser": "Editar usuario",
     "createUser": "Crear usuario",
     "passwordOptional": "Contraseña (déjala vacía para conservar la actual)",
@@ -1501,7 +1502,26 @@
   "recovery": {
     "eyebrow": "Acceso y recuperación",
     "title": "Recuperar cuenta",
-    "description": "Este centro reúne los métodos previstos sin simular operaciones que todavía no están conectadas.",
+    "description": "Recibe un código temporal en tu correo y establece una contraseña nueva de forma segura.",
+    "email": "Correo electrónico",
+    "sendCode": "Enviar código de recuperación",
+    "sending": "Preparando recuperación...",
+    "codeSent": "Si existe una cuenta recuperable con ese correo, recibirás un código de seis cifras. Revisa también la carpeta de correo no deseado.",
+    "code": "Código de recuperación",
+    "newPassword": "Contraseña nueva",
+    "confirmPassword": "Repite la contraseña nueva",
+    "resetPassword": "Establecer contraseña nueva",
+    "resetting": "Protegiendo la cuenta...",
+    "requestAnotherCode": "Solicitar otro código",
+    "completeTitle": "Cuenta recuperada",
+    "completeDescription": "La contraseña se ha cambiado, las sesiones anteriores se han revocado y el identificador público de soporte se ha rotado. Ya puedes iniciar sesión de nuevo.",
+    "methodsTitle": "Otros métodos y estado",
+    "errors": {
+      "verificationRequired": "Completa la verificación antes de continuar.",
+      "requestFailed": "No se ha podido preparar la recuperación. Completa de nuevo la verificación e inténtalo más tarde.",
+      "passwordMismatch": "Las contraseñas no coinciden.",
+      "resetFailed": "El código no es válido, ha caducado o la contraseña no cumple los requisitos."
+    },
     "available": "Disponible",
     "planned": "Preparado para ampliar",
     "securityTitle": "La recuperación debe completarse",
@@ -1510,15 +1530,15 @@
     "methods": {
       "password": {
         "title": "Cambio de contraseña",
-        "description": "Permitirá establecer una contraseña nueva después de completar una verificación de identidad válida."
+        "description": "Establece una contraseña nueva después de validar el código temporal enviado al correo."
       },
       "email": {
         "title": "Correo de recuperación",
-        "description": "Permitirá solicitar un enlace temporal cuando exista un proveedor de correo configurado."
+        "description": "Envía un código temporal mediante la infraestructura de correo transaccional configurada."
       },
       "code": {
         "title": "Código de autenticación o recuperación",
-        "description": "Usará los códigos protegidos asociados a la cuenta dentro de un flujo verificable."
+        "description": "El código de seis cifras caduca en 15 minutos, solo se admite cinco intentos y únicamente puede usarse una vez."
       },
       "passkey": {
         "title": "Clave de acceso",

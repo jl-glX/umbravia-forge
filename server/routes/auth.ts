@@ -8,6 +8,7 @@ import {
 } from "../services/auth.js";
 import {
   authenticationLimiter,
+  accountRecoveryLimiter,
   emailVerificationLimiter,
   loginLimiter,
   signupLimiter,
@@ -19,6 +20,8 @@ import {
   passkeyResponseValidation,
   signupValidation,
   emailVerificationValidation,
+  accountRecoveryRequestValidation,
+  accountRecoveryResetValidation,
 } from "../middleware/validation.js";
 import {
   authenticate,
@@ -54,13 +57,18 @@ import {
 } from "../services/email-delivery.js";
 import { requireCaptcha } from "../middleware/captcha.js";
 import { captchaIsConfigured } from "../services/captcha.js";
-import { getRecoveryCapabilities } from "../services/account-recovery.js";
+import {
+  getRecoveryCapabilities,
+  requestPasswordRecovery,
+  resetPasswordWithRecoveryCode,
+} from "../services/account-recovery.js";
 import { observeSecurityRisk } from "../middleware/security-risk.js";
 import {
   getFormVerificationStatus,
   markFormSessionVerified,
 } from "../services/form-verification.js";
 import { emailVerificationIsEnabled } from "../lib/account-verification-mode.js";
+import { ManagerCoordinationConflictError } from "../services/manager-coordinator.js";
 
 export const authRouter = express.Router();
 
@@ -104,6 +112,71 @@ authRouter.post(
 authRouter.get("/recovery/capabilities", (_req, res) => {
   res.json({ methods: getRecoveryCapabilities() });
 });
+
+authRouter.post(
+  "/recovery/request",
+  accountRecoveryLimiter,
+  observeSecurityRisk("account_recovery_request"),
+  accountRecoveryRequestValidation,
+  requireCaptcha("recovery"),
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const result = await requestPasswordRecovery(req.body.identifier);
+      if (result.deliveryId) {
+        setImmediate(() => {
+          void deliverQueuedEmail(result.deliveryId!).catch(() => {
+            // The transactional queue retains the message for a managed retry.
+          });
+        });
+      }
+    } catch {
+      // Account existence and delivery state are intentionally not disclosed.
+    }
+    res.status(202).json({ accepted: true });
+  },
+);
+
+authRouter.post(
+  "/recovery/reset-password",
+  accountRecoveryLimiter,
+  observeSecurityRisk("account_recovery_reset"),
+  accountRecoveryResetValidation,
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const reset = await resetPasswordWithRecoveryCode({
+        identifier: req.body.identifier,
+        code: req.body.code,
+        newPassword: req.body.newPassword,
+      });
+      if (!reset) {
+        res.status(400).json({
+          code: "ACCOUNT_RECOVERY_INVALID",
+          error: "Invalid or expired recovery code",
+        });
+        return;
+      }
+      clearSessionCookie(res);
+      clearMfaChallengeCookie(res);
+      clearPasskeyChallengeCookie(res);
+      res.json({ recovered: true });
+    } catch (error) {
+      if (error instanceof ManagerCoordinationConflictError) {
+        res.status(409).json({
+          code: "ACCOUNT_RECOVERY_BUSY",
+          error: "Account recovery is temporarily busy. Try again shortly.",
+        });
+        return;
+      }
+      res.status(400).json({
+        code: "ACCOUNT_RECOVERY_INVALID",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Account recovery could not be completed",
+      });
+    }
+  },
+);
 
 authRouter.post(
   "/signup",

@@ -47,10 +47,24 @@ interface EmailVerificationChallenge {
   consumedAt: number | null;
 }
 
+interface AccountRecoveryChallenge {
+  id: string;
+  userId: string;
+  codeHash: string;
+  createdAt: number;
+  expiresAt: number;
+  attempts: number;
+  consumedAt: number | null;
+}
+
 interface EmailDelivery {
   id: string;
   userId: string | null;
-  kind: "email_verification" | "support_update" | "security_notice";
+  kind:
+    | "email_verification"
+    | "account_recovery"
+    | "support_update"
+    | "security_notice";
   recipient: string;
   locale: string;
   payloadEncrypted: string;
@@ -68,7 +82,7 @@ interface EmailDelivery {
 
 interface AntiAutomationChallenge {
   id: string;
-  action: "login" | "signup" | "form_access" | "feedback";
+  action: "login" | "signup" | "recovery" | "form_access" | "feedback";
   nonce: string;
   difficulty: number;
   createdAt: number;
@@ -729,6 +743,7 @@ export interface Database {
   users: User;
   accountSupportIdentifiers: AccountSupportIdentifier;
   emailVerificationChallenges: EmailVerificationChallenge;
+  accountRecoveryChallenges: AccountRecoveryChallenge;
   emailDeliveries: EmailDelivery;
   antiAutomationChallenges: AntiAutomationChallenge;
   accountDeletionPreferences: AccountDeletionPreference;

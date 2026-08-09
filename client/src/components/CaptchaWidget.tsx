@@ -91,7 +91,7 @@ export function CaptchaWidget({
   onToken,
   resetSignal = 0,
 }: {
-  action: "login" | "signup" | "form_access" | "feedback";
+  action: "login" | "signup" | "recovery" | "form_access" | "feedback";
   onToken: (token: string) => void;
   resetSignal?: number;
 }) {

@@ -13,7 +13,8 @@ interface TurnstileResponse {
   "error-codes"?: string[];
 }
 
-export type CaptchaAction = "login" | "signup" | "form_access" | "feedback";
+export type CaptchaAction =
+  "login" | "signup" | "recovery" | "form_access" | "feedback";
 export type CaptchaVerificationReason =
   | "verified"
   | "test_environment"

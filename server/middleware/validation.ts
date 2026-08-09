@@ -329,6 +329,25 @@ export const emailVerificationValidation = validateRequest([
     .matches(/^\d{6}$/),
 ]);
 
+export const accountRecoveryRequestValidation = validateRequest([
+  strictBody(["identifier", "captchaToken"]),
+  body("captchaToken").optional().isString().isLength({ min: 1, max: 2048 }),
+  body("identifier").isEmail().normalizeEmail().isLength({ max: 254 }),
+]);
+
+export const accountRecoveryResetValidation = validateRequest([
+  strictBody(["identifier", "code", "newPassword"]),
+  body("identifier").isEmail().normalizeEmail().isLength({ max: 254 }),
+  body("code")
+    .isString()
+    .trim()
+    .matches(/^\d{6}$/),
+  body("newPassword")
+    .isString()
+    .isLength({ min: 12, max: 128 })
+    .custom(enforcePasswordHashLimit),
+]);
+
 export const accountMfaConfirmationValidation = validateRequest([
   strictBody(["password", "code"]),
   body("password")

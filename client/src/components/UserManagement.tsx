@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import {
   isUserRole,
   useUsers,
+  UserActionError,
   type User,
   type UserRole,
 } from "../hooks/useUsers";
@@ -26,6 +27,18 @@ export function UserManagement() {
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [filterRole, setFilterRole] = useState<"all" | UserRole>("all");
+  const [actionError, setActionError] = useState("");
+
+  const reportActionError = (error: unknown) => {
+    setActionError(
+      error instanceof UserActionError &&
+        error.code === "USER_DELETION_REQUIRES_REVIEW"
+        ? t("admin.deletionReviewRequired")
+        : error instanceof Error
+          ? error.message
+          : t("common.unknownError"),
+    );
+  };
 
   const filteredUsers =
     filterRole === "all" ? users : users.filter((u) => u.role === filterRole);
@@ -48,10 +61,11 @@ export function UserManagement() {
 
   const handleDeleteUser = async (userId: string) => {
     if (confirm(t("admin.deleteUserConfirm"))) {
+      setActionError("");
       try {
         await deleteUser(userId);
       } catch (err) {
-        console.error("Error deleting user:", err);
+        reportActionError(err);
       }
     }
   };
@@ -61,20 +75,22 @@ export function UserManagement() {
     if (
       confirm(t("admin.deleteUsersConfirm", { count: selectedUsers.length }))
     ) {
+      setActionError("");
       try {
         await deleteMultipleUsers(selectedUsers);
         setSelectedUsers([]);
       } catch (err) {
-        console.error("Error deleting users:", err);
+        reportActionError(err);
       }
     }
   };
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
+    setActionError("");
     try {
       await updateUserRole(userId, newRole);
     } catch (err) {
-      console.error("Error updating user role:", err);
+      reportActionError(err);
     }
   };
 
@@ -106,6 +122,14 @@ export function UserManagement() {
 
   return (
     <div className="space-y-4">
+      {actionError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          {actionError}
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex gap-2 items-center">
           <label className="text-sm font-medium text-gray-700">

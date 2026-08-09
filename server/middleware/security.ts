@@ -96,6 +96,24 @@ export const emailVerificationLimiter = rateLimit({
   },
 });
 
+export const accountRecoveryLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: parsePositiveInteger(
+    process.env.ACCOUNT_RECOVERY_RATE_LIMIT_MAX_REQUESTS,
+    5,
+  ),
+  message: {
+    error: "Too many account recovery attempts. Please try again later.",
+    code: "ACCOUNT_RECOVERY_RATE_LIMITED",
+  },
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  validate: {
+    trustProxy: false,
+    xForwardedForHeader: false,
+  },
+});
+
 export const feedbackLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 5,

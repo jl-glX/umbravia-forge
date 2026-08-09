@@ -42,6 +42,7 @@ export const migrationTableGroups = {
   retained: ["dataRetentionPolicies", "dataRetentionRecords", "billingRecords"],
   security: [
     "emailVerificationChallenges",
+    "accountRecoveryChallenges",
     "emailDeliveries",
     "antiAutomationChallenges",
     "sessions",
@@ -169,6 +170,7 @@ export function buildSqliteToPostgresMigrationPlan(
       "sessions",
       "authChallenges",
       "emailVerificationChallenges",
+      "accountRecoveryChallenges",
       "emailDeliveries",
       "antiAutomationChallenges",
       "webauthnChallenges",

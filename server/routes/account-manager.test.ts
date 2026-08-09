@@ -65,7 +65,7 @@ describe("account manager API", () => {
       },
       lifecycle: { deletionExecutionEnabled: false },
       recovery: {
-        availableMethods: ["passkey"],
+        availableMethods: ["password", "email", "code", "passkey"],
       },
       continuity: {
         status: "draft_available",
@@ -74,9 +74,7 @@ describe("account manager API", () => {
         representations: [],
       },
     });
-    expect(response.body.recovery.plannedMethods).toEqual(
-      expect.arrayContaining(["password", "email", "code", "support"]),
-    );
+    expect(response.body.recovery.plannedMethods).toEqual(["support"]);
   });
 
   it("remains available while an authenticated account is under security review", async () => {
