@@ -43,6 +43,31 @@ function isLoopbackHost(value: string): boolean {
   return value === "127.0.0.1" || value === "::1";
 }
 
+function isLocalDatabaseHost(value: string): boolean {
+  return value === "" || value === "localhost" || isLoopbackHost(value);
+}
+
+function requireSecureDatabaseTransport(
+  environment: NodeJS.ProcessEnv,
+  databaseUrl: string,
+): void {
+  const parsed = new URL(databaseUrl);
+  if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
+    throw new Error(
+      "DATABASE_URL must use the postgresql:// or postgres:// scheme",
+    );
+  }
+
+  if (isLocalDatabaseHost(parsed.hostname)) return;
+
+  if (environment.DATABASE_SSL === "false") {
+    throw new Error("Remote PostgreSQL connections must use TLS");
+  }
+  if (environment.DATABASE_SSL_REJECT_UNAUTHORIZED === "false") {
+    throw new Error("Remote PostgreSQL TLS must verify the server certificate");
+  }
+}
+
 function requireMfaEncryptionKey(environment: NodeJS.ProcessEnv): string {
   const value = required(environment, "MFA_ENCRYPTION_KEY");
   const decoded = Buffer.from(value, "base64");
@@ -71,7 +96,7 @@ export function validateProductionConfiguration(
   );
   const webauthnRpId = required(environment, "WEBAUTHN_RP_ID");
   const databaseProvider = required(environment, "DATABASE_PROVIDER");
-  required(environment, "DATABASE_URL");
+  const databaseUrl = required(environment, "DATABASE_URL");
   const turnstileSecret = required(environment, "TURNSTILE_SECRET_KEY");
   requireMfaEncryptionKey(environment);
   const emailVerificationEnabled = emailVerificationIsEnabled(environment);
@@ -120,6 +145,7 @@ export function validateProductionConfiguration(
   if (databaseProvider !== "postgresql") {
     throw new Error("DATABASE_PROVIDER must be postgresql in production");
   }
+  requireSecureDatabaseTransport(environment, databaseUrl);
   if (
     activeDatabaseProvider !== undefined &&
     activeDatabaseProvider !== databaseProvider

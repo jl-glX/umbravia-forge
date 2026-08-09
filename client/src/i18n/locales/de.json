@@ -243,7 +243,7 @@
     "passkeyVerificationFailed": "Die Überprüfung mit dem Geräteschutz konnte nicht abgeschlossen werden.",
     "passkeyChallengeInvalid": "Die Anmeldeanforderung ist abgelaufen. Bitte versuchen Sie es erneut.",
     "alternativeCodeHelp": "Wenn Sie 2FA verwenden, geben Sie hier einen Authentifizierungs- oder Wiederherstellungscode ein. Umbravia Forge überprüft zunächst Ihr Konto und Ihr Passwort.",
-    "passwordPolicy": "Das Passwort muss mindestens 12 Zeichen und höchstens 72 Byte sowie Großbuchstaben, Kleinbuchstaben und eine Zahl enthalten",
+    "passwordPolicy": "Das Passwort muss mindestens 12 Zeichen und höchstens 1024 Byte sowie Großbuchstaben, Kleinbuchstaben und eine Zahl enthalten",
     "createDescription": "Richten Sie Ihr Profil ein und beginnen Sie mit der Planung Ihrer nächsten Trainingseinheiten."
   },
   "home": {

@@ -7,7 +7,7 @@ import {
   validationResult,
 } from "express-validator";
 import {
-  BCRYPT_MAX_PASSWORD_BYTES,
+  MAX_PASSWORD_BYTES,
   isPasswordWithinHashLimit,
 } from "../lib/password-policy.js";
 import { isSupportId } from "../lib/support-id.js";
@@ -35,7 +35,7 @@ const commercialFacilityTypes = [
 const enforcePasswordHashLimit = (value: string): boolean => {
   if (!isPasswordWithinHashLimit(value)) {
     throw new Error(
-      `Password must not exceed ${BCRYPT_MAX_PASSWORD_BYTES} UTF-8 bytes`,
+      `Password must not exceed ${MAX_PASSWORD_BYTES} UTF-8 bytes`,
     );
   }
   return true;

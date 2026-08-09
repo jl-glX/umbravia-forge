@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily encrypted PostgreSQL backup for Umbravia Forge
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+RandomizedDelaySec=30m
+Persistent=true
+Unit=umbravia-forge-backup.service
+
+[Install]
+WantedBy=timers.target

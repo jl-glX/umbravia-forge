@@ -79,7 +79,9 @@ servidor y activarse mediante un enlace o cambio atómico que permita volver a
 la versión anterior.
 Nunca se deben copiar los `node_modules` generados en Windows: la instalación
 `npm ci --omit=dev` se repite en Linux para obtener dependencias compatibles con
-el servidor. Antes de activar la versión se ejecuta
+el servidor. Esto es obligatorio para Argon2id y `better-sqlite3`, cuyos
+módulos nativos se resuelven para la plataforma donde se ejecuta `npm ci`.
+Antes de activar la versión se ejecuta
 `deploy/check-linux-readiness.sh` con el archivo de entorno definitivo.
 
 ## Variables mínimas
@@ -93,6 +95,11 @@ DATABASE_PROVIDER=postgresql
 DATABASE_URL=<secreto de PostgreSQL>
 DATABASE_SSL=false
 DATABASE_SSL_REJECT_UNAUTHORIZED=true
+
+# Copias PostgreSQL cifradas; solo se guarda el destinatario publico age.
+UMBRAVIA_BACKUP_AGE_RECIPIENT=age1...
+UMBRAVIA_BACKUP_DIRECTORY=/var/backups/umbravia-forge/postgresql
+UMBRAVIA_BACKUP_RETENTION_DAYS=30
 CLIENT_ORIGIN=https://<dominio>
 WEBAUTHN_ORIGIN=https://<dominio>
 WEBAUTHN_RP_ID=<dominio sin protocolo>
@@ -124,6 +131,10 @@ verificación de certificado. `TURNSTILE_SECRET_KEY` es un secreto del servidor:
 no debe incorporarse al frontend ni al repositorio. La clave pública
 `VITE_TURNSTILE_SITE_KEY` se configura por separado en el entorno de
 compilación del actualizador.
+
+La puesta en marcha de las copias cifradas y los perfiles opcionales de
+almacenamiento están documentados en
+[`ENCRYPTION-IN-TRANSIT-AND-AT-REST.md`](ENCRYPTION-IN-TRANSIT-AND-AT-REST.md).
 
 ## Verificación de correo y entrega transaccional
 

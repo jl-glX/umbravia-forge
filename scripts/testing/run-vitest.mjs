@@ -21,6 +21,7 @@ const vitestArguments = [
   ...(mode === "watch" ? ["--watch"] : []),
   ...process.argv.slice(3),
 ];
+const ownsProcessGroup = process.platform !== "win32";
 
 const child = spawn(process.execPath, vitestArguments, {
   cwd: projectRoot,
@@ -31,18 +32,34 @@ const child = spawn(process.execPath, vitestArguments, {
   stdio: "inherit",
   shell: false,
   windowsHide: true,
+  // POSIX process groups let the supervisor terminate every descendant. On
+  // Windows Vitest uses worker threads, so the owned child remains the only
+  // operating-system process that needs to be stopped.
+  detached: ownsProcessGroup,
 });
 
 let shutdownSignal;
 let forcedShutdown;
 
+function signalOwnedVitest(signal) {
+  if (ownsProcessGroup && child.pid) {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch (error) {
+      if (error?.code !== "ESRCH") throw error;
+    }
+  }
+  child.kill(signal);
+}
+
 function stopOwnedVitest(signal) {
   if (shutdownSignal || child.exitCode !== null) return;
   shutdownSignal = signal;
-  child.kill(signal === "SIGINT" ? "SIGINT" : "SIGTERM");
+  signalOwnedVitest(signal === "SIGINT" ? "SIGINT" : "SIGTERM");
   forcedShutdown = setTimeout(() => {
     if (child.exitCode === null) {
-      child.kill("SIGKILL");
+      signalOwnedVitest("SIGKILL");
     }
   }, 10_000);
 }

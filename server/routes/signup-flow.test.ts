@@ -1,8 +1,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { verify as verifyArgon2 } from "argon2";
 import request from "supertest";
-import bcryptjs from "bcryptjs";
 import Database from "better-sqlite3";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -54,9 +54,9 @@ describe("progressive account signup", () => {
         accountStatus: "active",
         emailVerifiedAt: expect.any(Number),
       });
-      expect(persisted?.password).toMatch(/^\$2[aby]\$12\$/);
+      expect(persisted?.password).toMatch(/^\$argon2id\$/);
       await expect(
-        bcryptjs.compare("ProgressivePassword123", persisted?.password ?? ""),
+        verifyArgon2(persisted?.password ?? "", "ProgressivePassword123"),
       ).resolves.toBe(true);
     } finally {
       reopened.close();
@@ -98,9 +98,9 @@ describe("progressive account signup", () => {
       countryCode: "ES",
     });
     expect(storedCredential.password).not.toBe("ProgressivePassword123");
-    expect(storedCredential.password).toMatch(/^\$2[aby]\$12\$/);
+    expect(storedCredential.password).toMatch(/^\$argon2id\$/);
     await expect(
-      bcryptjs.compare("ProgressivePassword123", storedCredential.password),
+      verifyArgon2(storedCredential.password, "ProgressivePassword123"),
     ).resolves.toBe(true);
     const storedChallenge = await database.db
       .selectFrom("emailVerificationChallenges")

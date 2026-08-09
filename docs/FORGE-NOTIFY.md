@@ -25,8 +25,9 @@ verificación o Forge Support.
 - códigos almacenados como hashes, con caducidad y límite de intentos;
 - plantillas de cuenta y soporte separadas del transporte;
 - cola persistente con estados pendiente, procesando, enviado y fallido;
-- cifrado AES-256-GCM del destinatario, asunto y cuerpo mientras están
-  pendientes;
+- cifrado AES-256-GCM autenticado y versionado del destinatario, asunto y
+  cuerpo mientras están pendientes, con lectura compatible del formato
+  anterior;
 - reintentos acotados con espera creciente;
 - recuperación de trabajos que quedaron en procesamiento por un cierre
   inesperado;

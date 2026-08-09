@@ -59,6 +59,13 @@ class EmailQueuePayloadError extends Error {
   }
 }
 
+class EmailQueueEncryptionKeyUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "EmailQueueEncryptionKeyUnavailableError";
+  }
+}
+
 let transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
 let transporterFingerprint = "";
 
@@ -151,14 +158,16 @@ export function resolveEmailQueueEncryptionKey(
   if (configured) {
     const decoded = Buffer.from(configured, "base64");
     if (decoded.length !== 32 || decoded.toString("base64") !== configured) {
-      throw new Error(
+      throw new EmailQueueEncryptionKeyUnavailableError(
         "EMAIL_QUEUE_ENCRYPTION_KEY must be exactly 32 random bytes encoded as base64",
       );
     }
     return decoded;
   }
   if (environment.NODE_ENV === "production") {
-    throw new Error("EMAIL_QUEUE_ENCRYPTION_KEY is required in production");
+    throw new EmailQueueEncryptionKeyUnavailableError(
+      "EMAIL_QUEUE_ENCRYPTION_KEY is required in production",
+    );
   }
   return createHash("sha256")
     .update("umbravia-forge-development-email-queue")
@@ -398,55 +407,133 @@ async function queueEncryptedDelivery(input: {
 }
 
 function encryptPayload(id: string, payload: EmailDeliveryPayload): string {
+  const key = resolveEmailQueueEncryptionKey();
+  const keyFingerprint = createHash("sha256")
+    .update(key)
+    .digest()
+    .subarray(0, 16)
+    .toString("base64url");
   const iv = randomBytes(12);
-  const cipher = createCipheriv(
-    "aes-256-gcm",
-    resolveEmailQueueEncryptionKey(),
-    iv,
-  );
-  cipher.setAAD(Buffer.from(id));
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  cipher.setAAD(Buffer.from(`v2:${id}:${keyFingerprint}`));
   const ciphertext = Buffer.concat([
     cipher.update(JSON.stringify(payload), "utf8"),
     cipher.final(),
   ]);
   return [
-    "v1",
+    "v2",
+    keyFingerprint,
     iv.toString("base64url"),
     cipher.getAuthTag().toString("base64url"),
     ciphertext.toString("base64url"),
   ].join(".");
 }
 
-function decryptPayload(id: string, encrypted: string): EmailDeliveryPayload {
-  try {
-    const [version, iv, tag, ciphertext] = encrypted.split(".");
-    if (version !== "v1" || !iv || !tag || !ciphertext) {
+function validateDecryptedPayload(
+  kind: EmailDeliveryKind,
+  candidate: unknown,
+): EmailDeliveryPayload {
+  const payload = candidate as Partial<EmailDeliveryPayload> | null;
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    typeof payload.email !== "string" ||
+    payload.email.trim() === "" ||
+    !["es", "en", "de", "de-CH"].includes(payload.locale ?? "")
+  ) {
+    throw new EmailQueuePayloadError();
+  }
+
+  if (kind === "email_verification") {
+    if (
+      typeof payload.name !== "string" ||
+      payload.name.trim() === "" ||
+      typeof payload.code !== "string" ||
+      payload.code.trim() === ""
+    ) {
       throw new EmailQueuePayloadError();
     }
+  } else if (
+    typeof payload.subject !== "string" ||
+    typeof payload.text !== "string" ||
+    typeof payload.html !== "string"
+  ) {
+    throw new EmailQueuePayloadError();
+  }
+
+  return payload as EmailDeliveryPayload;
+}
+
+function decryptPayload(
+  id: string,
+  kind: EmailDeliveryKind,
+  encrypted: string,
+): EmailDeliveryPayload {
+  const segments = encrypted.split(".");
+  const version = segments[0];
+
+  const key = resolveEmailQueueEncryptionKey();
+  const currentFingerprint = createHash("sha256")
+    .update(key)
+    .digest()
+    .subarray(0, 16)
+    .toString("base64url");
+
+  try {
+    let iv: string;
+    let tag: string;
+    let ciphertext: string;
+    let additionalData: string;
+
+    if (version === "v2") {
+      const [, keyFingerprint, parsedIv, parsedTag, parsedCiphertext] =
+        segments;
+      if (!keyFingerprint || !parsedIv || !parsedTag || !parsedCiphertext) {
+        throw new EmailQueuePayloadError();
+      }
+      if (keyFingerprint !== currentFingerprint) {
+        throw new EmailQueueEncryptionKeyUnavailableError(
+          "The encrypted email payload requires a different queue key",
+        );
+      }
+      iv = parsedIv;
+      tag = parsedTag;
+      ciphertext = parsedCiphertext;
+      additionalData = `v2:${id}:${keyFingerprint}`;
+    } else if (version === "v1") {
+      const [, parsedIv, parsedTag, parsedCiphertext] = segments;
+      if (!parsedIv || !parsedTag || !parsedCiphertext) {
+        throw new EmailQueuePayloadError();
+      }
+      iv = parsedIv;
+      tag = parsedTag;
+      ciphertext = parsedCiphertext;
+      additionalData = id;
+    } else {
+      throw new EmailQueuePayloadError();
+    }
+
     const decipher = createDecipheriv(
       "aes-256-gcm",
-      resolveEmailQueueEncryptionKey(),
+      key,
       Buffer.from(iv, "base64url"),
     );
-    decipher.setAAD(Buffer.from(id));
+    decipher.setAAD(Buffer.from(additionalData));
     decipher.setAuthTag(Buffer.from(tag, "base64url"));
     const payload = JSON.parse(
       Buffer.concat([
         decipher.update(Buffer.from(ciphertext, "base64url")),
         decipher.final(),
       ]).toString("utf8"),
-    ) as Partial<EmailDeliveryPayload>;
-    if (
-      !payload ||
-      typeof payload !== "object" ||
-      typeof payload.email !== "string" ||
-      !["es", "en", "de", "de-CH"].includes(payload.locale ?? "")
-    ) {
-      throw new EmailQueuePayloadError();
-    }
-    return payload as EmailDeliveryPayload;
+    ) as unknown;
+    return validateDecryptedPayload(kind, payload);
   } catch (error) {
-    if (error instanceof EmailQueuePayloadError) throw error;
+    if (
+      error instanceof EmailQueuePayloadError ||
+      error instanceof EmailQueueEncryptionKeyUnavailableError
+    ) {
+      throw error;
+    }
     throw new EmailQueuePayloadError();
   }
 }
@@ -610,7 +697,11 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
   if (Number(claimed.numUpdatedRows) !== 1) return false;
 
   try {
-    const payload = decryptPayload(row.id, row.payloadEncrypted);
+    const payload = decryptPayload(
+      row.id,
+      row.kind as EmailDeliveryKind,
+      row.payloadEncrypted,
+    );
     const delivery =
       row.kind === "email_verification"
         ? await sendEmailVerificationCode({
@@ -642,55 +733,86 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
       .where("status", "=", "processing")
       .execute();
     if (row.kind === "email_verification") {
-      await recordSecurityEvent("verification_email_sent", row.userId, {
-        deliveryId: row.id,
-      });
+      try {
+        await recordSecurityEvent("verification_email_sent", row.userId, {
+          deliveryId: row.id,
+        });
+      } catch {
+        publishManagerSignal(
+          "security",
+          "warning",
+          "EMAIL_DELIVERY_AUDIT_FAILED",
+          "The verification email was sent but its audit event could not be recorded.",
+        );
+      }
     }
     return true;
   } catch (error) {
-    const attempts = row.attempts + 1;
+    const keyUnavailable =
+      error instanceof EmailQueueEncryptionKeyUnavailableError;
+    const attempts = keyUnavailable ? row.attempts : row.attempts + 1;
     const nextAttemptAt = Date.now() + retryDelay(attempts);
     const payloadRejected = error instanceof EmailQueuePayloadError;
     const terminal =
       payloadRejected ||
-      attempts >= row.maxAttempts ||
-      nextAttemptAt >= row.expiresAt;
+      (!keyUnavailable &&
+        (attempts >= row.maxAttempts || nextAttemptAt >= row.expiresAt));
     await db
       .updateTable("emailDeliveries")
       .set({
         status: terminal ? "failed" : "retry",
         attempts,
         nextAttemptAt,
-        payloadEncrypted: terminal ? "" : row.payloadEncrypted,
-        lastError: payloadRejected
-          ? "payload_authentication_failed"
-          : error instanceof EmailDeliveryUnavailableError
-            ? "smtp_unavailable"
-            : "delivery_processing_failed",
+        payloadEncrypted:
+          terminal && !keyUnavailable ? "" : row.payloadEncrypted,
+        lastError: keyUnavailable
+          ? "encryption_key_unavailable"
+          : payloadRejected
+            ? "payload_authentication_failed"
+            : error instanceof EmailDeliveryUnavailableError
+              ? "smtp_unavailable"
+              : "delivery_processing_failed",
         updatedAt: Date.now(),
       })
       .where("id", "=", row.id)
       .where("status", "=", "processing")
       .execute();
     if (payloadRejected) {
-      await recordSecurityEvent("email_delivery_payload_rejected", row.userId, {
-        deliveryId: row.id,
-        kind: row.kind,
-      });
+      try {
+        await recordSecurityEvent(
+          "email_delivery_payload_rejected",
+          row.userId,
+          {
+            deliveryId: row.id,
+            kind: row.kind,
+          },
+        );
+      } catch {
+        publishManagerSignal(
+          "security",
+          "warning",
+          "EMAIL_DELIVERY_AUDIT_FAILED",
+          "A rejected payload could not be written to the security audit log.",
+        );
+      }
     }
     publishManagerSignal(
-      payloadRejected ? "security" : "notification",
+      payloadRejected || keyUnavailable ? "security" : "notification",
       terminal ? "warning" : "info",
-      payloadRejected
-        ? "EMAIL_DELIVERY_PAYLOAD_REJECTED"
-        : terminal
-          ? "EMAIL_DELIVERY_FAILED"
-          : "EMAIL_DELIVERY_RETRY",
-      payloadRejected
-        ? "An encrypted email payload failed authentication and was purged."
-        : terminal
-          ? "A verification message exhausted its delivery attempts."
-          : "A verification message will be retried.",
+      keyUnavailable
+        ? "EMAIL_DELIVERY_KEY_UNAVAILABLE"
+        : payloadRejected
+          ? "EMAIL_DELIVERY_PAYLOAD_REJECTED"
+          : terminal
+            ? "EMAIL_DELIVERY_FAILED"
+            : "EMAIL_DELIVERY_RETRY",
+      keyUnavailable
+        ? "An encrypted email payload is waiting for its original queue key."
+        : payloadRejected
+          ? "An encrypted email payload failed authentication and was purged."
+          : terminal
+            ? "A verification message exhausted its delivery attempts."
+            : "A verification message will be retried.",
     );
     return false;
   }
@@ -709,7 +831,16 @@ export async function processPendingEmailDeliveries(
     .execute();
   let delivered = 0;
   for (const row of rows) {
-    if (await deliverQueuedEmail(row.id)) delivered += 1;
+    try {
+      if (await deliverQueuedEmail(row.id)) delivered += 1;
+    } catch {
+      publishManagerSignal(
+        "notification",
+        "warning",
+        "EMAIL_DELIVERY_WORKER_ITEM_FAILED",
+        "One email queue item failed unexpectedly; processing continued.",
+      );
+    }
   }
   return { processed: rows.length, delivered };
 }

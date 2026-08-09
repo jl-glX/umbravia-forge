@@ -354,7 +354,7 @@ export function AccountSecurityPage() {
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <PasswordInput
               value={compromisePassword}
-              maxLength={72}
+              maxLength={256}
               autoComplete="current-password"
               placeholder={t("security.confirmPassword")}
               onChange={(event) => setCompromisePassword(event.target.value)}
@@ -405,7 +405,7 @@ export function AccountSecurityPage() {
                   id="setup-password"
                   autoComplete="current-password"
                   value={password}
-                  maxLength={72}
+                  maxLength={256}
                   onChange={(event) => setPassword(event.target.value)}
                 />
                 <Button
@@ -477,7 +477,7 @@ export function AccountSecurityPage() {
                       className="mt-2"
                       autoComplete="current-password"
                       value={password}
-                      maxLength={72}
+                      maxLength={256}
                       onChange={(event) => setPassword(event.target.value)}
                     />
                   </div>
@@ -578,7 +578,7 @@ export function AccountSecurityPage() {
                 id="passkey-password"
                 autoComplete="current-password"
                 value={passkeyPassword}
-                maxLength={72}
+                maxLength={256}
                 onChange={(event) => setPasskeyPassword(event.target.value)}
               />
               {overview?.passkeys.enabled ? (

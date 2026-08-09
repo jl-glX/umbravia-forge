@@ -1,6 +1,14 @@
 import { performance } from "node:perf_hooks";
 import { randomBytes } from "node:crypto";
-import bcryptjs from "bcryptjs";
+import { argon2id, hash, verify } from "argon2";
+
+const options = {
+  type: argon2id,
+  memoryCost: 19_456,
+  timeCost: 2,
+  parallelism: 1,
+  hashLength: 32,
+};
 
 const weakLaboratoryPassword = "LaboratoryOnlyPassword123";
 const strongLaboratoryPassword = `${randomBytes(24).toString("base64url")}Aa1`;
@@ -14,13 +22,13 @@ const candidates = [
 ];
 
 const hashStartedAt = performance.now();
-const weakLaboratoryHash = await bcryptjs.hash(weakLaboratoryPassword, 12);
+const weakLaboratoryHash = await hash(weakLaboratoryPassword, options);
 const hashDurationMs = performance.now() - hashStartedAt;
 
 const comparisonStartedAt = performance.now();
 let matchedAt = -1;
 for (const [index, candidate] of candidates.entries()) {
-  if (await bcryptjs.compare(candidate, weakLaboratoryHash)) {
+  if (await verify(weakLaboratoryHash, candidate)) {
     matchedAt = index;
     break;
   }
@@ -28,11 +36,11 @@ for (const [index, candidate] of candidates.entries()) {
 const comparisonDurationMs = performance.now() - comparisonStartedAt;
 const attempts = matchedAt + 1;
 
-const strongHash = await bcryptjs.hash(strongLaboratoryPassword, 12);
+const strongHash = await hash(strongLaboratoryPassword, options);
 const strongComparisonStartedAt = performance.now();
 let strongMatched = false;
 for (const candidate of candidates) {
-  if (await bcryptjs.compare(candidate, strongHash)) {
+  if (await verify(strongHash, candidate)) {
     strongMatched = true;
     break;
   }
@@ -40,20 +48,24 @@ for (const candidate of candidates) {
 const strongComparisonDurationMs =
   performance.now() - strongComparisonStartedAt;
 
-const sharedPrefix = `Aa1${"x".repeat(69)}`;
-const firstOversizedPassword = `${sharedPrefix}ONE`;
-const secondOversizedPassword = `${sharedPrefix}TWO`;
-const truncatedHash = await bcryptjs.hash(firstOversizedPassword, 12);
-const bcryptWouldAliasBeyondLimit = await bcryptjs.compare(
-  secondOversizedPassword,
-  truncatedHash,
+const firstDistinctPassword = `Aa1${"x".repeat(69)}ONE`;
+const secondDistinctPassword = `Aa1${"x".repeat(69)}TWO`;
+const distinctHash = await hash(firstDistinctPassword, options);
+const argon2WouldAliasDistinctInputs = await verify(
+  distinctHash,
+  secondDistinctPassword,
 );
 
 console.log(
   JSON.stringify(
     {
       scope: "self-generated laboratory credential",
-      bcryptCost: 12,
+      algorithm: "Argon2id",
+      parameters: {
+        memoryKiB: options.memoryCost,
+        iterations: options.timeCost,
+        parallelism: options.parallelism,
+      },
       hashDurationMs: Math.round(hashDurationMs),
       dictionaryAttempts: attempts,
       comparisonDurationMs: Math.round(comparisonDurationMs),
@@ -66,8 +78,8 @@ console.log(
         strongComparisonDurationMs,
       ),
       randomStrongPasswordMatched: strongMatched,
-      bcryptWouldAliasBeyond72Bytes: bcryptWouldAliasBeyondLimit,
-      applicationPolicy: "Inputs longer than 72 UTF-8 bytes are rejected",
+      argon2WouldAliasDistinctInputs,
+      applicationPolicy: "Inputs longer than 1024 UTF-8 bytes are rejected",
       note: "Only synthetic credentials generated for this local run were tested.",
     },
     null,

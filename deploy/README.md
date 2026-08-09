@@ -193,5 +193,8 @@ siguen recibiendo la superficie genérica `404`.
   limitadas al usuario y base de Umbravia.
 - Una conexión PostgreSQL local puede usar `DATABASE_SSL=false`; una base
   remota debe usar TLS con verificación de certificado.
+- Las copias PostgreSQL cifradas y los perfiles opcionales de volumen se
+  describen en
+  [`docs/ENCRYPTION-IN-TRANSIT-AND-AT-REST.md`](../docs/ENCRYPTION-IN-TRANSIT-AND-AT-REST.md).
 - Antes de datos reales deben probarse copia, restauración y reversión de una
   versión completa.

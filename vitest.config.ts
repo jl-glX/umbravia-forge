@@ -20,9 +20,9 @@ export default defineConfig({
     environment: "node",
     include: ["server/**/*.test.ts"],
     globalSetup: ["./scripts/testing/vitest-resource-guard.ts"],
-    // Two isolated processes provide a bounded speed-up while keeping native
-    // SQLite modules, environment variables and module state separated.
-    pool: "forks",
+    // Worker threads preserve isolation without leaving child Node processes
+    // behind when Windows or the terminal interrupts the supervised run.
+    pool: "threads",
     isolate: true,
     fileParallelism: true,
     maxWorkers: workerCount,

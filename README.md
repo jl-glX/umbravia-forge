@@ -60,7 +60,7 @@ npm run test:watch # persistent cross-platform test session for development
 npm run build
 npm run check        # run the complete validation sequence
 npm run security:probe # local-only black-box probe; requires a running API
-npm run security:password-resilience # synthetic bcrypt laboratory check
+npm run security:password-resilience # synthetic Argon2id laboratory check
 ```
 
 ## Documentation

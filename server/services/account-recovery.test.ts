@@ -242,6 +242,15 @@ describe("account recovery", () => {
     await expect(
       database.db
         .selectFrom("users")
+        .select("password")
+        .where("id", "=", userId)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toMatchObject({
+      password: expect.stringMatching(/^\$argon2id\$/),
+    });
+    await expect(
+      database.db
+        .selectFrom("users")
         .select("accountStatus")
         .where("id", "=", userId)
         .executeTakeFirstOrThrow(),

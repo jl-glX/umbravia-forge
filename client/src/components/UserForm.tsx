@@ -124,7 +124,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
             <PasswordInput
               required={!user}
               value={formData.password}
-              maxLength={72}
+              maxLength={256}
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
               }

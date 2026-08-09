@@ -1,6 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
-import bcryptjs from "bcryptjs";
 import { db } from "../db/client.js";
+import {
+  hashPasswordWithArgon2id,
+  passwordHashNeedsUpgrade,
+  performDummyPasswordVerification,
+  verifyPasswordHash,
+} from "../lib/password-hashing.js";
 import { mfaStatus, verifyMfaCode } from "./mfa.js";
 import { recordSecurityEvent } from "./security-events.js";
 import { ensureSupportIdentifier } from "./support-identifiers.js";
@@ -70,7 +75,7 @@ export async function hashPassword(password: string): Promise<string> {
   if (!isPasswordWithinHashLimit(password)) {
     throw new Error("Password exceeds the supported byte length");
   }
-  return bcryptjs.hash(password, 12);
+  return hashPasswordWithArgon2id(password);
 }
 
 export async function verifyUserPassword(
@@ -85,7 +90,17 @@ export async function verifyUserPassword(
     .select("password")
     .where("id", "=", userId)
     .executeTakeFirst();
-  return user ? bcryptjs.compare(password, user.password) : false;
+  if (!user) return false;
+  const valid = await verifyPasswordHash(password, user.password);
+  if (valid && passwordHashNeedsUpgrade(user.password)) {
+    await db
+      .updateTable("users")
+      .set({ password: await hashPassword(password) })
+      .where("id", "=", userId)
+      .where("password", "=", user.password)
+      .execute();
+  }
+  return valid;
 }
 
 function sessionId(token: string): string {
@@ -205,7 +220,7 @@ export async function login(
   metadata: SessionMetadata = {},
 ): Promise<LoginResult> {
   if (!isPasswordWithinHashLimit(password)) {
-    await bcryptjs.hash("InvalidPasswordLength123", 12);
+    await performDummyPasswordVerification("InvalidPasswordLength123");
     await recordSecurityEvent("login_failed", null, {
       portal: accessPortal,
       reason: "password_length",
@@ -233,16 +248,25 @@ export async function login(
       : user.role === "trainer" || user.role === "admin");
 
   if (!user || !portalMatches) {
-    await bcryptjs.hash(password, 12);
+    await performDummyPasswordVerification(password);
     await recordSecurityEvent("login_failed", user?.id ?? null, {
       portal: accessPortal,
     });
     throw new Error("Invalid email or password");
   }
 
-  if (!(await bcryptjs.compare(password, user.password))) {
+  if (!(await verifyPasswordHash(password, user.password))) {
     await recordSecurityEvent("login_failed", user.id);
     throw new Error("Invalid email or password");
+  }
+
+  if (passwordHashNeedsUpgrade(user.password)) {
+    await db
+      .updateTable("users")
+      .set({ password: await hashPassword(password) })
+      .where("id", "=", user.id)
+      .where("password", "=", user.password)
+      .execute();
   }
 
   const status = await mfaStatus(user.id);

@@ -257,7 +257,7 @@ export function RecoverAccountPage() {
               onChange={(event) => setNewPassword(event.target.value)}
               required
               minLength={12}
-              maxLength={72}
+              maxLength={256}
             />
           </div>
           <div className="space-y-2">
@@ -271,7 +271,7 @@ export function RecoverAccountPage() {
               onChange={(event) => setConfirmPassword(event.target.value)}
               required
               minLength={12}
-              maxLength={72}
+              maxLength={256}
             />
           </div>
           {error && (

@@ -1,12 +1,12 @@
 export const MIN_PASSWORD_CHARACTERS = 12;
-export const BCRYPT_MAX_PASSWORD_BYTES = 72;
+export const MAX_PASSWORD_BYTES = 1_024;
 
 export function passwordByteLength(password: string): number {
   return Buffer.byteLength(password, "utf8");
 }
 
 export function isPasswordWithinHashLimit(password: string): boolean {
-  return passwordByteLength(password) <= BCRYPT_MAX_PASSWORD_BYTES;
+  return passwordByteLength(password) <= MAX_PASSWORD_BYTES;
 }
 
 export function isStrongPassword(password: string): boolean {

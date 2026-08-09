@@ -7,7 +7,9 @@ const validEnvironment = {
   WEBAUTHN_ORIGIN: "https://demo.umbravia-forge.example",
   WEBAUTHN_RP_ID: "demo.umbravia-forge.example",
   DATABASE_PROVIDER: "postgresql",
-  DATABASE_URL: "postgresql://example.invalid/umbravia_forge",
+  DATABASE_URL: "postgresql://127.0.0.1/umbravia_forge",
+  DATABASE_SSL: "false",
+  DATABASE_SSL_REJECT_UNAUTHORIZED: "true",
   TURNSTILE_SECRET_KEY: "turnstile-production-secret-123456789",
   EMAIL_VERIFICATION_ENABLED: "true",
   EMAIL_QUEUE_ENCRYPTION_KEY: Buffer.alloc(32, 11).toString("base64"),
@@ -65,6 +67,33 @@ describe("production configuration", () => {
         CLIENT_ORIGIN: "http://demo.umbravia-forge.example",
       }),
     ).toThrow(/HTTPS/);
+  });
+
+  it("requires verified TLS for a remote PostgreSQL server", () => {
+    const remoteEnvironment = {
+      ...validEnvironment,
+      DATABASE_URL: "postgresql://db.internal.example/umbravia_forge",
+      DATABASE_SSL: "true",
+    };
+
+    expect(() =>
+      validateProductionConfiguration(
+        { ...remoteEnvironment, DATABASE_SSL: "false" },
+        "postgresql",
+      ),
+    ).toThrow(/must use TLS/i);
+    expect(() =>
+      validateProductionConfiguration(
+        {
+          ...remoteEnvironment,
+          DATABASE_SSL_REJECT_UNAUTHORIZED: "false",
+        },
+        "postgresql",
+      ),
+    ).toThrow(/verify the server certificate/i);
+    expect(
+      validateProductionConfiguration(remoteEnvironment, "postgresql"),
+    ).toMatchObject({ deploymentProfile: "production" });
   });
 
   it("requires email verification in production", () => {

@@ -209,7 +209,7 @@ export function SignupPage() {
                   name="password"
                   placeholder="••••••••"
                   value={formData.password}
-                  maxLength={72}
+                  maxLength={256}
                   onChange={handleChange}
                   disabled={isLoading}
                   className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 focus-visible:bg-white"
@@ -225,7 +225,7 @@ export function SignupPage() {
                   name="confirmPassword"
                   placeholder="••••••••"
                   value={formData.confirmPassword}
-                  maxLength={72}
+                  maxLength={256}
                   onChange={handleChange}
                   disabled={isLoading}
                   className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 focus-visible:bg-white"

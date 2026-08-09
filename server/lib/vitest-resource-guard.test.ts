@@ -20,8 +20,8 @@ describe("Vitest resource guard", () => {
   });
 
   it("removes only recognized stale test directories", async () => {
-    const stale = path.join(root, "umbravia-forge-stale-example");
-    const recent = path.join(root, "umbravia-forge-recent-example");
+    const stale = path.join(root, "umbravia-forge-auth-stale-example");
+    const recent = path.join(root, "umbravia-forge-auth-recent-example");
     const unrelated = path.join(root, "another-project-stale-example");
     await Promise.all([mkdir(stale), mkdir(recent), mkdir(unrelated)]);
     const oldDate = new Date("2025-01-01T00:00:00.000Z");
@@ -44,8 +44,8 @@ describe("Vitest resource guard", () => {
   });
 
   it("removes recognized directories created after the baseline", async () => {
-    const preserved = path.join(root, "umbravia-forge-existing-example");
-    const created = path.join(root, "umbravia-forge-created-example");
+    const preserved = path.join(root, "umbravia-forge-auth-existing-example");
+    const created = path.join(root, "umbravia-forge-auth-created-example");
     await mkdir(preserved);
     await mkdir(created);
 

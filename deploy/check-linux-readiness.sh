@@ -73,7 +73,18 @@ require_file "$PROJECT_ROOT/dist/public/index.html"
 require_file "$PROJECT_ROOT/package-lock.json"
 require_file "$PROJECT_ROOT/deploy/Caddyfile"
 require_file "$PROJECT_ROOT/deploy/umbravia-forge.service"
+require_file "$PROJECT_ROOT/deploy/backup-postgresql-encrypted.sh"
+require_file "$PROJECT_ROOT/deploy/verify-encrypted-backup.sh"
+require_file "$PROJECT_ROOT/deploy/umbravia-forge-backup.service"
+require_file "$PROJECT_ROOT/deploy/umbravia-forge-backup.timer"
 require_file "$PROJECT_ROOT/node_modules/express/package.json"
+require_file "$PROJECT_ROOT/node_modules/argon2/package.json"
+
+if node --input-type=module -e "await import('argon2')" >/dev/null 2>&1; then
+  pass "modulo nativo Argon2 disponible"
+else
+  fail "Argon2 no puede cargarse; reinstale dependencias dentro de este sistema Linux"
+fi
 
 if command -v caddy >/dev/null 2>&1; then
   CADDY_VERSION=$(caddy version | sed 's/^v//' | cut -d' ' -f1)
@@ -117,6 +128,19 @@ if [ -f "$ENV_FILE" ]; then
       fail "$REQUIRED_ENV ausente para la verificacion de correo"
     fi
   done
+
+  if grep -Eq '^UMBRAVIA_BACKUP_AGE_RECIPIENT=(age1|age1pq1).+' "$ENV_FILE"; then
+    pass "destinatario publico de copias cifradas configurado"
+    for BACKUP_COMMAND in age flock pg_dump sha256sum; do
+      if command -v "$BACKUP_COMMAND" >/dev/null 2>&1; then
+        pass "$BACKUP_COMMAND disponible para copias cifradas"
+      else
+        fail "$BACKUP_COMMAND no esta instalado para copias cifradas"
+      fi
+    done
+  else
+    warn "copias PostgreSQL cifradas aun no activadas; configure el destinatario publico age y ejecute check-encryption-readiness.sh"
+  fi
 
   SMTP_USER_PRESENT=0
   SMTP_PASSWORD_PRESENT=0
@@ -163,10 +187,13 @@ if command -v caddy >/dev/null 2>&1; then
 fi
 
 if command -v systemd-analyze >/dev/null 2>&1; then
-  if systemd-analyze verify "$PROJECT_ROOT/deploy/umbravia-forge.service"; then
-    pass "unidad systemd valida"
+  if systemd-analyze verify \
+    "$PROJECT_ROOT/deploy/umbravia-forge.service" \
+    "$PROJECT_ROOT/deploy/umbravia-forge-backup.service" \
+    "$PROJECT_ROOT/deploy/umbravia-forge-backup.timer"; then
+    pass "unidades systemd validas"
   else
-    fail "unidad systemd no valida"
+    fail "alguna unidad systemd no es valida"
   fi
 fi
 

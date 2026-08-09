@@ -64,7 +64,7 @@ describe("email delivery queue security", () => {
       .executeTakeFirstOrThrow();
 
     expect(stored).toMatchObject({ status: "queued", attempts: 0 });
-    expect(stored.payloadEncrypted).toMatch(/^v1\./);
+    expect(stored.payloadEncrypted).toMatch(/^v2\./);
     expect(stored.payloadEncrypted).not.toContain(code);
     expect(stored.payloadEncrypted).not.toContain("Synthetic Recipient");
     expect(stored.payloadEncrypted).not.toContain(stored.recipient);
@@ -77,7 +77,7 @@ describe("email delivery queue security", () => {
       .select("payloadEncrypted")
       .where("id", "=", deliveryId)
       .executeTakeFirstOrThrow();
-    const [version, iv, authenticationTag, ciphertext] =
+    const [version, keyFingerprint, iv, authenticationTag, ciphertext] =
       stored.payloadEncrypted.split(".");
     const tamperedTag = Buffer.from(authenticationTag, "base64url");
     tamperedTag[0] ^= 0xff;
@@ -86,6 +86,7 @@ describe("email delivery queue security", () => {
       .set({
         payloadEncrypted: [
           version,
+          keyFingerprint,
           iv,
           tamperedTag.toString("base64url"),
           ciphertext,
@@ -145,7 +146,7 @@ describe("email delivery queue security", () => {
     ).resolves.toEqual({ status: "queued" });
   });
 
-  it("treats an incompatible queue key as a terminal failure", async () => {
+  it("retains a payload when its original queue key is temporarily unavailable", async () => {
     const deliveryId = await queueRecovery("223344", Date.now() + 60_000);
     vi.stubEnv(
       "EMAIL_QUEUE_ENCRYPTION_KEY",
@@ -166,10 +167,10 @@ describe("email delivery queue security", () => {
         .where("id", "=", deliveryId)
         .executeTakeFirstOrThrow(),
     ).resolves.toEqual({
-      status: "failed",
-      attempts: 1,
-      payloadEncrypted: "",
-      lastError: "payload_authentication_failed",
+      status: "retry",
+      attempts: 0,
+      payloadEncrypted: expect.stringMatching(/^v2\./),
+      lastError: "encryption_key_unavailable",
     });
   });
 

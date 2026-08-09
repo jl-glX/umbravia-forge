@@ -70,9 +70,10 @@ session controls, rate limiting and monitoring remain independent layers.
 
 ## Implemented baseline
 
-- Password hashing with bcrypt and a cost factor of 12.
+- Password hashing with Argon2id (`m=19456`, `t=2`, `p=1`). Existing bcrypt
+  hashes remain readable only for a gradual upgrade after valid authentication.
 - Password policy of at least 12 characters, uppercase, lowercase and digits,
-  with a hard maximum of 72 UTF-8 bytes to prevent bcrypt truncation aliases.
+  with a hard maximum of 1024 UTF-8 bytes to bound request and hashing cost.
 - Opaque random session tokens; only their SHA-256 hashes are stored.
 - Persistent, expiring and revocable database sessions.
 - Browser-session cookies by default, plus optional remembered sessions with an explicit 30-day expiry and server-side revocation.

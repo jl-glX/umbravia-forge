@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import bcryptjs from "bcryptjs";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 describe("persistent authentication sessions", () => {
@@ -152,19 +153,37 @@ describe("persistent authentication sessions", () => {
     expect(stored.revokedAt).not.toBeNull();
   });
 
-  it("rejects passwords that bcrypt would silently truncate", async () => {
-    const sharedPrefix = `Aa1${"x".repeat(69)}`;
-    const firstPassword = `${sharedPrefix}ONE`;
-    const secondPassword = `${sharedPrefix}TWO`;
+  it("rejects abusive oversized passwords before Argon2id", async () => {
+    const oversizedPassword = `Aa1${"x".repeat(1_022)}`;
 
-    expect(Buffer.byteLength(firstPassword, "utf8")).toBeGreaterThan(72);
-    expect(auth.isStrongPassword(firstPassword)).toBe(false);
-    await expect(auth.hashPassword(firstPassword)).rejects.toThrow(
+    expect(Buffer.byteLength(oversizedPassword, "utf8")).toBeGreaterThan(1_024);
+    expect(auth.isStrongPassword(oversizedPassword)).toBe(false);
+    await expect(auth.hashPassword(oversizedPassword)).rejects.toThrow(
       "Password exceeds the supported byte length",
     );
-    expect(await auth.verifyUserPassword("secure-admin", secondPassword)).toBe(
-      false,
+  });
+
+  it("upgrades a valid legacy bcrypt hash after login", async () => {
+    const password = "LegacyMigrationPassword123";
+    const legacyHash = await bcryptjs.hash(password, 12);
+    await database.db
+      .updateTable("users")
+      .set({ password: legacyHash })
+      .where("id", "=", "secure-admin")
+      .execute();
+
+    const result = await auth.login(
+      "secure-admin@umbravia-forge.test",
+      password,
+      "staff",
     );
+    expect(result.mfaRequired).toBe(false);
+    const migrated = await database.db
+      .selectFrom("users")
+      .select("password")
+      .where("id", "=", "secure-admin")
+      .executeTakeFirstOrThrow();
+    expect(migrated.password).toMatch(/^\$argon2id\$/);
   });
 
   it("stores progressive signup identity and versioned acknowledgements", async () => {

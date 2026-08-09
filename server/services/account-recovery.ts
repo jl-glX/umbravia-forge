@@ -4,8 +4,8 @@ import {
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
-import bcryptjs from "bcryptjs";
 import { db } from "../db/client.js";
+import { hashPasswordWithArgon2id } from "../lib/password-hashing.js";
 import {
   isPasswordWithinHashLimit,
   isStrongPassword,
@@ -286,7 +286,7 @@ async function performPasswordResetWithRecoveryCode(input: {
     return false;
   }
 
-  const passwordHash = await bcryptjs.hash(input.newPassword, 12);
+  const passwordHash = await hashPasswordWithArgon2id(input.newPassword);
   await db.transaction().execute(async (transaction) => {
     const consumed = await transaction
       .updateTable("accountRecoveryChallenges")

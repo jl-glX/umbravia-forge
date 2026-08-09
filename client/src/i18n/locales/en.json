@@ -576,7 +576,7 @@
     "confirmPassword": "Confirm password",
     "allRequired": "All fields are required",
     "passwordMismatch": "Passwords do not match",
-    "passwordPolicy": "Password must contain at least 12 characters, use no more than 72 bytes, and include uppercase, lowercase and a number",
+    "passwordPolicy": "Password must contain at least 12 characters, use no more than 1024 bytes, and include uppercase, lowercase and a number",
     "createAccount": "Create account",
     "creatingAccount": "Creating account...",
     "hasAccount": "Already have an account?",

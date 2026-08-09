@@ -190,8 +190,8 @@ describe("extreme local security assessment", () => {
       .expect(401);
   });
 
-  it("rejects passwords that exceed bcrypt's safe input limit", async () => {
-    const oversizedPassword = `Aa1${"x".repeat(70)}`;
+  it("rejects passwords that exceed the Argon2id input policy", async () => {
+    const oversizedPassword = `Aa1${"x".repeat(1_022)}`;
 
     const signupResponse = await request(app).post("/api/auth/signup").send({
       email: "oversized-password@example.test",

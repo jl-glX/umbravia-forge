@@ -1,0 +1,37 @@
+[Unit]
+Description=Encrypted PostgreSQL backup for Umbravia Forge
+Documentation=https://github.com/jl-glX/umbravia-forge
+Wants=network-online.target
+After=network-online.target postgresql.service
+ConditionPathExists=/etc/umbravia-forge/umbravia-forge.env
+
+[Service]
+Type=oneshot
+User=umbravia
+Group=umbravia
+WorkingDirectory=/opt/umbravia-forge/current
+EnvironmentFile=/etc/umbravia-forge/umbravia-forge.env
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env bash deploy/backup-postgresql-encrypted.sh
+UMask=0077
+
+RuntimeDirectory=umbravia-forge
+ReadWritePaths=/var/backups/umbravia-forge/postgresql
+
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

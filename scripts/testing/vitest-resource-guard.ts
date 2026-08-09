@@ -3,7 +3,49 @@ import { open, readFile, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-const TEST_DIRECTORY_PREFIXES = ["umbravia-forge-", "umbravia-"] as const;
+// Keep this allow-list deliberately explicit. A broad `umbravia-*` match could
+// remove a real application or workspace directory that happens to live in the
+// operating system temporary folder.
+const TEST_DIRECTORY_PREFIXES = [
+  "umbravia-forge-account-manager-",
+  "umbravia-forge-account-profile-",
+  "umbravia-forge-account-scheduler-",
+  "umbravia-forge-admin-safety-",
+  "umbravia-forge-auth-",
+  "umbravia-forge-billing-",
+  "umbravia-forge-booking-config-",
+  "umbravia-forge-booking-migration-",
+  "umbravia-forge-booking-security-",
+  "umbravia-forge-commercial-",
+  "umbravia-forge-compromise-",
+  "umbravia-forge-continuity-",
+  "umbravia-forge-db-bridge-",
+  "umbravia-forge-delegations-",
+  "umbravia-forge-deletion-security-",
+  "umbravia-forge-email-queue-security-",
+  "umbravia-forge-environments-",
+  "umbravia-forge-extreme-security-",
+  "umbravia-forge-facility-profile-",
+  "umbravia-forge-feedback-",
+  "umbravia-forge-lifecycle-",
+  "umbravia-forge-lifecycle-api-",
+  "umbravia-forge-member-commerce-",
+  "umbravia-forge-mfa-",
+  "umbravia-forge-recovery-",
+  "umbravia-forge-recovery-abuse-",
+  "umbravia-forge-recovery-route-",
+  "umbravia-forge-resources-",
+  "umbravia-forge-retention-",
+  "umbravia-forge-runtime-",
+  "umbravia-forge-security-manager-",
+  "umbravia-forge-signup-flow-",
+  "umbravia-forge-support-id-",
+  "umbravia-booking-lifecycle-",
+  "umbravia-community-",
+  "umbravia-session-content-",
+  "umbravia-support-",
+  "vitest-resource-guard-test-",
+] as const;
 const LOCK_FILE_NAME = "umbravia-forge-vitest.lock";
 const DEFAULT_STALE_AGE_MS = 30 * 60 * 1_000;
 
