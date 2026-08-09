@@ -76,6 +76,14 @@ describe("systemd deployment service", () => {
     expect(installer).toContain("se rechaza pisar una configuracion ajena");
     expect(installer).toContain("systemctl disable --now opendkim.service");
     expect(installer).toContain("Clave DKIM existente conservada");
+    expect(installer).toContain(
+      "CONFIG_ROOT=${UMBRAVIA_MAIL_CONFIG_ROOT:-/etc/umbravia-forge-mail}",
+    );
+    expect(installer).toContain(
+      "LEGACY_CONFIG_ROOT=${UMBRAVIA_MAIL_LEGACY_CONFIG_ROOT:-/etc/umbravia-forge/mail}",
+    );
+    expect(installer).toContain("Clave DKIM heredada conservada y copiada");
+    expect(installer).not.toMatch(/rm[^\n]+LEGACY_CONFIG_ROOT/);
     expect(installer).toContain("No publicar todavia:");
     expect(installer).not.toMatch(/ufw\s+allow\s+25/);
     expect(installer).not.toMatch(/firewall-cmd[^\n]+smtp/);

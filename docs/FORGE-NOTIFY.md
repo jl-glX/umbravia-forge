@@ -91,7 +91,12 @@ operación verificable. Por defecto solo muestra el plan:
 La aplicación exige una ejecución explícita como `root` para instalar y
 configurar. Mantiene Postfix en `loopback-only`, crea un firmador OpenDKIM
 dedicado, conserva cualquier clave DKIM ya existente y genera un manifiesto
-público en `/etc/umbravia-forge/mail/dns-records.txt`. No edita el archivo de
+público en `/etc/umbravia-forge-mail/dns-records.txt`. La configuración del
+firmador se mantiene fuera de `/etc/umbravia-forge`, porque ese directorio
+contiene el entorno secreto de la aplicación y no debe hacerse accesible al
+usuario `opendkim`. Si una instalación anterior dejó una clave en
+`/etc/umbravia-forge/mail`, el instalador la copia de forma conservadora al
+nuevo directorio, sin borrarla ni regenerarla. No edita el archivo de
 entorno de la aplicación, no abre el puerto 25 y no activa la recepción de
 correo.
 
@@ -110,7 +115,7 @@ sudo UMBRAVIA_PUBLIC_IPV4=<IP_PUBLICA> \
 Después se revisa el manifiesto sin mostrar la clave privada:
 
 ```text
-sudo cat /etc/umbravia-forge/mail/dns-records.txt
+sudo cat /etc/umbravia-forge-mail/dns-records.txt
 ```
 
 Los registros A, SPF, DKIM y DMARC se publican en Cloudflare solo después de

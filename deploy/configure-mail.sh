@@ -6,7 +6,8 @@ DOMAIN=${UMBRAVIA_MAIL_DOMAIN:-umbraviaforge.com}
 MAIL_HOST=${UMBRAVIA_MAIL_HOST:-mail.$DOMAIN}
 DKIM_SELECTOR=${UMBRAVIA_DKIM_SELECTOR:-forge}
 PUBLIC_IPV4=${UMBRAVIA_PUBLIC_IPV4:-}
-CONFIG_ROOT=${UMBRAVIA_MAIL_CONFIG_ROOT:-/etc/umbravia-forge/mail}
+CONFIG_ROOT=${UMBRAVIA_MAIL_CONFIG_ROOT:-/etc/umbravia-forge-mail}
+LEGACY_CONFIG_ROOT=${UMBRAVIA_MAIL_LEGACY_CONFIG_ROOT:-/etc/umbravia-forge/mail}
 KEY_ROOT=$CONFIG_ROOT/keys/$DOMAIN
 DKIM_CONFIG=$CONFIG_ROOT/opendkim.conf
 DNS_MANIFEST=$CONFIG_ROOT/dns-records.txt
@@ -112,12 +113,28 @@ write_dkim_files() {
   getent group opendkim >/dev/null 2>&1 || fail "el paquete no creo el grupo opendkim"
 
   install -d -o root -g opendkim -m 0750 "$CONFIG_ROOT" "$CONFIG_ROOT/keys" "$KEY_ROOT"
+  legacy_key_root=$LEGACY_CONFIG_ROOT/keys/$DOMAIN
+  if [ "$CONFIG_ROOT" != "$LEGACY_CONFIG_ROOT" ] && \
+    [ ! -f "$KEY_ROOT/$DKIM_SELECTOR.private" ] && \
+    [ -f "$legacy_key_root/$DKIM_SELECTOR.private" ]; then
+    install -o root -g opendkim -m 0640 \
+      "$legacy_key_root/$DKIM_SELECTOR.private" \
+      "$KEY_ROOT/$DKIM_SELECTOR.private"
+    if [ -f "$legacy_key_root/$DKIM_SELECTOR.txt" ]; then
+      install -o root -g root -m 0644 \
+        "$legacy_key_root/$DKIM_SELECTOR.txt" \
+        "$KEY_ROOT/$DKIM_SELECTOR.txt"
+    fi
+    log "Clave DKIM heredada conservada y copiada al directorio aislado: $KEY_ROOT"
+  fi
   if [ ! -f "$KEY_ROOT/$DKIM_SELECTOR.private" ]; then
     opendkim-genkey -b 2048 -d "$DOMAIN" -D "$KEY_ROOT" -s "$DKIM_SELECTOR"
     log "Nueva clave DKIM generada y custodiada en $KEY_ROOT"
   else
     log "Clave DKIM existente conservada: $KEY_ROOT/$DKIM_SELECTOR.private"
   fi
+  [ -f "$KEY_ROOT/$DKIM_SELECTOR.txt" ] || \
+    fail "falta la representacion publica de la clave DKIM existente"
   chown root:opendkim "$KEY_ROOT/$DKIM_SELECTOR.private"
   chmod 0640 "$KEY_ROOT/$DKIM_SELECTOR.private"
   chown root:root "$KEY_ROOT/$DKIM_SELECTOR.txt"
