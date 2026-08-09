@@ -1,8 +1,26 @@
-import { readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
+const execFileAsync = promisify(execFile);
+
 describe("systemd deployment service", () => {
+  it("approves the reviewed native install scripts used in production", async () => {
+    const packageSource = await readFile(path.resolve("package.json"), "utf8");
+    const packageJson = JSON.parse(packageSource) as {
+      allowScripts?: Record<string, boolean>;
+    };
+
+    expect(packageJson.allowScripts).toMatchObject({
+      "argon2@0.45.1": true,
+      "better-sqlite3@13.0.2": true,
+      "esbuild@0.28.1": true,
+    });
+  });
+
   it("resolves Node portably instead of fixing a server-specific path", async () => {
     const unit = await readFile(
       path.resolve("deploy", "umbravia-forge.service"),
@@ -27,6 +45,7 @@ describe("systemd deployment service", () => {
     expect(caddyfile).toContain(
       "{$UMBRAVIA_CADDY_LOG:/var/log/caddy/umbravia-forge-access.log}",
     );
+    expect(caddyfile).toContain("protocols tls1.3");
     expect(readiness).toContain("CADDY_VALIDATION_LOG=$(mktemp");
     expect(readiness).toContain('UMBRAVIA_CADDY_LOG="$CADDY_VALIDATION_LOG"');
     expect(readiness).toContain('rm -f "$CADDY_VALIDATION_LOG"');
@@ -46,6 +65,61 @@ describe("systemd deployment service", () => {
     expect(readiness).toContain("dist/server/bin/check-mail-dns.js");
     expect(readiness).toContain("EMAIL_PUBLIC_DNS_CHECK=strict");
     expect(readiness).toContain("DNS publico del MTA local incompleto");
+    expect(readiness).toContain(
+      'require_file "$PROJECT_ROOT/node_modules/@noble/ciphers/package.json"',
+    );
+    expect(readiness).toContain("XChaCha20-Poly1305 portable disponible");
+    expect(readiness).toContain("check-private-content-key.mjs");
+  });
+
+  it("keeps the portable private-content cipher in the production package", async () => {
+    const [packageSource, checker] = await Promise.all([
+      readFile(path.resolve("package.json"), "utf8"),
+      readFile(path.resolve("deploy", "check-private-content-key.mjs"), "utf8"),
+    ]);
+    const packageJson = JSON.parse(packageSource) as {
+      dependencies?: Record<string, string>;
+    };
+
+    expect(packageJson.dependencies?.["@noble/ciphers"]).toBe("2.2.0");
+    expect(checker).toContain(
+      'import { xchacha20poly1305 } from "@noble/ciphers/chacha.js"',
+    );
+    expect(checker).toContain("key.length !== 32");
+    expect(checker).not.toMatch(/console\.log\([^)]*(?:encoded|key)/u);
+  });
+
+  it("checks the private-content key without printing it", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "umbravia-key-check-"));
+    const envFile = path.join(directory, "production.env");
+    const key = Buffer.alloc(32, 17).toString("base64url");
+    try {
+      await writeFile(
+        envFile,
+        `PRIVATE_CONTENT_ENCRYPTION_ENABLED=true\nPRIVATE_CONTENT_ENCRYPTION_KEY=${key}\n`,
+        { mode: 0o600 },
+      );
+      const result = await execFileAsync(process.execPath, [
+        path.resolve("deploy", "check-private-content-key.mjs"),
+        envFile,
+      ]);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+
+      await writeFile(
+        envFile,
+        "PRIVATE_CONTENT_ENCRYPTION_ENABLED=true\nPRIVATE_CONTENT_ENCRYPTION_KEY=invalid\n",
+        { mode: 0o600 },
+      );
+      await expect(
+        execFileAsync(process.execPath, [
+          path.resolve("deploy", "check-private-content-key.mjs"),
+          envFile,
+        ]),
+      ).rejects.toMatchObject({ code: 1 });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it("keeps persistent security environment files outside release cleanup", async () => {

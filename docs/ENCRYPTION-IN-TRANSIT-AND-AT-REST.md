@@ -15,7 +15,7 @@ infraestructura separada.
 | Trayecto                    | Control actual | Regla                                |
 | --------------------------- | -------------- | ------------------------------------ |
 | Navegador a Cloudflare      | HTTPS          | TLS obligatorio y modo Full (strict) |
-| Cloudflare a Caddy          | HTTPS          | certificado válido en el origen      |
+| Cloudflare a Caddy          | TLS 1.3        | certificado válido en el origen      |
 | Caddy a Node.js             | loopback       | Node solo escucha en `127.0.0.1`     |
 | Node.js a PostgreSQL local  | loopback       | puede usar `DATABASE_SSL=false`      |
 | Node.js a PostgreSQL remoto | TLS            | certificado obligatorio y verificado |
@@ -31,6 +31,8 @@ protección depende además del aislamiento del proceso y del sistema.
 
 - contraseñas: Argon2id (`m=19456`, `t=2`, `p=1`), nunca cifrado reversible;
 - secretos MFA y cuerpos pendientes de Forge Notify: AES-256-GCM autenticado;
+- justificaciones privadas y adjuntos de soporte: XChaCha20-Poly1305
+  autenticado, con envoltorio versionado y contexto asociado;
 - copias PostgreSQL: `pg_dump` transmite directamente a `age`;
 - clave privada de recuperación: fuera del servidor de producción;
 - archivos de entorno: permisos `600` o `640` y nunca incluidos en Git.
@@ -43,6 +45,10 @@ La cola de correo usa un formato versionado con huella no secreta de la clave.
 Si la clave activa no coincide con la que cifró un mensaje pendiente, conserva
 la carga para que el operador pueda restaurar la clave correcta; no la destruye
 como si fuera un texto manipulado. El formato anterior sigue siendo legible.
+
+La activación de XChaCha20-Poly1305 y el límite de Signal Protocol están
+documentados en
+[`PRIVATE-COMMUNICATION-SECURITY.md`](./PRIVATE-COMMUNICATION-SECURITY.md).
 
 El cifrado asimétrico se reserva para la envoltura y el transporte de material
 criptográfico y para las copias con `age`; no se usa directamente como cifrado
@@ -128,57 +134,10 @@ exigir desbloqueo en el arranque, provocar indisponibilidad y dejar el sistema
 sin acceso remoto. `check-encryption-readiness.sh` informa de esta frontera como
 aviso, pero no toca particiones.
 
-### Perfiles de cascada solicitados
-
-`AES-Twofish-Serpent` y `AES-Twofish` se integran como cifrado transparente de
-volumen, no como una construcción criptográfica propia de la aplicación:
-
-| Datos                    | Perfil                          | Cascada del volumen        |
-| ------------------------ | ------------------------------- | -------------------------- |
-| PostgreSQL de producción | `veracrypt-aes-twofish-serpent` | AES-Twofish-Serpent en XTS |
-| SQLite de demostración   | `veracrypt-aes-twofish`         | AES-Twofish en XTS         |
-
-VeraCrypt aplica primero Serpent, después Twofish y finalmente AES en la
-cascada de tres; cada cifrador utiliza claves independientes. PostgreSQL y
-SQLite ven un sistema de archivos normal ya montado, por lo que no se altera su
-formato ni se introduce criptografía casera en TypeScript.
-
-Para declarar volúmenes que ya hayan sido creados, montados y migrados de forma
-controlada:
-
-```text
-UMBRAVIA_POSTGRES_STORAGE_PROFILE=veracrypt-aes-twofish-serpent
-UMBRAVIA_POSTGRES_STORAGE_MOUNT=/var/lib/postgresql
-UMBRAVIA_SQLITE_STORAGE_PROFILE=veracrypt-aes-twofish
-UMBRAVIA_SQLITE_STORAGE_MOUNT=/var/lib/umbravia-forge/sqlite
-```
-
-La comprobación consulta las propiedades del volumen montado y rechaza un
-algoritmo distinto al declarado. La aplicación no crea el volumen, no recibe
-su contraseña y no almacena keyfiles de VeraCrypt. Esa separación evita que un
-compromiso de la aplicación entregue también la clave del almacenamiento.
-
-Activar estos perfiles exige antes:
-
-1. una copia cifrada y una restauración ensayada;
-2. una ventana de mantenimiento;
-3. crear los volúmenes mediante la herramienta oficial;
-4. migrar los directorios con PostgreSQL y la aplicación detenidos;
-5. definir un procedimiento seguro de desbloqueo tras reinicio;
-6. confirmar el algoritmo con `check-encryption-readiness.sh`;
-7. arrancar primero PostgreSQL y después Umbravia Forge.
-
-Guardar la contraseña del volumen junto al servidor permite el arranque
-automático, pero reduce considerablemente la protección frente a la toma del
-host. Por eso este repositorio no genera un servicio de montaje automático con
-una clave guardada en disco.
-
 ## Límites pendientes
 
 - documentar y ensayar la restauración trimestral;
 - copiar las copias cifradas a un segundo emplazamiento independiente;
 - definir rotación de destinatarios `age` sin perder copias antiguas;
 - migrar el volumen del servidor a cifrado integral;
-- ensayar los perfiles VeraCrypt en un servidor de staging antes de mover la
-  base activa;
 - valorar TLS también en el salto local si PostgreSQL se separa en otro host.

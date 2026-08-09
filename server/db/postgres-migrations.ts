@@ -683,6 +683,7 @@ CREATE TABLE IF NOT EXISTS "communityMessages" (
   "authorUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
   "parentId" TEXT REFERENCES "communityMessages" ("id") ON DELETE SET NULL,
   "body" TEXT NOT NULL CHECK (length("body") BETWEEN 1 AND 4000),
+  "protectedBody" TEXT,
   "kind" TEXT NOT NULL CHECK ("kind" IN ('public','private_justification')),
   "pinned" SMALLINT NOT NULL DEFAULT 0 CHECK ("pinned" IN (0, 1)),
   "status" TEXT NOT NULL DEFAULT 'active' CHECK ("status" IN ('active','reported','removed')),
@@ -993,6 +994,14 @@ WHERE EXISTS (
 DROP INDEX IF EXISTS "idx_accountRecoveryChallenges_userId";
 CREATE UNIQUE INDEX "idx_accountRecoveryChallenges_userId"
   ON "accountRecoveryChallenges" ("userId");
+`,
+  },
+  {
+    version: 11,
+    name: "private-community-content-encryption-envelope",
+    sql: String.raw`
+ALTER TABLE "communityMessages"
+  ADD COLUMN IF NOT EXISTS "protectedBody" TEXT;
 `,
   },
 ];

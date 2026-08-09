@@ -166,5 +166,27 @@ describe("production configuration", () => {
         EMAIL_QUEUE_ENCRYPTION_KEY: "not-a-valid-key",
       }),
     ).toThrow(/32 random bytes/i);
+    expect(() =>
+      validateProductionConfiguration({
+        ...validEnvironment,
+        PRIVATE_CONTENT_ENCRYPTION_ENABLED: "true",
+        PRIVATE_CONTENT_ENCRYPTION_KEY: "invalid",
+      }),
+    ).toThrow(/exactly 32 bytes/i);
+  });
+
+  it("accepts a portable 32-byte private-content key when enabled", () => {
+    expect(
+      validateProductionConfiguration(
+        {
+          ...validEnvironment,
+          PRIVATE_CONTENT_ENCRYPTION_ENABLED: "true",
+          PRIVATE_CONTENT_ENCRYPTION_KEY: Buffer.alloc(32, 13).toString(
+            "base64url",
+          ),
+        },
+        "postgresql",
+      ),
+    ).toMatchObject({ deploymentProfile: "production" });
   });
 });

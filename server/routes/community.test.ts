@@ -16,6 +16,11 @@ describe("community, identity and moderation APIs", () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-community-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("PRIVATE_CONTENT_ENCRYPTION_ENABLED", "true");
+    vi.stubEnv(
+      "PRIVATE_CONTENT_ENCRYPTION_KEY",
+      "Y29tbXVuaXR5LXRlc3Qta2V5LTMyaXNoLWJ5dGVzISE",
+    );
     vi.resetModules();
     database = await import("../db/client.js");
     const auth = await import("../services/auth.js");
@@ -195,6 +200,50 @@ describe("community, identity and moderation APIs", () => {
       .set("Cookie", memberCookie)
       .expect(200);
     expect(messages.body).toHaveLength(2);
+  });
+
+  it("encrypts private class justifications at rest and decrypts authorized responses", async () => {
+    const channelId = "community-private-class";
+    await database.db
+      .insertInto("communityChannels")
+      .values({
+        id: channelId,
+        scope: "class",
+        scopeId: "synthetic-class",
+        name: "Private class context",
+        status: "community_active",
+        createdBy: "community-admin",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      .execute();
+
+    const created = await request(app)
+      .post(`/api/community/channels/${channelId}/messages`)
+      .set("Cookie", adminCookie)
+      .send({
+        body: "Justificación privada cifrada",
+        kind: "private_justification",
+      })
+      .expect(201);
+    expect(created.body.body).toBe("Justificación privada cifrada");
+    expect(created.body.protectedBody).toBeUndefined();
+
+    const stored = await database.db
+      .selectFrom("communityMessages")
+      .select(["body", "protectedBody"])
+      .where("id", "=", created.body.id)
+      .executeTakeFirstOrThrow();
+    expect(stored.body).toBe("[protected]");
+    expect(stored.protectedBody).toMatch(/^xcp1\./);
+    expect(stored.protectedBody).not.toContain("Justificación");
+
+    const messages = await request(app)
+      .get(`/api/community/channels/${channelId}/messages`)
+      .set("Cookie", adminCookie)
+      .expect(200);
+    expect(messages.body[0].body).toBe("Justificación privada cifrada");
+    expect(messages.body[0].protectedBody).toBeUndefined();
   });
 
   it("keeps personal communities private and admits accepted contacts", async () => {

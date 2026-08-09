@@ -1,6 +1,10 @@
 # UMBRAVIA_DOMAIN selects the public hostname; every protection below remains
 # identical when the hostname changes.
 {$UMBRAVIA_DOMAIN:www.umbraviaforge.com} {
+	tls {
+		protocols tls1.3
+	}
+
 	encode zstd gzip
 
 	@automated_probes {

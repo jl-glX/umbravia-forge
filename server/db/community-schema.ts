@@ -66,6 +66,7 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
       authorUserId TEXT NOT NULL,
       parentId TEXT,
       body TEXT NOT NULL CHECK(length(body) BETWEEN 1 AND 4000),
+      protectedBody TEXT,
       kind TEXT NOT NULL CHECK(kind IN ('public','private_justification')),
       pinned INTEGER NOT NULL DEFAULT 0 CHECK(pinned IN (0, 1)),
       status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','reported','removed')),
@@ -159,4 +160,13 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_moderationAppeals_case
       ON moderationAppeals(caseId, status, createdAt DESC);
   `);
+
+  const messageColumns = sqliteDb
+    .prepare("PRAGMA table_info(communityMessages)")
+    .all() as Array<{ name: string }>;
+  if (!messageColumns.some((column) => column.name === "protectedBody")) {
+    sqliteDb.exec(
+      "ALTER TABLE communityMessages ADD COLUMN protectedBody TEXT",
+    );
+  }
 }

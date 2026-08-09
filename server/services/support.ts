@@ -13,6 +13,10 @@ import {
   queueSupportUpdateEmail,
 } from "./email-delivery.js";
 import { publishManagerSignal } from "./manager-coordinator.js";
+import {
+  protectPrivateBytes,
+  revealPrivateBytes,
+} from "../lib/private-content-crypto.js";
 
 export class SupportAccessError extends Error {
   readonly statusCode = 403;
@@ -675,7 +679,11 @@ export async function storeSupportAttachment(
   const root = attachmentRoot();
   await mkdir(root, { recursive: true, mode: 0o700 });
   const target = path.join(root, storageKey);
-  await writeFile(target, input.body, { flag: "wx", mode: 0o600 });
+  const protectedBody = protectPrivateBytes(
+    input.body,
+    `support-attachment:${id}`,
+  );
+  await writeFile(target, protectedBody, { flag: "wx", mode: 0o600 });
   try {
     const attachment = {
       id,
@@ -725,7 +733,11 @@ export async function readSupportAttachment(
     throw new SupportAccessError("Support attachment access denied");
   }
   const filePath = path.join(attachmentRoot(), attachment.storageKey);
-  return { attachment, body: await readFile(filePath) };
+  const storedBody = await readFile(filePath);
+  return {
+    attachment,
+    body: revealPrivateBytes(storedBody, `support-attachment:${attachment.id}`),
+  };
 }
 
 export async function listKnowledgeArticles(auth: AuthenticatedUser, q = "") {

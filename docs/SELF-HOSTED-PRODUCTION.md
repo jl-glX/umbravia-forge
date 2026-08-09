@@ -114,6 +114,8 @@ SMTP_USER=<opcional; siempre junto a SMTP_PASSWORD>
 SMTP_PASSWORD=<secreto opcional>
 EMAIL_FROM=<remitente verificado>
 EMAIL_QUEUE_ENCRYPTION_KEY=<clave aleatoria segura de 32 bytes en base64>
+PRIVATE_CONTENT_ENCRYPTION_ENABLED=true
+PRIVATE_CONTENT_ENCRYPTION_KEY=<clave nueva de 32 bytes en base64url>
 EMAIL_PUBLIC_MAIL_HOST=<host publico del MTA propio>
 EMAIL_DKIM_SELECTOR=<selector DKIM publicado>
 EMAIL_PUBLIC_DNS_CHECK=<warn durante preparacion; strict antes de correo real>
@@ -135,6 +137,10 @@ compilación del actualizador.
 La puesta en marcha de las copias cifradas y los perfiles opcionales de
 almacenamiento están documentados en
 [`ENCRYPTION-IN-TRANSIT-AND-AT-REST.md`](ENCRYPTION-IN-TRANSIT-AND-AT-REST.md).
+La clave de contenido privado es independiente de las claves MFA y de correo;
+la automatización no la genera ni la rota. Su activación y la frontera futura
+de Signal Protocol se documentan en
+[`PRIVATE-COMMUNICATION-SECURITY.md`](PRIVATE-COMMUNICATION-SECURITY.md).
 
 ## Verificación de correo y entrega transaccional
 
@@ -190,6 +196,8 @@ npm run db:postgres:validate-config
   expresamente aislado.
 - Limitar PostgreSQL a la red privada o a `localhost` cuando comparta servidor.
 - Configurar HTTPS, HSTS y renovación automática de certificados en el proxy.
+- Mantener TLS 1.3 en el salto público y en el origen Caddy. La política TLS de
+  Cloudflare se valida de forma independiente a la configuración del origen.
 - Enviar al proceso Node.js un único salto de proxy de confianza.
 - Restringir SSH por clave, usuario sin privilegios y firewall.
 

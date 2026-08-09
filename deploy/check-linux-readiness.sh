@@ -79,11 +79,19 @@ require_file "$PROJECT_ROOT/deploy/umbravia-forge-backup.service"
 require_file "$PROJECT_ROOT/deploy/umbravia-forge-backup.timer"
 require_file "$PROJECT_ROOT/node_modules/express/package.json"
 require_file "$PROJECT_ROOT/node_modules/argon2/package.json"
+require_file "$PROJECT_ROOT/node_modules/@noble/ciphers/package.json"
+require_file "$PROJECT_ROOT/deploy/check-private-content-key.mjs"
 
 if node --input-type=module -e "await import('argon2')" >/dev/null 2>&1; then
   pass "modulo nativo Argon2 disponible"
 else
   fail "Argon2 no puede cargarse; reinstale dependencias dentro de este sistema Linux"
+fi
+
+if node --input-type=module -e "await import('@noble/ciphers/chacha.js')" >/dev/null 2>&1; then
+  pass "XChaCha20-Poly1305 portable disponible"
+else
+  fail "@noble/ciphers no puede cargarse en este sistema Linux"
 fi
 
 if command -v caddy >/dev/null 2>&1; then
@@ -128,6 +136,17 @@ if [ -f "$ENV_FILE" ]; then
       fail "$REQUIRED_ENV ausente para la verificacion de correo"
     fi
   done
+
+  if node "$PROJECT_ROOT/deploy/check-private-content-key.mjs" "$ENV_FILE" >/dev/null 2>&1; then
+    pass "cifrado XChaCha20-Poly1305 de contenido privado activo y valido"
+  else
+    PRIVATE_CRYPTO_STATUS=$?
+    if [ "$PRIVATE_CRYPTO_STATUS" -eq 2 ]; then
+      warn "cifrado de contenido privado aun no activado; configure la nueva clave antes de almacenar datos privados reales"
+    else
+      fail "configuracion invalida de PRIVATE_CONTENT_ENCRYPTION_KEY"
+    fi
+  fi
 
   if grep -Eq '^UMBRAVIA_BACKUP_AGE_RECIPIENT=(age1|age1pq1).+' "$ENV_FILE"; then
     pass "destinatario publico de copias cifradas configurado"

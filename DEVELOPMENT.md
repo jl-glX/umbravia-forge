@@ -81,6 +81,10 @@ Copy `.env.example` to `.env` to override defaults.
 | `SMTP_USER` / `SMTP_PASSWORD`                | Optional SMTP credentials; configure both or neither.            |
 | `EMAIL_FROM`                                 | Verified sender displayed on account emails.                     |
 | `EMAIL_QUEUE_ENCRYPTION_KEY`                 | AES-256-GCM key for queued transactional-email payloads.         |
+| `PRIVATE_CONTENT_ENCRYPTION_ENABLED`         | Activates versioned XChaCha20-Poly1305 for private content.      |
+| `PRIVATE_CONTENT_ENCRYPTION_KEY`             | Independent 32-byte key for private content and attachments.     |
+| `PRIVATE_CONTENT_ENCRYPTION_ENABLED`         | Activates versioned XChaCha20-Poly1305 for private content.      |
+| `PRIVATE_CONTENT_ENCRYPTION_KEY`             | Independent 32-byte key for private content and attachments.     |
 | `SUPPORT_NOTIFICATION_EMAIL`                 | Optional internal destination for new-ticket notifications.      |
 | `SUPPORT_ATTACHMENT_MAX_BYTES`               | Private attachment limit; defaults to 5 MiB and is capped at 10. |
 | `SUPPORT_MUTATION_RATE_LIMIT_MAX_REQUESTS`   | Per-window mutation budget for Forge Support.                    |

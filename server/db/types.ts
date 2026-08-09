@@ -530,6 +530,7 @@ interface CommunityMessage {
   authorUserId: string;
   parentId: string | null;
   body: string;
+  protectedBody: string | null;
   kind: "public" | "private_justification";
   pinned: number;
   status: "active" | "reported" | "removed";

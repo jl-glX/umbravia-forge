@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
@@ -18,6 +18,11 @@ describe("Forge Support API", () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-support-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("PRIVATE_CONTENT_ENCRYPTION_ENABLED", "true");
+    vi.stubEnv(
+      "PRIVATE_CONTENT_ENCRYPTION_KEY",
+      "c3VwcG9ydC10ZXN0LWtleS0zMi1ieXRlcy1sb25nISE",
+    );
     vi.resetModules();
     database = await import("../db/client.js");
     const auth = await import("../services/auth.js");
@@ -247,6 +252,16 @@ describe("Forge Support API", () => {
     expect(downloaded.headers["content-disposition"]).toContain(
       "diagnostico.txt",
     );
+    const storedAttachment = await database.db
+      .selectFrom("supportAttachments")
+      .select("storageKey")
+      .where("id", "=", uploaded.body.attachment.id)
+      .executeTakeFirstOrThrow();
+    const storedBytes = await readFile(
+      join(directory, "support-attachments", storedAttachment.storageKey),
+    );
+    expect(storedBytes.toString("utf8")).toMatch(/^xcp1\./);
+    expect(storedBytes.toString("utf8")).not.toContain("support diagnostic");
 
     const staffView = await request(app)
       .get(`/api/support/tickets/${ticketId}`)

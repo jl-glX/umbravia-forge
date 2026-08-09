@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import {
+  protectPrivateText,
+  revealPrivateText,
+} from "../lib/private-content-crypto.js";
 import express from "express";
 import { db } from "../db/client.js";
 import {
@@ -622,6 +626,7 @@ communityRouter.get("/channels/:id/messages", async (req, res, next) => {
         "communityMessages.authorUserId",
         "communityMessages.parentId",
         "communityMessages.body",
+        "communityMessages.protectedBody",
         "communityMessages.kind",
         "communityMessages.pinned",
         "communityMessages.status",
@@ -641,10 +646,18 @@ communityRouter.get("/channels/:id/messages", async (req, res, next) => {
           message.kind === "public" || message.authorUserId === auth.userId,
       );
     res.json(
-      messages.map(({ accountName, authorUsername, ...message }) => ({
-        ...message,
-        authorName: authorUsername ? `@${authorUsername}` : accountName,
-      })),
+      messages.map(
+        ({ accountName, authorUsername, protectedBody, ...message }) => ({
+          ...message,
+          body: protectedBody
+            ? revealPrivateText(
+                protectedBody,
+                `community-message:${message.id}`,
+              )
+            : message.body,
+          authorName: authorUsername ? `@${authorUsername}` : accountName,
+        }),
+      ),
     );
   } catch (error) {
     next(error);
@@ -693,12 +706,18 @@ communityRouter.post("/channels/:id/messages", async (req, res, next) => {
         return badRequest(res, "Reply target is invalid");
     }
     const now = Date.now();
+    const messageId = randomUUID();
+    const protectedBody =
+      kind === "private_justification"
+        ? protectPrivateText(body, `community-message:${messageId}`)
+        : null;
     const message = {
-      id: randomUUID(),
+      id: messageId,
       channelId: channel.id,
       authorUserId: auth.userId,
       parentId,
-      body,
+      body: protectedBody === body ? body : "[protected]",
+      protectedBody: protectedBody === body ? null : protectedBody,
       kind,
       pinned: 0 as const,
       status: "active" as const,
@@ -706,7 +725,8 @@ communityRouter.post("/channels/:id/messages", async (req, res, next) => {
       updatedAt: now,
     };
     await db.insertInto("communityMessages").values(message).execute();
-    res.status(201).json(message);
+    const { protectedBody: _protectedBody, ...response } = message;
+    res.status(201).json({ ...response, body });
   } catch (error) {
     next(error);
   }

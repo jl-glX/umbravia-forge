@@ -8,6 +8,7 @@ import {
   resolveEmailQueueEncryptionKey,
 } from "../services/email-delivery.js";
 import { emailVerificationIsEnabled } from "./account-verification-mode.js";
+import { validatePrivateContentEncryptionConfiguration } from "./private-content-crypto.js";
 
 type ProductionConfiguration = {
   deploymentProfile: DeploymentProfile;
@@ -102,6 +103,7 @@ export function validateProductionConfiguration(
   const emailVerificationEnabled = emailVerificationIsEnabled(environment);
   const emailDelivery = resolveEmailDeliveryConfiguration(environment);
   resolveEmailQueueEncryptionKey(environment);
+  validatePrivateContentEncryptionConfiguration(environment);
   const host = environment.HOST?.trim() || "127.0.0.1";
 
   if (!emailVerificationEnabled) {

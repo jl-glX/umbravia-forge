@@ -90,6 +90,13 @@ session controls, rate limiting and monitoring remain independent layers.
 - Hashed, expiring email-verification codes with bounded attempts.
 - AES-256-GCM encryption for pending transactional-email payloads, with
   bounded retry, stale-job recovery and delivery tracing.
+- Versioned XChaCha20-Poly1305 encryption at rest for private community
+  justifications and Forge Support attachments when the private-content
+  profile is enabled; legacy plaintext remains readable for controlled
+  migration.
+- TLS 1.3 enforced by Caddy at the application origin. Ordinary community
+  messages remain server-readable for moderation and are not represented as
+  end-to-end encrypted.
 - Forge Support authorization, private attachments, staff-only notes and an
   auditable ticket event history.
 - Small configurable request bodies and centralized error handling.
