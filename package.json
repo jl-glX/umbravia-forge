@@ -26,6 +26,7 @@
     "start": "node scripts/start-production.mjs",
     "deploy:package": "node scripts/validate-deployment-build.mjs && npm run build && node scripts/prepare-deployment-package.mjs && node scripts/audit-deployment-package.mjs",
     "db:postgres:validate-config": "tsx scripts/validate-postgres-config.ts",
+    "mail:dns:check": "tsx server/bin/check-mail-dns.ts",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "lint": "eslint .",

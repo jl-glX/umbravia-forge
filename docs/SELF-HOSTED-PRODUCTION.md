@@ -107,6 +107,9 @@ SMTP_USER=<opcional; siempre junto a SMTP_PASSWORD>
 SMTP_PASSWORD=<secreto opcional>
 EMAIL_FROM=<remitente verificado>
 EMAIL_QUEUE_ENCRYPTION_KEY=<clave aleatoria segura de 32 bytes en base64>
+EMAIL_PUBLIC_MAIL_HOST=<host publicado en el MX del MTA propio>
+EMAIL_DKIM_SELECTOR=<selector DKIM publicado>
+EMAIL_PUBLIC_DNS_CHECK=<warn durante preparacion; strict antes de correo real>
 SUPPORT_NOTIFICATION_EMAIL=<buzon interno opcional>
 SUPPORT_ATTACHMENT_MAX_BYTES=5242880
 SUPPORT_MUTATION_RATE_LIMIT_MAX_REQUESTS=30
@@ -142,6 +145,18 @@ necesitan dominio propio, PTR/rDNS, SPF, DKIM, DMARC, puerto saliente 25,
 gestion de rebotes, lista de supresion, monitorizacion y reputacion de IP. El
 relay local nunca debe escuchar como relay abierto en una interfaz publica.
 La arquitectura y sus límites se detallan en `FORGE-NOTIFY.md`.
+
+Para el MTA propio, publique un host de correo sin proxy, haga que el MX del
+dominio apunte a él y configure el PTR/rDNS de la IP con el mismo nombre.
+Después publique SPF, DKIM y DMARC y compruebe el conjunto con:
+
+```text
+npm run mail:dns:check -- --env /etc/umbravia-forge/umbravia-forge.env --strict
+```
+
+No active `EMAIL_PUBLIC_DNS_CHECK=strict` hasta haber publicado los registros;
+una vez activo, una release no se declarará preparada si el DNS de correo deja
+de ser coherente.
 
 Antes del despliegue puede revisarse la configuración sin conectar:
 

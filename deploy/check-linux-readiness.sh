@@ -14,6 +14,10 @@ fail() {
   FAILED=1
 }
 
+warn() {
+  printf 'WARN %s\n' "$1" >&2
+}
+
 require_command() {
   if command -v "$1" >/dev/null 2>&1; then
     pass "$1 disponible"
@@ -123,6 +127,24 @@ if [ -f "$ENV_FILE" ]; then
   else
     fail "SMTP_USER y SMTP_PASSWORD deben configurarse juntos"
   fi
+
+  SMTP_HOST_VALUE=$(sed -n 's/^SMTP_HOST=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
+  case "$SMTP_HOST_VALUE" in
+    127.0.0.1|::1|localhost)
+      MAIL_DNS_ARGS="--env $ENV_FILE"
+      if grep -Eiq '^EMAIL_PUBLIC_DNS_CHECK=strict$' "$ENV_FILE"; then
+        MAIL_DNS_ARGS="$MAIL_DNS_ARGS --strict"
+      fi
+      # shellcheck disable=SC2086
+      if node "$PROJECT_ROOT/dist/server/bin/check-mail-dns.js" $MAIL_DNS_ARGS; then
+        pass "DNS publico del MTA local comprobado"
+      elif grep -Eiq '^EMAIL_PUBLIC_DNS_CHECK=strict$' "$ENV_FILE"; then
+        fail "DNS publico del MTA local incompleto"
+      else
+        warn "DNS publico del MTA local incompleto; active EMAIL_PUBLIC_DNS_CHECK=strict antes de aceptar correo real"
+      fi
+      ;;
+  esac
 else
   fail "$ENV_FILE no existe"
 fi

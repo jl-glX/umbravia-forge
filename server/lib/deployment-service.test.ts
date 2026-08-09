@@ -43,6 +43,9 @@ describe("systemd deployment service", () => {
     expect(readiness).toContain(
       "SMTP_USER y SMTP_PASSWORD deben configurarse juntos",
     );
+    expect(readiness).toContain("dist/server/bin/check-mail-dns.js");
+    expect(readiness).toContain("EMAIL_PUBLIC_DNS_CHECK=strict");
+    expect(readiness).toContain("DNS publico del MTA local incompleto");
   });
 
   it("keeps persistent security environment files outside release cleanup", async () => {

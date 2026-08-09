@@ -64,11 +64,19 @@ SMTP_USER=<opcional, junto a SMTP_PASSWORD>
 SMTP_PASSWORD=<opcional, junto a SMTP_USER>
 EMAIL_FROM=<remitente válido del dominio>
 EMAIL_QUEUE_ENCRYPTION_KEY=<32 bytes aleatorios en base64>
+EMAIL_PUBLIC_MAIL_HOST=<host publicado en el MX, por ejemplo mail.example.com>
+EMAIL_DKIM_SELECTOR=<selector DKIM publicado>
+EMAIL_PUBLIC_DNS_CHECK=<warn durante preparacion; strict antes de correo real>
 ```
 
 `EMAIL_QUEUE_ENCRYPTION_KEY` no debe reutilizarse como clave MFA ni guardarse
 en Git. La rotación futura necesitará descifrar o agotar la cola anterior antes
 de retirar la clave antigua.
+
+Cuando se usa un MTA local, `npm run mail:dns:check -- --env <archivo>` revisa
+MX, resolución directa, PTR/rDNS, SPF, DKIM y DMARC sin imprimir secretos. El
+chequeo de Linux muestra avisos mientras se prepara el DNS y pasa a bloquear la
+activación cuando `EMAIL_PUBLIC_DNS_CHECK=strict`.
 
 ## Ciclo de verificación
 
@@ -102,7 +110,7 @@ mensajes ni destinatarios completos.
 
 - receptor autenticado de rebotes y quejas;
 - lista de supresión por destinatario y motivo;
-- DKIM gestionado y comprobaciones de DNS desde el gestor de entorno;
+- gestión y rotación asistida de claves DKIM desde el gestor de entorno;
 - métricas y panel operativo de entregabilidad;
 - plantillas versionadas con previsualización;
 - API para otros productos Umbravia con scopes, cuotas e idempotencia;

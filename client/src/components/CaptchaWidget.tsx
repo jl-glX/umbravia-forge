@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { turnstileLanguage } from "../lib/captchaLocalization";
 
@@ -8,6 +8,7 @@ const SCRIPT_URL =
 const DEVELOPMENT_SITE_KEY = "1x00000000000000000000AA";
 const SUCCESS_VISIBILITY_MS = 10_000;
 const LOAD_TIMEOUT_MS = 10_000;
+const EXECUTION_TIMEOUT_MS = 20_000;
 
 declare global {
   interface Window {
@@ -97,6 +98,7 @@ export function CaptchaWidget({
 }) {
   const containerId = `turnstile-${useId().replaceAll(":", "")}`;
   const widgetId = useRef<string | null>(null);
+  const executionTimeout = useRef<number | null>(null);
   const onTokenRef = useRef(onToken);
   const [loadFailed, setLoadFailed] = useState(false);
   const [providerErrorCode, setProviderErrorCode] = useState<string | null>(
@@ -110,6 +112,13 @@ export function CaptchaWidget({
   const { i18n, t } = useTranslation();
   const language = turnstileLanguage(i18n.resolvedLanguage ?? i18n.language);
   onTokenRef.current = onToken;
+
+  const clearExecutionTimeout = useCallback(() => {
+    if (executionTimeout.current !== null) {
+      window.clearTimeout(executionTimeout.current);
+      executionTimeout.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -158,6 +167,7 @@ export function CaptchaWidget({
           execution: "execute",
           appearance: "always",
           callback: (token) => {
+            clearExecutionTimeout();
             setLoadFailed(false);
             setVerificationStarted(false);
             setVerificationSucceeded(true);
@@ -165,6 +175,7 @@ export function CaptchaWidget({
             onTokenRef.current(token);
           },
           "expired-callback": () => {
+            clearExecutionTimeout();
             setWidgetReady(true);
             setVerificationStarted(false);
             setVerificationSucceeded(false);
@@ -172,6 +183,7 @@ export function CaptchaWidget({
             onTokenRef.current("");
           },
           "error-callback": (errorCode) => {
+            clearExecutionTimeout();
             console.error("[Turnstile] Widget error", { errorCode, action });
             onTokenRef.current("");
             setProviderErrorCode(errorCode || "PROVIDER_ERROR");
@@ -183,11 +195,13 @@ export function CaptchaWidget({
             return true;
           },
           "timeout-callback": () => {
+            clearExecutionTimeout();
             onTokenRef.current("");
             setVerificationStarted(false);
             setVerificationSucceeded(false);
           },
           "unsupported-callback": () => {
+            clearExecutionTimeout();
             onTokenRef.current("");
             setProviderErrorCode("UNSUPPORTED_BROWSER");
             setWidgetReady(false);
@@ -218,12 +232,20 @@ export function CaptchaWidget({
 
     return () => {
       disposed = true;
+      clearExecutionTimeout();
       if (widgetId.current && window.turnstile) {
         window.turnstile.remove(widgetId.current);
       }
       widgetId.current = null;
     };
-  }, [action, containerId, language, retryAttempt]);
+  }, [
+    action,
+    clearExecutionTimeout,
+    containerId,
+    language,
+    resetSignal,
+    retryAttempt,
+  ]);
 
   useEffect(() => {
     if (!verificationSucceeded) return;
@@ -233,18 +255,6 @@ export function CaptchaWidget({
     );
     return () => window.clearTimeout(hideTimer);
   }, [verificationSucceeded]);
-
-  useEffect(() => {
-    if (resetSignal && widgetId.current && window.turnstile) {
-      onTokenRef.current("");
-      setLoadFailed(false);
-      setWidgetReady(true);
-      setVerificationStarted(false);
-      setVerificationSucceeded(false);
-      setHideVerifiedWidget(false);
-      window.turnstile.reset(widgetId.current);
-    }
-  }, [resetSignal]);
 
   const startVerification = () => {
     if (!widgetId.current || !window.turnstile) {
@@ -257,10 +267,37 @@ export function CaptchaWidget({
     setVerificationSucceeded(false);
     setHideVerifiedWidget(false);
     setVerificationStarted(true);
-    window.turnstile.execute(widgetId.current);
+    clearExecutionTimeout();
+    executionTimeout.current = window.setTimeout(() => {
+      executionTimeout.current = null;
+      onTokenRef.current("");
+      setProviderErrorCode("EXECUTION_TIMEOUT");
+      setWidgetReady(false);
+      setVerificationStarted(false);
+      setVerificationSucceeded(false);
+      setHideVerifiedWidget(false);
+      setLoadFailed(true);
+    }, EXECUTION_TIMEOUT_MS);
+    try {
+      window.turnstile.execute(widgetId.current);
+    } catch (error: unknown) {
+      clearExecutionTimeout();
+      console.error("[Turnstile] Execution failed", {
+        action,
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+      onTokenRef.current("");
+      setProviderErrorCode("EXECUTION_FAILED");
+      setWidgetReady(false);
+      setVerificationStarted(false);
+      setVerificationSucceeded(false);
+      setHideVerifiedWidget(false);
+      setLoadFailed(true);
+    }
   };
 
   const retryLoading = () => {
+    clearExecutionTimeout();
     onTokenRef.current("");
     setLoadFailed(false);
     setProviderErrorCode(null);
