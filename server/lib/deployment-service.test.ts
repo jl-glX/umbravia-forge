@@ -72,6 +72,10 @@ describe("systemd deployment service", () => {
 
     expect(installer).toContain("ACTION=${1:-plan}");
     expect(installer).toContain("inet_interfaces = loopback-only");
+    expect(installer).toContain("maximal_queue_lifetime = 1d");
+    expect(installer).toContain("bounce_queue_lifetime = 1d");
+    expect(installer).toContain("minimal_backoff_time = 5m");
+    expect(installer).toContain("maximal_backoff_time = 1h");
     expect(installer).toContain("127.0.0.1:8891");
     expect(installer).toContain("se rechaza pisar una configuracion ajena");
     expect(installer).toContain("systemctl disable --now opendkim.service");

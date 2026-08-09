@@ -56,6 +56,7 @@ npm run format:check # verify formatting without changing files
 npm run lint
 npm run typecheck
 npm run test
+npm run test:watch # persistent cross-platform test session for development
 npm run build
 npm run check        # run the complete validation sequence
 npm run security:probe # local-only black-box probe; requires a running API

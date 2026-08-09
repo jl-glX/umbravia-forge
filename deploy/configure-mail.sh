@@ -219,6 +219,11 @@ configure_postfix() {
   postconf -e 'smtp_tls_security_level = may'
   postconf -e 'smtp_tls_CApath = /etc/ssl/certs'
   postconf -e 'smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache'
+  postconf -e 'maximal_queue_lifetime = 1d'
+  postconf -e 'bounce_queue_lifetime = 1d'
+  postconf -e 'minimal_backoff_time = 5m'
+  postconf -e 'maximal_backoff_time = 1h'
+  postconf -e 'queue_run_delay = 5m'
   postconf -e 'smtpd_milters = inet:127.0.0.1:8891'
   postconf -e 'non_smtpd_milters = inet:127.0.0.1:8891'
   postconf -e 'milter_default_action = tempfail'
@@ -261,6 +266,10 @@ check_infrastructure() {
     fail "myhostname no coincide con $MAIL_HOST"
   postconf -h smtpd_milters | grep -F '127.0.0.1:8891' >/dev/null ||
     fail "Postfix no esta conectado al firmador DKIM"
+  [ "$(postconf -h maximal_queue_lifetime)" = "1d" ] ||
+    fail "Postfix no limita la vida maxima de la cola"
+  [ "$(postconf -h bounce_queue_lifetime)" = "1d" ] ||
+    fail "Postfix no limita la vida de los avisos de rebote"
   opendkim -n -x "$DKIM_CONFIG"
   postfix check
   systemctl is-active --quiet "$DKIM_SERVICE" || fail "$DKIM_SERVICE no esta activo"

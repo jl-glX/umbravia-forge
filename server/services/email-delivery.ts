@@ -52,6 +52,13 @@ export class EmailDeliveryUnavailableError extends Error {
   }
 }
 
+class EmailQueuePayloadError extends Error {
+  constructor() {
+    super("Encrypted email queue payload could not be authenticated");
+    this.name = "EmailQueuePayloadError";
+  }
+}
+
 let transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
 let transporterFingerprint = "";
 
@@ -411,23 +418,37 @@ function encryptPayload(id: string, payload: EmailDeliveryPayload): string {
 }
 
 function decryptPayload(id: string, encrypted: string): EmailDeliveryPayload {
-  const [version, iv, tag, ciphertext] = encrypted.split(".");
-  if (version !== "v1" || !iv || !tag || !ciphertext) {
-    throw new Error("Unsupported email queue payload");
+  try {
+    const [version, iv, tag, ciphertext] = encrypted.split(".");
+    if (version !== "v1" || !iv || !tag || !ciphertext) {
+      throw new EmailQueuePayloadError();
+    }
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      resolveEmailQueueEncryptionKey(),
+      Buffer.from(iv, "base64url"),
+    );
+    decipher.setAAD(Buffer.from(id));
+    decipher.setAuthTag(Buffer.from(tag, "base64url"));
+    const payload = JSON.parse(
+      Buffer.concat([
+        decipher.update(Buffer.from(ciphertext, "base64url")),
+        decipher.final(),
+      ]).toString("utf8"),
+    ) as Partial<EmailDeliveryPayload>;
+    if (
+      !payload ||
+      typeof payload !== "object" ||
+      typeof payload.email !== "string" ||
+      !["es", "en", "de", "de-CH"].includes(payload.locale ?? "")
+    ) {
+      throw new EmailQueuePayloadError();
+    }
+    return payload as EmailDeliveryPayload;
+  } catch (error) {
+    if (error instanceof EmailQueuePayloadError) throw error;
+    throw new EmailQueuePayloadError();
   }
-  const decipher = createDecipheriv(
-    "aes-256-gcm",
-    resolveEmailQueueEncryptionKey(),
-    Buffer.from(iv, "base64url"),
-  );
-  decipher.setAAD(Buffer.from(id));
-  decipher.setAuthTag(Buffer.from(tag, "base64url"));
-  return JSON.parse(
-    Buffer.concat([
-      decipher.update(Buffer.from(ciphertext, "base64url")),
-      decipher.final(),
-    ]).toString("utf8"),
-  ) as EmailDeliveryPayload;
 }
 
 export async function queueEmailVerificationCode(input: {
@@ -629,8 +650,11 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
   } catch (error) {
     const attempts = row.attempts + 1;
     const nextAttemptAt = Date.now() + retryDelay(attempts);
+    const payloadRejected = error instanceof EmailQueuePayloadError;
     const terminal =
-      attempts >= row.maxAttempts || nextAttemptAt >= row.expiresAt;
+      payloadRejected ||
+      attempts >= row.maxAttempts ||
+      nextAttemptAt >= row.expiresAt;
     await db
       .updateTable("emailDeliveries")
       .set({
@@ -638,8 +662,9 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
         attempts,
         nextAttemptAt,
         payloadEncrypted: terminal ? "" : row.payloadEncrypted,
-        lastError:
-          error instanceof EmailDeliveryUnavailableError
+        lastError: payloadRejected
+          ? "payload_authentication_failed"
+          : error instanceof EmailDeliveryUnavailableError
             ? "smtp_unavailable"
             : "delivery_processing_failed",
         updatedAt: Date.now(),
@@ -647,13 +672,25 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
       .where("id", "=", row.id)
       .where("status", "=", "processing")
       .execute();
+    if (payloadRejected) {
+      await recordSecurityEvent("email_delivery_payload_rejected", row.userId, {
+        deliveryId: row.id,
+        kind: row.kind,
+      });
+    }
     publishManagerSignal(
-      "notification",
+      payloadRejected ? "security" : "notification",
       terminal ? "warning" : "info",
-      terminal ? "EMAIL_DELIVERY_FAILED" : "EMAIL_DELIVERY_RETRY",
-      terminal
-        ? "A verification message exhausted its delivery attempts."
-        : "A verification message will be retried.",
+      payloadRejected
+        ? "EMAIL_DELIVERY_PAYLOAD_REJECTED"
+        : terminal
+          ? "EMAIL_DELIVERY_FAILED"
+          : "EMAIL_DELIVERY_RETRY",
+      payloadRejected
+        ? "An encrypted email payload failed authentication and was purged."
+        : terminal
+          ? "A verification message exhausted its delivery attempts."
+          : "A verification message will be retried.",
     );
     return false;
   }

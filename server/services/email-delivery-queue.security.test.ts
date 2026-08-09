@@ -10,6 +10,7 @@ describe("email delivery queue security", () => {
   let auth: typeof import("./auth.js");
   let emailDelivery: typeof import("./email-delivery.js");
   let userId: string;
+  let encryptionKey: string;
 
   beforeAll(async () => {
     directory = await mkdtemp(
@@ -17,10 +18,8 @@ describe("email delivery queue security", () => {
     );
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
-    vi.stubEnv(
-      "EMAIL_QUEUE_ENCRYPTION_KEY",
-      randomBytes(32).toString("base64"),
-    );
+    encryptionKey = randomBytes(32).toString("base64");
+    vi.stubEnv("EMAIL_QUEUE_ENCRYPTION_KEY", encryptionKey);
     vi.resetModules();
     database = await import("../db/client.js");
     auth = await import("./auth.js");
@@ -71,7 +70,7 @@ describe("email delivery queue security", () => {
     expect(stored.payloadEncrypted).not.toContain(stored.recipient);
   });
 
-  it("rejects a manipulated ciphertext without disclosing its contents", async () => {
+  it("rejects and purges a manipulated ciphertext without retrying or disclosing its contents", async () => {
     const deliveryId = await queueRecovery("112233", Date.now() + 60_000);
     const stored = await database.db
       .selectFrom("emailDeliveries")
@@ -101,13 +100,28 @@ describe("email delivery queue security", () => {
     await expect(
       database.db
         .selectFrom("emailDeliveries")
-        .select(["status", "attempts", "lastError"])
+        .select(["status", "attempts", "payloadEncrypted", "lastError"])
         .where("id", "=", deliveryId)
         .executeTakeFirstOrThrow(),
     ).resolves.toEqual({
-      status: "retry",
+      status: "failed",
       attempts: 1,
-      lastError: "delivery_processing_failed",
+      payloadEncrypted: "",
+      lastError: "payload_authentication_failed",
+    });
+    await expect(
+      database.db
+        .selectFrom("securityEvents")
+        .select(["type", "metadata"])
+        .where("userId", "=", userId)
+        .where("type", "=", "email_delivery_payload_rejected")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      type: "email_delivery_payload_rejected",
+      metadata: JSON.stringify({
+        deliveryId,
+        kind: "account_recovery",
+      }),
     });
   });
 
@@ -129,6 +143,34 @@ describe("email delivery queue security", () => {
         .where("id", "=", second)
         .executeTakeFirstOrThrow(),
     ).resolves.toEqual({ status: "queued" });
+  });
+
+  it("treats an incompatible queue key as a terminal failure", async () => {
+    const deliveryId = await queueRecovery("223344", Date.now() + 60_000);
+    vi.stubEnv(
+      "EMAIL_QUEUE_ENCRYPTION_KEY",
+      randomBytes(32).toString("base64"),
+    );
+    try {
+      await expect(emailDelivery.deliverQueuedEmail(deliveryId)).resolves.toBe(
+        false,
+      );
+    } finally {
+      vi.stubEnv("EMAIL_QUEUE_ENCRYPTION_KEY", encryptionKey);
+    }
+
+    await expect(
+      database.db
+        .selectFrom("emailDeliveries")
+        .select(["status", "attempts", "payloadEncrypted", "lastError"])
+        .where("id", "=", deliveryId)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      status: "failed",
+      attempts: 1,
+      payloadEncrypted: "",
+      lastError: "payload_authentication_failed",
+    });
   });
 
   it("purges an expired payload before attempting delivery", async () => {

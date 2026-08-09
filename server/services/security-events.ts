@@ -5,6 +5,7 @@ export type SecurityEventType =
   | "login_succeeded"
   | "email_verified"
   | "verification_email_sent"
+  | "email_delivery_payload_rejected"
   | "login_failed"
   | "captcha_succeeded"
   | "captcha_failed"

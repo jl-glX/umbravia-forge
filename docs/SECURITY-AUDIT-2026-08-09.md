@@ -14,7 +14,7 @@ Se evaluaron de forma dirigida los módulos de correo transaccional y
 recuperación de cuentas, además de sus controles de autenticación, limitación,
 sesiones, contraseña, cola cifrada y concurrencia.
 
-La validación integral terminó correctamente con 63 archivos y 284 pruebas,
+La revalidación integral terminó correctamente con 65 archivos y 297 pruebas,
 compilación de cliente y servidor, análisis estático y auditoría de
 dependencias. La sonda de caja negra local superó 18 escenarios y la evaluación
 de resistencia de contraseñas utilizó exclusivamente hashes sintéticos.
@@ -137,8 +137,9 @@ npx vitest run server/services/account-recovery.security.test.ts server/services
 
 Resultados observados:
 
-- validación integral: 63 archivos y 284 pruebas superadas;
-- pruebas nuevas dirigidas: 2 archivos y 10 pruebas superadas;
+- revalidación integral: 65 archivos y 297 pruebas superadas;
+- revalidación dirigida de cola, despliegue y recursos de Vitest: 4 archivos y
+  18 pruebas superadas;
 - sonda local: 18 de 18 escenarios superados;
 - hash de contraseñas: bcrypt coste 12, sin hashes ni contraseñas reales;
 - dependencias: sin vulnerabilidades fuera de excepciones explícitas y acotadas;
@@ -150,21 +151,17 @@ Resultados observados:
 
 **Severidad:** baja
 
-**Estado:** confirmado, pendiente de endurecimiento
+**Estado:** corregido
 
-Cuando el tag AES-GCM se altera o la clave activa no puede descifrar un mensaje,
-la entrega falla de forma segura y no revela el contenido. Sin embargo, la cola
-clasifica el error como transitorio, incrementa los intentos y conserva el
-cuerpo cifrado hasta agotar el ciclo normal.
+Cuando el tag AES-GCM se altera, el formato no es válido o la clave activa no
+puede descifrar un mensaje, la entrega falla de forma segura y no revela el
+contenido. La explotación remota no quedó demostrada: requiere corrupción de
+almacenamiento, acceso de escritura a la base o una rotación incompatible.
 
-La explotación remota no quedó demostrada: requiere corrupción de
-almacenamiento, acceso de escritura a la base o una rotación de clave sin
-compatibilidad. El impacto es operativo —reintentos inútiles y demora de
-limpieza—, no una elusión del cifrado.
-
-**Mejora propuesta:** distinguir errores de autenticidad, versión o clave de los
-errores SMTP; marcarlos como terminales, purgar el cuerpo, emitir un evento de
-seguridad saneado y documentar una estrategia de rotación con versión de clave.
+Los errores de autenticidad, versión, formato o clave se distinguen de los
+errores SMTP. Se marcan como terminales en el primer intento, se purga el cuerpo
+cifrado y se emite un evento de seguridad saneado sin destinatario ni contenido.
+La rotación multiclave continúa delimitada como una ampliación futura.
 
 ### UF-2026-06 — Limitación no coordinada entre instancias
 
@@ -182,7 +179,7 @@ Cloudflare→Caddy→Node.
 
 | Área            | 5 de agosto                       | 9 de agosto                                                         |
 | --------------- | --------------------------------- | ------------------------------------------------------------------- |
-| Validación      | 49 archivos, 195 pruebas          | 63 archivos, 284 pruebas                                            |
+| Validación      | 49 archivos, 195 pruebas          | 65 archivos, 297 pruebas                                            |
 | Correo          | Desafío generado pero sin entrega | Cola cifrada, MTA local y reintentos funcionales                    |
 | Recuperación    | Código y política presentes       | Caducidad, uso único, carreras y revocación verificadas             |
 | SMTP            | Proveedor inexistente             | Contrato SMTP local/STARTTLS implementado; Postfix real no evaluado |
@@ -211,5 +208,4 @@ No se consideran superadas:
 La implementación local de correo y recuperación se considera funcional y
 estable dentro del alcance. Para cerrar el flujo de producción faltan una prueba
 controlada de entrega real, la comprobación de autenticación del dominio, la
-observación de rebotes y la resolución o aceptación formal de UF-2026-10 y
-UF-2026-06.
+observación de rebotes y la resolución o aceptación formal de UF-2026-06.

@@ -32,6 +32,25 @@ Ports are strict: the launcher stops with a clear error instead of silently
 moving the frontend to another port. Opening the API root returns an
 orientation response; the actual interface remains on the frontend URL.
 
+## Persistent test session
+
+Use `npm run test:watch` while developing. Vitest keeps one session alive,
+reruns affected tests after a file change and releases its lock and temporary
+resources on shutdown. The command, worker pool, lock and cleanup guard use
+Node.js APIs and the operating system temporary directory, so the same workflow
+is supported on Windows and Linux without shell-specific scripts.
+
+Both one-shot and watch executions pass through a small process supervisor. It
+forwards normal shutdown signals to the exact Vitest process it created, waits
+up to ten seconds for its workers to close and only then forces that owned
+process to stop. It does not enumerate or terminate unrelated Node.js, Vite or
+application processes by executable name, port or broad pattern.
+
+Only one Vitest session may own the project test resources at a time. Stop the
+watch session with `Ctrl+C` before running the complete `npm run ci:validate`
+gate. If a process is interrupted, the next run detects and replaces its stale
+lock; it never terminates unrelated Node.js processes.
+
 ## Environment
 
 Copy `.env.example` to `.env` to override defaults.

@@ -104,6 +104,13 @@ Si detecta un `opendkim.service` ajeno ya activo, se detiene en lugar de
 reemplazarlo. Antes de tocar Postfix conserva una copia de `main.cf` bajo
 `/var/backups/umbravia-forge-mail/` y la restaura si falla la activación.
 
+La cola de la aplicación limita cada entrega a cinco intentos antes de ceder el
+mensaje al transporte. Una vez aceptado por Postfix, el MTA reintenta con una
+espera progresiva de cinco minutos a una hora y elimina como no entregables los
+mensajes que lleven un día en cola. Postfix controla esta segunda frontera por
+antigüedad, no por un contador exacto, evitando colas permanentes sin convertir
+una interrupción breve del destinatario en una pérdida inmediata.
+
 Ejemplo de preparación del servidor, indicando la IP pública sin convertirla
 en una constante del repositorio:
 
