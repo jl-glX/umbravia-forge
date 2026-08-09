@@ -1488,11 +1488,31 @@
   "recovery": {
     "eyebrow": "Access and recovery",
     "title": "Recover account",
-    "description": "Receive a temporary code by email and securely set a new password.",
-    "email": "Email address",
+    "description": "Choose how to locate your account. The temporary code is always sent to its verified email address.",
+    "lookupMethod": "Locate the account using",
+    "lookup": {
+      "email": {
+        "option": "Email",
+        "label": "Email address",
+        "placeholder": "name@example.com",
+        "help": "Use the verified address associated with the account."
+      },
+      "username": {
+        "option": "Username",
+        "label": "Username",
+        "placeholder": "your_name",
+        "help": "Use the public username configured in your community profile."
+      },
+      "public_id": {
+        "option": "Public ID",
+        "label": "Public support ID",
+        "placeholder": "GT-U-0000-0000-0000",
+        "help": "The ID only locates the account; it does not authenticate you or replace the code sent to the verified email."
+      }
+    },
     "sendCode": "Send recovery code",
     "sending": "Preparing recovery...",
-    "codeSent": "If a recoverable account exists for that email, you will receive a six-digit code. Check your junk folder too.",
+    "codeSent": "If a recoverable account exists for those details, a six-digit code will be sent to its verified email address. Check the junk folder too.",
     "code": "Recovery code",
     "newPassword": "New password",
     "confirmPassword": "Repeat new password",

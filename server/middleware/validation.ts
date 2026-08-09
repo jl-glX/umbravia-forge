@@ -10,8 +10,10 @@ import {
   BCRYPT_MAX_PASSWORD_BYTES,
   isPasswordWithinHashLimit,
 } from "../lib/password-policy.js";
+import { isSupportId } from "../lib/support-id.js";
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+const RECOVERY_USERNAME_PATTERN = /^[a-z0-9][a-z0-9_.]{2,31}$/;
 const roles = ["member", "trainer", "admin"];
 const commercialFacilityTypes = [
   "traditional_gym",
@@ -329,15 +331,48 @@ export const emailVerificationValidation = validateRequest([
     .matches(/^\d{6}$/),
 ]);
 
+const recoveryMethodValidation = body("method").isIn([
+  "email",
+  "username",
+  "public_id",
+]);
+
+const recoveryIdentifierValidation = body("identifier")
+  .isString()
+  .trim()
+  .isLength({ min: 3, max: 254 })
+  .custom((value: string, { req }) => {
+    const method = req.body.method;
+    if (method === "email") {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    }
+    if (method === "username") {
+      return RECOVERY_USERNAME_PATTERN.test(value.toLowerCase());
+    }
+    if (method === "public_id") {
+      return isSupportId(value.toUpperCase());
+    }
+    return false;
+  })
+  .withMessage("Recovery identifier does not match the selected method")
+  .customSanitizer((value: string, { req }) => {
+    const trimmed = value.trim();
+    return req.body.method === "public_id"
+      ? trimmed.toUpperCase()
+      : trimmed.toLowerCase();
+  });
+
 export const accountRecoveryRequestValidation = validateRequest([
-  strictBody(["identifier", "captchaToken"]),
+  strictBody(["method", "identifier", "captchaToken"]),
   body("captchaToken").optional().isString().isLength({ min: 1, max: 2048 }),
-  body("identifier").isEmail().normalizeEmail().isLength({ max: 254 }),
+  recoveryMethodValidation,
+  recoveryIdentifierValidation,
 ]);
 
 export const accountRecoveryResetValidation = validateRequest([
-  strictBody(["identifier", "code", "newPassword"]),
-  body("identifier").isEmail().normalizeEmail().isLength({ max: 254 }),
+  strictBody(["method", "identifier", "code", "newPassword"]),
+  recoveryMethodValidation,
+  recoveryIdentifierValidation,
   body("code")
     .isString()
     .trim()

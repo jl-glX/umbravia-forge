@@ -24,6 +24,8 @@ type RecoveryMethod = {
   canCancelPendingDeletion: boolean;
 };
 
+type RecoveryLookupMethod = "email" | "username" | "public_id";
+
 const methodIcons = {
   password: KeyRound,
   email: Mail,
@@ -40,6 +42,13 @@ const API_BASE =
 export function RecoverAccountPage() {
   const { t } = useTranslation();
   const [methods, setMethods] = useState<RecoveryMethod[]>([]);
+  const [lookupMethods, setLookupMethods] = useState<RecoveryLookupMethod[]>([
+    "email",
+    "username",
+    "public_id",
+  ]);
+  const [lookupMethod, setLookupMethod] =
+    useState<RecoveryLookupMethod>("email");
   const [step, setStep] = useState<"request" | "reset" | "complete">("request");
   const [identifier, setIdentifier] = useState("");
   const [code, setCode] = useState("");
@@ -54,9 +63,22 @@ export function RecoverAccountPage() {
     fetch(`${API_BASE}/api/auth/recovery/capabilities`)
       .then(async (response) => {
         if (!response.ok) throw new Error("Recovery capabilities unavailable");
-        return (await response.json()) as { methods: RecoveryMethod[] };
+        return (await response.json()) as {
+          methods: RecoveryMethod[];
+          lookupMethods?: RecoveryLookupMethod[];
+        };
       })
-      .then((payload) => setMethods(payload.methods))
+      .then((payload) => {
+        setMethods(payload.methods);
+        if (payload.lookupMethods?.length) {
+          setLookupMethods(payload.lookupMethods);
+          setLookupMethod((current) =>
+            payload.lookupMethods!.includes(current)
+              ? current
+              : payload.lookupMethods![0],
+          );
+        }
+      })
       .catch(() => setMethods([]));
   }, []);
 
@@ -72,7 +94,11 @@ export function RecoverAccountPage() {
       const response = await fetch(`${API_BASE}/api/auth/recovery/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, captchaToken }),
+        body: JSON.stringify({
+          method: lookupMethod,
+          identifier,
+          captchaToken,
+        }),
       });
       if (!response.ok) throw new Error("request_failed");
       setCaptchaToken("");
@@ -110,7 +136,12 @@ export function RecoverAccountPage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ identifier, code, newPassword }),
+          body: JSON.stringify({
+            method: lookupMethod,
+            identifier,
+            code,
+            newPassword,
+          }),
         },
       );
       if (!response.ok) throw new Error("reset_failed");
@@ -133,17 +164,51 @@ export function RecoverAccountPage() {
     >
       {step === "request" && (
         <form className="space-y-4" onSubmit={requestRecovery}>
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-semibold text-slate-900">
+              {t("recovery.lookupMethod")}
+            </legend>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {lookupMethods.map((method) => (
+                <Button
+                  key={method}
+                  type="button"
+                  variant={lookupMethod === method ? "default" : "outline"}
+                  aria-pressed={lookupMethod === method}
+                  onClick={() => {
+                    setLookupMethod(method);
+                    setIdentifier("");
+                    setError("");
+                  }}
+                >
+                  {t(`recovery.lookup.${method}.option`)}
+                </Button>
+              ))}
+            </div>
+          </fieldset>
           <div className="space-y-2">
-            <Label htmlFor="recovery-email">{t("recovery.email")}</Label>
+            <Label htmlFor="recovery-identifier">
+              {t(`recovery.lookup.${lookupMethod}.label`)}
+            </Label>
             <Input
-              id="recovery-email"
-              type="email"
-              autoComplete="email"
+              id="recovery-identifier"
+              type={lookupMethod === "email" ? "email" : "text"}
+              autoComplete={
+                lookupMethod === "email"
+                  ? "email"
+                  : lookupMethod === "username"
+                    ? "username"
+                    : "off"
+              }
               value={identifier}
               onChange={(event) => setIdentifier(event.target.value)}
+              placeholder={t(`recovery.lookup.${lookupMethod}.placeholder`)}
               required
               maxLength={254}
             />
+            <p className="text-xs leading-5 text-slate-500">
+              {t(`recovery.lookup.${lookupMethod}.help`)}
+            </p>
           </div>
           <CaptchaWidget
             action="recovery"

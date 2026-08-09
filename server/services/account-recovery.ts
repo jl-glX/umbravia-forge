@@ -16,7 +16,10 @@ import {
 } from "./account-lifecycle.js";
 import { queueAccountRecoveryCode } from "./email-delivery.js";
 import { recordSecurityEvent } from "./security-events.js";
-import { rotateSupportIdentifier } from "./support-identifiers.js";
+import {
+  findUserIdBySupportIdentifier,
+  rotateSupportIdentifier,
+} from "./support-identifiers.js";
 import { withCoordinatedManagerOperation } from "./manager-coordinator.js";
 
 const RECOVERY_CHALLENGE_DURATION_MS = 15 * 60 * 1000;
@@ -25,6 +28,12 @@ const DUMMY_RECOVERY_CODE_HASH = hashCode(
   "000000",
   "umbravia-account-recovery-timing-salt",
 );
+export const RECOVERY_LOOKUP_METHODS = [
+  "email",
+  "username",
+  "public_id",
+] as const;
+export type RecoveryLookupMethod = (typeof RECOVERY_LOOKUP_METHODS)[number];
 
 export type RecoveryMethodId =
   "password" | "email" | "code" | "passkey" | "support";
@@ -135,15 +144,66 @@ export function getRecoveryCapabilities(): readonly RecoveryCapability[] {
   return capabilities;
 }
 
-export async function requestPasswordRecovery(
+export function getRecoveryLookupMethods(): readonly RecoveryLookupMethod[] {
+  return RECOVERY_LOOKUP_METHODS;
+}
+
+type RecoverableUser = {
+  id: string;
+  email: string;
+  name: string;
+  locale: string;
+  accountStatus: "pending_verification" | "active" | "security_review";
+};
+
+function normalizeRecoveryIdentifier(
+  method: RecoveryLookupMethod,
   identifier: string,
-): Promise<{ deliveryId: string | null }> {
-  const normalizedIdentifier = identifier.trim().toLowerCase();
-  const user = await db
+): string {
+  const trimmed = identifier.trim();
+  return method === "public_id" ? trimmed.toUpperCase() : trimmed.toLowerCase();
+}
+
+async function findRecoverableUser(
+  method: RecoveryLookupMethod,
+  identifier: string,
+): Promise<RecoverableUser | undefined> {
+  const normalized = normalizeRecoveryIdentifier(method, identifier);
+  if (method === "email") {
+    return db
+      .selectFrom("users")
+      .select(["id", "email", "name", "locale", "accountStatus"])
+      .where("email", "=", normalized)
+      .executeTakeFirst();
+  }
+  if (method === "username") {
+    return db
+      .selectFrom("socialProfiles")
+      .innerJoin("users", "users.id", "socialProfiles.userId")
+      .select([
+        "users.id",
+        "users.email",
+        "users.name",
+        "users.locale",
+        "users.accountStatus",
+      ])
+      .where("socialProfiles.username", "=", normalized)
+      .executeTakeFirst();
+  }
+  const userId = await findUserIdBySupportIdentifier(normalized);
+  if (!userId) return undefined;
+  return db
     .selectFrom("users")
     .select(["id", "email", "name", "locale", "accountStatus"])
-    .where("email", "=", normalizedIdentifier)
+    .where("id", "=", userId)
     .executeTakeFirst();
+}
+
+export async function requestPasswordRecovery(
+  method: RecoveryLookupMethod,
+  identifier: string,
+): Promise<{ deliveryId: string | null }> {
+  const user = await findRecoverableUser(method, identifier);
 
   // The public route always returns the same response. Pending signups are not
   // recoverable through password reset because their email has not been proven.
@@ -166,6 +226,7 @@ export async function requestPasswordRecovery(
 }
 
 async function performPasswordResetWithRecoveryCode(input: {
+  method: RecoveryLookupMethod;
   identifier: string;
   code: string;
   newPassword: string;
@@ -177,10 +238,9 @@ async function performPasswordResetWithRecoveryCode(input: {
     throw new Error("Password does not meet the security requirements");
   }
 
-  const normalizedIdentifier = input.identifier.trim().toLowerCase();
+  const user = await findRecoverableUser(input.method, input.identifier);
   const challenge = await db
     .selectFrom("accountRecoveryChallenges")
-    .innerJoin("users", "users.id", "accountRecoveryChallenges.userId")
     .select([
       "accountRecoveryChallenges.id",
       "accountRecoveryChallenges.userId",
@@ -189,7 +249,7 @@ async function performPasswordResetWithRecoveryCode(input: {
       "accountRecoveryChallenges.attempts",
       "accountRecoveryChallenges.consumedAt",
     ])
-    .where("users.email", "=", normalizedIdentifier)
+    .where("accountRecoveryChallenges.userId", "=", user?.id ?? "")
     .executeTakeFirst();
   const now = Date.now();
   if (
@@ -270,6 +330,7 @@ async function performPasswordResetWithRecoveryCode(input: {
 }
 
 export async function resetPasswordWithRecoveryCode(input: {
+  method: RecoveryLookupMethod;
   identifier: string;
   code: string;
   newPassword: string;

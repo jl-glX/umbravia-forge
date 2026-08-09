@@ -1502,11 +1502,31 @@
   "recovery": {
     "eyebrow": "Acceso y recuperación",
     "title": "Recuperar cuenta",
-    "description": "Recibe un código temporal en tu correo y establece una contraseña nueva de forma segura.",
-    "email": "Correo electrónico",
+    "description": "Elige cómo localizar tu cuenta. El código temporal siempre se enviará al correo verificado asociado.",
+    "lookupMethod": "Localizar la cuenta mediante",
+    "lookup": {
+      "email": {
+        "option": "Correo",
+        "label": "Correo electrónico",
+        "placeholder": "nombre@ejemplo.com",
+        "help": "Usa la dirección verificada de la cuenta."
+      },
+      "username": {
+        "option": "Usuario",
+        "label": "Nombre de usuario",
+        "placeholder": "tu_nombre",
+        "help": "Usa el nombre público configurado en tu perfil de comunidad."
+      },
+      "public_id": {
+        "option": "ID público",
+        "label": "ID público de soporte",
+        "placeholder": "GT-U-0000-0000-0000",
+        "help": "El ID solo localiza la cuenta: no autentica ni sustituye el código enviado al correo verificado."
+      }
+    },
     "sendCode": "Enviar código de recuperación",
     "sending": "Preparando recuperación...",
-    "codeSent": "Si existe una cuenta recuperable con ese correo, recibirás un código de seis cifras. Revisa también la carpeta de correo no deseado.",
+    "codeSent": "Si existe una cuenta recuperable con esos datos, enviaremos un código de seis cifras a su correo verificado. Revisa también la carpeta de correo no deseado.",
     "code": "Código de recuperación",
     "newPassword": "Contraseña nueva",
     "confirmPassword": "Repite la contraseña nueva",

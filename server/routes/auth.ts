@@ -59,6 +59,7 @@ import { requireCaptcha } from "../middleware/captcha.js";
 import { captchaIsConfigured } from "../services/captcha.js";
 import {
   getRecoveryCapabilities,
+  getRecoveryLookupMethods,
   requestPasswordRecovery,
   resetPasswordWithRecoveryCode,
 } from "../services/account-recovery.js";
@@ -110,7 +111,10 @@ authRouter.post(
 );
 
 authRouter.get("/recovery/capabilities", (_req, res) => {
-  res.json({ methods: getRecoveryCapabilities() });
+  res.json({
+    methods: getRecoveryCapabilities(),
+    lookupMethods: getRecoveryLookupMethods(),
+  });
 });
 
 authRouter.post(
@@ -121,7 +125,10 @@ authRouter.post(
   requireCaptcha("recovery"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const result = await requestPasswordRecovery(req.body.identifier);
+      const result = await requestPasswordRecovery(
+        req.body.method,
+        req.body.identifier,
+      );
       if (result.deliveryId) {
         setImmediate(() => {
           void deliverQueuedEmail(result.deliveryId!).catch(() => {
@@ -144,6 +151,7 @@ authRouter.post(
   async (req: express.Request, res: express.Response) => {
     try {
       const reset = await resetPasswordWithRecoveryCode({
+        method: req.body.method,
         identifier: req.body.identifier,
         code: req.body.code,
         newPassword: req.body.newPassword,

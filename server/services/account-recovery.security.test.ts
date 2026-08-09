@@ -63,6 +63,7 @@ describe("account recovery abuse resistance", () => {
 
     await expect(
       recovery.resetPasswordWithRecoveryCode({
+        method: "email",
         identifier: email,
         code: challenge.code,
         newPassword: "ExpiredRecoveryPassword456",
@@ -77,11 +78,13 @@ describe("account recovery abuse resistance", () => {
     const challenge = await recovery.createAccountRecoveryChallenge(userId);
     const attempts = await Promise.allSettled([
       recovery.resetPasswordWithRecoveryCode({
+        method: "email",
         identifier: email,
         code: challenge.code,
         newPassword: "ConcurrentRecoveryPassword456",
       }),
       recovery.resetPasswordWithRecoveryCode({
+        method: "email",
         identifier: email,
         code: challenge.code,
         newPassword: "ConcurrentRecoveryPassword789",
@@ -94,6 +97,7 @@ describe("account recovery abuse resistance", () => {
     expect(successful).toHaveLength(1);
     await expect(
       recovery.resetPasswordWithRecoveryCode({
+        method: "email",
         identifier: email,
         code: challenge.code,
         newPassword: "ReplayRecoveryPassword123",
@@ -106,6 +110,7 @@ describe("account recovery abuse resistance", () => {
       await request(app)
         .post("/api/auth/recovery/request")
         .send({
+          method: "email",
           identifier: `synthetic-${attempt}@example.invalid`,
           captchaToken: "test-token",
         })
@@ -115,6 +120,7 @@ describe("account recovery abuse resistance", () => {
     await request(app)
       .post("/api/auth/recovery/request")
       .send({
+        method: "email",
         identifier: "synthetic-limited@example.invalid",
         captchaToken: "test-token",
       })

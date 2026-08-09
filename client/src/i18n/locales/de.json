@@ -1475,11 +1475,31 @@
   "recovery": {
     "eyebrow": "Zugang und Wiederherstellung",
     "title": "Konto wiederherstellen",
-    "description": "Erhalten Sie per E-Mail einen zeitlich begrenzten Code und legen Sie sicher ein neues Passwort fest.",
-    "email": "E-Mail-Adresse",
+    "description": "Wählen Sie, wie das Konto gefunden werden soll. Der temporäre Code wird immer an die verifizierte E-Mail-Adresse gesendet.",
+    "lookupMethod": "Konto suchen mit",
+    "lookup": {
+      "email": {
+        "option": "E-Mail",
+        "label": "E-Mail-Adresse",
+        "placeholder": "name@beispiel.de",
+        "help": "Verwenden Sie die verifizierte Adresse des Kontos."
+      },
+      "username": {
+        "option": "Benutzername",
+        "label": "Benutzername",
+        "placeholder": "ihr_name",
+        "help": "Verwenden Sie den öffentlichen Benutzernamen aus Ihrem Community-Profil."
+      },
+      "public_id": {
+        "option": "Öffentliche ID",
+        "label": "Öffentliche Support-ID",
+        "placeholder": "GT-U-0000-0000-0000",
+        "help": "Die ID findet nur das Konto; sie authentifiziert Sie nicht und ersetzt nicht den Code an die verifizierte E-Mail-Adresse."
+      }
+    },
     "sendCode": "Wiederherstellungscode senden",
     "sending": "Wiederherstellung wird vorbereitet...",
-    "codeSent": "Wenn für diese E-Mail-Adresse ein wiederherstellbares Konto existiert, erhalten Sie einen sechsstelligen Code. Prüfen Sie auch den Spam-Ordner.",
+    "codeSent": "Wenn für diese Angaben ein wiederherstellbares Konto existiert, wird ein sechsstelliger Code an die verifizierte E-Mail-Adresse gesendet. Prüfen Sie auch den Spam-Ordner.",
     "code": "Wiederherstellungscode",
     "newPassword": "Neues Passwort",
     "confirmPassword": "Neues Passwort wiederholen",

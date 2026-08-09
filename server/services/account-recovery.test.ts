@@ -13,6 +13,8 @@ describe("account recovery", () => {
   let coordinator: typeof import("./manager-coordinator.js");
   let userId: string;
   const email = "recoverable-member@example.com";
+  const username = "recoverable_member";
+  let publicId: string;
   const originalPassword = "OriginalPassword123";
   const replacementPassword = "ReplacementPassword456";
 
@@ -37,6 +39,21 @@ describe("account recovery", () => {
       { requireEmailVerification: false },
     );
     userId = account.user.id;
+    const now = Date.now();
+    await database.db
+      .insertInto("socialProfiles")
+      .values({
+        userId,
+        username,
+        bio: "",
+        displayRealName: 0,
+        birthDate: null,
+        privacy: "{}",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    publicId = (await identifiers.getSupportIdentifier(userId)).publicId;
   }, 20_000);
 
   afterAll(async () => {
@@ -58,11 +75,35 @@ describe("account recovery", () => {
       entryPoint: null,
       canCancelPendingDeletion: false,
     });
+    expect(recovery.getRecoveryLookupMethods()).toEqual([
+      "email",
+      "username",
+      "public_id",
+    ]);
+  });
+
+  it("resolves email, username and active public ID to the same account", async () => {
+    for (const [method, identifier] of [
+      ["email", email.toUpperCase()],
+      ["username", username.toUpperCase()],
+      ["public_id", publicId.toLowerCase()],
+    ] as const) {
+      await expect(
+        recovery.requestPasswordRecovery(method, identifier),
+      ).resolves.toMatchObject({ deliveryId: expect.any(String) });
+      await expect(
+        database.db
+          .selectFrom("accountRecoveryChallenges")
+          .select("userId")
+          .where("userId", "=", userId)
+          .executeTakeFirstOrThrow(),
+      ).resolves.toEqual({ userId });
+    }
   });
 
   it("does not create recoverable challenges for unknown or unverified accounts", async () => {
     await expect(
-      recovery.requestPasswordRecovery("missing@example.com"),
+      recovery.requestPasswordRecovery("email", "missing@example.com"),
     ).resolves.toEqual({ deliveryId: null });
 
     const pending = await auth.signup(
@@ -74,7 +115,7 @@ describe("account recovery", () => {
       { requireEmailVerification: true },
     );
     await expect(
-      recovery.requestPasswordRecovery(pending.user.email),
+      recovery.requestPasswordRecovery("email", pending.user.email),
     ).resolves.toEqual({ deliveryId: null });
     await expect(
       database.db
@@ -90,6 +131,7 @@ describe("account recovery", () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       await expect(
         recovery.resetPasswordWithRecoveryCode({
+          method: "email",
           identifier: email,
           code: "000000" === challenge.code ? "111111" : "000000",
           newPassword: replacementPassword,
@@ -105,6 +147,7 @@ describe("account recovery", () => {
     ).resolves.toEqual({ attempts: 5 });
     await expect(
       recovery.resetPasswordWithRecoveryCode({
+        method: "email",
         identifier: email,
         code: challenge.code,
         newPassword: replacementPassword,
@@ -152,6 +195,7 @@ describe("account recovery", () => {
     const challenge = await recovery.createAccountRecoveryChallenge(userId);
     await expect(
       recovery.resetPasswordWithRecoveryCode({
+        method: "email",
         identifier: email,
         code: challenge.code,
         newPassword: replacementPassword,
@@ -182,7 +226,8 @@ describe("account recovery", () => {
 
     await expect(
       recovery.resetPasswordWithRecoveryCode({
-        identifier: email.toUpperCase(),
+        method: "public_id",
+        identifier: publicId.toLowerCase(),
         code: challenge.code,
         newPassword: replacementPassword,
       }),
@@ -216,7 +261,8 @@ describe("account recovery", () => {
     ).toBeNull();
     await expect(
       recovery.resetPasswordWithRecoveryCode({
-        identifier: email,
+        method: "username",
+        identifier: username.toUpperCase(),
         code: challenge.code,
         newPassword: "AnotherReplacement789",
       }),
