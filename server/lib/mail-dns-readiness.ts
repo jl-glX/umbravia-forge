@@ -94,9 +94,21 @@ export async function assessMailDnsReadiness(
     return findings;
   }
 
-  const mxHosts = mxRecords.map((record) =>
-    normalizedHostname(record.exchange),
+  const usableMxRecords = mxRecords.filter(
+    (record) => normalizedHostname(record.exchange).length > 0,
   );
+  if (usableMxRecords.length === 0) {
+    findings.push({
+      code: "MX_NULL",
+      level: "error",
+      message: `${senderDomain} publica un Null MX y declara que no acepta correo entrante.`,
+    });
+    return findings;
+  }
+
+  const mxHosts = [...usableMxRecords]
+    .sort((left, right) => left.priority - right.priority)
+    .map((record) => normalizedHostname(record.exchange));
   const expectedMailHost = input.expectedMailHost
     ? normalizedHostname(input.expectedMailHost)
     : mxHosts[0];

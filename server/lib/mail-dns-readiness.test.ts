@@ -57,6 +57,42 @@ describe("mail DNS readiness", () => {
     ]);
   });
 
+  it("rejects a Null MX instead of treating it as a mail host", async () => {
+    const findings = await assessMailDnsReadiness(
+      { emailFrom: "notify@example.com" },
+      resolver({
+        resolveMx: async () => [{ exchange: ".", priority: 0 }],
+      }),
+    );
+
+    expect(findings).toEqual([
+      expect.objectContaining({ code: "MX_NULL", level: "error" }),
+    ]);
+  });
+
+  it("uses the MX with the lowest priority value by default", async () => {
+    const findings = await assessMailDnsReadiness(
+      { emailFrom: "notify@example.com", strictAuthentication: true },
+      resolver({
+        resolveMx: async () => [
+          { exchange: "backup.example.com", priority: 20 },
+          { exchange: "mail.example.com", priority: 10 },
+        ],
+      }),
+    );
+
+    expect(findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "MX_READY", level: "pass" }),
+      ]),
+    );
+    expect(findings).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "MX_TARGET_MISMATCH" }),
+      ]),
+    );
+  });
+
   it("reports missing authentication as warnings until strict mode is enabled", async () => {
     const noAuthentication = resolver({ resolveTxt: async () => [] });
     const advisory = await assessMailDnsReadiness(
