@@ -10,6 +10,13 @@ function resolveWorkerCount(): number {
     return requested;
   }
 
+  // Two workers are reliable in Linux CI, but repeated full-suite runs can
+  // terminate intermittently on Windows without an assertion failure. Keep
+  // local Windows validation deterministic while retaining CI parallelism.
+  if (process.platform === "win32") {
+    return 1;
+  }
+
   return Math.max(1, Math.min(2, availableParallelism()));
 }
 
