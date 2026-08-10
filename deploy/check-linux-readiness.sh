@@ -34,6 +34,13 @@ require_file() {
   fi
 }
 
+version_at_least() {
+  current_version=$1
+  minimum_version=$2
+  first_version=$(printf '%s\n' "$minimum_version" "$current_version" | sort -V | head -n 1)
+  [ "$first_version" = "$minimum_version" ]
+}
+
 case "$(uname -s)" in
   Linux) pass "sistema Linux detectado" ;;
   *) fail "este despliegue requiere Linux" ;;
@@ -48,23 +55,27 @@ fi
 require_command node
 require_command npm
 require_command caddy
+require_command head
+require_command sort
 require_command systemd-analyze
 
 if command -v node >/dev/null 2>&1; then
-  NODE_MAJOR=$(node -p "process.versions.node.split('.')[0]")
-  if [ "$NODE_MAJOR" = "24" ]; then
-    pass "Node.js 24 detectado"
+  NODE_VERSION=$(node -p "process.versions.node")
+  NODE_MAJOR=$(printf '%s' "$NODE_VERSION" | cut -d. -f1)
+  if [ "$NODE_MAJOR" = "24" ] && version_at_least "$NODE_VERSION" "24.15.0"; then
+    pass "Node.js $NODE_VERSION compatible"
   else
-    fail "se requiere Node.js 24; version encontrada: $(node --version)"
+    fail "se requiere Node.js 24.15.0 o posterior dentro de la rama 24; version encontrada: $NODE_VERSION"
   fi
 fi
 
 if command -v npm >/dev/null 2>&1; then
-  NPM_MAJOR=$(npm --version | cut -d. -f1)
-  if [ "$NPM_MAJOR" = "11" ]; then
-    pass "npm 11 detectado"
+  NPM_VERSION=$(npm --version)
+  NPM_MAJOR=$(printf '%s' "$NPM_VERSION" | cut -d. -f1)
+  if [ "$NPM_MAJOR" = "11" ] && version_at_least "$NPM_VERSION" "11.18.0"; then
+    pass "npm $NPM_VERSION compatible con la politica fijada de scripts"
   else
-    fail "se requiere npm 11; version encontrada: $(npm --version)"
+    fail "se requiere npm 11.18.0 o posterior dentro de la rama 11 para aplicar allowScripts; version encontrada: $NPM_VERSION"
   fi
 fi
 
@@ -80,18 +91,14 @@ require_file "$PROJECT_ROOT/deploy/umbravia-forge-backup.timer"
 require_file "$PROJECT_ROOT/node_modules/express/package.json"
 require_file "$PROJECT_ROOT/node_modules/argon2/package.json"
 require_file "$PROJECT_ROOT/node_modules/@noble/ciphers/package.json"
+require_file "$PROJECT_ROOT/deploy/check-crypto-runtime.mjs"
 require_file "$PROJECT_ROOT/deploy/check-private-content-key.mjs"
 
-if node --input-type=module -e "await import('argon2')" >/dev/null 2>&1; then
-  pass "modulo nativo Argon2 disponible"
+CRYPTO_RUNTIME_OUTPUT=""
+if CRYPTO_RUNTIME_OUTPUT=$(node "$PROJECT_ROOT/deploy/check-crypto-runtime.mjs" 2>&1); then
+  pass "runtime criptografico completo operativo"
 else
-  fail "Argon2 no puede cargarse; reinstale dependencias dentro de este sistema Linux"
-fi
-
-if node --input-type=module -e "await import('@noble/ciphers/chacha.js')" >/dev/null 2>&1; then
-  pass "XChaCha20-Poly1305 portable disponible"
-else
-  fail "@noble/ciphers no puede cargarse en este sistema Linux"
+  fail "el runtime criptografico no puede ejecutar Argon2id, XChaCha20-Poly1305, AES-256-GCM, SHA-256 o scrypt: $CRYPTO_RUNTIME_OUTPUT"
 fi
 
 if command -v caddy >/dev/null 2>&1; then
@@ -144,7 +151,7 @@ if [ -f "$ENV_FILE" ]; then
     if [ "$PRIVATE_CRYPTO_STATUS" -eq 2 ]; then
       warn "cifrado de contenido privado aun no activado; configure la nueva clave antes de almacenar datos privados reales"
     else
-      fail "configuracion invalida de PRIVATE_CONTENT_ENCRYPTION_KEY"
+      fail "configuracion invalida del cifrado de contenido privado"
     fi
   fi
 
@@ -174,17 +181,25 @@ if [ -f "$ENV_FILE" ]; then
   SMTP_HOST_VALUE=$(sed -n 's/^SMTP_HOST=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
   case "$SMTP_HOST_VALUE" in
     127.0.0.1|::1|localhost)
-      MAIL_DNS_ARGS="--env $ENV_FILE"
-      if grep -Eiq '^EMAIL_PUBLIC_DNS_CHECK=strict$' "$ENV_FILE"; then
-        MAIL_DNS_ARGS="$MAIL_DNS_ARGS --strict"
-      fi
-      # shellcheck disable=SC2086
-      if node "$PROJECT_ROOT/dist/server/bin/check-mail-dns.js" $MAIL_DNS_ARGS; then
-        pass "DNS publico del MTA local comprobado"
-      elif grep -Eiq '^EMAIL_PUBLIC_DNS_CHECK=strict$' "$ENV_FILE"; then
-        fail "DNS publico del MTA local incompleto"
+      if ! grep -Eq '^EMAIL_PUBLIC_MAIL_HOST=.+' "$ENV_FILE"; then
+        if grep -Eiq '^EMAIL_PUBLIC_DNS_CHECK=strict$' "$ENV_FILE"; then
+          fail "EMAIL_PUBLIC_MAIL_HOST es obligatorio en el modo DNS estricto"
+        else
+          warn "host publico del MTA aun no configurado; la entrega local puede permanecer preparada mientras el proveedor mantiene bloqueado el puerto 25"
+        fi
       else
-        warn "DNS publico del MTA local incompleto; active EMAIL_PUBLIC_DNS_CHECK=strict antes de aceptar correo real"
+        MAIL_DNS_ARGS="--env $ENV_FILE"
+        if grep -Eiq '^EMAIL_PUBLIC_DNS_CHECK=strict$' "$ENV_FILE"; then
+          MAIL_DNS_ARGS="$MAIL_DNS_ARGS --strict"
+        fi
+        # shellcheck disable=SC2086
+        if node "$PROJECT_ROOT/dist/server/bin/check-mail-dns.js" $MAIL_DNS_ARGS; then
+          pass "DNS publico del MTA local comprobado"
+        elif grep -Eiq '^EMAIL_PUBLIC_DNS_CHECK=strict$' "$ENV_FILE"; then
+          fail "DNS publico del MTA local incompleto"
+        else
+          warn "DNS publico del MTA local incompleto; active EMAIL_PUBLIC_DNS_CHECK=strict antes de aceptar correo real"
+        fi
       fi
       ;;
   esac
@@ -194,8 +209,12 @@ fi
 
 if command -v caddy >/dev/null 2>&1; then
   CADDY_VALIDATION_LOG=$(mktemp "${TMPDIR:-/tmp}/umbravia-caddy-validation.XXXXXX")
+  CADDY_VALIDATION_HOME=${HOME:-${TMPDIR:-/tmp}}
+  CADDY_VALIDATION_XDG_HOME=${XDG_CONFIG_HOME:-$CADDY_VALIDATION_HOME/.config}
   trap 'rm -f "$CADDY_VALIDATION_LOG"' EXIT HUP INT TERM
-  if UMBRAVIA_CADDY_LOG="$CADDY_VALIDATION_LOG" \
+  if HOME="$CADDY_VALIDATION_HOME" \
+    XDG_CONFIG_HOME="$CADDY_VALIDATION_XDG_HOME" \
+    UMBRAVIA_CADDY_LOG="$CADDY_VALIDATION_LOG" \
     caddy validate --config "$PROJECT_ROOT/deploy/Caddyfile" >/dev/null; then
     pass "Caddyfile valido"
   else

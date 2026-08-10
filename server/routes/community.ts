@@ -707,8 +707,9 @@ communityRouter.post("/channels/:id/messages", async (req, res, next) => {
     }
     const now = Date.now();
     const messageId = randomUUID();
+    const serverManagedPrivateMessage = channel.scope === "community";
     const protectedBody =
-      kind === "private_justification"
+      kind === "private_justification" || serverManagedPrivateMessage
         ? protectPrivateText(body, `community-message:${messageId}`)
         : null;
     const message = {

@@ -10,7 +10,8 @@ automáticamente: cada fase se valida antes de abrir tráfico.
 ## 1. Requisitos
 
 - Distribución Linux mantenida con `systemd` y herramientas GNU básicas.
-- Node.js 24 y npm 11.
+- Node.js 24 y npm 11.18.0 o posterior dentro de la rama 11. Versiones
+  anteriores no aplican de forma compatible la lista fijada de scripts nativos.
 - Caddy 2.10 o posterior.
 - PostgreSQL local restringido a `localhost`, o una instancia remota con TLS.
 - Acceso SSH mediante clave y un usuario con `sudo`.
@@ -57,9 +58,14 @@ descritas en `README.md`. Copiar
 
 ```text
 sudo npm ci --omit=dev
+sudo npm rebuild argon2 --foreground-scripts
 sudo chown -R root:umbravia /opt/umbravia-forge/releases/<version>
 sudo chmod -R o-rwx /opt/umbravia-forge/releases/<version>
 ```
+
+La reconstrucción se limita al módulo Argon2id revisado y fijado por versión en
+`package.json`. La comprobación posterior realiza un hash y una verificación
+reales antes de activar la versión.
 
 El archivo de entorno se crea fuera de la versión, en
 `/etc/umbravia-forge/umbravia-forge.env`, con propietario `root`, grupo

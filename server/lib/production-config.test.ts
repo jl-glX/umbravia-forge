@@ -172,6 +172,15 @@ describe("production configuration", () => {
         PRIVATE_CONTENT_ENCRYPTION_ENABLED: "true",
         PRIVATE_CONTENT_ENCRYPTION_KEY: "invalid",
       }),
+    ).toThrow(/valid hexadecimal, base64, or base64url/i);
+    expect(() =>
+      validateProductionConfiguration({
+        ...validEnvironment,
+        PRIVATE_CONTENT_ENCRYPTION_ENABLED: "true",
+        PRIVATE_CONTENT_ENCRYPTION_KEY: Buffer.alloc(16, 13).toString(
+          "base64url",
+        ),
+      }),
     ).toThrow(/exactly 32 bytes/i);
   });
 
@@ -188,5 +197,33 @@ describe("production configuration", () => {
         "postgresql",
       ),
     ).toMatchObject({ deploymentProfile: "production" });
+  });
+
+  it("accepts a versioned private-content keyring for safe rotation", () => {
+    const currentKey = Buffer.alloc(32, 21).toString("base64url");
+    const nextKey = Buffer.alloc(32, 22).toString("base64url");
+    expect(
+      validateProductionConfiguration(
+        {
+          ...validEnvironment,
+          PRIVATE_CONTENT_ENCRYPTION_ENABLED: "true",
+          PRIVATE_CONTENT_ENCRYPTION_KEY: currentKey,
+          PRIVATE_CONTENT_ENCRYPTION_KEYRING: `current:${currentKey},next:${nextKey}`,
+          PRIVATE_CONTENT_ENCRYPTION_ACTIVE_KEY_ID: "next",
+        },
+        "postgresql",
+      ),
+    ).toMatchObject({ deploymentProfile: "production" });
+  });
+
+  it("rejects a private-content keyring without an available active key", () => {
+    expect(() =>
+      validateProductionConfiguration({
+        ...validEnvironment,
+        PRIVATE_CONTENT_ENCRYPTION_ENABLED: "true",
+        PRIVATE_CONTENT_ENCRYPTION_KEYRING: `current:${Buffer.alloc(32, 23).toString("base64url")}`,
+        PRIVATE_CONTENT_ENCRYPTION_ACTIVE_KEY_ID: "missing",
+      }),
+    ).toThrow(/does not exist/i);
   });
 });

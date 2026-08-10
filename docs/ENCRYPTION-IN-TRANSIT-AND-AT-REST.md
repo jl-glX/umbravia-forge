@@ -31,6 +31,8 @@ protección depende además del aislamiento del proceso y del sistema.
 
 - contraseñas: Argon2id (`m=19456`, `t=2`, `p=1`), nunca cifrado reversible;
 - secretos MFA y cuerpos pendientes de Forge Notify: AES-256-GCM autenticado;
+  los nuevos sobres MFA quedan ligados al identificador interno de la cuenta y
+  los sobres anteriores siguen siendo legibles durante la migracion;
 - justificaciones privadas y adjuntos de soporte: XChaCha20-Poly1305
   autenticado, con envoltorio versionado y contexto asociado;
 - copias PostgreSQL: `pg_dump` transmite directamente a `age`;

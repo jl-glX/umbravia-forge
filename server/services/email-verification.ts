@@ -97,23 +97,41 @@ export async function verifyEmailCode(
   if (!codeMatches(code, challenge.codeHash)) {
     await db
       .updateTable("emailVerificationChallenges")
-      .set({ attempts: challenge.attempts + 1 })
+      .set((expression) => ({
+        attempts: expression("attempts", "+", 1),
+      }))
       .where("id", "=", challenge.id)
+      .where("attempts", "<", MAX_ATTEMPTS)
+      .where("consumedAt", "is", null)
+      .where("expiresAt", ">", now)
       .execute();
     return false;
   }
-  await db.transaction().execute(async (transaction) => {
-    await transaction
+  const activated = await db.transaction().execute(async (transaction) => {
+    const consumed = await transaction
       .updateTable("emailVerificationChallenges")
       .set({ consumedAt: now })
       .where("id", "=", challenge.id)
-      .execute();
-    await transaction
+      .where("consumedAt", "is", null)
+      .where("expiresAt", ">", now)
+      .where("attempts", "<", MAX_ATTEMPTS)
+      .executeTakeFirst();
+    if (Number(consumed.numUpdatedRows) !== 1) {
+      return false;
+    }
+    const userActivated = await transaction
       .updateTable("users")
       .set({ emailVerifiedAt: now, accountStatus: "active" })
       .where("id", "=", userId)
-      .execute();
+      .where("accountStatus", "=", "pending_verification")
+      .where("emailVerifiedAt", "is", null)
+      .executeTakeFirst();
+    if (Number(userActivated.numUpdatedRows) !== 1) {
+      throw new Error("Email verification account state is invalid");
+    }
+    return true;
   });
+  if (!activated) return false;
   await recordSecurityEvent("email_verified", userId);
   return true;
 }

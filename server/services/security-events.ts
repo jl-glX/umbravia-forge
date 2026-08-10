@@ -16,6 +16,7 @@ export type SecurityEventType =
   | "mfa_succeeded"
   | "mfa_enabled"
   | "mfa_disabled"
+  | "mfa_recovery_code_used"
   | "passkey_registered"
   | "passkey_removed"
   | "passkey_login_succeeded"

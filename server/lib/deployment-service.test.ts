@@ -9,16 +9,36 @@ const execFileAsync = promisify(execFile);
 
 describe("systemd deployment service", () => {
   it("approves the reviewed native install scripts used in production", async () => {
-    const packageSource = await readFile(path.resolve("package.json"), "utf8");
+    const [packageSource, npmConfig] = await Promise.all([
+      readFile(path.resolve("package.json"), "utf8"),
+      readFile(path.resolve(".npmrc"), "utf8"),
+    ]);
     const packageJson = JSON.parse(packageSource) as {
       allowScripts?: Record<string, boolean>;
+      engines?: Record<string, string>;
+      packageManager?: string;
     };
 
+    expect(packageJson.packageManager).toBe("npm@11.18.0");
+    expect(packageJson.engines?.npm).toBe(">=11.18.0 <12");
+    expect(npmConfig).toContain("strict-allow-scripts=true");
     expect(packageJson.allowScripts).toMatchObject({
       "argon2@0.45.1": true,
       "better-sqlite3@13.0.2": true,
       "esbuild@0.28.1": true,
     });
+    expect(Object.keys(packageJson.allowScripts ?? {})).toEqual(
+      expect.arrayContaining([
+        "argon2@0.45.1",
+        "better-sqlite3@13.0.2",
+        "esbuild@0.28.1",
+      ]),
+    );
+    expect(
+      Object.keys(packageJson.allowScripts ?? {}).every((entry) =>
+        /@\d/u.test(entry),
+      ),
+    ).toBe(true);
   });
 
   it("resolves Node portably instead of fixing a server-specific path", async () => {
@@ -47,6 +67,11 @@ describe("systemd deployment service", () => {
     );
     expect(caddyfile).toContain("protocols tls1.3");
     expect(readiness).toContain("CADDY_VALIDATION_LOG=$(mktemp");
+    expect(readiness).toContain(
+      "CADDY_VALIDATION_HOME=${HOME:-${TMPDIR:-/tmp}}",
+    );
+    expect(readiness).toContain('HOME="$CADDY_VALIDATION_HOME"');
+    expect(readiness).toContain('XDG_CONFIG_HOME="$CADDY_VALIDATION_XDG_HOME"');
     expect(readiness).toContain('UMBRAVIA_CADDY_LOG="$CADDY_VALIDATION_LOG"');
     expect(readiness).toContain('rm -f "$CADDY_VALIDATION_LOG"');
     expect(readiness).toContain("TURNSTILE_SECRET_KEY");
@@ -68,8 +93,14 @@ describe("systemd deployment service", () => {
     expect(readiness).toContain(
       'require_file "$PROJECT_ROOT/node_modules/@noble/ciphers/package.json"',
     );
-    expect(readiness).toContain("XChaCha20-Poly1305 portable disponible");
+    expect(readiness).toContain("runtime criptografico completo operativo");
+    expect(readiness).toContain("CRYPTO_RUNTIME_OUTPUT");
+    expect(readiness).toContain("check-crypto-runtime.mjs");
     expect(readiness).toContain("check-private-content-key.mjs");
+    expect(readiness).toContain("host publico del MTA aun no configurado");
+    expect(readiness).toContain(
+      "EMAIL_PUBLIC_MAIL_HOST es obligatorio en el modo DNS estricto",
+    );
   });
 
   it("keeps the portable private-content cipher in the production package", async () => {
@@ -81,12 +112,57 @@ describe("systemd deployment service", () => {
       dependencies?: Record<string, string>;
     };
 
-    expect(packageJson.dependencies?.["@noble/ciphers"]).toBe("2.2.0");
+    expect(packageJson.dependencies?.["@noble/ciphers"]).toBe("2.3.0");
     expect(checker).toContain(
       'import { xchacha20poly1305 } from "@noble/ciphers/chacha.js"',
     );
     expect(checker).toContain("key.length !== 32");
     expect(checker).not.toMatch(/console\.log\([^)]*(?:encoded|key)/u);
+  });
+
+  it("exercises reviewed cryptography before activating a Linux release", async () => {
+    const [updater, readiness] = await Promise.all([
+      readFile(path.resolve("deploy", "auto-update.sh"), "utf8"),
+      readFile(path.resolve("deploy", "check-linux-readiness.sh"), "utf8"),
+    ]);
+
+    expect(updater).toContain("npm rebuild argon2 --foreground-scripts");
+    expect(updater).toContain('HOME="$home_dir"');
+    expect(updater).toContain('XDG_CONFIG_HOME="$home_dir/.config"');
+    expect(updater).toContain("for command_name in cut curl env flock getent");
+    expect(updater).toContain('version_at_least "$npm_version" "11.18.0"');
+    expect(updater).toContain(
+      'require_supported_runtime_for_user "$UMBRAVIA_BUILD_USER"',
+    );
+    expect(updater).toContain(
+      'require_supported_runtime_for_user "$UMBRAVIA_APP_USER"',
+    );
+    expect(readiness).toContain('version_at_least "$NPM_VERSION" "11.18.0"');
+    const runtimeChecker = await readFile(
+      path.resolve("deploy", "check-crypto-runtime.mjs"),
+      "utf8",
+    );
+    expect(runtimeChecker).toContain("argon2Hash");
+    expect(runtimeChecker).toContain("argon2Verify");
+    expect(runtimeChecker).toContain("xchacha20poly1305");
+    expect(runtimeChecker).toContain('createCipheriv("aes-256-gcm"');
+    expect(runtimeChecker).toContain('createHash("sha256"');
+    expect(runtimeChecker).toContain("scryptSync");
+
+    const unrelatedDirectory = await mkdtemp(
+      path.join(tmpdir(), "umbravia-crypto-runtime-cwd-"),
+    );
+    try {
+      const executed = await execFileAsync(
+        process.execPath,
+        [path.resolve("deploy", "check-crypto-runtime.mjs")],
+        { cwd: unrelatedDirectory },
+      );
+      expect(executed.stdout).toBe("");
+      expect(executed.stderr).toBe("");
+    } finally {
+      await rm(unrelatedDirectory, { recursive: true, force: true });
+    }
   });
 
   it("checks the private-content key without printing it", async () => {
@@ -105,6 +181,59 @@ describe("systemd deployment service", () => {
       ]);
       expect(result.stdout).toBe("");
       expect(result.stderr).toBe("");
+
+      const nextKey = Buffer.alloc(32, 18).toString("base64url");
+      await writeFile(
+        envFile,
+        [
+          "PRIVATE_CONTENT_ENCRYPTION_ENABLED=true",
+          `PRIVATE_CONTENT_ENCRYPTION_KEY=${key}`,
+          `PRIVATE_CONTENT_ENCRYPTION_KEYRING=current:${key},next:${nextKey}`,
+          "PRIVATE_CONTENT_ENCRYPTION_ACTIVE_KEY_ID=next",
+          "",
+        ].join("\n"),
+        { mode: 0o600 },
+      );
+      const rotatedResult = await execFileAsync(process.execPath, [
+        path.resolve("deploy", "check-private-content-key.mjs"),
+        envFile,
+      ]);
+      expect(rotatedResult.stdout).toBe("");
+      expect(rotatedResult.stderr).toBe("");
+
+      await writeFile(
+        envFile,
+        [
+          "PRIVATE_CONTENT_ENCRYPTION_ENABLED=true",
+          `PRIVATE_CONTENT_ENCRYPTION_KEYRING=legacy:${key}`,
+          "PRIVATE_CONTENT_ENCRYPTION_ACTIVE_KEY_ID=legacy",
+          "",
+        ].join("\n"),
+        { mode: 0o600 },
+      );
+      await expect(
+        execFileAsync(process.execPath, [
+          path.resolve("deploy", "check-private-content-key.mjs"),
+          envFile,
+        ]),
+      ).rejects.toMatchObject({ code: 1 });
+
+      await writeFile(
+        envFile,
+        [
+          "PRIVATE_CONTENT_ENCRYPTION_ENABLED=true",
+          `PRIVATE_CONTENT_ENCRYPTION_KEYRING=current:${key},duplicate:${key}`,
+          "PRIVATE_CONTENT_ENCRYPTION_ACTIVE_KEY_ID=current",
+          "",
+        ].join("\n"),
+        { mode: 0o600 },
+      );
+      await expect(
+        execFileAsync(process.execPath, [
+          path.resolve("deploy", "check-private-content-key.mjs"),
+          envFile,
+        ]),
+      ).rejects.toMatchObject({ code: 1 });
 
       await writeFile(
         envFile,

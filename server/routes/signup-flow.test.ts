@@ -16,6 +16,9 @@ describe("progressive account signup", () => {
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("EMAIL_VERIFICATION_ENABLED", "true");
+    // This suite exercises several independent signup outcomes from one
+    // in-process client. Rate-limit behavior has its own focused tests.
+    vi.stubEnv("SIGNUP_RATE_LIMIT_MAX_REQUESTS", "50");
     vi.resetModules();
     database = await import("../db/client.js");
     await database.initializeDatabase();
@@ -183,6 +186,91 @@ describe("progressive account signup", () => {
       .set("Cookie", cookie)
       .send({ code: resend.body.demoVerificationCode })
       .expect(200, { verified: true });
+  });
+
+  it("locks an email challenge after five invalid attempts", async () => {
+    const signup = await request(app)
+      .post("/api/auth/signup")
+      .send({
+        email: "locked-verification@example.com",
+        name: "Locked",
+        lastName: "Verification",
+        password: "ProgressivePassword123",
+        countryCode: "ES",
+        locale: "es",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+      })
+      .expect(201);
+    const cookie = signup.headers["set-cookie"][0];
+    const invalidCode =
+      signup.body.demoVerificationCode === "000000" ? "000001" : "000000";
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await request(app)
+        .post("/api/auth/verify-email")
+        .set("Cookie", cookie)
+        .send({ code: invalidCode })
+        .expect(400, { error: "Invalid or expired verification code" });
+    }
+
+    await request(app)
+      .post("/api/auth/verify-email")
+      .set("Cookie", cookie)
+      .send({ code: signup.body.demoVerificationCode })
+      .expect(400, { error: "Invalid or expired verification code" });
+    const stored = await database.db
+      .selectFrom("emailVerificationChallenges")
+      .select(["attempts", "consumedAt"])
+      .where("userId", "=", signup.body.user.id)
+      .executeTakeFirstOrThrow();
+    expect(stored).toEqual({ attempts: 5, consumedAt: null });
+  });
+
+  it("rolls back challenge consumption if the account cannot be activated", async () => {
+    const signup = await request(app)
+      .post("/api/auth/signup")
+      .send({
+        email: "verification-state-race@example.com",
+        name: "Verification",
+        lastName: "State Race",
+        password: "ProgressivePassword123",
+        countryCode: "ES",
+        locale: "es",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+      })
+      .expect(201);
+    const cookie = signup.headers["set-cookie"][0];
+    await database.db
+      .updateTable("users")
+      .set({ accountStatus: "security_review" })
+      .where("id", "=", signup.body.user.id)
+      .execute();
+
+    await request(app)
+      .post("/api/auth/verify-email")
+      .set("Cookie", cookie)
+      .send({ code: signup.body.demoVerificationCode })
+      .expect(500);
+
+    const [challenge, user] = await Promise.all([
+      database.db
+        .selectFrom("emailVerificationChallenges")
+        .select("consumedAt")
+        .where("userId", "=", signup.body.user.id)
+        .executeTakeFirstOrThrow(),
+      database.db
+        .selectFrom("users")
+        .select(["accountStatus", "emailVerifiedAt"])
+        .where("id", "=", signup.body.user.id)
+        .executeTakeFirstOrThrow(),
+    ]);
+    expect(challenge.consumedAt).toBeNull();
+    expect(user).toEqual({
+      accountStatus: "security_review",
+      emailVerifiedAt: null,
+    });
   });
 
   it("rejects signup without both explicit acknowledgements", async () => {

@@ -3,7 +3,8 @@
 ## Requirements
 
 - Node.js 24 LTS (24.15.0 or newer in the 24.x line).
-- npm 11 (11.12.0 or newer).
+- npm 11.18.0 or newer in the 11.x line. Earlier npm 11 releases do not
+  implement the pinned install-script approval policy used by this project.
 
 ## Installation and local execution
 

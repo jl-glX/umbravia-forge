@@ -6,7 +6,8 @@ committed lockfile as the reproducible source for installations.
 ## Supported toolchain
 
 - Node.js 24 LTS (24.15.0 or newer in the 24.x line)
-- npm 11 (11.12.0 or newer)
+- npm 11.18.0 or newer in the 11.x line. This is the first supported toolchain
+  for the pinned `allowScripts` policy enforced by this repository.
 - TypeScript 7.0.x as the native project compiler
 - TypeScript 6.0.x only as the temporary programmatic API consumed by
   `typescript-eslint`

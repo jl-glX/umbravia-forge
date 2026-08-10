@@ -1,6 +1,11 @@
 import express from "express";
 import request from "supertest";
 import { afterEach, describe, it, vi } from "vitest";
+
+vi.mock("../services/security-events.js", () => ({
+  recordSecurityEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { requireCaptcha } from "./captcha.js";
 
 function testApp() {

@@ -40,11 +40,38 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "falta el comando requerido: $1"
 }
 
+version_at_least() {
+  current_version=$1
+  minimum_version=$2
+  first_version=$(printf '%s\n' "$minimum_version" "$current_version" | sort -V | head -n 1)
+  [ "$first_version" = "$minimum_version" ]
+}
+
+require_supported_runtime_for_user() {
+  runtime_user=$1
+  node_version=$(run_as "$runtime_user" node -p "process.versions.node")
+  node_major=$(printf '%s' "$node_version" | cut -d. -f1)
+  if [ "$node_major" != "24" ] || ! version_at_least "$node_version" "24.15.0"; then
+    fail "Node.js incompatible para $runtime_user: $node_version; se requiere 24.15.0 o posterior dentro de la rama 24"
+  fi
+
+  npm_version=$(run_as "$runtime_user" npm --version)
+  npm_major=$(printf '%s' "$npm_version" | cut -d. -f1)
+  if [ "$npm_major" != "11" ] || ! version_at_least "$npm_version" "11.18.0"; then
+    fail "npm incompatible para $runtime_user: $npm_version; se requiere 11.18.0 o posterior dentro de la rama 11 para aplicar allowScripts"
+  fi
+}
+
 run_as() {
   user=$1
   shift
   if [ "$(id -u)" -eq 0 ]; then
-    runuser -u "$user" -- "$@"
+    home_dir=$(getent passwd "$user" | cut -d: -f6)
+    [ -n "$home_dir" ] || fail "el usuario $user no tiene directorio personal configurado"
+    runuser -u "$user" -- env \
+      HOME="$home_dir" \
+      XDG_CONFIG_HOME="$home_dir/.config" \
+      "$@"
   else
     [ "$(id -un)" = "$user" ] || fail "se necesita root para ejecutar como $user"
     "$@"
@@ -107,13 +134,15 @@ cleanup_stale_builds() {
 
 [ "$(id -u)" -eq 0 ] || fail "el actualizador debe ejecutarse como root"
 
-for command_name in curl flock git install ln mv node npm readlink runuser systemctl; do
+for command_name in cut curl env flock getent git head install ln mv node npm readlink runuser sort systemctl; do
   require_command "$command_name"
 done
 
 id "$UMBRAVIA_BUILD_USER" >/dev/null 2>&1 || fail "usuario de construccion inexistente: $UMBRAVIA_BUILD_USER"
 id "$UMBRAVIA_APP_USER" >/dev/null 2>&1 || fail "usuario de aplicacion inexistente: $UMBRAVIA_APP_USER"
 getent group "$UMBRAVIA_APP_GROUP" >/dev/null 2>&1 || fail "grupo de aplicacion inexistente: $UMBRAVIA_APP_GROUP"
+require_supported_runtime_for_user "$UMBRAVIA_BUILD_USER"
+require_supported_runtime_for_user "$UMBRAVIA_APP_USER"
 [ -r "$UMBRAVIA_APP_ENV_FILE" ] || fail "archivo de entorno inaccesible: $UMBRAVIA_APP_ENV_FILE"
 [ -n "${VITE_TURNSTILE_SITE_KEY:-}" ] || fail "VITE_TURNSTILE_SITE_KEY no esta configurada"
 install -d -o root -g root -m 0755 "$(dirname "$UMBRAVIA_UPDATE_LOCK")"
@@ -217,6 +246,7 @@ run_as "$UMBRAVIA_APP_USER" sh -c '
   set -eu
   cd "$1"
   npm ci --omit=dev --audit=false --fund=false
+  npm rebuild argon2 --foreground-scripts
 ' sh "$release_dir"
 printf '%s\n' "$remote_commit" >"$release_dir/.umbravia-release-commit"
 chmod 0755 "$release_dir/deploy/check-linux-readiness.sh"

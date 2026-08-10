@@ -57,7 +57,10 @@ protegida y validación previa.
    El paquete no contiene `node_modules`: dentro de la versión copiada debe
    ejecutarse `npm ci --omit=dev`. Esto es obligatorio aunque el paquete se
    haya construido en Windows, porque las dependencias nativas deben instalarse
-   para Linux y desde el `package-lock.json` validado.
+   para Linux y desde el `package-lock.json` validado. A continuación se ejecuta
+   `npm rebuild argon2 --foreground-scripts`, limitado al módulo nativo revisado.
+   La preparación prueba Argon2id y XChaCha20-Poly1305 con operaciones reales
+   antes de activar la release.
 3. Copiar `deploy/umbravia-forge.env.template` a
    `/etc/umbravia-forge/umbravia-forge.env`, sustituir todos los marcadores y
    aplicar permisos `0640` con grupo `umbravia`.
@@ -85,7 +88,8 @@ protegida y validación previa.
      ./deploy/check-linux-readiness.sh
    ```
 
-   El comprobador exige Linux, Node 24, npm 11, Caddy, `systemd`, los artefactos
+   El comprobador exige Linux, Node 24, npm 11.18.0 o posterior dentro de la
+   rama 11, Caddy, `systemd`, los artefactos
    compilados, dependencias de producción instaladas, configuración sin
    marcadores y permisos `0600` o `0640` para los secretos. Si algo falla, la
    versión no debe activarse.

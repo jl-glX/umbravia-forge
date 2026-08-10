@@ -305,6 +305,33 @@ describe("community, identity and moderation APIs", () => {
         expect.objectContaining({ id: community.body.id }),
       ]),
     );
+
+    const privateMessage = await request(app)
+      .post(`/api/community/channels/${community.body.id}/messages`)
+      .set("Cookie", memberCookie)
+      .send({ body: "Mensaje personal administrado y cifrado" })
+      .expect(201);
+    const stored = await database.db
+      .selectFrom("communityMessages")
+      .select(["body", "protectedBody", "kind"])
+      .where("id", "=", privateMessage.body.id)
+      .executeTakeFirstOrThrow();
+    expect(stored).toMatchObject({ body: "[protected]", kind: "public" });
+    expect(stored.protectedBody).toMatch(/^xcp1\./);
+    expect(stored.protectedBody).not.toContain("Mensaje personal");
+
+    const visible = await request(app)
+      .get(`/api/community/channels/${community.body.id}/messages`)
+      .set("Cookie", secondMemberCookie)
+      .expect(200);
+    expect(visible.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: privateMessage.body.id,
+          body: "Mensaje personal administrado y cifrado",
+        }),
+      ]),
+    );
   });
 
   it("creates auditable reports, actions and appeals", async () => {

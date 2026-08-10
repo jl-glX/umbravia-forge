@@ -5,17 +5,24 @@
 Umbravia Forge cifra en reposo con XChaCha20-Poly1305:
 
 - el texto de las justificaciones privadas de la comunidad;
+- los mensajes de los grupos personales gestionados por el servidor;
 - los adjuntos privados de Forge Support.
 
-El formato `xcp1` es versionado. Usa una clave de 256 bits, un nonce aleatorio
-de 192 bits y datos asociados que vinculan cada carga a su contexto. El texto
-legado sigue siendo legible para permitir una migración gradual; toda escritura
-nueva queda cifrada cuando el perfil está activo. Una clave equivocada, un
-cambio de contexto o una carga manipulada fallan de forma cerrada.
+Los formatos `xcp1` y `xcp2` están versionados. Ambos usan una clave de 256
+bits, un nonce aleatorio de 192 bits y datos asociados que vinculan cada carga
+a su contexto. `xcp1` conserva compatibilidad con la clave única original.
+`xcp2` incorpora un identificador de clave y permite leer con varias versiones
+mientras las escrituras usan una clave activa. Una clave equivocada, un cambio
+de contexto o una carga manipulada fallan de forma cerrada.
 
 La biblioteca seleccionada es JavaScript portable y no necesita compilación
 nativa. El comprobador de Linux importa el mismo módulo y realiza una prueba
 de cifrado y descifrado antes de permitir que se active una release.
+
+La preparación del servidor también realiza operaciones efímeras con
+AES-256-GCM, SHA-256, scrypt y Argon2id. No usa las claves reales ni imprime
+material criptográfico. Una release no se activa si el módulo nativo Argon2id o
+alguna primitiva necesaria no funciona en el Linux de destino.
 
 ## Activación manual
 
@@ -35,15 +42,42 @@ PRIVATE_CONTENT_ENCRYPTION_KEY=<32 bytes codificados en base64url>
 ```
 
 No se debe reutilizar `MFA_ENCRYPTION_KEY` ni
-`EMAIL_QUEUE_ENCRYPTION_KEY`. La rotación futura requiere un llavero con varias
-versiones; cambiar directamente la clave dejaría sin lectura las cargas
-anteriores.
+`EMAIL_QUEUE_ENCRYPTION_KEY`. Esta configuración existente sigue siendo válida
+y no necesita cambiarse para desplegar la actualización.
+
+## Rotación segura y compatible
+
+No se debe sustituir directamente la clave única. Para iniciar una rotación se
+mantiene `PRIVATE_CONTENT_ENCRYPTION_KEY` y se añaden, manualmente, las
+variables siguientes:
+
+```text
+PRIVATE_CONTENT_ENCRYPTION_KEYRING=clave-2026:<clave actual>,clave-2027:<clave nueva>
+PRIVATE_CONTENT_ENCRYPTION_ACTIVE_KEY_ID=clave-2027
+```
+
+El identificador `legacy` esta reservado internamente para
+`PRIVATE_CONTENT_ENCRYPTION_KEY` y no debe usarse dentro del llavero versionado.
+
+Desde ese momento las escrituras nuevas usan `xcp2` y `clave-2027`, mientras
+las cargas `xcp1` y las cargas creadas con `clave-2026` siguen siendo legibles.
+La comprobación de preparación de Linux verifica longitud, identificadores,
+duplicidades, clave activa y una operación real de cifrado y descifrado antes
+de aceptar la release.
+
+La biblioteca ofrece operaciones de recifrado, pero la retirada de una clave
+no es automática. Antes de eliminarla se necesita un inventario y un trabajo de
+migración que confirme que no queda ninguna carga asociada. Hasta entonces se
+conservan la clave única y todas las entradas históricas del llavero.
 
 ## Comunidades normales
 
-Los mensajes de comunidades normales permanecen legibles por el servidor para
-moderación, búsqueda y cumplimiento. Se protegen en tránsito mediante HTTPS y
-TLS 1.3 en el origen. Esto no se presenta como cifrado de extremo a extremo.
+Los canales generales del centro y de clase permanecen legibles por el servidor
+para moderación, búsqueda y cumplimiento. Se protegen en tránsito mediante
+HTTPS y TLS 1.3 en el origen. Los grupos personales, además, se almacenan en un
+envoltorio cifrado y se descifran únicamente después de comprobar la pertenencia
+al grupo. El servidor conserva capacidad de descifrado: esto no es cifrado de
+extremo a extremo.
 
 ## Signal Protocol: límite honesto
 
