@@ -78,5 +78,32 @@ export function initializeE2eeSchema(sqliteDb: Database.Database) {
       ON e2eeEnvelopes(recipientDeviceId, createdAt, id);
     CREATE INDEX IF NOT EXISTS idx_e2eeEnvelopes_conversation
       ON e2eeEnvelopes(conversationId, createdAt, id);
+
+    CREATE TABLE IF NOT EXISTS e2eeAttachments (
+      id TEXT PRIMARY KEY,
+      conversationId TEXT NOT NULL,
+      senderUserId TEXT NOT NULL,
+      senderDeviceId TEXT NOT NULL,
+      recipientUserId TEXT NOT NULL,
+      recipientDeviceId TEXT NOT NULL,
+      clientAttachmentId TEXT NOT NULL,
+      storageKey TEXT NOT NULL UNIQUE,
+      sizeBytes INTEGER NOT NULL CHECK(sizeBytes > 0),
+      checksumSha256 TEXT NOT NULL,
+      associatedData TEXT NOT NULL DEFAULT '',
+      createdAt INTEGER NOT NULL,
+      downloadedAt INTEGER,
+      expiresAt INTEGER,
+      UNIQUE(senderDeviceId, clientAttachmentId, recipientDeviceId),
+      FOREIGN KEY(conversationId) REFERENCES e2eeConversations(id) ON DELETE CASCADE,
+      FOREIGN KEY(senderUserId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(senderDeviceId) REFERENCES e2eeDevices(id) ON DELETE CASCADE,
+      FOREIGN KEY(recipientUserId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(recipientDeviceId) REFERENCES e2eeDevices(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_e2eeAttachments_recipient
+      ON e2eeAttachments(recipientDeviceId, createdAt, id);
+    CREATE INDEX IF NOT EXISTS idx_e2eeAttachments_conversation
+      ON e2eeAttachments(conversationId, createdAt, id);
   `);
 }

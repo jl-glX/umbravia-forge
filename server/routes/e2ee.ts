@@ -5,6 +5,15 @@ import {
   authenticate,
   getAuthenticatedUser,
 } from "../middleware/authorization.js";
+import { recordSecurityEvent } from "../services/security-events.js";
+import {
+  deleteOpaqueE2eeAttachment,
+  E2eeAttachmentError,
+  e2eeAttachmentLimitBytes,
+  listOpaqueE2eeAttachments,
+  readOpaqueE2eeAttachment,
+  storeOpaqueE2eeAttachment,
+} from "../services/e2ee-attachments.js";
 
 export const e2eeRouter = express.Router();
 e2eeRouter.use(authenticate);
@@ -18,6 +27,7 @@ const deviceIdPattern = /^[A-Za-z0-9._:-]{1,128}$/;
 const capabilityPattern = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const MAX_PREKEYS_PER_REQUEST = 100;
 const MAX_ENVELOPE_BYTES = 24_576;
+const checksumPattern = /^[a-f0-9]{64}$/;
 const forbiddenSecretFields = new Set([
   "body",
   "plaintext",
@@ -31,6 +41,20 @@ type OpaqueKey = { keyId: number; publicKey: string };
 
 function badRequest(res: express.Response, error: string) {
   res.status(400).json({ error, code: "VALIDATION_ERROR" });
+}
+
+function handleAttachmentError(
+  error: unknown,
+  res: express.Response,
+  next: express.NextFunction,
+) {
+  if (error instanceof E2eeAttachmentError) {
+    res
+      .status(error.statusCode)
+      .json({ error: error.message, code: error.code });
+    return;
+  }
+  next(error);
 }
 
 function isOpaque(value: unknown, maxLength: number): value is string {
@@ -142,6 +166,7 @@ e2eeRouter.get("/status", (_req, res) => {
       "multi_device",
       "one_time_prekeys",
       "opaque_envelopes",
+      "opaque_attachments",
       "delivery_receipts",
       "device_revocation",
     ],
@@ -184,28 +209,68 @@ e2eeRouter.post("/devices", async (req, res, next) => {
       return;
     }
 
+    const existingDevice = await db
+      .selectFrom("e2eeDevices")
+      .select(["id", "identityKey", "revokedAt"])
+      .where("userId", "=", auth.userId)
+      .where("clientDeviceId", "=", clientDeviceId)
+      .executeTakeFirst();
+    if (
+      existingDevice &&
+      (existingDevice.identityKey !== identityKey ||
+        existingDevice.revokedAt !== null)
+    ) {
+      const reason =
+        existingDevice.revokedAt !== null
+          ? "revoked_device_id_reuse"
+          : "identity_key_changed";
+      await recordSecurityEvent("e2ee_identity_change_rejected", auth.userId, {
+        clientDeviceId,
+        reason,
+      });
+      res.status(409).json({
+        error:
+          reason === "identity_key_changed"
+            ? "Device identity is already pinned"
+            : "Revoked device identifiers cannot be reused",
+        code: "E2EE_IDENTITY_CHANGE_REJECTED",
+      });
+      return;
+    }
+
     const now = Date.now();
     const result = await db.transaction().execute(async (trx) => {
       const existing = await trx
         .selectFrom("e2eeDevices")
-        .select("id")
+        .select(["id", "identityKey", "revokedAt"])
         .where("userId", "=", auth.userId)
         .where("clientDeviceId", "=", clientDeviceId)
         .executeTakeFirst();
+      if (
+        existing &&
+        (existing.identityKey !== identityKey || existing.revokedAt !== null)
+      ) {
+        return {
+          id: existing.id,
+          created: false,
+          conflict:
+            existing.revokedAt !== null
+              ? "revoked_device_id_reuse"
+              : "identity_key_changed",
+        };
+      }
       const id = existing?.id ?? randomUUID();
       if (existing) {
         await trx
           .updateTable("e2eeDevices")
           .set({
             registrationId,
-            identityKey,
             signedPrekeyId,
             signedPrekey,
             signedPrekeySignature,
             capabilityVersion,
             updatedAt: now,
             lastSeenAt: now,
-            revokedAt: null,
           })
           .where("id", "=", id)
           .execute();
@@ -247,8 +312,22 @@ e2eeRouter.post("/devices", async (req, res, next) => {
           )
           .execute();
       }
-      return { id, created: !existing };
+      return { id, created: !existing, conflict: null };
     });
+    if (result.conflict) {
+      await recordSecurityEvent("e2ee_identity_change_rejected", auth.userId, {
+        clientDeviceId,
+        reason: result.conflict,
+      });
+      res.status(409).json({
+        error:
+          result.conflict === "identity_key_changed"
+            ? "Device identity is already pinned"
+            : "Revoked device identifiers cannot be reused",
+        code: "E2EE_IDENTITY_CHANGE_REJECTED",
+      });
+      return;
+    }
     res.status(result.created ? 201 : 200).json({
       id: result.id,
       clientDeviceId,
@@ -615,6 +694,92 @@ e2eeRouter.post("/conversations/:id/envelopes", async (req, res, next) => {
   }
 });
 
+e2eeRouter.post(
+  "/conversations/:id/attachments",
+  express.raw({
+    type: "application/octet-stream",
+    limit: e2eeAttachmentLimitBytes(),
+  }),
+  async (req, res, next) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      const conversation = await requireConversationMember(
+        auth.userId,
+        req.params.id,
+      );
+      if (!conversation) {
+        res
+          .status(404)
+          .json({ error: "Conversation not found", code: "NOT_FOUND" });
+        return;
+      }
+      const senderDeviceId = req.get("x-sender-device-id") ?? "";
+      const recipientDeviceId = req.get("x-recipient-device-id") ?? "";
+      const clientAttachmentId = req.get("x-client-attachment-id") ?? "";
+      const checksumSha256 = (
+        req.get("x-ciphertext-sha256") ?? ""
+      ).toLowerCase();
+      const associatedData = req.get("x-associated-data") ?? "";
+      const expiresAtHeader = req.get("x-expires-at");
+      const expiresAt = expiresAtHeader ? Number(expiresAtHeader) : null;
+      const senderDevice = await requireOwnedActiveDevice(
+        auth.userId,
+        senderDeviceId,
+      );
+      const recipientUserId =
+        conversation.participantAUserId === auth.userId
+          ? conversation.participantBUserId
+          : conversation.participantAUserId;
+      if (!(await hasAcceptedContact(auth.userId, recipientUserId))) {
+        res
+          .status(403)
+          .json({ error: "Accepted contact required", code: "FORBIDDEN" });
+        return;
+      }
+      const recipientDevice = await db
+        .selectFrom("e2eeDevices")
+        .selectAll()
+        .where("id", "=", recipientDeviceId)
+        .where("userId", "=", recipientUserId)
+        .where("revokedAt", "is", null)
+        .executeTakeFirst();
+      if (
+        !senderDevice ||
+        !recipientDevice ||
+        !deviceIdPattern.test(clientAttachmentId) ||
+        !checksumPattern.test(checksumSha256) ||
+        (associatedData !== "" && !isOpaque(associatedData, 4096)) ||
+        (expiresAt !== null &&
+          (!Number.isSafeInteger(expiresAt) || expiresAt <= Date.now())) ||
+        !Buffer.isBuffer(req.body)
+      ) {
+        badRequest(res, "Invalid encrypted attachment");
+        return;
+      }
+      const result = await storeOpaqueE2eeAttachment({
+        body: req.body,
+        conversationId: conversation.id,
+        senderUserId: auth.userId,
+        senderDeviceId: senderDevice.id,
+        recipientUserId,
+        recipientDeviceId: recipientDevice.id,
+        clientAttachmentId,
+        checksumSha256,
+        associatedData,
+        expiresAt,
+      });
+      await db
+        .updateTable("e2eeConversations")
+        .set({ updatedAt: Date.now() })
+        .where("id", "=", conversation.id)
+        .execute();
+      res.status(result.created ? 201 : 200).json(result.attachment);
+    } catch (error) {
+      handleAttachmentError(error, res, next);
+    }
+  },
+);
+
 e2eeRouter.get("/devices/:deviceId/envelopes", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
@@ -654,6 +819,84 @@ e2eeRouter.get("/devices/:deviceId/envelopes", async (req, res, next) => {
     next(error);
   }
 });
+
+e2eeRouter.get("/devices/:deviceId/attachments", async (req, res, next) => {
+  try {
+    const auth = getAuthenticatedUser(res);
+    const device = await requireOwnedActiveDevice(
+      auth.userId,
+      req.params.deviceId,
+    );
+    if (!device) {
+      res.status(404).json({ error: "Device not found", code: "NOT_FOUND" });
+      return;
+    }
+    const after = Number(req.query.after ?? 0);
+    const limit = Math.min(Math.max(Number(req.query.limit ?? 25), 1), 100);
+    if (!Number.isSafeInteger(after) || !Number.isSafeInteger(limit)) {
+      badRequest(res, "Invalid attachment cursor");
+      return;
+    }
+    res.json(
+      await listOpaqueE2eeAttachments(auth.userId, device.id, after, limit),
+    );
+  } catch (error) {
+    handleAttachmentError(error, res, next);
+  }
+});
+
+e2eeRouter.get(
+  "/devices/:deviceId/attachments/:attachmentId/content",
+  async (req, res, next) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      const device = await requireOwnedActiveDevice(
+        auth.userId,
+        req.params.deviceId,
+      );
+      if (!device) {
+        res.status(404).json({ error: "Device not found", code: "NOT_FOUND" });
+        return;
+      }
+      const result = await readOpaqueE2eeAttachment(
+        auth.userId,
+        device.id,
+        req.params.attachmentId,
+      );
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Length", String(result.body.length));
+      res.setHeader("X-Ciphertext-Sha256", result.attachment.checksumSha256);
+      res.send(result.body);
+    } catch (error) {
+      handleAttachmentError(error, res, next);
+    }
+  },
+);
+
+e2eeRouter.delete(
+  "/devices/:deviceId/attachments/:attachmentId",
+  async (req, res, next) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      const device = await requireOwnedActiveDevice(
+        auth.userId,
+        req.params.deviceId,
+      );
+      if (!device) {
+        res.status(404).json({ error: "Device not found", code: "NOT_FOUND" });
+        return;
+      }
+      await deleteOpaqueE2eeAttachment(
+        auth.userId,
+        device.id,
+        req.params.attachmentId,
+      );
+      res.status(204).end();
+    } catch (error) {
+      handleAttachmentError(error, res, next);
+    }
+  },
+);
 
 e2eeRouter.post("/devices/:deviceId/receipts", async (req, res, next) => {
   try {

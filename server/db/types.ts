@@ -559,6 +559,23 @@ interface E2eeEnvelope {
   expiresAt: number | null;
 }
 
+interface E2eeAttachment {
+  id: string;
+  conversationId: string;
+  senderUserId: string;
+  senderDeviceId: string;
+  recipientUserId: string;
+  recipientDeviceId: string;
+  clientAttachmentId: string;
+  storageKey: string;
+  sizeBytes: number;
+  checksumSha256: string;
+  associatedData: string;
+  createdAt: number;
+  downloadedAt: number | null;
+  expiresAt: number | null;
+}
+
 interface CommunityChannel {
   id: string;
   scope: "facility" | "class" | "community";
@@ -586,6 +603,19 @@ interface CommunityMessage {
   status: "active" | "reported" | "removed";
   createdAt: number;
   updatedAt: number;
+}
+
+interface CommunityAttachment {
+  id: string;
+  channelId: string;
+  messageId: string | null;
+  uploadedByUserId: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  storageKey: string;
+  checksumSha256: string;
+  createdAt: number;
 }
 
 interface CommunityMember {
@@ -833,8 +863,10 @@ export interface Database {
   e2eeOneTimePrekeys: E2eeOneTimePrekey;
   e2eeConversations: E2eeConversation;
   e2eeEnvelopes: E2eeEnvelope;
+  e2eeAttachments: E2eeAttachment;
   communityChannels: CommunityChannel;
   communityMessages: CommunityMessage;
+  communityAttachments: CommunityAttachment;
   communityMembers: CommunityMember;
   facilityLinks: FacilityLink;
   parentalControls: ParentalControl;

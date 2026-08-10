@@ -693,6 +693,23 @@ CREATE TABLE IF NOT EXISTS "communityMessages" (
 CREATE INDEX IF NOT EXISTS "idx_communityMessages_channel"
   ON "communityMessages" ("channelId", "createdAt" DESC);
 
+CREATE TABLE IF NOT EXISTS "communityAttachments" (
+  "id" TEXT PRIMARY KEY,
+  "channelId" TEXT NOT NULL REFERENCES "communityChannels" ("id") ON DELETE CASCADE,
+  "messageId" TEXT REFERENCES "communityMessages" ("id") ON DELETE SET NULL,
+  "uploadedByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "fileName" TEXT NOT NULL,
+  "mimeType" TEXT NOT NULL,
+  "sizeBytes" BIGINT NOT NULL CHECK ("sizeBytes" > 0),
+  "storageKey" TEXT NOT NULL UNIQUE,
+  "checksumSha256" TEXT NOT NULL,
+  "createdAt" BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_communityAttachments_channel"
+  ON "communityAttachments" ("channelId", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_communityAttachments_message"
+  ON "communityAttachments" ("messageId");
+
 CREATE TABLE IF NOT EXISTS "communityMembers" (
   "channelId" TEXT NOT NULL REFERENCES "communityChannels" ("id") ON DELETE CASCADE,
   "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
@@ -1074,6 +1091,55 @@ CREATE INDEX IF NOT EXISTS "idx_e2eeEnvelopes_recipient"
   ON "e2eeEnvelopes" ("recipientDeviceId", "createdAt", "id");
 CREATE INDEX IF NOT EXISTS "idx_e2eeEnvelopes_conversation"
   ON "e2eeEnvelopes" ("conversationId", "createdAt", "id");
+`,
+  },
+  {
+    version: 13,
+    name: "encrypted-community-attachments",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "communityAttachments" (
+  "id" TEXT PRIMARY KEY,
+  "channelId" TEXT NOT NULL REFERENCES "communityChannels" ("id") ON DELETE CASCADE,
+  "messageId" TEXT REFERENCES "communityMessages" ("id") ON DELETE SET NULL,
+  "uploadedByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "fileName" TEXT NOT NULL,
+  "mimeType" TEXT NOT NULL,
+  "sizeBytes" BIGINT NOT NULL CHECK ("sizeBytes" > 0),
+  "storageKey" TEXT NOT NULL UNIQUE,
+  "checksumSha256" TEXT NOT NULL,
+  "createdAt" BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_communityAttachments_channel"
+  ON "communityAttachments" ("channelId", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_communityAttachments_message"
+  ON "communityAttachments" ("messageId");
+`,
+  },
+  {
+    version: 14,
+    name: "opaque-e2ee-attachments",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "e2eeAttachments" (
+  "id" TEXT PRIMARY KEY,
+  "conversationId" TEXT NOT NULL REFERENCES "e2eeConversations" ("id") ON DELETE CASCADE,
+  "senderUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "senderDeviceId" TEXT NOT NULL REFERENCES "e2eeDevices" ("id") ON DELETE CASCADE,
+  "recipientUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "recipientDeviceId" TEXT NOT NULL REFERENCES "e2eeDevices" ("id") ON DELETE CASCADE,
+  "clientAttachmentId" TEXT NOT NULL,
+  "storageKey" TEXT NOT NULL UNIQUE,
+  "sizeBytes" BIGINT NOT NULL CHECK ("sizeBytes" > 0),
+  "checksumSha256" TEXT NOT NULL,
+  "associatedData" TEXT NOT NULL DEFAULT '',
+  "createdAt" BIGINT NOT NULL,
+  "downloadedAt" BIGINT,
+  "expiresAt" BIGINT,
+  UNIQUE ("senderDeviceId", "clientAttachmentId", "recipientDeviceId")
+);
+CREATE INDEX IF NOT EXISTS "idx_e2eeAttachments_recipient"
+  ON "e2eeAttachments" ("recipientDeviceId", "createdAt", "id");
+CREATE INDEX IF NOT EXISTS "idx_e2eeAttachments_conversation"
+  ON "e2eeAttachments" ("conversationId", "createdAt", "id");
 `,
   },
 ];

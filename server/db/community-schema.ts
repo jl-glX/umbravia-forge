@@ -79,6 +79,26 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_communityMessages_channel
       ON communityMessages(channelId, createdAt DESC);
 
+    CREATE TABLE IF NOT EXISTS communityAttachments (
+      id TEXT PRIMARY KEY,
+      channelId TEXT NOT NULL,
+      messageId TEXT,
+      uploadedByUserId TEXT NOT NULL,
+      fileName TEXT NOT NULL,
+      mimeType TEXT NOT NULL,
+      sizeBytes INTEGER NOT NULL CHECK(sizeBytes > 0),
+      storageKey TEXT NOT NULL UNIQUE,
+      checksumSha256 TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      FOREIGN KEY(channelId) REFERENCES communityChannels(id) ON DELETE CASCADE,
+      FOREIGN KEY(messageId) REFERENCES communityMessages(id) ON DELETE SET NULL,
+      FOREIGN KEY(uploadedByUserId) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_communityAttachments_channel
+      ON communityAttachments(channelId, createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_communityAttachments_message
+      ON communityAttachments(messageId);
+
     CREATE TABLE IF NOT EXISTS facilityLinks (
       id TEXT PRIMARY KEY,
       sourceFacilityId TEXT NOT NULL,

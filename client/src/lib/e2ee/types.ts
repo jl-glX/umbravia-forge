@@ -77,6 +77,37 @@ export interface OutboundEncryptedEnvelope {
   expiresAt?: number | null;
 }
 
+export interface OpaqueE2eeAttachment {
+  id: string;
+  conversationId: string;
+  senderUserId: string;
+  senderDeviceId: string;
+  recipientUserId: string;
+  recipientDeviceId: string;
+  clientAttachmentId: string;
+  sizeBytes: number;
+  checksumSha256: string;
+  associatedData: string;
+  createdAt: number;
+  downloadedAt: number | null;
+  expiresAt: number | null;
+}
+
+export interface OutboundOpaqueE2eeAttachment {
+  senderDeviceId: string;
+  recipientDeviceId: string;
+  clientAttachmentId: string;
+  ciphertext: Uint8Array;
+  checksumSha256: string;
+  associatedData?: string;
+  expiresAt?: number | null;
+}
+
+export interface DownloadedOpaqueE2eeAttachment {
+  ciphertext: Uint8Array;
+  checksumSha256: string;
+}
+
 export interface DecryptedMessage {
   plaintext: Uint8Array;
   senderDeviceId: string;

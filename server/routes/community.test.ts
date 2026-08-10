@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
@@ -330,6 +330,118 @@ describe("community, identity and moderation APIs", () => {
           id: privateMessage.body.id,
           body: "Mensaje personal administrado y cifrado",
         }),
+      ]),
+    );
+
+    const privateSearch = await request(app)
+      .get("/api/community/search/messages")
+      .query({ q: "Mensaje personal" })
+      .set("Cookie", secondMemberCookie)
+      .expect(200);
+    expect(privateSearch.body.results).toEqual([]);
+    const publicSearch = await request(app)
+      .get("/api/community/search/messages")
+      .query({ q: "entrena mañana" })
+      .set("Cookie", memberCookie)
+      .expect(200);
+    expect(publicSearch.body.results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ body: "¿Quién entrena mañana?" }),
+      ]),
+    );
+
+    const attachmentBody = Buffer.from(
+      "Documento privado de la comunidad",
+      "utf8",
+    );
+    const uploaded = await request(app)
+      .post(`/api/community/channels/${community.body.id}/attachments`)
+      .set("Cookie", memberCookie)
+      .set("Content-Type", "text/plain")
+      .set("X-File-Name", "plan/privado.txt")
+      .set("X-Message-Id", privateMessage.body.id)
+      .send(attachmentBody)
+      .expect(201);
+    expect(uploaded.body).toMatchObject({
+      channelId: community.body.id,
+      fileName: "plan_privado.txt",
+      mimeType: "text/plain",
+      sizeBytes: attachmentBody.length,
+    });
+    expect(uploaded.body).not.toHaveProperty("storageKey");
+
+    const storedAttachment = await database.db
+      .selectFrom("communityAttachments")
+      .selectAll()
+      .where("id", "=", uploaded.body.id)
+      .executeTakeFirstOrThrow();
+    const encryptedAttachment = await readFile(
+      join(
+        directory,
+        "private",
+        "community-attachments",
+        storedAttachment.storageKey,
+      ),
+      "utf8",
+    );
+    expect(encryptedAttachment).toMatch(/^xcp1\./);
+    expect(encryptedAttachment).not.toContain("Documento privado");
+
+    await request(app)
+      .get(`/api/community/channels/${community.body.id}/attachments`)
+      .set("Cookie", adminCookie)
+      .expect(404);
+    const listed = await request(app)
+      .get(`/api/community/channels/${community.body.id}/attachments`)
+      .set("Cookie", secondMemberCookie)
+      .expect(200);
+    expect(listed.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: uploaded.body.id }),
+      ]),
+    );
+    expect(listed.body[0]).not.toHaveProperty("storageKey");
+
+    const downloaded = await request(app)
+      .get(
+        `/api/community/channels/${community.body.id}/attachments/${uploaded.body.id}`,
+      )
+      .set("Cookie", secondMemberCookie)
+      .expect(200);
+    expect(downloaded.text).toBe(attachmentBody.toString("utf8"));
+    await request(app)
+      .delete(
+        `/api/community/channels/${community.body.id}/attachments/${uploaded.body.id}`,
+      )
+      .set("Cookie", secondMemberCookie)
+      .expect(403);
+    await request(app)
+      .delete(
+        `/api/community/channels/${community.body.id}/attachments/${uploaded.body.id}`,
+      )
+      .set("Cookie", memberCookie)
+      .expect(204);
+    expect(
+      await database.db
+        .selectFrom("communityAttachments")
+        .select("id")
+        .where("id", "=", uploaded.body.id)
+        .executeTakeFirst(),
+    ).toBeUndefined();
+    const attachmentEvents = await database.db
+      .selectFrom("securityEvents")
+      .select("type")
+      .where("type", "in", [
+        "private_attachment_uploaded",
+        "private_attachment_downloaded",
+        "private_attachment_deleted",
+      ])
+      .execute();
+    expect(attachmentEvents.map((event) => event.type)).toEqual(
+      expect.arrayContaining([
+        "private_attachment_uploaded",
+        "private_attachment_downloaded",
+        "private_attachment_deleted",
       ]),
     );
   });

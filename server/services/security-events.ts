@@ -37,7 +37,16 @@ export type SecurityEventType =
   | "account_representation_revoked"
   | "retention_policy_drafted"
   | "retention_policy_reviewed"
-  | "retention_hold_changed";
+  | "retention_hold_changed"
+  | "private_content_accessed"
+  | "private_content_rewrapped"
+  | "private_attachment_uploaded"
+  | "private_attachment_downloaded"
+  | "private_attachment_deleted"
+  | "e2ee_identity_change_rejected"
+  | "e2ee_attachment_uploaded"
+  | "e2ee_attachment_downloaded"
+  | "e2ee_attachment_deleted";
 
 export async function recordSecurityEvent(
   type: SecurityEventType,

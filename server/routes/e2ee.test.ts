@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -135,6 +136,64 @@ describe("one-to-one E2EE relay API", () => {
         .where("clientDeviceId", "=", "leaking-device")
         .executeTakeFirst(),
     ).toBeUndefined();
+  });
+
+  it("pins device identities and rejects silent replacement or revoked identifier reuse", async () => {
+    const bundle = {
+      clientDeviceId: "pinned-device",
+      registrationId: 404,
+      identityKey: "identity_pinned_device_original",
+      signedPrekeyId: 1,
+      signedPrekey: "signed_pinned_device",
+      signedPrekeySignature: "signature_pinned_device",
+      capabilityVersion: "signal-ready-v1",
+      oneTimePrekeys: [{ keyId: 41, publicKey: "one_time_pinned_device_41" }],
+    };
+    const created = await request(app)
+      .post("/api/e2ee/devices")
+      .set("Cookie", memberCookie)
+      .send(bundle)
+      .expect(201);
+    await request(app)
+      .post("/api/e2ee/devices")
+      .set("Cookie", memberCookie)
+      .send({ ...bundle, oneTimePrekeys: [] })
+      .expect(200);
+    await request(app)
+      .post("/api/e2ee/devices")
+      .set("Cookie", memberCookie)
+      .send({ ...bundle, identityKey: "identity_pinned_device_replaced" })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.code).toBe("E2EE_IDENTITY_CHANGE_REJECTED");
+      });
+
+    await request(app)
+      .delete(`/api/e2ee/devices/${created.body.id}`)
+      .set("Cookie", memberCookie)
+      .expect(204);
+    await request(app)
+      .post("/api/e2ee/devices")
+      .set("Cookie", memberCookie)
+      .send(bundle)
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.code).toBe("E2EE_IDENTITY_CHANGE_REJECTED");
+      });
+
+    const events = await database.db
+      .selectFrom("securityEvents")
+      .select(["type", "metadata"])
+      .where("userId", "=", "e2ee-member")
+      .where("type", "=", "e2ee_identity_change_rejected")
+      .execute();
+    expect(events).toHaveLength(2);
+    expect(events.map((event) => JSON.parse(event.metadata).reason)).toEqual(
+      expect.arrayContaining([
+        "identity_key_changed",
+        "revoked_device_id_reuse",
+      ]),
+    );
   });
 
   it("isolates contacts and consumes one-time prekeys exactly once", async () => {
@@ -295,5 +354,133 @@ describe("one-to-one E2EE relay API", () => {
       .set("Cookie", memberCookie)
       .send({ ...payload, clientMessageId: "revoked-recipient" })
       .expect(400);
+  });
+
+  it("relays opaque encrypted attachments without exposing them to other devices", async () => {
+    const member = await publishDevice(
+      memberCookie,
+      "member-attachment-device",
+      505,
+      [],
+    );
+    const peer = await publishDevice(
+      peerCookie,
+      "peer-attachment-device",
+      606,
+      [],
+    );
+    const conversation = await request(app)
+      .post("/api/e2ee/conversations")
+      .set("Cookie", memberCookie)
+      .send({ targetUserId: "e2ee-peer" })
+      .expect(200);
+    const ciphertext = Buffer.from("opaque-client-encrypted-attachment");
+    const checksum = createHash("sha256").update(ciphertext).digest("hex");
+    const attachmentPath = `/api/e2ee/conversations/${conversation.body.id}/attachments`;
+    const upload = (
+      clientAttachmentId = "opaque-attachment-1",
+      associatedData = "YXR0YWNobWVudF9jb250ZXh0",
+    ) =>
+      request(app)
+        .post(attachmentPath)
+        .set("Cookie", memberCookie)
+        .set("Content-Type", "application/octet-stream")
+        .set("X-Sender-Device-Id", member.body.id)
+        .set("X-Recipient-Device-Id", peer.body.id)
+        .set("X-Client-Attachment-Id", clientAttachmentId)
+        .set("X-Ciphertext-Sha256", checksum)
+        .set("X-Associated-Data", associatedData)
+        .send(ciphertext);
+
+    await request(app)
+      .post(attachmentPath)
+      .set("Cookie", memberCookie)
+      .set("Content-Type", "application/octet-stream")
+      .set("X-Sender-Device-Id", member.body.id)
+      .set("X-Recipient-Device-Id", peer.body.id)
+      .set("X-Client-Attachment-Id", "opaque-attachment-bad-checksum")
+      .set("X-Ciphertext-Sha256", "0".repeat(64))
+      .send(ciphertext)
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.code).toBe("E2EE_ATTACHMENT_CHECKSUM_MISMATCH");
+      });
+
+    const created = await upload().expect(201);
+    const repeated = await upload().expect(200);
+    expect(repeated.body.id).toBe(created.body.id);
+    expect(created.body).not.toHaveProperty("storageKey");
+    expect(created.body.checksumSha256).toBe(checksum);
+    await upload("opaque-attachment-1", "YWx0ZXJlZF9jb250ZXh0")
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.code).toBe("E2EE_ATTACHMENT_ID_CONFLICT");
+      });
+
+    await request(app)
+      .get(`/api/e2ee/devices/${peer.body.id}/attachments`)
+      .set("Cookie", memberCookie)
+      .expect(404);
+    await request(app)
+      .get(`/api/e2ee/devices/${peer.body.id}/attachments`)
+      .set("Cookie", outsiderCookie)
+      .expect(404);
+    const inbox = await request(app)
+      .get(`/api/e2ee/devices/${peer.body.id}/attachments`)
+      .set("Cookie", peerCookie)
+      .expect(200);
+    expect(inbox.body).toHaveLength(1);
+    expect(inbox.body[0].id).toBe(created.body.id);
+
+    const downloaded = await request(app)
+      .get(
+        `/api/e2ee/devices/${peer.body.id}/attachments/${created.body.id}/content`,
+      )
+      .set("Cookie", peerCookie)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () => callback(null, Buffer.concat(chunks)));
+      })
+      .expect(200)
+      .expect("X-Ciphertext-Sha256", checksum);
+    expect(downloaded.body).toEqual(ciphertext);
+
+    expect(
+      await database.db
+        .selectFrom("e2eeAttachments")
+        .select((eb) => eb.fn.countAll<number>().as("count"))
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ count: 1 });
+    await request(app)
+      .delete(
+        `/api/e2ee/devices/${peer.body.id}/attachments/${created.body.id}`,
+      )
+      .set("Cookie", peerCookie)
+      .expect(204);
+    expect(
+      await database.db
+        .selectFrom("e2eeAttachments")
+        .select("id")
+        .executeTakeFirst(),
+    ).toBeUndefined();
+
+    const expiring = await upload("opaque-attachment-expiring").expect(201);
+    await database.db
+      .updateTable("e2eeAttachments")
+      .set({ expiresAt: Date.now() - 1 })
+      .where("id", "=", expiring.body.id)
+      .execute();
+    const { purgeExpiredOpaqueE2eeAttachments } =
+      await import("../services/e2ee-attachments.js");
+    expect(await purgeExpiredOpaqueE2eeAttachments()).toBe(1);
+    expect(
+      await database.db
+        .selectFrom("e2eeAttachments")
+        .select("id")
+        .where("id", "=", expiring.body.id)
+        .executeTakeFirst(),
+    ).toBeUndefined();
   });
 });

@@ -10,6 +10,7 @@ import { auditSourceHygiene } from "./source-hygiene.js";
 import { runEnvironmentReadinessAudit } from "./environment-manager.js";
 import { maintainEmailDeliveryQueue } from "./email-delivery.js";
 import { auditSupportSla } from "./support.js";
+import { purgeExpiredOpaqueE2eeAttachments } from "./e2ee-attachments.js";
 import {
   getManagerCoordinationStatus,
   ManagerCoordinationConflictError,
@@ -91,6 +92,7 @@ let lastRuntimeCheck: RuntimeCheckStatus | null = null;
 
 const taskCoordinationScopes: Record<string, string[]> = {
   "expired-auth-cleanup": ["authentication-records"],
+  "expired-e2ee-attachment-cleanup": ["e2ee-attachment-records"],
   "deleted-account-residual-cleanup": ["account-records"],
   "booking-integrity-cleanup": ["booking-records"],
   "project-runtime-cleanup": ["runtime-records"],
@@ -243,6 +245,23 @@ registerTask({
   priority: "normal",
   enabledByDefault: true,
   run: cleanupExpiredAuthenticationData,
+});
+
+registerTask({
+  id: "expired-e2ee-attachment-cleanup",
+  name: "Expired E2EE attachment cleanup",
+  description:
+    "Removes expired opaque E2EE attachment payloads and metadata without decrypting their contents.",
+  intervalMs: 30 * 60 * 1000,
+  priority: "normal",
+  enabledByDefault: true,
+  run: async () => {
+    const count = await purgeExpiredOpaqueE2eeAttachments();
+    return {
+      count,
+      summary: `${count} expired opaque E2EE attachment(s) removed.`,
+    };
+  },
 });
 
 registerTask({

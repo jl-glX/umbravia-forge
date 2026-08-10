@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
+  privateContentNeedsRewrap,
   protectPrivateText,
   revealPrivateText,
+  rewrapPrivateText,
 } from "../lib/private-content-crypto.js";
 import express from "express";
 import { db } from "../db/client.js";
@@ -18,6 +20,15 @@ import {
   profileVisibilities,
 } from "../lib/community-policy.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
+import {
+  CommunityAttachmentError,
+  communityAttachmentLimitBytes,
+  deleteCommunityAttachment,
+  listCommunityAttachments,
+  readCommunityAttachment,
+  storeCommunityAttachment,
+} from "../services/community-attachments.js";
+import { recordSecurityEvent } from "../services/security-events.js";
 
 export const communityRouter = express.Router();
 communityRouter.use(authenticate);
@@ -38,6 +49,20 @@ const privacyKeys = [
 
 function badRequest(res: express.Response, error: string) {
   res.status(400).json({ error, code: "VALIDATION_ERROR" });
+}
+
+function handleCommunityAttachmentError(
+  error: unknown,
+  res: express.Response,
+  next: express.NextFunction,
+) {
+  if (error instanceof CommunityAttachmentError) {
+    res
+      .status(error.statusCode)
+      .json({ error: error.message, code: error.code });
+    return;
+  }
+  next(error);
 }
 
 function parsePrivacy(value: unknown): Record<string, string> | null {
@@ -185,6 +210,84 @@ async function canManageChannel(
 communityRouter.get("/principles", (_req, res) =>
   res.json(institutionalPrinciples),
 );
+
+communityRouter.get("/search/messages", async (req, res, next) => {
+  try {
+    const auth = getAuthenticatedUser(res);
+    const search = String(req.query.q ?? "").trim();
+    if (search.length < 2 || search.length > 120) {
+      return badRequest(res, "Search must contain 2-120 characters");
+    }
+    const normalized = search.toLocaleLowerCase();
+    const candidates = await db
+      .selectFrom("communityMessages")
+      .innerJoin(
+        "communityChannels",
+        "communityChannels.id",
+        "communityMessages.channelId",
+      )
+      .innerJoin("users", "users.id", "communityMessages.authorUserId")
+      .leftJoin(
+        "socialProfiles",
+        "socialProfiles.userId",
+        "communityMessages.authorUserId",
+      )
+      .select([
+        "communityMessages.id",
+        "communityMessages.channelId",
+        "communityMessages.authorUserId",
+        "communityMessages.body",
+        "communityMessages.createdAt",
+        "communityChannels.name as channelName",
+        "communityChannels.scope as channelScope",
+        "users.name as accountName",
+        "socialProfiles.username as authorUsername",
+      ])
+      .where("communityMessages.status", "=", "active")
+      .where("communityMessages.kind", "=", "public")
+      .where("communityMessages.protectedBody", "is", null)
+      .where("communityChannels.scope", "in", ["facility", "class"])
+      .orderBy("communityMessages.createdAt", "desc")
+      .limit(500)
+      .execute();
+
+    const results: Array<{
+      id: string;
+      channelId: string;
+      channelName: string;
+      channelScope: string;
+      authorUserId: string;
+      authorName: string;
+      body: string;
+      createdAt: number;
+    }> = [];
+    for (const candidate of candidates) {
+      if (!candidate.body.toLocaleLowerCase().includes(normalized)) continue;
+      const channel = await canAccessChannel(
+        auth.userId,
+        auth.role,
+        candidate.channelId,
+      );
+      if (!channel) continue;
+      results.push({
+        id: candidate.id,
+        channelId: candidate.channelId,
+        channelName: candidate.channelName,
+        channelScope: candidate.channelScope,
+        authorUserId: candidate.authorUserId,
+        authorName: candidate.authorUsername
+          ? `@${candidate.authorUsername}`
+          : candidate.accountName,
+        body: candidate.body,
+        createdAt: candidate.createdAt,
+      });
+      if (results.length === 50) break;
+    }
+    res.json({ query: search, results });
+  } catch (error) {
+    next(error);
+  }
+});
 
 communityRouter.get("/profile", async (_req, res, next) => {
   try {
@@ -645,20 +748,50 @@ communityRouter.get("/channels/:id/messages", async (req, res, next) => {
         (message) =>
           message.kind === "public" || message.authorUserId === auth.userId,
       );
-    res.json(
+    let accessedPrivateMessages = 0;
+    let rewrappedPrivateMessages = 0;
+    const response = await Promise.all(
       messages.map(
-        ({ accountName, authorUsername, protectedBody, ...message }) => ({
-          ...message,
-          body: protectedBody
-            ? revealPrivateText(
-                protectedBody,
-                `community-message:${message.id}`,
-              )
-            : message.body,
-          authorName: authorUsername ? `@${authorUsername}` : accountName,
-        }),
+        async ({ accountName, authorUsername, protectedBody, ...message }) => {
+          let body = message.body;
+          if (protectedBody) {
+            accessedPrivateMessages += 1;
+            const context = `community-message:${message.id}`;
+            body = revealPrivateText(protectedBody, context);
+            if (privateContentNeedsRewrap(protectedBody)) {
+              const rewrapped = rewrapPrivateText(protectedBody, context);
+              await db
+                .updateTable("communityMessages")
+                .set({ protectedBody: rewrapped })
+                .where("id", "=", message.id)
+                .where("protectedBody", "=", protectedBody)
+                .execute();
+              rewrappedPrivateMessages += 1;
+            }
+          }
+          return {
+            ...message,
+            body,
+            authorName: authorUsername ? `@${authorUsername}` : accountName,
+          };
+        },
       ),
     );
+    if (accessedPrivateMessages > 0) {
+      await recordSecurityEvent("private_content_accessed", auth.userId, {
+        resourceType: "community_messages",
+        channelId: channel.id,
+        count: accessedPrivateMessages,
+      });
+    }
+    if (rewrappedPrivateMessages > 0) {
+      await recordSecurityEvent("private_content_rewrapped", auth.userId, {
+        resourceType: "community_messages",
+        channelId: channel.id,
+        count: rewrappedPrivateMessages,
+      });
+    }
+    res.json(response);
   } catch (error) {
     next(error);
   }
@@ -717,8 +850,8 @@ communityRouter.post("/channels/:id/messages", async (req, res, next) => {
       channelId: channel.id,
       authorUserId: auth.userId,
       parentId,
-      body: protectedBody === body ? body : "[protected]",
-      protectedBody: protectedBody === body ? null : protectedBody,
+      body: protectedBody ? "[protected]" : body,
+      protectedBody,
       kind,
       pinned: 0 as const,
       status: "active" as const,
@@ -732,6 +865,82 @@ communityRouter.post("/channels/:id/messages", async (req, res, next) => {
     next(error);
   }
 });
+
+communityRouter.get("/channels/:id/attachments", async (req, res, next) => {
+  try {
+    const auth = getAuthenticatedUser(res);
+    res.json(await listCommunityAttachments(auth, req.params.id));
+  } catch (error) {
+    handleCommunityAttachmentError(error, res, next);
+  }
+});
+
+communityRouter.post(
+  "/channels/:id/attachments",
+  express.raw({
+    type: [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "application/pdf",
+      "text/plain",
+    ],
+    limit: `${communityAttachmentLimitBytes()}b`,
+  }),
+  async (req, res, next) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      const attachment = await storeCommunityAttachment(auth, req.params.id, {
+        body: Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0),
+        fileName: req.get("x-file-name") ?? "",
+        mimeType: (req.get("content-type") ?? "")
+          .split(";", 1)[0]
+          .trim()
+          .toLowerCase(),
+        messageId: req.get("x-message-id") ?? null,
+      });
+      res.status(201).json(attachment);
+    } catch (error) {
+      handleCommunityAttachmentError(error, res, next);
+    }
+  },
+);
+
+communityRouter.get(
+  "/channels/:id/attachments/:attachmentId",
+  async (req, res, next) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      const { attachment, body } = await readCommunityAttachment(
+        auth,
+        req.params.id,
+        req.params.attachmentId,
+      );
+      res.type(attachment.mimeType);
+      res.attachment(attachment.fileName);
+      res.send(body);
+    } catch (error) {
+      handleCommunityAttachmentError(error, res, next);
+    }
+  },
+);
+
+communityRouter.delete(
+  "/channels/:id/attachments/:attachmentId",
+  async (req, res, next) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      await deleteCommunityAttachment(
+        auth,
+        req.params.id,
+        req.params.attachmentId,
+      );
+      res.status(204).end();
+    } catch (error) {
+      handleCommunityAttachmentError(error, res, next);
+    }
+  },
+);
 
 communityRouter.post("/channels/:id/members", async (req, res, next) => {
   try {

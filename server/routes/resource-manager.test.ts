@@ -84,6 +84,10 @@ describe("resource manager API", () => {
     expect(response.body.tasks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "expired-auth-cleanup" }),
+        expect.objectContaining({
+          id: "expired-e2ee-attachment-cleanup",
+          enabled: true,
+        }),
         expect.objectContaining({ id: "sqlite-query-planner" }),
         expect.objectContaining({ id: "booking-integrity-cleanup" }),
         expect.objectContaining({ id: "project-runtime-cleanup" }),
