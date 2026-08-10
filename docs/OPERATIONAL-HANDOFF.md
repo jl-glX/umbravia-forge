@@ -1,0 +1,169 @@
+# Relevo operativo
+
+Este documento define cómo retomar el trabajo en Umbravia Forge sin depender
+del contexto de una conversación anterior. Es una referencia saneada y apta
+para el repositorio: no debe contener direcciones de servidores, nombres del
+panel del proveedor, tickets, rutas privadas, credenciales, secretos ni valores
+de claves.
+
+El estado vivo prevalece siempre sobre este documento y sobre cualquier
+historial de trabajo.
+
+## Fuentes y orden de autoridad
+
+Antes de intervenir, contrastar las fuentes en este orden:
+
+1. Estado vivo obtenido mediante comprobaciones de solo lectura.
+2. Checkout y configuración versionada actuales.
+3. Documentación mantenida en el repositorio.
+4. Relevos, notas y conversaciones anteriores.
+
+Una afirmación histórica nunca demuestra por sí sola que un commit esté
+desplegado, un temporizador sea innecesario o una migración esté aplicada.
+
+## Límites obligatorios
+
+- No leer, copiar, registrar ni publicar valores de credenciales o claves.
+- No sustituir, regenerar, mover ni eliminar archivos de entorno, claves
+  privadas, certificados, material de firma o configuración de proveedores de
+  seguridad como parte de una tarea ordinaria.
+- No modificar controles de autenticación, cifrado, correo, CAPTCHA, proxy,
+  cortafuegos o recuperación sin revisar primero su propósito, dependencias,
+  impacto y vía de reversión.
+- No modificar datos, migraciones, unidades del sistema ni temporizadores
+  durante una inspección de estado.
+- Preservar los cambios del usuario y separar cualquier trabajo ajeno al
+  alcance solicitado.
+- Detenerse y pedir una intervención humana concreta cuando hagan falta
+  privilegios administrativos, acceso a un panel externo o decisiones sobre
+  secretos.
+
+Las reglas detalladas para configuración protegida están en
+[DEVELOPMENT.md](../DEVELOPMENT.md). Este relevo no las reemplaza.
+
+## Comprobación inicial
+
+Al empezar una tarea que pueda afectar al código o a producción:
+
+1. Revisar la rama, el commit actual, el remoto, el estado del árbol de trabajo
+   y el diff completo.
+2. Buscar instrucciones y documentación existentes antes de crear archivos
+   nuevos o duplicar reglas.
+3. Determinar el alcance exacto del cambio y los archivos que podrían verse
+   afectados.
+4. Si la tarea afecta a producción, comprobar de forma no destructiva el
+   servicio, su salud, la release activa y los mecanismos de actualización.
+5. Si afecta a datos, comprobar el motor seleccionado y el esquema real de cada
+   base implicada antes de editar migraciones.
+
+El hostname configurado dentro de Linux y el nombre del recurso en el panel del
+proveedor son identificadores diferentes. Ambos pueden ser válidos y deben
+registrarse por separado en el estado operativo privado.
+
+## Servicio y despliegue activo
+
+No considerar desplegado un commit solo porque esté en la rama remota o exista
+un directorio de release. La comprobación debe relacionar, como mínimo:
+
+- el commit publicado;
+- la release seleccionada por el servicio;
+- el proceso actualmente iniciado;
+- la hora de activación;
+- la respuesta del endpoint de salud correspondiente.
+
+Cuando alguno de esos datos no sea accesible sin privilegios, registrar la
+limitación y pedir la comprobación humana mínima. El procedimiento de despliegue
+y reversión está documentado en [deploy/README.md](../deploy/README.md) y
+[deploy/LINUX.md](../deploy/LINUX.md).
+
+## Temporizadores y automatizaciones
+
+Antes de calificar un temporizador como redundante u obsoleto, identificar:
+
+- la unidad que activa y su comando efectivo;
+- su frecuencia, próximo disparo y última ejecución;
+- si está cargado, habilitado y activo;
+- el checkout, release o datos sobre los que trabaja;
+- sus validaciones, bloqueos y mecanismo de reversión;
+- sus dependencias y posibles consumidores;
+- el resultado de sus ejecuciones recientes.
+
+La coincidencia parcial de nombres o finalidad no autoriza a desactivar una
+unidad. Cualquier retirada requiere una decisión explícita después de comparar
+los dos flujos completos.
+
+## Bases de datos y migraciones
+
+Mantener separadas estas tres realidades:
+
+1. El esquema que declara el código actual.
+2. Las versiones registradas por el historial de migraciones.
+3. Las tablas, índices y restricciones presentes en cada base viva.
+
+Antes de modificar una migración o declarar una incidencia, comprobar el motor
+activo, inventariar las bases implicadas y consultar su historial y objetos
+reales sin mostrar cadenas de conexión. PostgreSQL de staging y producción y
+las bases SQLite aisladas no deben darse por equivalentes.
+
+No ejecutar una migración manual, corregir datos ni crear objetos como parte de
+la inspección. Las fronteras arquitectónicas están en
+[docs/ARCHITECTURE.md](./ARCHITECTURE.md) y la gestión de entornos en
+[docs/DATABASE-ENVIRONMENT-MANAGER.md](./DATABASE-ENVIRONMENT-MANAGER.md).
+
+## Cambios y validación
+
+- Preferir cambios pequeños, revisables y reversibles.
+- Añadir o actualizar pruebas cuando cambie comportamiento ejecutable.
+- Ejecutar la validación más estrecha durante el desarrollo y la puerta de CI
+  completa antes de publicar cambios de código.
+- Para cambios exclusivamente documentales, comprobar formato, enlaces, diff y
+  limpieza del árbol; ampliar la validación si el documento modifica un
+  procedimiento ejecutable.
+- No presentar como verificado aquello que no se haya comprobado en la sesión
+  actual.
+
+Las órdenes de validación y convenciones del proyecto están en
+[DEVELOPMENT.md](../DEVELOPMENT.md), y la política de dependencias en
+[docs/dependency-policy.md](./dependency-policy.md).
+
+## Publicación con Git
+
+Antes de preparar un commit:
+
+1. Volver a revisar `git status` y el diff.
+2. Confirmar que solo se incluyen archivos del alcance aprobado.
+3. Ejecutar las validaciones acordes al cambio.
+4. Comprobar que el remoto y la sesión de GitHub están accesibles.
+5. Crear un commit con un mensaje concreto y publicar únicamente cuando el
+   usuario lo haya pedido expresamente.
+
+Un push correcto confirma la publicación en Git, no el despliegue en el
+servidor. El despliegue requiere la comprobación independiente descrita
+anteriormente.
+
+## Separación de la información
+
+- **Repositorio:** arquitectura, reglas duraderas y procedimientos saneados.
+- **Estado operativo local excluido de Git:** identificadores del proveedor,
+  inventario vivo, incidencias, resultados administrativos y tareas pendientes.
+- **Gestor de secretos o soporte físico protegido:** credenciales, claves y
+  material necesario para recuperación.
+
+El estado operativo privado debe mantenerse fuera del repositorio o bajo una
+exclusión verificada antes de escribirlo. Nunca debe almacenarse dentro de la
+misma copia cifrada que protege si eso impide su recuperación independiente.
+
+## Cierre de una intervención
+
+El relevo final debe indicar de forma explícita:
+
+- resultado alcanzado y alcance real;
+- archivos modificados;
+- validaciones ejecutadas y su resultado;
+- commit, rama y estado de publicación;
+- estado de despliegue, solo si fue comprobado directamente;
+- aspectos no verificados;
+- acción humana pendiente, con la instrucción exacta y sin solicitar secretos.
+
+Si no se modificó nada, también debe decirse. Esta separación evita convertir
+suposiciones históricas en estado confirmado.

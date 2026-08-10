@@ -65,6 +65,7 @@ npm run security:password-resilience # synthetic Argon2id laboratory check
 
 ## Documentation
 
+- [Operational handoff](./docs/OPERATIONAL-HANDOFF.md)
 - [Development guide](./DEVELOPMENT.md)
 - [Architecture](./docs/ARCHITECTURE.md)
 - [Security](./docs/SECURITY.md)
