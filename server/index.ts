@@ -39,6 +39,7 @@ import { commercialRouter } from "./routes/commercial.js";
 import { communityRouter } from "./routes/community.js";
 import { moderationRouter } from "./routes/moderation.js";
 import { supportRouter } from "./routes/support.js";
+import { e2eeRouter } from "./routes/e2ee.js";
 import {
   apiLimiter,
   apiSecurityHeaders,
@@ -154,6 +155,7 @@ app.use("/api/commercial", commercialRouter);
 app.use("/api/community", communityRouter);
 app.use("/api/moderation", moderationRouter);
 app.use("/api/support", supportRouter);
+app.use("/api/e2ee", e2eeRouter);
 
 if (process.env.NODE_ENV !== "production") {
   app.get("/", (_req, res) => {

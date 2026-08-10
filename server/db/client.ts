@@ -7,6 +7,7 @@ import { Kysely, SqliteDialect } from "kysely";
 import type { Database as DatabaseSchema } from "./types.js";
 import { generateSupportId } from "../lib/support-id.js";
 import { initializeCommunitySchema } from "./community-schema.js";
+import { initializeE2eeSchema } from "./e2ee-schema.js";
 import { createPostgresDatabaseRuntime } from "./postgres-client.js";
 import { resolveDatabaseProvider } from "./runtime.js";
 
@@ -1351,6 +1352,7 @@ async function initializeSqliteSchema(
   }
 
   initializeCommunitySchema(sqliteDb);
+  initializeE2eeSchema(sqliteDb);
 
   sqliteDb
     .prepare(

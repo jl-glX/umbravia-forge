@@ -18,7 +18,7 @@ const workerCount = resolveWorkerCount();
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["server/**/*.test.ts"],
+    include: ["server/**/*.test.ts", "client/src/**/*.test.ts"],
     globalSetup: ["./scripts/testing/vitest-resource-guard.ts"],
     // Worker threads preserve isolation without leaving child Node processes
     // behind when Windows or the terminal interrupts the supervised run.

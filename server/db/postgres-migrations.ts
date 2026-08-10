@@ -1004,6 +1004,78 @@ ALTER TABLE "communityMessages"
   ADD COLUMN IF NOT EXISTS "protectedBody" TEXT;
 `,
   },
+  {
+    version: 12,
+    name: "e2ee-one-to-one-relay-foundation",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "e2eeDevices" (
+  "id" TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "clientDeviceId" TEXT NOT NULL,
+  "registrationId" INTEGER NOT NULL CHECK ("registrationId" BETWEEN 1 AND 16380),
+  "identityKey" TEXT NOT NULL,
+  "signedPrekeyId" INTEGER NOT NULL,
+  "signedPrekey" TEXT NOT NULL,
+  "signedPrekeySignature" TEXT NOT NULL,
+  "capabilityVersion" TEXT NOT NULL,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  "lastSeenAt" BIGINT NOT NULL,
+  "revokedAt" BIGINT,
+  UNIQUE ("userId", "clientDeviceId")
+);
+CREATE INDEX IF NOT EXISTS "idx_e2eeDevices_user_active"
+  ON "e2eeDevices" ("userId", "revokedAt");
+
+CREATE TABLE IF NOT EXISTS "e2eeOneTimePrekeys" (
+  "deviceId" TEXT NOT NULL REFERENCES "e2eeDevices" ("id") ON DELETE CASCADE,
+  "keyId" INTEGER NOT NULL,
+  "publicKey" TEXT NOT NULL,
+  "createdAt" BIGINT NOT NULL,
+  "consumedAt" BIGINT,
+  "consumedByDeviceId" TEXT REFERENCES "e2eeDevices" ("id") ON DELETE SET NULL,
+  PRIMARY KEY ("deviceId", "keyId")
+);
+CREATE INDEX IF NOT EXISTS "idx_e2eePrekeys_available"
+  ON "e2eeOneTimePrekeys" ("deviceId", "consumedAt", "keyId");
+
+CREATE TABLE IF NOT EXISTS "e2eeConversations" (
+  "id" TEXT PRIMARY KEY,
+  "participantAUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "participantBUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  CHECK ("participantAUserId" < "participantBUserId"),
+  UNIQUE ("participantAUserId", "participantBUserId")
+);
+CREATE INDEX IF NOT EXISTS "idx_e2eeConversations_participantA"
+  ON "e2eeConversations" ("participantAUserId", "updatedAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_e2eeConversations_participantB"
+  ON "e2eeConversations" ("participantBUserId", "updatedAt" DESC);
+
+CREATE TABLE IF NOT EXISTS "e2eeEnvelopes" (
+  "id" TEXT PRIMARY KEY,
+  "conversationId" TEXT NOT NULL REFERENCES "e2eeConversations" ("id") ON DELETE CASCADE,
+  "senderUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "senderDeviceId" TEXT NOT NULL REFERENCES "e2eeDevices" ("id") ON DELETE CASCADE,
+  "recipientUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "recipientDeviceId" TEXT NOT NULL REFERENCES "e2eeDevices" ("id") ON DELETE CASCADE,
+  "clientMessageId" TEXT NOT NULL,
+  "envelopeType" TEXT NOT NULL CHECK ("envelopeType" IN ('prekey', 'signal')),
+  "ciphertext" TEXT NOT NULL CHECK (length("ciphertext") BETWEEN 1 AND 24576),
+  "associatedData" TEXT NOT NULL DEFAULT '',
+  "createdAt" BIGINT NOT NULL,
+  "deliveredAt" BIGINT,
+  "readAt" BIGINT,
+  "expiresAt" BIGINT,
+  UNIQUE ("senderDeviceId", "clientMessageId", "recipientDeviceId")
+);
+CREATE INDEX IF NOT EXISTS "idx_e2eeEnvelopes_recipient"
+  ON "e2eeEnvelopes" ("recipientDeviceId", "createdAt", "id");
+CREATE INDEX IF NOT EXISTS "idx_e2eeEnvelopes_conversation"
+  ON "e2eeEnvelopes" ("conversationId", "createdAt", "id");
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

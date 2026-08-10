@@ -509,6 +509,56 @@ interface InternalContact {
   updatedAt: number;
 }
 
+interface E2eeDevice {
+  id: string;
+  userId: string;
+  clientDeviceId: string;
+  registrationId: number;
+  identityKey: string;
+  signedPrekeyId: number;
+  signedPrekey: string;
+  signedPrekeySignature: string;
+  capabilityVersion: string;
+  createdAt: number;
+  updatedAt: number;
+  lastSeenAt: number;
+  revokedAt: number | null;
+}
+
+interface E2eeOneTimePrekey {
+  deviceId: string;
+  keyId: number;
+  publicKey: string;
+  createdAt: number;
+  consumedAt: number | null;
+  consumedByDeviceId: string | null;
+}
+
+interface E2eeConversation {
+  id: string;
+  participantAUserId: string;
+  participantBUserId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface E2eeEnvelope {
+  id: string;
+  conversationId: string;
+  senderUserId: string;
+  senderDeviceId: string;
+  recipientUserId: string;
+  recipientDeviceId: string;
+  clientMessageId: string;
+  envelopeType: "prekey" | "signal";
+  ciphertext: string;
+  associatedData: string;
+  createdAt: number;
+  deliveredAt: number | null;
+  readAt: number | null;
+  expiresAt: number | null;
+}
+
 interface CommunityChannel {
   id: string;
   scope: "facility" | "class" | "community";
@@ -779,6 +829,10 @@ export interface Database {
   billingRecords: BillingRecord;
   socialProfiles: SocialProfile;
   internalContacts: InternalContact;
+  e2eeDevices: E2eeDevice;
+  e2eeOneTimePrekeys: E2eeOneTimePrekey;
+  e2eeConversations: E2eeConversation;
+  e2eeEnvelopes: E2eeEnvelope;
   communityChannels: CommunityChannel;
   communityMessages: CommunityMessage;
   communityMembers: CommunityMember;
