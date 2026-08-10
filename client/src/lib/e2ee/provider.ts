@@ -4,6 +4,7 @@ import type {
   EncryptedEnvelope,
   OutboundEncryptedEnvelope,
   PrekeyBundle,
+  E2eePlatform,
 } from "./types";
 
 /**
@@ -24,11 +25,14 @@ export interface SignalProtocolProvider {
 }
 
 export class SignalProviderUnavailableError extends Error {
-  constructor() {
+  readonly platform: E2eePlatform;
+
+  constructor(platform: E2eePlatform = "web") {
     super(
-      "No audited browser Signal Protocol provider is configured. E2EE fails closed.",
+      `No audited Signal Protocol provider is configured for ${platform}. E2EE fails closed.`,
     );
     this.name = "SignalProviderUnavailableError";
+    this.platform = platform;
   }
 }
 
@@ -38,9 +42,14 @@ export class SignalProviderUnavailableError extends Error {
  */
 export class UnavailableSignalProtocolProvider implements SignalProtocolProvider {
   readonly capabilityVersion = "signal-provider-required-v1";
+  readonly platform: E2eePlatform;
+
+  constructor(platform: E2eePlatform = "web") {
+    this.platform = platform;
+  }
 
   private unavailable(): never {
-    throw new SignalProviderUnavailableError();
+    throw new SignalProviderUnavailableError(this.platform);
   }
 
   async createDevice(_clientDeviceId: string): Promise<DevicePublication> {

@@ -1,5 +1,22 @@
 export type E2eeEnvelopeType = "prekey" | "signal";
 
+export type E2eePlatform = "web" | "windows" | "macos" | "ios" | "android";
+
+export type E2eeDistributionChannel =
+  | "web"
+  | "microsoft-store"
+  | "mac-app-store"
+  | "app-store"
+  | "play-store"
+  | "direct";
+
+export interface E2eeRuntimeDescriptor {
+  platform: E2eePlatform;
+  distribution: E2eeDistributionChannel;
+  appOrigin: string | null;
+  packaged: boolean;
+}
+
 export interface OneTimePrekey {
   keyId: number;
   publicKey: string;
