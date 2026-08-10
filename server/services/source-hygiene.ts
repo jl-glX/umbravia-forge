@@ -10,6 +10,24 @@ export interface SourceHygieneAudit {
 const SOURCE_ROOTS = ["client/src", "server", "scripts"];
 const INSPECTED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".mjs", ".css"]);
 const OBSOLETE_SUFFIXES = [".bak", ".old", ".orig", ".tmp", "~"];
+const SENSITIVE_ARTIFACT_NAMES = new Set([".env", ".env.local", ".npmrc"]);
+const SENSITIVE_ARTIFACT_EXTENSIONS = new Set([
+  ".key",
+  ".pem",
+  ".p12",
+  ".pfx",
+  ".crt",
+  ".cer",
+]);
+
+function isSensitiveArtifact(file: string): boolean {
+  const name = path.basename(file).toLowerCase();
+  return (
+    SENSITIVE_ARTIFACT_NAMES.has(name) ||
+    name.startsWith(".env.") ||
+    SENSITIVE_ARTIFACT_EXTENSIONS.has(path.extname(name))
+  );
+}
 
 async function collectFiles(directory: string): Promise<string[]> {
   try {
@@ -40,6 +58,7 @@ export async function auditSourceHygiene(): Promise<SourceHygieneAudit> {
   let inspectedFiles = 0;
 
   for (const file of files) {
+    if (isSensitiveArtifact(file)) continue;
     const relative = path.relative(projectRoot, file).replace(/\\/g, "/");
     if (OBSOLETE_SUFFIXES.some((suffix) => file.endsWith(suffix))) {
       findings.push(`Possible obsolete artifact: ${relative}`);

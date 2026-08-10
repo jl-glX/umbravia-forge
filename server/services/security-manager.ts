@@ -1,9 +1,11 @@
 import { db } from "../db/client.js";
 import { captchaIsConfigured } from "./captcha.js";
 import { getManagerCoordinationStatus } from "./manager-coordinator.js";
+import { getEncryptionManagerOverview } from "./encryption-manager.js";
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const RECENT_EVENT_LIMIT = 50;
+const SECURITY_EVENT_SCAN_LIMIT = 5_000;
 
 type SecurityLevel = "low" | "medium" | "high";
 
@@ -17,9 +19,20 @@ interface SecurityEventMetadata {
 function parseMetadata(value: string): SecurityEventMetadata {
   try {
     const parsed = JSON.parse(value) as unknown;
-    return parsed && typeof parsed === "object"
-      ? (parsed as SecurityEventMetadata)
-      : {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return {};
+    const source = parsed as Record<string, unknown>;
+    const metadata: SecurityEventMetadata = {};
+    if (typeof source.action === "string")
+      metadata.action = source.action.slice(0, 160);
+    if (["low", "medium", "high"].includes(String(source.level))) {
+      metadata.level = source.level as SecurityLevel;
+    }
+    if (typeof source.reason === "string")
+      metadata.reason = source.reason.slice(0, 160);
+    if (typeof source.surface === "string")
+      metadata.surface = source.surface.slice(0, 160);
+    return metadata;
   } catch {
     return {};
   }
@@ -34,9 +47,11 @@ export async function getSecurityManagerOverview() {
     .select(["id", "userId", "type", "createdAt", "metadata"])
     .where("createdAt", ">=", sevenDaysAgo)
     .orderBy("createdAt", "desc")
+    .limit(SECURITY_EVENT_SCAN_LIMIT + 1)
     .execute();
 
-  const events = rows.map((event) => ({
+  const sampleTruncated = rows.length > SECURITY_EVENT_SCAN_LIMIT;
+  const events = rows.slice(0, SECURITY_EVENT_SCAN_LIMIT).map((event) => ({
     id: event.id,
     userId: event.userId,
     type: event.type,
@@ -74,7 +89,9 @@ export async function getSecurityManagerOverview() {
       highRiskObservations7d: riskEvents.filter(
         (event) => event.metadata.level === "high",
       ).length,
+      sampleTruncated,
     },
+    encryption: getEncryptionManagerOverview(),
     coordination: getManagerCoordinationStatus(),
     recentEvents: events.slice(0, RECENT_EVENT_LIMIT),
   };

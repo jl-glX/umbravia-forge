@@ -2,6 +2,7 @@ import { getSecurityOverview } from "./account-security.js";
 import { getAccountLifecycle } from "./account-lifecycle.js";
 import { getRecoveryCapabilities } from "./account-recovery.js";
 import { getManagerCoordinationStatus } from "./manager-coordinator.js";
+import { getAccountDataProtectionOverview } from "./encryption-manager.js";
 
 export async function getAccountManagerOverview(
   userId: string,
@@ -12,6 +13,7 @@ export async function getAccountManagerOverview(
     getAccountLifecycle(userId),
     getSecurityOverview(userId, sessionId),
   ]);
+  const recoveryCapabilities = getRecoveryCapabilities();
 
   return {
     accountStatus,
@@ -29,14 +31,15 @@ export async function getAccountManagerOverview(
       deletionExecutionEnabled: false as const,
     },
     recovery: {
-      availableMethods: getRecoveryCapabilities()
+      availableMethods: recoveryCapabilities
         .filter((method) => method.status === "available")
         .map((method) => method.id),
-      plannedMethods: getRecoveryCapabilities()
+      plannedMethods: recoveryCapabilities
         .filter((method) => method.status === "planned")
         .map((method) => method.id),
     },
     continuity: lifecycle.continuityBridge,
+    dataProtection: getAccountDataProtectionOverview(),
     coordination: getManagerCoordinationStatus(),
   };
 }

@@ -73,6 +73,20 @@ describe("account manager API", () => {
         identityTransferAllowed: false,
         representations: [],
       },
+      dataProtection: {
+        healthy: true,
+        capabilities: expect.arrayContaining([
+          expect.objectContaining({
+            id: "password_hashing",
+            primitive: "Argon2id",
+            state: "active",
+          }),
+          expect.objectContaining({
+            id: "e2ee_relay",
+            state: "client_managed",
+          }),
+        ]),
+      },
     });
     expect(response.body.recovery.plannedMethods).toEqual(["support"]);
   });

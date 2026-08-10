@@ -11,6 +11,7 @@ import { runEnvironmentReadinessAudit } from "./environment-manager.js";
 import { maintainEmailDeliveryQueue } from "./email-delivery.js";
 import { auditSupportSla } from "./support.js";
 import { purgeExpiredOpaqueE2eeAttachments } from "./e2ee-attachments.js";
+import { runEncryptionManagerAudit } from "./encryption-manager.js";
 import {
   getManagerCoordinationStatus,
   ManagerCoordinationConflictError,
@@ -101,6 +102,7 @@ const taskCoordinationScopes: Record<string, string[]> = {
   "environment-readiness-audit": ["database-maintenance"],
   "email-delivery-maintenance": ["notification-delivery"],
   "support-sla-audit": ["support-records", "notification-delivery"],
+  "encryption-readiness-audit": ["encryption-readiness-schedule"],
 };
 
 function runtimeCheckIntervalMs(): number {
@@ -371,6 +373,28 @@ registerTask({
       count: audit.findings.length,
       summary: `${audit.inspectedFiles} source file(s) inspected; ${audit.findings.length} finding(s).`,
       findings: audit.findings,
+    };
+  },
+});
+
+registerTask({
+  id: "encryption-readiness-audit",
+  name: "Encryption readiness audit",
+  description:
+    "Checks cryptographic capability configuration without reading, changing or rotating key material.",
+  intervalMs: 6 * 60 * 60 * 1000,
+  priority: "critical",
+  enabledByDefault: true,
+  run: async () => {
+    const audit = await runEncryptionManagerAudit();
+    if (!audit.healthy) {
+      throw new Error(
+        `Encryption readiness failed: ${audit.findings.join(", ")}`,
+      );
+    }
+    return {
+      count: audit.capabilities.length,
+      summary: `${audit.capabilities.length} cryptographic capability configuration(s) checked without exposing key material.`,
     };
   },
 });

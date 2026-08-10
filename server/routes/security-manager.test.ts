@@ -61,6 +61,8 @@ describe("security manager API", () => {
           surface: "password_login",
           level: "high",
           reason: "automation_marker",
+          secret: "must-not-leak",
+          nested: { token: "must-not-leak" },
         }),
       })
       .execute();
@@ -115,10 +117,19 @@ describe("security manager API", () => {
           "account",
           "security",
           "resource",
+          "encryption",
           "environment",
           "notification",
           "support",
         ],
+      },
+    });
+    expect(response.body.encryption).toMatchObject({
+      healthy: true,
+      policy: {
+        rawKeyMaterialExposed: false,
+        automaticKeyRotationEnabled: false,
+        keyChangesRequireExplicitOperatorAction: true,
       },
     });
     expect(
@@ -129,6 +140,7 @@ describe("security manager API", () => {
       type: "risk_observed",
       metadata: { level: "high", surface: "password_login" },
     });
+    expect(JSON.stringify(response.body)).not.toContain("must-not-leak");
   });
 
   it("rejects security manager access for members", async () => {
