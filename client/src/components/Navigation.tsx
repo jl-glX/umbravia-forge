@@ -1,12 +1,8 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  BarChart3,
   Bookmark,
-  CalendarDays,
   CreditCard,
-  Home,
-  MessageCircle,
   LifeBuoy,
   Settings,
   Shield,
@@ -21,6 +17,7 @@ import { BrandLogo } from "./BrandLogo";
 import { BrandLockup } from "./BrandLockup";
 import { useFacilityProfile } from "../hooks/useFacilityProfile";
 import { AccountMenu } from "./AccountMenu";
+import { BrandGlyph } from "./BrandGlyph";
 
 export function Navigation() {
   const location = useLocation();
@@ -31,7 +28,8 @@ export function Navigation() {
 
   const isActive = (path: string) => location.pathname === path;
 
-  const activeClass = "bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100";
+  const activeClass =
+    "bg-brand-ember/10 text-brand-ember shadow-sm ring-1 ring-brand-ember/20";
   const inactiveClass =
     "text-slate-600 hover:bg-slate-100 hover:text-slate-950";
   const navLinkClass =
@@ -49,7 +47,7 @@ export function Navigation() {
   const canGoBack = historyIndex > 0;
   const isHome = location.pathname === "/";
   const navigationButtonClass =
-    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600";
+    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-brand-path/35 hover:bg-brand-path/10 hover:text-brand-path disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600";
 
   return (
     <nav className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 shadow-xs backdrop-blur-xl">
@@ -116,7 +114,7 @@ export function Navigation() {
                 isActive("/") ? activeClass : inactiveClass
               }`}
             >
-              <Home size={20} />
+              <BrandGlyph kind="guidance" size={20} />
               <span>{t("nav.home")}</span>
             </Link>
 
@@ -126,7 +124,7 @@ export function Navigation() {
                 isActive("/classes") ? activeClass : inactiveClass
               }`}
             >
-              <CalendarDays size={20} />
+              <BrandGlyph kind="structure" size={20} />
               <span>{t("nav.classes")}</span>
             </Link>
 
@@ -136,7 +134,7 @@ export function Navigation() {
                 isActive("/community") ? activeClass : inactiveClass
               }`}
             >
-              <MessageCircle size={20} />
+              <BrandGlyph kind="community" size={20} />
               <span>{t("nav.community")}</span>
             </Link>
 
@@ -217,7 +215,7 @@ export function Navigation() {
                       : inactiveClass
                   }`}
                 >
-                  <Building2 size={20} />
+                  <BrandGlyph kind="evolution" size={20} />
                   <span>{t("nav.commercialTrial")}</span>
                 </Link>
                 <Link
@@ -238,7 +236,7 @@ export function Navigation() {
                 isActive(analyticsPath) ? activeClass : inactiveClass
               }`}
             >
-              <BarChart3 size={20} />
+              <BrandGlyph kind="analytics" size={20} />
               <span>{t("nav.analytics")}</span>
             </Link>
           </div>

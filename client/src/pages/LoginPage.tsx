@@ -224,6 +224,7 @@ export function LoginPage() {
 
   return (
     <AuthShell
+      contentSurface={captchaToken || mfaRequired ? "card" : "integrated"}
       eyebrow={
         accessPortal === "member"
           ? t("auth.welcomeBack")

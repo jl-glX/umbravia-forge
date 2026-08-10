@@ -41,6 +41,13 @@
   --color-chart-3: hsl(var(--chart-3));
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
+
+  /* Paleta oficial de la identidad visual de Umbravia Forge. */
+  --color-brand-night: #0f1720;
+  --color-brand-slate: #334155;
+  --color-brand-steel: #6b7280;
+  --color-brand-ember: #f07a3a;
+  --color-brand-path: #2a9d8f;
 }
 
 /*
@@ -58,6 +65,41 @@
   ::backdrop,
   ::file-selector-button {
     border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@layer components {
+  .brand-identity-canvas {
+    background-color: #fbfaf8;
+    background-image:
+      radial-gradient(
+        circle at 72% 18%,
+        rgb(240 122 58 / 0.06),
+        transparent 20rem
+      ),
+      radial-gradient(
+        circle at 18% 86%,
+        rgb(42 157 143 / 0.06),
+        transparent 22rem
+      );
+  }
+
+  .brand-corner-dots {
+    background-image: radial-gradient(
+      circle,
+      rgb(51 65 85 / 0.18) 1.2px,
+      transparent 1.4px
+    );
+    background-size: 13px 13px;
+    mask-image: linear-gradient(225deg, black, transparent 72%);
+  }
+
+  .brand-corner-lines {
+    background-image:
+      linear-gradient(45deg, transparent 48.8%, rgb(51 65 85 / 0.08) 49.5%, transparent 50.2%),
+      linear-gradient(45deg, transparent 61%, rgb(240 122 58 / 0.08) 61.6%, transparent 62.2%),
+      linear-gradient(45deg, transparent 73%, rgb(42 157 143 / 0.08) 73.6%, transparent 74.2%);
+    mask-image: linear-gradient(45deg, black, transparent 78%);
   }
 }
 
@@ -82,30 +124,30 @@
 
 @layer base {
   :root {
-    --background: 216 33% 97%;
-    --foreground: 222 47% 11%;
+    --background: 30 20% 98%;
+    --foreground: 207 36% 9%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 207 36% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 24 87% 58%;
+    --popover-foreground: 207 36% 9%;
+    --primary: 21 85% 58%;
     --primary-foreground: 0 0% 98%;
     --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
+    --secondary-foreground: 215 25% 27%;
     --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 173 58% 93%;
+    --accent-foreground: 173 58% 29%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 24 87% 58%;
-    --chart-1: 12 76% 61%;
+    --ring: 21 85% 58%;
+    --chart-1: 21 85% 58%;
     --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-3: 215 25% 27%;
+    --chart-4: 220 9% 46%;
+    --chart-5: 207 36% 9%;
     --radius: 0.875rem;
   }
   .dark {
@@ -160,12 +202,12 @@
     background-image:
       radial-gradient(
         circle at 0% 0%,
-        rgb(219 234 254 / 0.65),
+        rgb(240 122 58 / 0.12),
         transparent 28rem
       ),
       radial-gradient(
         circle at 100% 10%,
-        rgb(204 251 241 / 0.45),
+        rgb(42 157 143 / 0.12),
         transparent 24rem
       );
     background-attachment: fixed;
