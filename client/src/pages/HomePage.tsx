@@ -10,6 +10,7 @@ import {
   Sparkles,
   Building2,
   MonitorDown,
+  Plus,
   ServerCog,
   Database,
   Route,
@@ -237,11 +238,7 @@ function AdminHome({ name }: { name: string }) {
                 className="h-12 gap-2 rounded-xl px-6"
                 style={{ backgroundColor: profile.accentColor }}
               >
-                <BrandGlyph
-                  kind="structure"
-                  size={20}
-                  className="[&_svg]:text-white"
-                />{" "}
+                <Plus size={18} aria-hidden="true" />
                 {t("adminHome.createClass")}
                 <ArrowRight size={18} />
               </Button>

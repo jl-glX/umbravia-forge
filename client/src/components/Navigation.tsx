@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -18,13 +19,31 @@ import { BrandLockup } from "./BrandLockup";
 import { useFacilityProfile } from "../hooks/useFacilityProfile";
 import { AccountMenu } from "./AccountMenu";
 import { BrandGlyph } from "./BrandGlyph";
+import {
+  canNavigateBackInsideArea,
+  consumeAppBackTarget,
+  getSessionStorage,
+  recordAppRoute,
+} from "../lib/app-navigation-history";
 
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const userId = user?.id;
   const { t } = useTranslation();
   const { profile } = useFacilityProfile();
+  const [canGoBack, setCanGoBack] = useState(false);
+
+  useEffect(() => {
+    const storage = getSessionStorage();
+    if (!storage || !userId) {
+      setCanGoBack(false);
+      return;
+    }
+    recordAppRoute(storage, userId, location.pathname);
+    setCanGoBack(canNavigateBackInsideArea(storage, userId, location.pathname));
+  }, [location.pathname, userId]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -40,11 +59,6 @@ export function Navigation() {
       : user?.role === "trainer"
         ? "/trainer-analytics"
         : "/activity-dashboard";
-  const historyIndex =
-    typeof window.history.state?.idx === "number"
-      ? window.history.state.idx
-      : 0;
-  const canGoBack = historyIndex > 0;
   const isHome = location.pathname === "/";
   const navigationButtonClass =
     "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-brand-path/35 hover:bg-brand-path/10 hover:text-brand-path disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600";
@@ -68,7 +82,16 @@ export function Navigation() {
             <button
               type="button"
               className={navigationButtonClass}
-              onClick={() => navigate(-1)}
+              onClick={() => {
+                const storage = getSessionStorage();
+                if (!storage || !user) return;
+                const target = consumeAppBackTarget(
+                  storage,
+                  user.id,
+                  location.pathname,
+                );
+                if (target) navigate(target, { replace: true });
+              }}
               disabled={!canGoBack}
               aria-label={t("navigationControls.back")}
               title={t("navigationControls.back")}
@@ -78,7 +101,7 @@ export function Navigation() {
             <button
               type="button"
               className={navigationButtonClass}
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/", { replace: true })}
               disabled={isHome}
               aria-label={t("navigationControls.exit")}
               title={t("navigationControls.exit")}

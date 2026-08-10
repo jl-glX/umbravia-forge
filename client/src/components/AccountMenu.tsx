@@ -11,6 +11,10 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import {
+  clearAppNavigationHistory,
+  getSessionStorage,
+} from "../lib/app-navigation-history";
 
 export function AccountMenu() {
   const { user, logout } = useAuth();
@@ -41,8 +45,10 @@ export function AccountMenu() {
 
   const handleLogout = async () => {
     setIsOpen(false);
+    const storage = getSessionStorage();
+    if (storage && user) clearAppNavigationHistory(storage, user.id);
     await logout();
-    navigate("/login");
+    navigate("/login", { replace: true });
   };
 
   const roleClass =

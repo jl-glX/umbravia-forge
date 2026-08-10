@@ -223,7 +223,13 @@ function AppContent() {
   const { t } = useTranslation();
   const { user, isInitializing } = useAuth();
   const { pathname } = useLocation();
-  const isLegalPage = [
+  const isShelllessPage = [
+    "/login",
+    "/signup",
+    "/recover-account",
+    "/verify-email",
+    "/unauthorized",
+    "/commercial",
     "/legal-notice",
     "/terms-and-conditions",
     "/conditions-of-use",
@@ -239,7 +245,7 @@ function AppContent() {
 
   return (
     <>
-      {user?.accountStatus === "active" && !isLegalPage && <Navigation />}
+      {user?.accountStatus === "active" && !isShelllessPage && <Navigation />}
       <Suspense
         fallback={
           <div className="flex min-h-screen items-center justify-center text-slate-600">
@@ -465,7 +471,16 @@ function AppContent() {
               </ProtectedRoute>
             }
           />
-          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/login"
+            element={
+              user?.accountStatus === "active" ? (
+                <Navigate to="/" replace />
+              ) : (
+                <LoginPage />
+              )
+            }
+          />
           <Route path="/commercial" element={<CommercialPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/recover-account" element={<RecoverAccountPage />} />

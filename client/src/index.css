@@ -96,9 +96,24 @@
 
   .brand-corner-lines {
     background-image:
-      linear-gradient(45deg, transparent 48.8%, rgb(51 65 85 / 0.08) 49.5%, transparent 50.2%),
-      linear-gradient(45deg, transparent 61%, rgb(240 122 58 / 0.08) 61.6%, transparent 62.2%),
-      linear-gradient(45deg, transparent 73%, rgb(42 157 143 / 0.08) 73.6%, transparent 74.2%);
+      linear-gradient(
+        45deg,
+        transparent 48.8%,
+        rgb(51 65 85 / 0.08) 49.5%,
+        transparent 50.2%
+      ),
+      linear-gradient(
+        45deg,
+        transparent 61%,
+        rgb(240 122 58 / 0.08) 61.6%,
+        transparent 62.2%
+      ),
+      linear-gradient(
+        45deg,
+        transparent 73%,
+        rgb(42 157 143 / 0.08) 73.6%,
+        transparent 74.2%
+      );
     mask-image: linear-gradient(45deg, black, transparent 78%);
   }
 }

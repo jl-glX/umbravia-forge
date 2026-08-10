@@ -29,6 +29,10 @@ import {
   type SavedAccount,
 } from "../lib/saved-accounts";
 import { CaptchaWidget } from "../components/CaptchaWidget";
+import {
+  clearAppNavigationHistory,
+  getSessionStorage,
+} from "../lib/app-navigation-history";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -90,6 +94,11 @@ export function LoginPage() {
     setSavedAccounts(rememberAccount(user, identifier));
   };
 
+  const startAppSession = (userId: string) => {
+    const storage = getSessionStorage();
+    if (storage) clearAppNavigationHistory(storage, userId);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError("");
@@ -114,7 +123,8 @@ export function LoginPage() {
         setMfaRequired(true);
         if (mfaCode.trim()) {
           const verifiedUser = await verifyMfa(mfaCode.trim());
-          navigateForRole(verifiedUser.role, verifiedUser.accountStatus);
+          startAppSession(verifiedUser.id);
+          navigateForAccountStatus(verifiedUser.accountStatus);
         }
         return;
       }
@@ -127,13 +137,8 @@ export function LoginPage() {
         );
         return;
       }
-      navigate(
-        result.user?.role === "admin"
-          ? "/admin-dashboard"
-          : result.user?.role === "trainer"
-            ? "/trainer-dashboard"
-            : "/classes",
-      );
+      if (result.user) startAppSession(result.user.id);
+      navigate("/", { replace: true });
     } catch (err) {
       setCaptchaToken("");
       setCaptchaResetSignal((value) => value + 1);
@@ -154,20 +159,14 @@ export function LoginPage() {
         );
         return;
       }
-      navigate(
-        verifiedUser.role === "admin"
-          ? "/admin-dashboard"
-          : verifiedUser.role === "trainer"
-            ? "/trainer-dashboard"
-            : "/classes",
-      );
+      startAppSession(verifiedUser.id);
+      navigate("/", { replace: true });
     } catch (err) {
       console.error("MFA verification error:", err);
     }
   };
 
-  const navigateForRole = (
-    role: "member" | "trainer" | "admin",
+  const navigateForAccountStatus = (
     accountStatus: "pending_verification" | "active" | "security_review",
   ) =>
     navigate(
@@ -175,11 +174,8 @@ export function LoginPage() {
         ? accountStatus === "pending_verification"
           ? "/verify-email"
           : "/recover-account"
-        : role === "admin"
-          ? "/admin-dashboard"
-          : role === "trainer"
-            ? "/trainer-dashboard"
-            : "/classes",
+        : "/",
+      { replace: true },
     );
 
   const handlePasskeyLogin = async () => {
@@ -202,7 +198,8 @@ export function LoginPage() {
         captchaToken,
       );
       setSavedAccounts(rememberAccount(signedInUser, identifier));
-      navigateForRole(signedInUser.role, signedInUser.accountStatus);
+      startAppSession(signedInUser.id);
+      navigateForAccountStatus(signedInUser.accountStatus);
     } catch (err) {
       setCaptchaToken("");
       setCaptchaResetSignal((value) => value + 1);
