@@ -5,6 +5,8 @@ import {
   randomBytes,
   randomUUID,
 } from "node:crypto";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import nodemailer from "nodemailer";
 import { db } from "../db/client.js";
 import { publishManagerSignal } from "./manager-coordinator.js";
@@ -42,6 +44,16 @@ type VerificationMessage = {
   text: string;
   html: string;
 };
+
+type EmailAttachment = {
+  filename: string;
+  path: string;
+  cid: string;
+  contentDisposition: "inline";
+};
+
+const VERIFICATION_HEADER_FILENAME = "umbravia-forge-email-header.jpg";
+const VERIFICATION_HEADER_CID = "umbravia-forge-email-header";
 
 export class EmailDeliveryUnavailableError extends Error {
   readonly cause?: Error;
@@ -188,10 +200,53 @@ function escapeHtml(value: string): string {
   });
 }
 
+function verificationHeaderAttachment(): EmailAttachment | undefined {
+  const candidates = [
+    path.resolve(
+      process.cwd(),
+      "dist",
+      "public",
+      "brand",
+      VERIFICATION_HEADER_FILENAME,
+    ),
+    path.resolve(
+      process.cwd(),
+      "client",
+      "public",
+      "brand",
+      VERIFICATION_HEADER_FILENAME,
+    ),
+  ];
+  const assetPath = candidates.find((candidate) => existsSync(candidate));
+  return assetPath
+    ? {
+        filename: VERIFICATION_HEADER_FILENAME,
+        path: assetPath,
+        cid: VERIFICATION_HEADER_CID,
+        contentDisposition: "inline",
+      }
+    : undefined;
+}
+
+function brandedVerificationHtml(input: {
+  locale: SupportedLocale;
+  greeting: string;
+  instruction: string;
+  code: string;
+  expiry: string;
+  includeHeader: boolean;
+}): string {
+  const header = input.includeHeader
+    ? `<tr><td style="padding:0"><img src="cid:${VERIFICATION_HEADER_CID}" width="600" alt="Umbravia Forge" style="display:block;width:100%;max-width:600px;height:auto;border:0" /></td></tr>`
+    : "";
+  return `<!doctype html><html lang="${escapeHtml(input.locale)}" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"><!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]--></head><body style="margin:0;padding:0;background:#f4f5f6;color:#0f1720;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%"><div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(input.instruction)}</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f5f6;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;border-collapse:separate;mso-table-lspace:0pt;mso-table-rspace:0pt;overflow:hidden">${header}<tr><td style="padding:32px"><p style="margin:0 0 18px;font-size:16px;line-height:1.6">${escapeHtml(input.greeting)}</p><p style="margin:0 0 24px;font-size:16px;line-height:1.6">${escapeHtml(input.instruction)}</p><div style="margin:0 0 24px;padding:18px 20px;background:#f8fafc;border:1px solid #d8dee5;border-radius:12px;text-align:center;color:#0f1720;font-size:30px;font-weight:700;letter-spacing:0.22em">${escapeHtml(input.code)}</div><p style="margin:0;font-size:14px;line-height:1.6;color:#6b7280">${escapeHtml(input.expiry)}</p></td></tr></table></td></tr></table></body></html>`;
+}
+
 export function buildEmailVerificationMessage(
   name: string,
   code: string,
   locale: SupportedLocale,
+  includeHeader = true,
 ): VerificationMessage {
   const messages: Record<
     SupportedLocale,
@@ -233,7 +288,14 @@ export function buildEmailVerificationMessage(
   return {
     subject: message.subject,
     text: `${message.greeting}\n\n${message.instruction}\n\n${code}\n\n${message.expiry}`,
-    html: `<p>${escapeHtml(message.greeting)}</p><p>${escapeHtml(message.instruction)}</p><p style="font-size:28px;font-weight:700;letter-spacing:0.2em">${escapeHtml(code)}</p><p>${escapeHtml(message.expiry)}</p>`,
+    html: brandedVerificationHtml({
+      locale,
+      greeting: message.greeting,
+      instruction: message.instruction,
+      code,
+      expiry: message.expiry,
+      includeHeader,
+    }),
   };
 }
 
@@ -314,15 +376,18 @@ export async function sendEmailVerificationCode(input: {
   code: string;
   locale: SupportedLocale;
 }): Promise<{ delivered: boolean; messageId?: string }> {
+  const headerAttachment = verificationHeaderAttachment();
   const message = buildEmailVerificationMessage(
     input.name,
     input.code,
     input.locale,
+    Boolean(headerAttachment),
   );
   return sendTransactionalEmail({
     email: input.email,
     kind: "email_verification",
     ...message,
+    attachments: headerAttachment ? [headerAttachment] : undefined,
   });
 }
 
@@ -333,6 +398,7 @@ export async function sendTransactionalEmail(input: {
   text: string;
   html: string;
   replyTo?: string;
+  attachments?: EmailAttachment[];
 }): Promise<{ delivered: boolean; messageId?: string }> {
   const configuration = resolveEmailDeliveryConfiguration();
   if (!configuration) {
@@ -350,9 +416,11 @@ export async function sendTransactionalEmail(input: {
       text: input.text,
       html: input.html,
       replyTo: input.replyTo,
+      attachments: input.attachments,
       headers: {
         "X-Umbravia-Message-Type": input.kind.replace(/_/g, "-"),
         "Auto-Submitted": "auto-generated",
+        "X-Auto-Response-Suppress": "All",
       },
     });
     return { delivered: true, messageId: result.messageId };

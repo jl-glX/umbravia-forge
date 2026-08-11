@@ -145,6 +145,12 @@ describe("email delivery configuration", () => {
       expect(receivedMessages.join("\n")).toContain("member@example.com");
       expect(receivedMessages.join("\n")).toContain("123456");
       expect(receivedMessages.join("\n")).toContain(
+        "Content-ID: <umbravia-forge-email-header>",
+      );
+      expect(receivedMessages.join("\n")).toContain(
+        "X-Auto-Response-Suppress: All",
+      );
+      expect(receivedMessages.join("\n")).toContain(
         "support+ufs-0123456789.tokenvalue@example.com",
       );
     } finally {
@@ -183,6 +189,15 @@ describe("email delivery configuration", () => {
     expect(message.text).toContain("123456");
     expect(message.html).toContain("&lt;script&gt;");
     expect(message.html).not.toContain("<script>");
+    expect(message.html).toContain('src="cid:umbravia-forge-email-header"');
+    expect(message.html).toContain("<!--[if mso]>");
+    expect(message.html).toContain("<o:PixelsPerInch>96</o:PixelsPerInch>");
+    expect(message.html).toContain('width="600"');
+    expect(message.html).toContain("mso-table-lspace:0pt");
+    expect(message.html).not.toMatch(/src="https?:/);
+    expect(
+      buildEmailVerificationMessage("Member", "123456", "en", false).html,
+    ).not.toContain("cid:umbravia-forge-email-header");
   });
 
   it("builds a localized recovery message without allowing name markup", () => {
