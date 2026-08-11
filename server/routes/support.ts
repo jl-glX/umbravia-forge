@@ -2,6 +2,8 @@ import express from "express";
 import {
   authenticate,
   getAuthenticatedUser,
+  requireFacility,
+  selectFacilityContext,
 } from "../middleware/authorization.js";
 import { supportMutationLimiter } from "../middleware/security.js";
 import {
@@ -22,7 +24,7 @@ import {
 
 export const supportRouter = express.Router();
 
-supportRouter.use(authenticate);
+supportRouter.use(authenticate, selectFacilityContext, requireFacility());
 
 supportRouter.get("/capabilities", async (_req, res, next) => {
   try {

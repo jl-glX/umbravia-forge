@@ -454,6 +454,7 @@ interface SupportEvent {
 
 interface SupportKnowledgeArticle {
   id: string;
+  facilityId: string;
   slug: string;
   title: string;
   summary: string;

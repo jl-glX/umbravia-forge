@@ -78,11 +78,18 @@ garantía contractual; cualquier SLA comercial debe definirse por separado.
 
 ## Aislamiento y datos
 
-El esquema incluye `facilityId` como frontera inicial. La instalación actual
-opera con el centro `primary`; esto es una base, no una certificación
-multi-tenant. Antes de admitir varios clientes reales se deben añadir pruebas
-de aislamiento por centro a todas las lecturas, escrituras, búsquedas, eventos,
-adjuntos y trabajos de correo.
+Los tickets, la cola de trabajo, los permisos de agente y la base de
+conocimiento están aislados por `facilityId`. La API obtiene el centro desde la
+membresía activa seleccionada y vuelve a aplicar esa frontera en cada lectura,
+escritura y búsqueda. Los mensajes, eventos y adjuntos heredan la frontera del
+ticket y no pueden consultarse desde otro centro.
+
+Los datos antiguos se asignan al centro `primary` durante la migración. La
+dirección de correo sin etiqueta continúa entrando en esa cola central; una
+respuesta posterior conserva la frontera del ticket mediante su dirección
+firmada. El enrutamiento de nuevas solicitudes de correo a centros concretos se
+añadirá junto con los alias y subdominios de centro, sin deducir el destino a
+partir del remitente.
 
 El historial de soporte puede contener datos personales. Los periodos de
 retención, exportación, supresión, bloqueos legales y acceso del personal deben
@@ -132,7 +139,8 @@ No se han fingido funciones que todavía no existen:
 - macros, vistas guardadas y enrutamiento avanzado;
 - firma de acuerdos de soporte;
 - análisis antimalware de adjuntos;
-- aislamiento multi-tenant verificado en producción.
+- verificación del aislamiento multi-tenant sobre el esquema real de
+  producción.
 
 Estas piezas pueden añadirse por fases sobre los límites actuales sin convertir
 Forge Support en un duplicado de la comunidad ni acoplarlo al proveedor SMTP.

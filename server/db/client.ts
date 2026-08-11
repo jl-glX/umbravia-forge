@@ -1149,7 +1149,8 @@ async function initializeSqliteSchema(
 
       CREATE TABLE supportKnowledgeArticles (
         id TEXT PRIMARY KEY,
-        slug TEXT NOT NULL UNIQUE,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
+        slug TEXT NOT NULL,
         title TEXT NOT NULL,
         summary TEXT NOT NULL DEFAULT '',
         body TEXT NOT NULL,
@@ -1159,9 +1160,10 @@ async function initializeSqliteSchema(
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL,
         publishedAt INTEGER,
-        FOREIGN KEY(authorUserId) REFERENCES users(id) ON DELETE RESTRICT
+        FOREIGN KEY(authorUserId) REFERENCES users(id) ON DELETE RESTRICT,
+        UNIQUE(facilityId, slug)
       );
-      CREATE INDEX idx_supportKnowledge_status ON supportKnowledgeArticles(status, category, updatedAt DESC);
+      CREATE INDEX idx_supportKnowledge_status ON supportKnowledgeArticles(facilityId, status, category, updatedAt DESC);
     `);
   }
 
@@ -1333,6 +1335,95 @@ async function initializeSqliteSchema(
        FROM users`,
     )
     .run(membershipBackfillAt);
+
+  const supportKnowledgeColumns = sqliteDb
+    .prepare("PRAGMA table_info(supportKnowledgeArticles)")
+    .all() as Array<{ name: string }>;
+  if (!supportKnowledgeColumns.some((column) => column.name === "facilityId")) {
+    sqliteDb.exec(`
+      ALTER TABLE supportKnowledgeArticles
+        RENAME TO supportKnowledgeArticlesLegacy;
+      CREATE TABLE supportKnowledgeArticles (
+        id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
+        slug TEXT NOT NULL,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL DEFAULT '',
+        body TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'general',
+        status TEXT NOT NULL CHECK(status IN ('draft', 'published', 'archived')),
+        authorUserId TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL,
+        publishedAt INTEGER,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(authorUserId) REFERENCES users(id) ON DELETE RESTRICT,
+        UNIQUE(facilityId, slug)
+      );
+      INSERT INTO supportKnowledgeArticles (
+        id, facilityId, slug, title, summary, body, category, status,
+        authorUserId, createdAt, updatedAt, publishedAt
+      )
+      SELECT id, 'primary', slug, title, summary, body, category, status,
+             authorUserId, createdAt, updatedAt, publishedAt
+      FROM supportKnowledgeArticlesLegacy;
+      DROP TABLE supportKnowledgeArticlesLegacy;
+    `);
+  }
+
+  sqliteDb.exec(`
+    DROP INDEX IF EXISTS idx_supportKnowledge_status;
+    CREATE INDEX IF NOT EXISTS idx_supportKnowledge_status
+      ON supportKnowledgeArticles(facilityId, status, category, updatedAt DESC);
+    CREATE TRIGGER IF NOT EXISTS trg_supportTickets_facility_insert
+    BEFORE INSERT ON supportTickets
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportTickets_facility_update
+    BEFORE UPDATE OF facilityId ON supportTickets
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportAgents_facility_insert
+    BEFORE INSERT ON supportAgents
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportAgents_facility_update
+    BEFORE UPDATE OF facilityId ON supportAgents
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportKnowledge_facility_insert
+    BEFORE INSERT ON supportKnowledgeArticles
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportKnowledge_facility_update
+    BEFORE UPDATE OF facilityId ON supportKnowledgeArticles
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+  `);
 
   sqliteDb.exec(`
     CREATE INDEX IF NOT EXISTS idx_billingRecords_facility_status

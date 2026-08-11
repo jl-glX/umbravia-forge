@@ -474,7 +474,8 @@ CREATE INDEX IF NOT EXISTS "idx_supportEvents_ticket" ON "supportEvents" ("ticke
 
 CREATE TABLE IF NOT EXISTS "supportKnowledgeArticles" (
   "id" TEXT PRIMARY KEY,
-  "slug" TEXT NOT NULL UNIQUE,
+  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "slug" TEXT NOT NULL,
   "title" TEXT NOT NULL,
   "summary" TEXT NOT NULL DEFAULT '',
   "body" TEXT NOT NULL,
@@ -485,7 +486,7 @@ CREATE TABLE IF NOT EXISTS "supportKnowledgeArticles" (
   "updatedAt" BIGINT NOT NULL,
   "publishedAt" BIGINT
 );
-CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status" ON "supportKnowledgeArticles" ("status", "category", "updatedAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status" ON "supportKnowledgeArticles" ("facilityId", "status", "category", "updatedAt" DESC);
 
 INSERT INTO "facilityProfiles" ("id", "name", "logoDataUrl", "accentColor", "updatedAt")
 VALUES ('primary', 'Centro Umbravia Forge', '', '#2563eb', 0)
@@ -929,7 +930,8 @@ CREATE INDEX IF NOT EXISTS "idx_supportEvents_ticket" ON "supportEvents" ("ticke
 
 CREATE TABLE IF NOT EXISTS "supportKnowledgeArticles" (
   "id" TEXT PRIMARY KEY,
-  "slug" TEXT NOT NULL UNIQUE,
+  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "slug" TEXT NOT NULL,
   "title" TEXT NOT NULL,
   "summary" TEXT NOT NULL DEFAULT '',
   "body" TEXT NOT NULL,
@@ -940,7 +942,7 @@ CREATE TABLE IF NOT EXISTS "supportKnowledgeArticles" (
   "updatedAt" BIGINT NOT NULL,
   "publishedAt" BIGINT
 );
-CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status" ON "supportKnowledgeArticles" ("status", "category", "updatedAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status" ON "supportKnowledgeArticles" ("facilityId", "status", "category", "updatedAt" DESC);
 `,
   },
   {
@@ -1294,6 +1296,54 @@ ALTER TABLE "billingRecords"
   ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS "idx_billingRecords_facility_status"
   ON "billingRecords" ("facilityId", "status", "updatedAt" DESC);
+`,
+  },
+  {
+    version: 19,
+    name: "facility-support-scope",
+    sql: String.raw`
+ALTER TABLE "supportKnowledgeArticles"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+ALTER TABLE "supportKnowledgeArticles"
+  DROP CONSTRAINT IF EXISTS "supportKnowledgeArticles_slug_key";
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'supportTickets_facilityId_fkey'
+  ) THEN
+    ALTER TABLE "supportTickets"
+      ADD CONSTRAINT "supportTickets_facilityId_fkey"
+      FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'supportAgents_facilityId_fkey'
+  ) THEN
+    ALTER TABLE "supportAgents"
+      ADD CONSTRAINT "supportAgents_facilityId_fkey"
+      FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'supportKnowledgeArticles_facilityId_fkey'
+  ) THEN
+    ALTER TABLE "supportKnowledgeArticles"
+      ADD CONSTRAINT "supportKnowledgeArticles_facilityId_fkey"
+      FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+END $$;
+
+DROP INDEX IF EXISTS "idx_supportKnowledge_status";
+CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status"
+  ON "supportKnowledgeArticles"
+  ("facilityId", "status", "category", "updatedAt" DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_supportKnowledge_facility_slug"
+  ON "supportKnowledgeArticles" ("facilityId", "slug");
 `,
   },
 ];
