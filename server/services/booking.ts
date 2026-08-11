@@ -439,18 +439,33 @@ export async function getClassWithAvailability(
   };
 }
 
-export async function bookClass(classId: string, userId: string) {
+export async function bookClass(
+  classId: string,
+  userId: string,
+  facilityId = PRIMARY_FACILITY_ID,
+) {
   return db.transaction().execute(async (transaction) => {
     const now = Date.now();
-    await fillAvailablePlacesFromWaitlist(transaction, classId, now);
     const gymClass = await transaction
       .selectFrom("gymClasses")
       .select(["id", "maxCapacity", "scheduledAt"])
       .where("id", "=", classId)
+      .where("facilityId", "=", facilityId)
       .executeTakeFirst();
     if (!gymClass) throw new Error("Class not found");
     if (gymClass.scheduledAt <= now)
       throw new Error("Class has already started");
+
+    const membership = await transaction
+      .selectFrom("facilityMemberships")
+      .select("id")
+      .where("facilityId", "=", facilityId)
+      .where("userId", "=", userId)
+      .where("status", "=", "active")
+      .executeTakeFirst();
+    if (!membership) throw new Error("Active facility membership required");
+
+    await fillAvailablePlacesFromWaitlist(transaction, classId, now);
 
     const existingBooking = await transaction
       .selectFrom("bookings")
@@ -785,7 +800,10 @@ export async function markBookingAttendance(
   });
 }
 
-export async function getUserBookings(userId: string) {
+export async function getUserBookings(
+  userId: string,
+  facilityId = PRIMARY_FACILITY_ID,
+) {
   const rows = await db
     .selectFrom("bookings")
     .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
@@ -811,6 +829,7 @@ export async function getUserBookings(userId: string) {
       "waitlistEntries.promotionExpiresAt",
     ])
     .where("bookings.userId", "=", userId)
+    .where("gymClasses.facilityId", "=", facilityId)
     .where("bookings.status", "!=", "cancelled")
     .orderBy("gymClasses.scheduledAt", "asc")
     .execute();
@@ -819,7 +838,7 @@ export async function getUserBookings(userId: string) {
     rows.map(async (row) => {
       let waitlistPosition = row.waitlistPosition;
       if (row.status === "waitlist") {
-        const ordered = await getClassWaitlist(row.classId);
+        const ordered = await getClassWaitlist(row.classId, facilityId);
         const dynamicIndex = ordered.findIndex(
           (entry) => entry.userId === userId,
         );
@@ -841,9 +860,13 @@ export async function getUserBookings(userId: string) {
   );
 }
 
-export async function getClassBookings(classId: string) {
+export async function getClassBookings(
+  classId: string,
+  facilityId = PRIMARY_FACILITY_ID,
+) {
   return db
     .selectFrom("bookings")
+    .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
     .innerJoin("users", "bookings.userId", "users.id")
     .leftJoin("bookingLifecycles", "bookings.id", "bookingLifecycles.bookingId")
     .select([
@@ -856,14 +879,19 @@ export async function getClassBookings(classId: string) {
       "bookingLifecycles.attendanceIntention",
     ])
     .where("bookings.classId", "=", classId)
+    .where("gymClasses.facilityId", "=", facilityId)
     .where("bookings.status", "=", "confirmed")
     .orderBy("bookings.createdAt", "asc")
     .execute();
 }
 
-export async function getClassWaitlist(classId: string) {
+export async function getClassWaitlist(
+  classId: string,
+  facilityId = PRIMARY_FACILITY_ID,
+) {
   const entries = await db
     .selectFrom("waitlistEntries")
+    .innerJoin("gymClasses", "waitlistEntries.classId", "gymClasses.id")
     .innerJoin("users", "waitlistEntries.userId", "users.id")
     .leftJoin(
       "bookingReputations",
@@ -881,6 +909,7 @@ export async function getClassWaitlist(classId: string) {
       "bookingReputations.penaltyUntil",
     ])
     .where("waitlistEntries.classId", "=", classId)
+    .where("gymClasses.facilityId", "=", facilityId)
     .where("waitlistEntries.promotedAt", "is", null)
     .execute();
   const ordered = entries
@@ -905,15 +934,17 @@ export async function getClassWaitlist(classId: string) {
 
 export async function exportClassAttendeesCsv(
   classId: string,
+  facilityId = PRIMARY_FACILITY_ID,
 ): Promise<string> {
   const gymClass = await db
     .selectFrom("gymClasses")
     .select("id")
     .where("id", "=", classId)
+    .where("facilityId", "=", facilityId)
     .executeTakeFirst();
   if (!gymClass) throw new Error("Class not found");
-  const attendees = await getClassBookings(classId);
-  const waitlist = await getClassWaitlist(classId);
+  const attendees = await getClassBookings(classId, facilityId);
+  const waitlist = await getClassWaitlist(classId, facilityId);
   const rows = ['"Name","Email","Status","Waitlist Position"'];
   attendees.forEach((attendee) =>
     rows.push(

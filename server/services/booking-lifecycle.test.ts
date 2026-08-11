@@ -53,6 +53,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
         })),
       )
       .execute();
+    await database.initializeDatabase();
   });
 
   afterAll(async () => {

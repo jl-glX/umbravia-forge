@@ -24,26 +24,34 @@ import {
 } from "../middleware/validation.js";
 import {
   authenticate,
-  requireRole,
-  requireSelfBodyOrRole,
-  requireSelfRoleOrBookingDelegation,
-  requireSelfParamOrRole,
+  getFacilityContext,
+  requireBookingFacility,
+  requireFacility,
+  requireSelfBodyOrFacilityRole,
+  requireSelfFacilityRoleOrBookingDelegation,
+  requireSelfParamOrFacilityRole,
   requireTrainerBookingOrRole,
   requireTrainerClassOrRole,
+  selectFacilityContext,
 } from "../middleware/authorization.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
 
 export const bookingsRouter = express.Router();
 bookingsRouter.use(authenticate);
+bookingsRouter.use(selectFacilityContext);
+bookingsRouter.use(requireFacility());
 
 // Get user bookings
 bookingsRouter.get(
   "/user/:userId",
   validateId("userId"),
-  requireSelfParamOrRole("userId", "admin"),
+  requireSelfParamOrFacilityRole("userId", "admin", "owner"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const bookings = await getUserBookings(req.params.userId);
+      const bookings = await getUserBookings(
+        req.params.userId,
+        getFacilityContext(res).id,
+      );
       res.json(bookings);
     } catch (error) {
       console.error("Error fetching user bookings:", error);
@@ -59,7 +67,10 @@ bookingsRouter.get(
   requireTrainerClassOrRole("classId", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const bookings = await getClassBookings(req.params.classId);
+      const bookings = await getClassBookings(
+        req.params.classId,
+        getFacilityContext(res).id,
+      );
       res.json(bookings);
     } catch (error) {
       console.error("Error fetching class bookings:", error);
@@ -75,7 +86,10 @@ bookingsRouter.get(
   requireTrainerClassOrRole("classId", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const csv = await exportClassAttendeesCsv(req.params.classId);
+      const csv = await exportClassAttendeesCsv(
+        req.params.classId,
+        getFacilityContext(res).id,
+      );
       res.setHeader("Content-Type", "text/csv;charset=utf-8");
       res.setHeader(
         "Content-Disposition",
@@ -93,7 +107,7 @@ bookingsRouter.get(
 bookingsRouter.post(
   "/",
   bookingValidation,
-  requireSelfRoleOrBookingDelegation("userId", "admin"),
+  requireSelfFacilityRoleOrBookingDelegation("userId", "admin", "owner"),
   async (req: express.Request, res: express.Response) => {
     try {
       const { classId, userId } = req.body;
@@ -103,7 +117,11 @@ bookingsRouter.post(
         return;
       }
 
-      const result = await bookClass(classId, userId);
+      const result = await bookClass(
+        classId,
+        userId,
+        getFacilityContext(res).id,
+      );
       res.status(201).json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -116,7 +134,8 @@ bookingsRouter.post(
 bookingsRouter.put(
   "/:bookingId/intention",
   bookingIntentionValidation,
-  requireSelfBodyOrRole("userId", "admin"),
+  requireBookingFacility("bookingId"),
+  requireSelfBodyOrFacilityRole("userId", "admin", "owner"),
   async (req: express.Request, res: express.Response) => {
     try {
       res.json(
@@ -166,7 +185,7 @@ bookingsRouter.put(
 bookingsRouter.get(
   "/reputation/:userId",
   validateId("userId"),
-  requireSelfParamOrRole("userId", "admin"),
+  requireSelfParamOrFacilityRole("userId", "admin", "owner"),
   async (
     req: express.Request,
     res: express.Response,
@@ -187,7 +206,7 @@ bookingsRouter.get(
 bookingsRouter.post(
   "/reputation/:userId/adjustment",
   reputationAdjustmentValidation,
-  requireRole("admin"),
+  requireFacility("admin", "owner"),
   requireRecentFormVerification,
   async (
     req: express.Request,
@@ -217,7 +236,8 @@ bookingsRouter.post(
 bookingsRouter.delete(
   "/:bookingId",
   bookingCancellationValidation,
-  requireSelfRoleOrBookingDelegation("userId", "admin"),
+  requireBookingFacility("bookingId"),
+  requireSelfFacilityRoleOrBookingDelegation("userId", "admin", "owner"),
   async (req: express.Request, res: express.Response) => {
     try {
       const { userId } = req.body;
@@ -244,7 +264,10 @@ bookingsRouter.get(
   requireTrainerClassOrRole("classId", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const waitlist = await getClassWaitlist(req.params.classId);
+      const waitlist = await getClassWaitlist(
+        req.params.classId,
+        getFacilityContext(res).id,
+      );
       res.json(waitlist);
     } catch (error) {
       console.error("Error fetching waitlist:", error);

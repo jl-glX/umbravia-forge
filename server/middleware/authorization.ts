@@ -218,6 +218,53 @@ export function requireSelfBodyOrRole(bodyName: string, ...roles: UserRole[]) {
   };
 }
 
+export function requireSelfBodyOrFacilityRole(
+  bodyName: string,
+  ...roles: FacilityRole[]
+) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const auth = getAuthenticatedUser(res);
+    if (
+      req.body?.[bodyName] !== auth.userId &&
+      (!auth.facility || !roles.includes(auth.facility.role))
+    ) {
+      forbidden(res);
+      return;
+    }
+    next();
+  };
+}
+
+export function requireBookingFacility(bookingParamName: string) {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const facility = getAuthenticatedUser(res).facility;
+      if (!facility) {
+        forbidden(res, "An active facility membership is required");
+        return;
+      }
+      const booking = await db
+        .selectFrom("bookings")
+        .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
+        .select("bookings.id")
+        .where("bookings.id", "=", req.params[bookingParamName])
+        .where("gymClasses.facilityId", "=", facility.id)
+        .executeTakeFirst();
+      if (!booking) {
+        forbidden(res);
+        return;
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
 export function requireSelfRoleOrBookingDelegation(
   bodyName: string,
   ...roles: UserRole[]
@@ -233,6 +280,34 @@ export function requireSelfRoleOrBookingDelegation(
       if (
         ownerUserId === auth.userId ||
         roles.includes(auth.role) ||
+        (typeof ownerUserId === "string" &&
+          (await hasActiveBookingDelegation(auth.userId, ownerUserId)))
+      ) {
+        next();
+        return;
+      }
+      forbidden(res);
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+export function requireSelfFacilityRoleOrBookingDelegation(
+  bodyName: string,
+  ...roles: FacilityRole[]
+) {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      const ownerUserId = req.body?.[bodyName];
+      if (
+        ownerUserId === auth.userId ||
+        (auth.facility && roles.includes(auth.facility.role)) ||
         (typeof ownerUserId === "string" &&
           (await hasActiveBookingDelegation(auth.userId, ownerUserId)))
       ) {

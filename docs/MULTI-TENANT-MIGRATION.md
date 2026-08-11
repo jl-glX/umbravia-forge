@@ -68,8 +68,11 @@ role in `users.role` does not authorize a write to another facility.
 - `637c831`: tenant root, memberships and idempotent `primary` backfill.
 - `b454e9b`: server-resolved facility context, membership authorization and
   isolated facility profiles.
-- Class ownership and derived booking data remain on the development branch
-  until their full repository gate and checkpoint commit pass.
+- `9c0ed2c`: facility-owned classes, scoped class administration and negative
+  cross-facility tests.
+- Booking operations remain on the development branch until their full
+  repository gate and checkpoint commit pass. Booking reputation remains a
+  separate decision because its existing storage is account-global.
 
 ## Initial data classification
 

@@ -9,6 +9,7 @@ describe("class tenant isolation", () => {
   let database: typeof import("../db/client.js");
   let app: typeof import("../index.js").app;
   let adminCookie: string;
+  let memberCookie: string;
 
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-forge-class-tenant-"));
@@ -35,17 +36,30 @@ describe("class tenant isolation", () => {
       .execute();
     await database.db
       .insertInto("users")
-      .values({
-        id: "tenant-admin",
-        email: "tenant-admin@example.com",
-        phone: null,
-        name: "Tenant Admin",
-        avatarDataUrl: "",
-        password: await auth.hashPassword("TenantAdminPassword123"),
-        role: "admin",
-        sessionIdleTimeoutMinutes: 7 * 24 * 60,
-        createdAt: now,
-      })
+      .values([
+        {
+          id: "tenant-admin",
+          email: "tenant-admin@example.com",
+          phone: null,
+          name: "Tenant Admin",
+          avatarDataUrl: "",
+          password: await auth.hashPassword("TenantAdminPassword123"),
+          role: "admin",
+          sessionIdleTimeoutMinutes: 7 * 24 * 60,
+          createdAt: now,
+        },
+        {
+          id: "tenant-member",
+          email: "tenant-member@example.com",
+          phone: null,
+          name: "Tenant Member",
+          avatarDataUrl: "",
+          password: await auth.hashPassword("TenantMemberPassword123"),
+          role: "member",
+          sessionIdleTimeoutMinutes: 7 * 24 * 60,
+          createdAt: now,
+        },
+      ])
       .execute();
     await database.db
       .insertInto("facilityMemberships")
@@ -64,6 +78,24 @@ describe("class tenant isolation", () => {
           facilityId: "secondary",
           userId: "tenant-admin",
           role: "owner",
+          status: "active",
+          createdAt: now + 1,
+          updatedAt: now + 1,
+        },
+        {
+          id: "primary:tenant-member",
+          facilityId: "primary",
+          userId: "tenant-member",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "secondary:tenant-member",
+          facilityId: "secondary",
+          userId: "tenant-member",
+          role: "member",
           status: "active",
           createdAt: now + 1,
           updatedAt: now + 1,
@@ -95,6 +127,27 @@ describe("class tenant isolation", () => {
         },
       ])
       .execute();
+    await database.db
+      .insertInto("bookings")
+      .values([
+        {
+          id: "primary-booking",
+          classId: "primary-class",
+          userId: "tenant-member",
+          status: "confirmed",
+          createdAt: now,
+          cancelledAt: null,
+        },
+        {
+          id: "secondary-booking",
+          classId: "secondary-class",
+          userId: "tenant-member",
+          status: "confirmed",
+          createdAt: now,
+          cancelledAt: null,
+        },
+      ])
+      .execute();
 
     app = (await import("../index.js")).app;
     adminCookie = (
@@ -102,6 +155,14 @@ describe("class tenant isolation", () => {
         identifier: "tenant-admin@example.com",
         password: "TenantAdminPassword123",
         accessPortal: "staff",
+        rememberDevice: false,
+      })
+    ).headers["set-cookie"][0];
+    memberCookie = (
+      await request(app).post("/api/auth/login").send({
+        identifier: "tenant-member@example.com",
+        password: "TenantMemberPassword123",
+        accessPortal: "member",
         rememberDevice: false,
       })
     ).headers["set-cookie"][0];
@@ -166,5 +227,37 @@ describe("class tenant isolation", () => {
       .where("id", "=", created.body.id)
       .executeTakeFirstOrThrow();
     expect(stored.facilityId).toBe("secondary");
+  });
+
+  it("derives booking isolation from the owning class", async () => {
+    const primary = await request(app)
+      .get("/api/bookings/user/tenant-member")
+      .set("Cookie", memberCookie)
+      .expect(200);
+    expect(primary.body.map((item: { id: string }) => item.id)).toEqual([
+      "primary-booking",
+    ]);
+
+    const secondary = await request(app)
+      .get("/api/bookings/user/tenant-member")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(secondary.body.map((item: { id: string }) => item.id)).toEqual([
+      "secondary-booking",
+    ]);
+
+    await request(app)
+      .delete("/api/bookings/secondary-booking")
+      .set("Cookie", memberCookie)
+      .send({ userId: "tenant-member" })
+      .expect(403);
+
+    const unchanged = await database.db
+      .selectFrom("bookings")
+      .select("status")
+      .where("id", "=", "secondary-booking")
+      .executeTakeFirstOrThrow();
+    expect(unchanged.status).toBe("confirmed");
   });
 });
