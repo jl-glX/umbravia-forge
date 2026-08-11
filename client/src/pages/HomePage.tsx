@@ -23,11 +23,18 @@ import { LegalFooter } from "../components/LegalFooter";
 import { useFacilityProfile } from "../hooks/useFacilityProfile";
 import { BrandGlyph } from "../components/BrandGlyph";
 import type { BrandGlyphKind } from "../lib/brand-system";
+import { getAccessRole } from "../context/auth-context";
 
 export function HomePage() {
   const user = useCurrentUser();
   const { t } = useTranslation();
-  if (user?.role === "admin") return <AdminHome name={user.name} />;
+  if (user && getAccessRole(user) === "admin")
+    return (
+      <AdminHome
+        name={user.name}
+        platformOperator={user.platformOperator === true}
+      />
+    );
   const features: Array<{
     kind: BrandGlyphKind;
     title: string;
@@ -138,7 +145,13 @@ export function HomePage() {
   );
 }
 
-function AdminHome({ name }: { name: string }) {
+function AdminHome({
+  name,
+  platformOperator,
+}: {
+  name: string;
+  platformOperator: boolean;
+}) {
   const { t } = useTranslation();
   const { profile } = useFacilityProfile();
   const actions = [
@@ -196,7 +209,16 @@ function AdminHome({ name }: { name: string }) {
       title: t("adminHome.capabilityRoadmap"),
       text: t("adminHome.capabilityRoadmapDescription"),
     },
-  ];
+  ].filter(
+    (action) =>
+      platformOperator ||
+      ![
+        "/admin/resource-manager",
+        "/admin/environment-manager",
+        "/admin/email-manager",
+        "/admin/capability-roadmap",
+      ].includes(action.to),
+  );
 
   return (
     <main className="min-h-[calc(100vh-4.5rem)] bg-slate-50 text-slate-950">

@@ -105,4 +105,31 @@ describe("Cloudflare support email Worker", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(rejected).toHaveBeenCalledOnce();
   });
+
+  it("rejects a visible sender that does not match the SMTP envelope", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { email, rejected } = message(
+      [
+        "From: Impostor <other@example.com>",
+        "To: support@example.com",
+        "Subject: Identidad contradictoria",
+        "Message-ID: <spoof-test@example.com>",
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        "Necesito ayuda con esta cuenta.",
+      ].join("\r\n"),
+    );
+
+    await supportEmailWorker.email(email, {
+      SUPPORT_INBOUND_ENDPOINT:
+        "https://app.example.com/api/internal/support-email",
+      SUPPORT_INBOUND_WEBHOOK_SECRET: webhookSecret,
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(rejected).toHaveBeenCalledWith(
+      "The support message could not be accepted.",
+    );
+  });
 });

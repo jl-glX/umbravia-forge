@@ -106,6 +106,11 @@ describe("member commerce API", () => {
         },
       ])
       .execute();
+    await database.db
+      .updateTable("users")
+      .set({ role: "admin" })
+      .where("id", "=", "commerce-member")
+      .execute();
 
     app = (await import("../index.js")).app;
     const login = await request(app).post("/api/auth/login").send({
@@ -143,6 +148,16 @@ describe("member commerce API", () => {
       orders: false,
       bankPayments: false,
     });
+  });
+
+  it("uses the selected membership instead of the account's legacy global role", async () => {
+    const response = await request(app)
+      .get("/api/member-commerce/summary")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+
+    expect(response.body.payments[0].id).toBe("secondary-payment");
   });
 
   it("isolates payments by the selected facility", async () => {

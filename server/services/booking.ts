@@ -31,18 +31,24 @@ async function getConfiguration(
 async function assertBookingEligibility(
   transaction: Transaction<Database>,
   userId: string,
+  facilityId: string,
   configuration: ReturnType<typeof parseBookingConfiguration>,
   now: number,
 ) {
   const user = await transaction
-    .selectFrom("users")
-    .select("role")
-    .where("id", "=", userId)
+    .selectFrom("facilityMemberships")
+    .innerJoin("users", "users.id", "facilityMemberships.userId")
+    .select("facilityMemberships.role")
+    .where("facilityMemberships.facilityId", "=", facilityId)
+    .where("facilityMemberships.userId", "=", userId)
+    .where("facilityMemberships.status", "=", "active")
+    .where("users.accountStatus", "=", "active")
     .executeTakeFirst();
   if (!user) throw new Error("User not found");
+  const role = user.role === "owner" ? "admin" : user.role;
   if (
     configuration.allowedRoles.length > 0 &&
-    !configuration.allowedRoles.includes(user.role)
+    !configuration.allowedRoles.includes(role)
   ) {
     throw new Error("User role is not eligible for this class");
   }
@@ -133,6 +139,11 @@ async function promoteFromWaitlist(
   const entries = await transaction
     .selectFrom("waitlistEntries")
     .innerJoin("users", "waitlistEntries.userId", "users.id")
+    .innerJoin("facilityMemberships", (join) =>
+      join
+        .onRef("facilityMemberships.userId", "=", "waitlistEntries.userId")
+        .on("facilityMemberships.facilityId", "=", gymClass.facilityId),
+    )
     .select([
       "waitlistEntries.id",
       "waitlistEntries.classId",
@@ -141,10 +152,12 @@ async function promoteFromWaitlist(
       "waitlistEntries.createdAt",
       "waitlistEntries.promotedAt",
       "waitlistEntries.promotionExpiresAt",
-      "users.role",
+      "facilityMemberships.role",
     ])
     .where("classId", "=", classId)
     .where("promotedAt", "is", null)
+    .where("facilityMemberships.status", "=", "active")
+    .where("users.accountStatus", "=", "active")
     .execute();
   if (entries.length === 0) return null;
 
@@ -152,7 +165,9 @@ async function promoteFromWaitlist(
   const eligibleEntries = entries.filter(
     (entry) =>
       configuration.allowedRoles.length === 0 ||
-      configuration.allowedRoles.includes(entry.role),
+      configuration.allowedRoles.includes(
+        entry.role === "owner" ? "admin" : entry.role,
+      ),
   );
   if (eligibleEntries.length === 0) return null;
   const candidates = await Promise.all(
@@ -488,7 +503,13 @@ export async function bookClass(
       throw new Error("User already has a booking for this class");
 
     const configuration = await getConfiguration(transaction, classId);
-    await assertBookingEligibility(transaction, userId, configuration, now);
+    await assertBookingEligibility(
+      transaction,
+      userId,
+      facilityId,
+      configuration,
+      now,
+    );
     const confirmedCount = await transaction
       .selectFrom("bookings")
       .select((eb) => eb.fn.count("id").as("count"))

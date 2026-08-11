@@ -7,6 +7,7 @@ import { formatDate, formatTime } from "../lib/dateUtils";
 import { authFetch } from "../lib/api";
 import { useTranslation } from "react-i18next";
 import { localizeClass } from "../lib/classLocalization";
+import { getAccessRole } from "../context/auth-context";
 
 interface ClassDetailsModalProps {
   classId: string;
@@ -34,7 +35,8 @@ export function ClassDetailsModal({
   const [updatingBooking, setUpdatingBooking] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
 
-  const canExportCsv = user?.role === "trainer" || user?.role === "admin";
+  const accessRole = getAccessRole(user);
+  const canExportCsv = accessRole === "trainer" || accessRole === "admin";
   const localizedClassName = localizeClass(className, undefined, t).name;
 
   useEffect(() => {

@@ -25,6 +25,7 @@ import {
   getSessionStorage,
   recordAppRoute,
 } from "../lib/app-navigation-history";
+import { getAccessRole } from "../context/auth-context";
 
 export function Navigation() {
   const location = useLocation();
@@ -34,6 +35,7 @@ export function Navigation() {
   const { t } = useTranslation();
   const { profile } = useFacilityProfile();
   const [canGoBack, setCanGoBack] = useState(false);
+  const accessRole = getAccessRole(user);
 
   useEffect(() => {
     const storage = getSessionStorage();
@@ -54,9 +56,9 @@ export function Navigation() {
   const navLinkClass =
     "flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-medium transition-all 2xl:gap-2 2xl:px-3";
   const analyticsPath =
-    user?.role === "admin"
+    accessRole === "admin"
       ? "/admin-analytics"
-      : user?.role === "trainer"
+      : accessRole === "trainer"
         ? "/trainer-analytics"
         : "/activity-dashboard";
   const isHome = location.pathname === "/";
@@ -171,7 +173,7 @@ export function Navigation() {
               <span>{t("nav.support")}</span>
             </Link>
 
-            {user?.role === "admin" ? (
+            {accessRole === "admin" ? (
               <Link
                 to="/billing"
                 className={`${navLinkClass} ${
@@ -193,7 +195,7 @@ export function Navigation() {
               </Link>
             )}
 
-            {user?.role === "trainer" && (
+            {accessRole === "trainer" && (
               <Link
                 to="/trainer-dashboard"
                 className={`${navLinkClass} ${
@@ -205,7 +207,7 @@ export function Navigation() {
               </Link>
             )}
 
-            {user?.role === "member" && (
+            {accessRole === "member" && (
               <>
                 <Link
                   to="/workout-timer"
@@ -228,7 +230,7 @@ export function Navigation() {
               </>
             )}
 
-            {user?.role === "admin" && (
+            {accessRole === "admin" && (
               <>
                 <Link
                   to="/admin/commercial-trial"

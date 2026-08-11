@@ -32,6 +32,7 @@ async function findBillingMember(userId: string, facilityId: string) {
       "facilityMemberships.role as facilityRole",
     ])
     .where("users.id", "=", userId)
+    .where("users.accountStatus", "=", "active")
     .where("facilityMemberships.facilityId", "=", facilityId)
     .where("facilityMemberships.status", "=", "active")
     .executeTakeFirst();
@@ -75,6 +76,7 @@ billingRouter.get("/members", async (req, res, next) => {
       .where("facilityMemberships.facilityId", "=", facilityId)
       .where("facilityMemberships.status", "=", "active")
       .where("facilityMemberships.role", "=", "member")
+      .where("users.accountStatus", "=", "active")
       .where((eb) =>
         eb.or([
           sql<boolean>`LOWER(${eb.ref("users.name")}) LIKE ${pattern} ESCAPE '\\'`,

@@ -1,9 +1,12 @@
 import express from "express";
-import { authenticate, requireRole } from "../middleware/authorization.js";
+import {
+  authenticate,
+  requirePlatformOperator,
+} from "../middleware/authorization.js";
 import { getSecurityManagerOverview } from "../services/security-manager.js";
 
 export const securityManagerRouter = express.Router();
-securityManagerRouter.use(authenticate, requireRole("admin"));
+securityManagerRouter.use(authenticate, requirePlatformOperator);
 
 securityManagerRouter.get("/", async (_req, res, next) => {
   try {

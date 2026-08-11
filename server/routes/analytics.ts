@@ -12,18 +12,20 @@ import {
 import { monthValidation, validateId } from "../middleware/validation.js";
 import {
   authenticate,
-  requireRole,
-  requireSelfParamOrRole,
+  getFacilityContext,
+  requireFacility,
+  requireSelfParamOrFacilityRole,
+  selectFacilityContext,
 } from "../middleware/authorization.js";
 
 export const analyticsRouter = express.Router();
-analyticsRouter.use(authenticate);
+analyticsRouter.use(authenticate, selectFacilityContext, requireFacility());
 
 // Get monthly metrics
 analyticsRouter.get(
   "/monthly",
   monthValidation,
-  requireRole("admin"),
+  requireFacility("owner", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
       const year = parseInt(req.query.year as string);
@@ -34,7 +36,11 @@ analyticsRouter.get(
         return;
       }
 
-      const metrics = await getMonthlyMetrics(year, month);
+      const metrics = await getMonthlyMetrics(
+        year,
+        month,
+        getFacilityContext(res).id,
+      );
       res.json(metrics);
     } catch (error) {
       console.error("Error fetching monthly metrics:", error);
@@ -48,7 +54,7 @@ analyticsRouter.get(
   "/class-popularity",
   async (req: express.Request, res: express.Response) => {
     try {
-      const popularity = await getClassPopularity();
+      const popularity = await getClassPopularity(getFacilityContext(res).id);
       res.json(popularity);
     } catch (error) {
       console.error("Error fetching class popularity:", error);
@@ -62,7 +68,7 @@ analyticsRouter.get(
   "/peak-hours",
   async (req: express.Request, res: express.Response) => {
     try {
-      const peakHours = await getPeakHours();
+      const peakHours = await getPeakHours(getFacilityContext(res).id);
       res.json(peakHours);
     } catch (error) {
       console.error("Error fetching peak hours:", error);
@@ -75,10 +81,13 @@ analyticsRouter.get(
 analyticsRouter.get(
   "/user/:userId",
   validateId("userId"),
-  requireSelfParamOrRole("userId", "admin"),
+  requireSelfParamOrFacilityRole("userId", "owner", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const metrics = await getUserActivityMetrics(req.params.userId);
+      const metrics = await getUserActivityMetrics(
+        req.params.userId,
+        getFacilityContext(res).id,
+      );
 
       if (!metrics) {
         res.status(404).json({ error: "User not found" });
@@ -97,11 +106,14 @@ analyticsRouter.get(
 analyticsRouter.get(
   "/trainer/:trainerId",
   validateId("trainerId"),
-  requireRole("trainer", "admin"),
-  requireSelfParamOrRole("trainerId", "admin"),
+  requireFacility("trainer", "owner", "admin"),
+  requireSelfParamOrFacilityRole("trainerId", "owner", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const metrics = await getTrainerActivityMetrics(req.params.trainerId);
+      const metrics = await getTrainerActivityMetrics(
+        req.params.trainerId,
+        getFacilityContext(res).id,
+      );
       res.json(metrics);
     } catch (error) {
       console.error("Error fetching trainer activity metrics:", error);
@@ -115,10 +127,10 @@ analyticsRouter.get(
 // Get member metrics
 analyticsRouter.get(
   "/members",
-  requireRole("admin"),
+  requireFacility("owner", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const metrics = await getMemberMetrics();
+      const metrics = await getMemberMetrics(getFacilityContext(res).id);
       res.json(metrics);
     } catch (error) {
       console.error("Error fetching member metrics:", error);
@@ -131,10 +143,13 @@ analyticsRouter.get(
 analyticsRouter.get(
   "/user/:userId/upcoming-bookings",
   validateId("userId"),
-  requireSelfParamOrRole("userId", "admin"),
+  requireSelfParamOrFacilityRole("userId", "owner", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const bookings = await getUpcomingBookings(req.params.userId);
+      const bookings = await getUpcomingBookings(
+        req.params.userId,
+        getFacilityContext(res).id,
+      );
       res.json(bookings);
     } catch (error) {
       console.error("Error fetching upcoming bookings:", error);
@@ -147,11 +162,14 @@ analyticsRouter.get(
 analyticsRouter.get(
   "/trainer/:trainerId/upcoming-classes",
   validateId("trainerId"),
-  requireRole("trainer", "admin"),
-  requireSelfParamOrRole("trainerId", "admin"),
+  requireFacility("trainer", "owner", "admin"),
+  requireSelfParamOrFacilityRole("trainerId", "owner", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const classes = await getTrainerUpcomingClasses(req.params.trainerId);
+      const classes = await getTrainerUpcomingClasses(
+        req.params.trainerId,
+        getFacilityContext(res).id,
+      );
       res.json(classes);
     } catch (error) {
       console.error("Error fetching trainer upcoming classes:", error);

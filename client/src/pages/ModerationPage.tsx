@@ -8,6 +8,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useAuth } from "../hooks/useAuth";
 import { authFetch } from "../lib/api";
+import { getAccessRole } from "../context/auth-context";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 interface Case {
@@ -32,6 +33,7 @@ interface ParentalControl {
 export function ModerationPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const accessRole = getAccessRole(user);
   const [cases, setCases] = useState<Case[]>([]);
   const [subject, setSubject] = useState("");
   const [category, setCategory] = useState("conduct");
@@ -56,7 +58,7 @@ export function ModerationPage() {
   const load = useCallback(async () => {
     try {
       setCases(await api<Case[]>("/api/moderation/cases"));
-      if (user?.role === "admin") {
+      if (accessRole === "admin") {
         const [links, controls] = await Promise.all([
           api<FacilityLink[]>("/api/community/facility-links"),
           api<ParentalControl[]>("/api/community/parental-controls"),
@@ -67,7 +69,7 @@ export function ModerationPage() {
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
     }
-  }, [user?.role]);
+  }, [accessRole]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -204,7 +206,7 @@ export function ModerationPage() {
                     {item.status} · {item.urgency}
                   </p>
                 </div>
-                {user?.role === "admin" && item.status !== "resolved" && (
+                {accessRole === "admin" && item.status !== "resolved" && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -218,7 +220,7 @@ export function ModerationPage() {
             </Card>
           ))}
         </div>
-        {user?.role === "admin" && (
+        {accessRole === "admin" && (
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
             <Card className="rounded-3xl p-6">
               <h2 className="font-bold">{t("moderation.facilityLinks")}</h2>

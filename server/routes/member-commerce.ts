@@ -5,14 +5,12 @@ import {
   getAuthenticatedUser,
   getFacilityContext,
   requireFacility,
-  requireRole,
   selectFacilityContext,
 } from "../middleware/authorization.js";
 
 export const memberCommerceRouter = express.Router();
 memberCommerceRouter.use(
   authenticate,
-  requireRole("member"),
   selectFacilityContext,
   requireFacility("member"),
 );

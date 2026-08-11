@@ -983,7 +983,7 @@ export const sessionContentValidation = validateRequest([
   body("blocks.*.material").isArray({ max: 30 }),
   body("blocks.*.material.*").isString().trim().isLength({ max: 120 }),
   body("blocks.*.mediaUrls").isArray({ max: 10 }),
-  body("blocks.*.mediaUrls.*").isURL({ protocols: ["http", "https"] }),
+  body("blocks.*.mediaUrls.*").isURL({ protocols: ["https"] }),
   body("blocks.*.sets").isString().trim().isLength({ max: 80 }),
   body("blocks.*.repetitions").isString().trim().isLength({ max: 80 }),
   body("blocks.*.duration").isString().trim().isLength({ max: 80 }),

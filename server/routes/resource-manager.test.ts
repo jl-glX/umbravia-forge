@@ -50,6 +50,18 @@ describe("resource manager API", () => {
         },
       ])
       .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values({
+        id: "primary:resources-admin",
+        facilityId: "primary",
+        userId: "resources-admin",
+        role: "owner",
+        status: "active",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      .execute();
 
     app = (await import("../index.js")).app;
     const adminLogin = await request(app).post("/api/auth/login").send({

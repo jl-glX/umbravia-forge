@@ -10,6 +10,7 @@ describe("security manager API", () => {
   let app: typeof import("../index.js").app;
   let adminCookie: string;
   let memberCookie: string;
+  let tenantAdminCookie: string;
 
   beforeAll(async () => {
     directory = await mkdtemp(
@@ -48,6 +49,53 @@ describe("security manager API", () => {
           sessionIdleTimeoutMinutes: 7 * 24 * 60,
           createdAt: Date.now(),
         },
+        {
+          id: "security-manager-tenant-admin",
+          email: "tenant-security-admin@example.com",
+          phone: null,
+          name: "Tenant Security Admin",
+          avatarDataUrl: "",
+          password,
+          role: "admin",
+          sessionIdleTimeoutMinutes: 7 * 24 * 60,
+          createdAt: Date.now(),
+        },
+      ])
+      .execute();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "security-secondary",
+        slug: "security-secondary",
+        name: "Security Secondary",
+        logoDataUrl: "",
+        accentColor: "#0f172a",
+        status: "active",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values([
+        {
+          id: "primary:security-manager-admin",
+          facilityId: "primary",
+          userId: "security-manager-admin",
+          role: "owner",
+          status: "active",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+        {
+          id: "security-secondary:security-manager-tenant-admin",
+          facilityId: "security-secondary",
+          userId: "security-manager-tenant-admin",
+          role: "owner",
+          status: "active",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
       ])
       .execute();
     await database.db
@@ -80,8 +128,15 @@ describe("security manager API", () => {
       accessPortal: "member",
       rememberDevice: false,
     });
+    const tenantAdminLogin = await request(app).post("/api/auth/login").send({
+      identifier: "tenant-security-admin@example.com",
+      password: "SecurityManagerPassword123",
+      accessPortal: "staff",
+      rememberDevice: false,
+    });
     adminCookie = adminLogin.headers["set-cookie"][0];
     memberCookie = memberLogin.headers["set-cookie"][0];
+    tenantAdminCookie = tenantAdminLogin.headers["set-cookie"][0];
   });
 
   afterAll(async () => {
@@ -148,6 +203,13 @@ describe("security manager API", () => {
     await request(app)
       .get("/api/admin/security-manager")
       .set("Cookie", memberCookie)
+      .expect(403);
+  });
+
+  it("keeps tenant administrators outside platform-wide security telemetry", async () => {
+    await request(app)
+      .get("/api/admin/security-manager")
+      .set("Cookie", tenantAdminCookie)
       .expect(403);
   });
 

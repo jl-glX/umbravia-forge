@@ -72,6 +72,47 @@ describe("administrator account safety", () => {
         },
       ])
       .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values([
+        {
+          id: "primary:protected-admin",
+          facilityId: "primary",
+          userId: "protected-admin",
+          role: "owner",
+          status: "active",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+        {
+          id: "primary:synthetic-member",
+          facilityId: "primary",
+          userId: "synthetic-member",
+          role: "member",
+          status: "active",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+        {
+          id: "primary:retained-member",
+          facilityId: "primary",
+          userId: "retained-member",
+          role: "member",
+          status: "active",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+        {
+          id: "primary:deletable-member",
+          facilityId: "primary",
+          userId: "deletable-member",
+          role: "member",
+          status: "active",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      ])
+      .execute();
     app = (await import("../index.js")).app;
     adminCookie = (
       await request(app).post("/api/auth/login").send({
@@ -123,7 +164,7 @@ describe("administrator account safety", () => {
       .get("/api/users")
       .set("Cookie", memberCookie)
       .expect(403, {
-        error: "You do not have permission to perform this action",
+        error: "An active facility membership is required",
         code: "FORBIDDEN",
       });
 

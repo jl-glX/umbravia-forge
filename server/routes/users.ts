@@ -4,8 +4,8 @@ import {
   getUserById,
   createUser,
   updateUser,
-  deleteUser,
-  deleteMultipleUsers,
+  removeUserFromFacility,
+  removeMultipleUsersFromFacility,
   updateUserRole,
   UserDeletionBlockedError,
 } from "../services/users.js";
@@ -18,13 +18,19 @@ import {
 } from "../middleware/validation.js";
 import {
   authenticate,
+  getFacilityContext,
   getAuthenticatedUser,
-  requireRole,
+  requireFacility,
+  selectFacilityContext,
 } from "../middleware/authorization.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
 
 export const usersRouter = express.Router();
-usersRouter.use(authenticate, requireRole("admin"));
+usersRouter.use(
+  authenticate,
+  selectFacilityContext,
+  requireFacility("owner", "admin"),
+);
 usersRouter.use(requireRecentFormVerification);
 
 function sendDeletionError(error: unknown, res: express.Response): void {
@@ -45,7 +51,7 @@ function sendDeletionError(error: unknown, res: express.Response): void {
 // Get all users
 usersRouter.get("/", async (req: express.Request, res: express.Response) => {
   try {
-    const users = await getAllUsers();
+    const users = await getAllUsers(getFacilityContext(res).id);
     res.json(users);
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -59,7 +65,7 @@ usersRouter.get(
   validateId("id"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const user = await getUserById(req.params.id);
+      const user = await getUserById(req.params.id, getFacilityContext(res).id);
       if (!user) {
         res.status(404).json({ error: "User not found" });
         return;
@@ -80,7 +86,13 @@ usersRouter.post(
     try {
       const { email, name, password, role } = req.body;
 
-      const user = await createUser(email, name, password, role || "member");
+      const user = await createUser(
+        email,
+        name,
+        password,
+        getFacilityContext(res).id,
+        role || "member",
+      );
       res.status(201).json(user);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -106,7 +118,7 @@ usersRouter.put(
         return;
       }
 
-      const user = await updateUser(req.params.id, {
+      const user = await updateUser(req.params.id, getFacilityContext(res).id, {
         email,
         name,
         password,
@@ -142,7 +154,11 @@ usersRouter.patch(
         return;
       }
 
-      const user = await updateUserRole(req.params.id, role);
+      const user = await updateUserRole(
+        req.params.id,
+        getFacilityContext(res).id,
+        role,
+      );
       res.json(user);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -165,8 +181,8 @@ usersRouter.delete(
         });
         return;
       }
-      await deleteUser(req.params.id);
-      res.json({ message: "User deleted successfully" });
+      await removeUserFromFacility(req.params.id, getFacilityContext(res).id);
+      res.json({ message: "User removed from the facility successfully" });
     } catch (error) {
       sendDeletionError(error, res);
     }
@@ -195,8 +211,13 @@ usersRouter.post(
         return;
       }
 
-      await deleteMultipleUsers(userIds);
-      res.json({ message: `Deleted ${userIds.length} users` });
+      await removeMultipleUsersFromFacility(
+        userIds,
+        getFacilityContext(res).id,
+      );
+      res.json({
+        message: `Removed ${userIds.length} users from the facility`,
+      });
     } catch (error) {
       sendDeletionError(error, res);
     }

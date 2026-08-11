@@ -32,6 +32,7 @@ import { ProfilePhotoSettings } from "../components/ProfilePhotoSettings";
 import { DelegationManager } from "../components/DelegationManager";
 import { AccountSupportIdentifier } from "../components/AccountSupportIdentifier";
 import { authFetch } from "../lib/api";
+import { getAccessRole } from "../context/auth-context";
 
 interface AccountManagerOverview {
   accountStatus: "pending_verification" | "active" | "security_review";
@@ -105,6 +106,7 @@ export function AccountControlPage() {
   const { user } = useAuth();
   const [overview, setOverview] = useState<AccountManagerOverview | null>(null);
   const [overviewError, setOverviewError] = useState(false);
+  const accessRole = getAccessRole(user);
 
   useEffect(() => {
     let active = true;
@@ -250,15 +252,21 @@ export function AccountControlPage() {
   ];
 
   const roleLinks =
-    user?.role === "member"
+    accessRole === "member"
       ? memberLinks
-      : user?.role === "trainer"
+      : accessRole === "trainer"
         ? trainerLinks
-        : adminLinks;
+        : user?.platformOperator
+          ? adminLinks
+          : adminLinks.filter((shortcut) =>
+              ["/admin-dashboard", "/billing", "/admin-analytics"].includes(
+                shortcut.to,
+              ),
+            );
   const roleSectionKey =
-    user?.role === "member"
+    accessRole === "member"
       ? "member"
-      : user?.role === "trainer"
+      : accessRole === "trainer"
         ? "trainer"
         : "admin";
 
@@ -286,7 +294,7 @@ export function AccountControlPage() {
                 {user?.name}
               </h1>
               <p className="mt-2 text-slate-300">
-                {user?.email} · {user?.role && t(`roles.${user.role}`)}
+                {user?.email} · {accessRole && t(`roles.${accessRole}`)}
               </p>
             </div>
           </div>
@@ -452,7 +460,7 @@ export function AccountControlPage() {
               />
             ))}
           </div>
-          {user?.role !== "member" && (
+          {accessRole !== "member" && (
             <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm leading-6 text-blue-950">
               {t("accountControl.linkedMemberNotice")}
             </div>
@@ -461,7 +469,7 @@ export function AccountControlPage() {
 
         <ProfilePhotoSettings />
 
-        {user?.role === "member" && (
+        {accessRole === "member" && (
           <>
             <DelegationManager />
             <section className="mt-6 rounded-3xl border border-blue-100 bg-blue-50 p-5 text-sm leading-6 text-blue-950">

@@ -15,12 +15,14 @@ import {
   clearAppNavigationHistory,
   getSessionStorage,
 } from "../lib/app-navigation-history";
+import { getAccessRole } from "../context/auth-context";
 
 export function AccountMenu() {
   const { user, logout } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const accessRole = getAccessRole(user);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,9 +54,9 @@ export function AccountMenu() {
   };
 
   const roleClass =
-    user?.role === "admin"
+    accessRole === "admin"
       ? "bg-purple-100 text-purple-800"
-      : user?.role === "trainer"
+      : accessRole === "trainer"
         ? "bg-blue-100 text-blue-800"
         : "bg-slate-100 text-slate-700";
 
@@ -123,7 +125,7 @@ export function AccountMenu() {
             <span
               className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${roleClass}`}
             >
-              {user?.role ? t(`roles.${user.role}`) : ""}
+              {accessRole ? t(`roles.${accessRole}`) : ""}
             </span>
           </div>
 

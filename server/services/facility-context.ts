@@ -89,6 +89,18 @@ export async function listFacilityContexts(
     .execute();
 }
 
+export async function isPlatformOperator(userId: string): Promise<boolean> {
+  const membership = await db
+    .selectFrom("facilityMemberships")
+    .select("id")
+    .where("facilityId", "=", PRIMARY_FACILITY_ID)
+    .where("userId", "=", userId)
+    .where("role", "in", ["owner", "admin"])
+    .where("status", "=", "active")
+    .executeTakeFirst();
+  return Boolean(membership);
+}
+
 export async function resolveFacilityContext(
   userId: string,
   requestedFacilityId?: string,

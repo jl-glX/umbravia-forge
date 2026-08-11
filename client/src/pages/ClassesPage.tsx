@@ -16,6 +16,7 @@ import { groupClassesByDate } from "../lib/dateUtils";
 import { formatDate } from "../lib/dateUtils";
 import { useTranslation } from "react-i18next";
 import { ClassManagement } from "../components/ClassManagement";
+import { getAccessRole } from "../context/auth-context";
 
 export function ClassesPage() {
   const user = useCurrentUser();
@@ -69,7 +70,7 @@ export function ClassesPage() {
     );
   }
 
-  if (user.role === "admin") {
+  if (getAccessRole(user) === "admin") {
     return (
       <main className="min-h-screen bg-slate-50">
         <div className="mx-auto max-w-[96rem] px-4 py-8 sm:px-6 2xl:px-8">

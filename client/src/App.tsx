@@ -9,6 +9,7 @@ import { lazy, Suspense } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { Navigation } from "./components/Navigation";
 import { useTranslation } from "react-i18next";
+import { getAccessRole, type UserRole } from "./context/auth-context";
 
 function lazyPage<TModule, TKey extends keyof TModule>(
   loader: () => Promise<TModule>,
@@ -164,18 +165,18 @@ const SupportPage = lazyPage(
   "SupportPage",
 );
 
-type UserRole = "member" | "trainer" | "admin";
-
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: UserRole | UserRole[];
   allowPending?: boolean;
+  platformOperatorOnly?: boolean;
 }
 
 function ProtectedRoute({
   children,
   requiredRole,
   allowPending = false,
+  platformOperatorOnly = false,
 }: ProtectedRouteProps) {
   const { t } = useTranslation();
   const { user, isInitializing } = useAuth();
@@ -205,9 +206,14 @@ function ProtectedRoute({
     );
   }
 
+  if (platformOperatorOnly && user.platformOperator !== true) {
+    return <UnauthorizedPage />;
+  }
+
   if (requiredRole) {
     const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
-    if (!roles.includes(user.role)) {
+    const accessRole = getAccessRole(user);
+    if (!accessRole || !roles.includes(accessRole)) {
       return <UnauthorizedPage />;
     }
   }
@@ -381,7 +387,7 @@ function AppContent() {
           <Route
             path="/admin/resource-manager"
             element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute requiredRole="admin" platformOperatorOnly>
                 <ResourceManagerPage />
               </ProtectedRoute>
             }
@@ -389,7 +395,7 @@ function AppContent() {
           <Route
             path="/admin/security-manager"
             element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute requiredRole="admin" platformOperatorOnly>
                 <SecurityManagerPage />
               </ProtectedRoute>
             }
@@ -397,7 +403,7 @@ function AppContent() {
           <Route
             path="/admin/environment-manager"
             element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute requiredRole="admin" platformOperatorOnly>
                 <EnvironmentManagerPage />
               </ProtectedRoute>
             }
@@ -405,7 +411,7 @@ function AppContent() {
           <Route
             path="/admin/email-manager"
             element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute requiredRole="admin" platformOperatorOnly>
                 <EmailManagerPage />
               </ProtectedRoute>
             }
@@ -413,7 +419,7 @@ function AppContent() {
           <Route
             path="/admin/capability-roadmap"
             element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute requiredRole="admin" platformOperatorOnly>
                 <CapabilityRoadmapPage />
               </ProtectedRoute>
             }
@@ -429,7 +435,7 @@ function AppContent() {
           <Route
             path="/admin/data-retention"
             element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute requiredRole="admin" platformOperatorOnly>
                 <DataRetentionPage />
               </ProtectedRoute>
             }

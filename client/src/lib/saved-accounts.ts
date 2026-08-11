@@ -1,4 +1,4 @@
-import type { AuthUser } from "../context/auth-context";
+import { getAccessRole, type AuthUser } from "../context/auth-context";
 
 export interface SavedAccount {
   id: string;
@@ -35,13 +35,14 @@ export function rememberAccount(
   user: AuthUser,
   identifier: string,
 ): SavedAccount[] {
+  const accessRole = getAccessRole(user) ?? user.role;
   const account: SavedAccount = {
     id: user.id,
     identifier: identifier.trim(),
     name: user.name,
     avatarDataUrl: user.avatarDataUrl,
-    accessPortal: user.role === "member" ? "member" : "staff",
-    role: user.role,
+    accessPortal: accessRole === "member" ? "member" : "staff",
+    role: accessRole,
     lastUsedAt: Date.now(),
   };
   const accounts = [

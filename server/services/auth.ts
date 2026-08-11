@@ -22,6 +22,7 @@ import { completeAccountRecovery } from "./account-recovery.js";
 import {
   ensurePrimaryCompatibilityMembership,
   type FacilityContext,
+  isPlatformOperator,
   resolveFacilityContext,
 } from "./facility-context.js";
 import { commercialFacilityTypes } from "../lib/commercial-trial.js";
@@ -46,6 +47,7 @@ export interface SessionData {
   createdAt: number;
   expiresAt: number;
   facility: FacilityContext | null;
+  platformOperator: boolean;
 }
 
 export interface AuthResult {
@@ -58,6 +60,8 @@ export interface AuthResult {
     avatarDataUrl: string;
     role: "member" | "trainer" | "admin";
     accountStatus: "pending_verification" | "active" | "security_review";
+    facility?: FacilityContext | null;
+    platformOperator?: boolean;
   };
 }
 
@@ -151,6 +155,8 @@ export async function createSession(
     avatarDataUrl: user.avatarDataUrl,
     role: user.role,
     accountStatus: user.accountStatus,
+    facility: await resolveFacilityContext(user.id),
+    platformOperator: await isPlatformOperator(user.id),
   };
   return { sessionToken: token, user: publicUser, rememberDevice };
 }
@@ -287,11 +293,27 @@ export async function login(
     )
     .executeTakeFirst();
 
+  const portalMembership = user
+    ? await db
+        .selectFrom("facilityMemberships")
+        .select("id")
+        .where("userId", "=", user.id)
+        .where("status", "=", "active")
+        .where(
+          "role",
+          "in",
+          accessPortal === "member"
+            ? ["member"]
+            : ["trainer", "admin", "owner"],
+        )
+        .executeTakeFirst()
+    : null;
   const portalMatches =
     user &&
-    (accessPortal === "member"
-      ? user.role === "member"
-      : user.role === "trainer" || user.role === "admin");
+    (portalMembership !== undefined ||
+      (accessPortal === "member"
+        ? user.role === "member"
+        : user.role === "trainer" || user.role === "admin"));
 
   if (!user || !portalMatches) {
     await performDummyPasswordVerification(password);
@@ -495,6 +517,7 @@ export async function verifyToken(token: string): Promise<SessionData | null> {
     expiresAt: record.expiresAt,
     sessionId: sessionId(token),
     facility: await resolveFacilityContext(record.userId),
+    platformOperator: await isPlatformOperator(record.userId),
   };
 }
 

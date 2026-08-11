@@ -10,6 +10,7 @@ import {
 } from "../middleware/authorization.js";
 import { moderationStatuses } from "../lib/community-policy.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
+import { PRIMARY_FACILITY_ID } from "../services/facility-context.js";
 import { canAccessChannel } from "./community.js";
 
 export const moderationRouter = express.Router();
@@ -40,7 +41,7 @@ async function channelBelongsToFacility(
   facilityId: string,
 ): Promise<boolean> {
   if (channel.scope === "facility") return channel.scopeId === facilityId;
-  if (channel.scope !== "class") return true;
+  if (channel.scope !== "class") return false;
   const gymClass = await db
     .selectFrom("gymClasses")
     .select("id")
@@ -53,24 +54,27 @@ async function channelBelongsToFacility(
 moderationRouter.get("/cases", async (_req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
-    const facilityId = getFacilityContext(res).id;
-    const query = db
+    const facility = getFacilityContext(res);
+    const facilityId = facility.id;
+    let query = db
       .selectFrom("moderationCases")
       .selectAll()
-      .where("facilityId", "=", facilityId)
       .orderBy("createdAt", "desc");
-    res.json(
-      await (
-        isFacilityModerator(res)
-          ? query
-          : query.where((eb) =>
-              eb.or([
-                eb("reporterUserId", "=", auth.userId),
-                eb("subjectUserId", "=", auth.userId),
-              ]),
-            )
-      ).execute(),
-    );
+    query = isFacilityModerator(res)
+      ? query.where((eb) =>
+          eb.or([
+            eb("facilityId", "=", facilityId),
+            eb("reporterUserId", "=", auth.userId),
+            eb("subjectUserId", "=", auth.userId),
+          ]),
+        )
+      : query.where((eb) =>
+          eb.or([
+            eb("reporterUserId", "=", auth.userId),
+            eb("subjectUserId", "=", auth.userId),
+          ]),
+        );
+    res.json(await query.execute());
   } catch (error) {
     next(error);
   }
@@ -79,7 +83,10 @@ moderationRouter.get("/cases", async (_req, res, next) => {
 moderationRouter.post("/cases", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
-    const facilityId = getFacilityContext(res).id;
+    const facility = getFacilityContext(res);
+    const facilityId = facility.id;
+    let caseFacilityId = facilityId;
+    let personalCommunityReport = false;
     const category = String(req.body.category ?? "").trim();
     const description = String(req.body.description ?? "").trim();
     if (
@@ -112,19 +119,24 @@ moderationRouter.post("/cases", async (req, res, next) => {
         ? await canAccessChannel(
             auth.userId,
             facilityId,
-            getFacilityContext(res).role,
+            facility.role,
             message.channelId,
           )
         : null;
       if (
         !message ||
         !channel ||
-        !(await channelBelongsToFacility(channel, facilityId)) ||
-        (auth.role === "member" &&
+        (channel.scope !== "community" &&
+          !(await channelBelongsToFacility(channel, facilityId))) ||
+        (facility.role === "member" &&
           message.kind === "private_justification" &&
           message.authorUserId !== auth.userId)
       )
         return res.status(404).json({ error: "Reportable message not found" });
+      if (channel.scope === "community") {
+        caseFacilityId = PRIMARY_FACILITY_ID;
+        personalCommunityReport = true;
+      }
       if (subjectUserId && subjectUserId !== message.authorUserId)
         return res
           .status(400)
@@ -134,24 +146,31 @@ moderationRouter.post("/cases", async (req, res, next) => {
     if (subjectUserId === auth.userId)
       return res.status(400).json({ error: "You cannot report yourself" });
     if (subjectUserId) {
-      const membership = await db
-        .selectFrom("facilityMemberships")
-        .select("id")
-        .where("facilityId", "=", facilityId)
-        .where("userId", "=", subjectUserId)
-        .where("status", "=", "active")
-        .executeTakeFirst();
-      if (!membership)
+      const subject = personalCommunityReport
+        ? await db
+            .selectFrom("users")
+            .select("id")
+            .where("id", "=", subjectUserId)
+            .where("accountStatus", "=", "active")
+            .executeTakeFirst()
+        : await db
+            .selectFrom("facilityMemberships")
+            .select("id")
+            .where("facilityId", "=", facilityId)
+            .where("userId", "=", subjectUserId)
+            .where("status", "=", "active")
+            .executeTakeFirst();
+      if (!subject)
         return res
           .status(400)
-          .json({ error: "Subject is not an active facility member" });
+          .json({ error: "Subject is not an active account in this scope" });
     }
     const report = {
       id: randomUUID(),
       reporterUserId: auth.userId,
       subjectUserId,
       messageId,
-      facilityId,
+      facilityId: caseFacilityId,
       category,
       description,
       evidence: JSON.stringify(evidence),
@@ -294,12 +313,10 @@ moderationRouter.post("/cases/:id/actions", async (req, res, next) => {
 moderationRouter.post("/cases/:id/appeals", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
-    const facilityId = getFacilityContext(res).id;
     const moderationCase = await db
       .selectFrom("moderationCases")
       .selectAll()
       .where("id", "=", req.params.id)
-      .where("facilityId", "=", facilityId)
       .executeTakeFirst();
     if (!moderationCase || moderationCase.subjectUserId !== auth.userId)
       return res
@@ -358,13 +375,14 @@ moderationRouter.get("/cases/:id/appeals", async (req, res, next) => {
     const facilityId = getFacilityContext(res).id;
     const moderationCase = await db
       .selectFrom("moderationCases")
-      .select(["id", "reporterUserId", "subjectUserId"])
+      .select(["id", "facilityId", "reporterUserId", "subjectUserId"])
       .where("id", "=", req.params.id)
-      .where("facilityId", "=", facilityId)
       .executeTakeFirst();
+    const staff =
+      moderationCase?.facilityId === facilityId && isFacilityModerator(res);
     if (
       !moderationCase ||
-      (!isFacilityModerator(res) &&
+      (!staff &&
         moderationCase.reporterUserId !== auth.userId &&
         moderationCase.subjectUserId !== auth.userId)
     )

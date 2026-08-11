@@ -27,6 +27,7 @@ import {
   type SupportInboundEmailPayload,
 } from "../lib/support-email-inbound.js";
 import { getManagedEmailChannelCapabilities } from "./email-manager.js";
+import { stageStoredFilesForRemoval } from "../lib/staged-file-removal.js";
 
 export class SupportAccessError extends Error {
   readonly statusCode = 403;
@@ -191,11 +192,17 @@ async function requireTicketAccess(auth: AuthenticatedUser, ticketId: string) {
     .selectFrom("supportTickets")
     .selectAll()
     .where("id", "=", ticketId)
-    .where("facilityId", "=", facilityId)
     .executeTakeFirst();
   if (!ticket) throw new SupportNotFoundError("Support ticket not found");
-  const staff = await isSupportStaff(auth);
-  if (!staff && ticket.requesterUserId !== auth.userId) {
+  const staff =
+    ticket.facilityId === facilityId && (await isSupportStaff(auth));
+  if (ticket.requesterUserId === auth.userId) {
+    return { ticket, staff };
+  }
+  if (ticket.facilityId !== facilityId) {
+    throw new SupportNotFoundError("Support ticket not found");
+  }
+  if (!staff) {
     throw new SupportAccessError("Support ticket access denied");
   }
   return { ticket, staff };
@@ -384,10 +391,15 @@ export async function listSupportTickets(
       "supportTickets.updatedAt",
       "requester.name as requesterName",
       "assignee.name as assigneeName",
-    ])
-    .where("supportTickets.facilityId", "=", facilityId);
-  if (!staff)
-    query = query.where("supportTickets.requesterUserId", "=", auth.userId);
+    ]);
+  query = staff
+    ? query.where((expression) =>
+        expression.or([
+          expression("supportTickets.facilityId", "=", facilityId),
+          expression("supportTickets.requesterUserId", "=", auth.userId),
+        ]),
+      )
+    : query.where("supportTickets.requesterUserId", "=", auth.userId);
   if (filters.status && statuses.has(filters.status as SupportTicketStatus)) {
     query = query.where(
       "supportTickets.status",
@@ -915,6 +927,10 @@ function attachmentRoot(): string {
         "support-attachments",
       ),
   );
+}
+
+export function stageSupportAttachmentFilesRemoval(storageKeys: string[]) {
+  return stageStoredFilesForRemoval(attachmentRoot(), storageKeys);
 }
 
 export function supportAttachmentLimitBytes(): number {

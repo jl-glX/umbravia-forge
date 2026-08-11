@@ -22,6 +22,7 @@ import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { getAccessRole } from "../context/auth-context";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -37,10 +38,11 @@ export function SessionContentPage() {
   const [saving, setSaving] = useState(false);
   const [progressSaving, setProgressSaving] = useState(false);
   const [error, setError] = useState("");
+  const accessRole = getAccessRole(user);
 
   const canEdit =
-    user?.role === "admin" ||
-    (user?.role === "trainer" && content?.trainerId === user.id);
+    accessRole === "admin" ||
+    (accessRole === "trainer" && content?.trainerId === user?.id);
 
   const request = async <T,>(path: string, init?: RequestInit): Promise<T> => {
     const response = await authFetch(`${API_BASE}${path}`, {

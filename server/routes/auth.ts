@@ -477,6 +477,7 @@ authRouter.get(
         role: session.role,
         accountStatus: session.accountStatus,
         facility: session.facility,
+        platformOperator: session.platformOperator,
       },
     });
   },

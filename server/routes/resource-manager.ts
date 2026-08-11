@@ -4,14 +4,18 @@ import {
   runManagedTask,
   setManagedTaskEnabled,
 } from "../services/resource-manager.js";
-import { authenticate, requireRole } from "../middleware/authorization.js";
+import {
+  authenticate,
+  requirePlatformOperator,
+} from "../middleware/authorization.js";
+import { requireRecentFormVerification } from "../middleware/form-verification.js";
 import {
   resourceTaskStateValidation,
   validateId,
 } from "../middleware/validation.js";
 
 export const resourceManagerRouter = express.Router();
-resourceManagerRouter.use(authenticate, requireRole("admin"));
+resourceManagerRouter.use(authenticate, requirePlatformOperator);
 
 resourceManagerRouter.get("/", (_req, res) => {
   res.json(getResourceManagerStatus());
@@ -23,6 +27,7 @@ function taskExists(taskId: string): boolean {
 
 resourceManagerRouter.patch(
   "/tasks/:taskId",
+  requireRecentFormVerification,
   resourceTaskStateValidation,
   async (
     req: express.Request,
@@ -67,6 +72,7 @@ resourceManagerRouter.patch(
 
 resourceManagerRouter.post(
   "/tasks/:taskId/run",
+  requireRecentFormVerification,
   validateId("taskId"),
   async (
     req: express.Request,

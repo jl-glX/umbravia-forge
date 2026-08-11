@@ -11,6 +11,7 @@ import { UpcomingBookingsList } from "../components/UpcomingBookingsList";
 import { PeakHoursChart } from "../components/PeakHoursChart";
 import { ClassPopularityList } from "../components/ClassPopularityList";
 import { useTranslation } from "react-i18next";
+import { getAccessRole } from "../context/auth-context";
 
 export function TrainerAnalyticsDashboardPage() {
   const { t } = useTranslation();
@@ -32,7 +33,7 @@ export function TrainerAnalyticsDashboardPage() {
     );
   }
 
-  if (user.role !== "trainer") {
+  if (getAccessRole(user) !== "trainer") {
     return (
       <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100">
         <div className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-6 2xl:px-8">

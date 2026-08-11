@@ -229,6 +229,42 @@ describe("class tenant isolation", () => {
     expect(stored.facilityId).toBe("secondary");
   });
 
+  it("rejects insecure session media links before storing content", async () => {
+    const response = await request(app)
+      .put("/api/classes/primary-class/session-content")
+      .set("Cookie", adminCookie)
+      .send({
+        terminology: "Training plan",
+        commentsEnabled: true,
+        blocks: [
+          {
+            id: "unsafe-media",
+            type: "custom",
+            title: "Unsafe media",
+            instructions: "",
+            exercises: [],
+            sets: "",
+            repetitions: "",
+            duration: "",
+            rest: "",
+            percentage: "",
+            load: "",
+            material: [],
+            adaptations: "",
+            mediaUrls: ["http://example.com/session"],
+            notes: "",
+          },
+        ],
+      })
+      .expect(400);
+
+    expect(response.body.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "blocks[0].mediaUrls[0]" }),
+      ]),
+    );
+  });
+
   it("derives booking isolation from the owning class", async () => {
     const primary = await request(app)
       .get("/api/bookings/user/tenant-member")

@@ -8,6 +8,7 @@ describe("commercial trial abandonment cleanup", () => {
   let database: typeof import("../db/client.js");
   let service: typeof import("./commercial-trial.js");
   let environmentManager: typeof import("./environment-manager.js");
+  let coordinator: typeof import("./manager-coordinator.js");
   let graceMs: number;
 
   beforeAll(async () => {
@@ -19,6 +20,7 @@ describe("commercial trial abandonment cleanup", () => {
     database = await import("../db/client.js");
     service = await import("./commercial-trial.js");
     environmentManager = await import("./environment-manager.js");
+    coordinator = await import("./manager-coordinator.js");
     graceMs = (await import("../lib/commercial-trial.js"))
       .COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS;
     await database.initializeDatabase();
@@ -258,5 +260,42 @@ describe("commercial trial abandonment cleanup", () => {
         .where("id", "=", seeded.userId)
         .executeTakeFirst(),
     ).resolves.toEqual({ id: seeded.userId });
+  });
+
+  it("defers cleanup while the user data decision is being processed", async () => {
+    const seeded = await seedTrial("coordinated");
+    await service.evaluateDueCommercialTrialCleanups(500);
+
+    let release!: () => void;
+    const held = coordinator.withCoordinatedManagerOperation(
+      "account",
+      "test-data-review",
+      [`commercial-trial:${seeded.facilityId}`],
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const deferred = await service.evaluateDueCommercialTrialCleanups(
+      500 + graceMs,
+    );
+    expect(deferred).toMatchObject({ eligible: 1, deletedTenants: 0 });
+    await expect(
+      database.db
+        .selectFrom("users")
+        .select("id")
+        .where("id", "=", seeded.userId)
+        .executeTakeFirst(),
+    ).resolves.toEqual({ id: seeded.userId });
+
+    release();
+    await held;
+    const retried = await service.evaluateDueCommercialTrialCleanups(
+      500 + graceMs,
+    );
+    expect(retried).toMatchObject({
+      deletedTenants: 1,
+      deletedAccounts: 1,
+    });
   });
 });

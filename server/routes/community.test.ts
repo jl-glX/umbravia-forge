@@ -393,6 +393,35 @@ describe("community, identity and moderation APIs", () => {
       ]),
     );
 
+    const centralReport = await request(app)
+      .post("/api/moderation/cases")
+      .set("Cookie", secondMemberCookie)
+      .set("X-Facility-Id", "secondary")
+      .send({
+        messageId: privateMessage.body.id,
+        category: "conduct",
+        description:
+          "A personal community report must remain under central moderation.",
+      })
+      .expect(201);
+    expect(centralReport.body.facilityId).toBe("primary");
+    const ownCentralCases = await request(app)
+      .get("/api/moderation/cases")
+      .set("Cookie", secondMemberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(
+      ownCentralCases.body.map((item: { id: string }) => item.id),
+    ).toContain(centralReport.body.id);
+    const secondaryModeratorCases = await request(app)
+      .get("/api/moderation/cases")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(
+      secondaryModeratorCases.body.map((item: { id: string }) => item.id),
+    ).not.toContain(centralReport.body.id);
+
     const privateSearch = await request(app)
       .get("/api/community/search/messages")
       .query({ q: "Mensaje personal" })

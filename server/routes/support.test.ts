@@ -541,6 +541,31 @@ describe("Forge Support API", () => {
       .select(["id", "publicId", "requesterUserId"])
       .where("publicId", "=", created.body.ticketPublicId)
       .executeTakeFirstOrThrow();
+    const visibleFromSecondary = await request(app)
+      .get("/api/support/tickets")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(
+      visibleFromSecondary.body.tickets.map(
+        (item: { publicId: string }) => item.publicId,
+      ),
+    ).toContain(ticket.publicId);
+    await request(app)
+      .get(`/api/support/tickets/${ticket.id}`)
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    const hiddenFromPeer = await request(app)
+      .get("/api/support/tickets")
+      .set("Cookie", peerCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(
+      hiddenFromPeer.body.tickets.map(
+        (item: { publicId: string }) => item.publicId,
+      ),
+    ).not.toContain(ticket.publicId);
     const replyAddress = buildSupportReplyAddress(
       ticket.publicId,
       ticket.requesterUserId,

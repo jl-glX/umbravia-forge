@@ -25,6 +25,7 @@ export interface AuthenticatedUser {
     name: string;
     role: FacilityRole;
   } | null;
+  platformOperator?: boolean;
 }
 
 function unauthorized(res: Response, message = "Authentication required") {
@@ -128,6 +129,23 @@ export function requireRole(...roles: UserRole[]) {
     }
     next();
   };
+}
+
+export async function requirePlatformOperator(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const auth = getAuthenticatedUser(res);
+    if (!auth.platformOperator) {
+      forbidden(res, "Platform operator access is required");
+      return;
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
 }
 
 export function getFacilityContext(res: Response) {
