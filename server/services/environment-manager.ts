@@ -1,6 +1,13 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import Database from "better-sqlite3";
 import {
   createSqliteEnvironmentDatabase,
@@ -226,6 +233,45 @@ export async function createManagedEnvironment(
       }
     },
   );
+}
+
+export async function stageCommercialEnvironmentRemoval(slugInput: string) {
+  const slug = normalizeSlug(slugInput);
+  const directory = environmentDirectory(slug);
+  let manifest: ManagedEnvironmentManifest;
+  try {
+    manifest = await readManifest(directory);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return {
+        found: false as const,
+        commit: async () => undefined,
+        rollback: async () => undefined,
+      };
+    }
+    throw error;
+  }
+  if (manifest.kind !== "commercial_mvp") {
+    throw new Error("Only a commercial MVP can be removed by trial cleanup");
+  }
+
+  const tombstone = path.resolve(
+    environmentRoot(),
+    `.cleanup-${slug}-${randomUUID()}`,
+  );
+  if (path.dirname(tombstone) !== environmentRoot()) {
+    throw new Error("Environment cleanup path escapes the managed root");
+  }
+  await rename(directory, tombstone);
+  return {
+    found: true as const,
+    commit: async () => {
+      await rm(tombstone, { recursive: true, force: true });
+    },
+    rollback: async () => {
+      await rename(tombstone, directory);
+    },
+  };
 }
 
 export async function prepareEnvironmentMigration(environmentId: string) {

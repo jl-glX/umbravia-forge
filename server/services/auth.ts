@@ -24,6 +24,8 @@ import {
   type FacilityContext,
   resolveFacilityContext,
 } from "./facility-context.js";
+import { commercialFacilityTypes } from "../lib/commercial-trial.js";
+import type { CommercialFacilityType } from "../db/types.js";
 
 export { isStrongPassword } from "../lib/password-policy.js";
 
@@ -75,6 +77,9 @@ export interface SignupProfile {
   locale: "es" | "en" | "de" | "de-CH";
   acceptedTerms: boolean;
   acceptedPrivacy: boolean;
+  accountType?: "member" | "administrator";
+  facilityName?: string;
+  facilityType?: CommercialFacilityType;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -180,10 +185,27 @@ export async function signup(
   if (!profile.acceptedTerms || !profile.acceptedPrivacy) {
     throw new Error("Terms and privacy acknowledgement are required");
   }
+  const administratorSignup = profile.accountType === "administrator";
+  if (
+    administratorSignup &&
+    (!profile.facilityName ||
+      profile.facilityName.trim().length < 2 ||
+      profile.facilityName.trim().length > 120)
+  ) {
+    throw new Error("A valid facility name is required");
+  }
+  if (
+    administratorSignup &&
+    (!profile.facilityType ||
+      !commercialFacilityTypes.includes(profile.facilityType))
+  ) {
+    throw new Error("A valid facility type is required");
+  }
 
   const createdAt = Date.now();
   const requireEmailVerification = options.requireEmailVerification ?? true;
 
+  const role = administratorSignup ? ("admin" as const) : ("member" as const);
   const user = {
     id: `user-${randomBytes(8).toString("hex")}`,
     email,
@@ -201,20 +223,37 @@ export async function signup(
     privacyVersion: CURRENT_PRIVACY_VERSION,
     privacyAcceptedAt: createdAt,
     avatarDataUrl: "",
-    role: "member" as const,
+    role,
     sessionIdleTimeoutMinutes: DEFAULT_SESSION_IDLE_TIMEOUT_MINUTES,
   };
 
-  await db
-    .insertInto("users")
-    .values({
-      ...user,
-      password: await hashPassword(password),
-      createdAt,
-    })
-    .execute();
+  const passwordHash = await hashPassword(password);
+  await db.transaction().execute(async (transaction) => {
+    await transaction
+      .insertInto("users")
+      .values({
+        ...user,
+        password: passwordHash,
+        createdAt,
+      })
+      .execute();
+    if (administratorSignup) {
+      await transaction
+        .insertInto("administratorSignupProvisioning")
+        .values({
+          userId: user.id,
+          facilityName: profile.facilityName!.trim(),
+          facilityType: profile.facilityType!,
+          locale: profile.locale,
+          createdAt,
+        })
+        .execute();
+    }
+  });
 
-  await ensurePrimaryCompatibilityMembership(user.id, user.role, createdAt);
+  if (!administratorSignup) {
+    await ensurePrimaryCompatibilityMembership(user.id, user.role, createdAt);
+  }
   await ensureSupportIdentifier(user.id);
   return createSession(user, metadata);
 }

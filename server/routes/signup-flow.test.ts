@@ -69,19 +69,17 @@ describe("progressive account signup", () => {
   });
 
   it("persists acknowledgements and activates the account after code verification", async () => {
-    const signup = await request(app)
-      .post("/api/auth/signup")
-      .send({
-        email: "new-account@example.com",
-        name: "New",
-        lastName: "Account",
-        password: "ProgressivePassword123",
-        countryCode: "ES",
-        locale: "es",
-        acceptedTerms: true,
-        acceptedPrivacy: true,
-      })
-      .expect(201);
+    const signup = await request(app).post("/api/auth/signup").send({
+      email: "new-account@example.com",
+      name: "New",
+      lastName: "Account",
+      password: "ProgressivePassword123",
+      countryCode: "ES",
+      locale: "es",
+      acceptedTerms: true,
+      acceptedPrivacy: true,
+    });
+    expect(signup.status, JSON.stringify(signup.body)).toBe(201);
     expect(signup.body).toMatchObject({
       verificationRequired: true,
       verificationEmailSent: false,
@@ -142,6 +140,92 @@ describe("progressive account signup", () => {
       .expect(200);
     expect(login.body.user).toMatchObject({ accountStatus: "active" });
     expect(login.body.user).not.toHaveProperty("password");
+  });
+
+  it("creates an administrator tenant only after email verification", async () => {
+    const signup = await request(app).post("/api/auth/signup").send({
+      email: "new-administrator@example.com",
+      name: "New",
+      lastName: "Administrator",
+      password: "ProgressivePassword123",
+      countryCode: "ES",
+      locale: "es",
+      acceptedTerms: true,
+      acceptedPrivacy: true,
+      accountType: "administrator",
+      facilityName: "Centro Verificado",
+      facilityType: "functional_training",
+    });
+    expect(signup.status, JSON.stringify(signup.body)).toBe(201);
+    expect(signup.body.user).toMatchObject({
+      role: "admin",
+      accountStatus: "pending_verification",
+    });
+    const userId = signup.body.user.id as string;
+    expect(
+      await database.db
+        .selectFrom("administratorSignupProvisioning")
+        .select(["facilityName", "facilityType"])
+        .where("userId", "=", userId)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({
+      facilityName: "Centro Verificado",
+      facilityType: "functional_training",
+    });
+    expect(
+      await database.db
+        .selectFrom("facilityMemberships")
+        .select("id")
+        .where("userId", "=", userId)
+        .executeTakeFirst(),
+    ).toBeUndefined();
+    expect(
+      await database.db
+        .selectFrom("commercialTrials")
+        .select("id")
+        .where("ownerUserId", "=", userId)
+        .executeTakeFirst(),
+    ).toBeUndefined();
+
+    await request(app)
+      .post("/api/auth/verify-email")
+      .set("Cookie", signup.headers["set-cookie"][0])
+      .send({ code: signup.body.demoVerificationCode })
+      .expect(200, { verified: true });
+
+    const membership = await database.db
+      .selectFrom("facilityMemberships")
+      .innerJoin(
+        "facilityProfiles",
+        "facilityProfiles.id",
+        "facilityMemberships.facilityId",
+      )
+      .select([
+        "facilityMemberships.facilityId",
+        "facilityMemberships.role",
+        "facilityProfiles.name",
+      ])
+      .where("facilityMemberships.userId", "=", userId)
+      .executeTakeFirstOrThrow();
+    expect(membership).toMatchObject({
+      role: "owner",
+      name: "Centro Verificado",
+    });
+    expect(membership.facilityId).not.toBe("primary");
+    const trial = await database.db
+      .selectFrom("commercialTrials")
+      .select(["facilityId", "ownerUserId", "startedAt", "expiresAt"])
+      .where("ownerUserId", "=", userId)
+      .executeTakeFirstOrThrow();
+    expect(trial.facilityId).toBe(membership.facilityId);
+    expect(trial.expiresAt - trial.startedAt).toBe(31 * 24 * 60 * 60 * 1000);
+    expect(
+      await database.db
+        .selectFrom("administratorSignupProvisioning")
+        .select("userId")
+        .where("userId", "=", userId)
+        .executeTakeFirst(),
+    ).toBeUndefined();
   });
 
   it("rotates the verification challenge when a pending account requests another email", async () => {

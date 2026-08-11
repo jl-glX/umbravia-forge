@@ -767,6 +767,7 @@ export type RealDataDeclaration = "undeclared" | "yes" | "no" | "assistance";
 
 interface CommercialTrial {
   id: string;
+  facilityId: string;
   ownerUserId: string;
   facilityName: string;
   facilityType: CommercialFacilityType;
@@ -784,6 +785,9 @@ interface CommercialTrial {
   status: CommercialTrialStatus;
   subdomain: string;
   realDataDeclaration: RealDataDeclaration;
+  autoCleanupEligible: Generated<number>;
+  dataReviewRequestedAt: number | null;
+  cleanupEligibleAt: number | null;
   conversionDraft: string;
   startedAt: number;
   expiresAt: number;
@@ -822,6 +826,14 @@ interface CommercialTrialEvent {
   actorUserId: string;
   type: string;
   metadata: string;
+  createdAt: number;
+}
+
+interface AdministratorSignupProvisioning {
+  userId: string;
+  facilityName: string;
+  facilityType: CommercialFacilityType;
+  locale: "es" | "en" | "de" | "de-CH";
   createdAt: number;
 }
 
@@ -898,6 +910,7 @@ export interface Database {
   facilityMemberships: FacilityMembership;
   commercialTrials: CommercialTrial;
   commercialTrialEvents: CommercialTrialEvent;
+  administratorSignupProvisioning: AdministratorSignupProvisioning;
   commercialRequests: CommercialRequest;
   delegationGrants: DelegationGrant;
 }

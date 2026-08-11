@@ -8,8 +8,10 @@ import {
 } from "../lib/commercial-trial.js";
 import {
   authenticate,
+  getFacilityContext,
   getAuthenticatedUser,
-  requireRole,
+  requireFacility,
+  selectFacilityContext,
 } from "../middleware/authorization.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
 import {
@@ -62,12 +64,17 @@ commercialRouter.use("/trial", (_req, res, next) => {
   next();
 });
 
-commercialRouter.use("/trial", authenticate, requireRole("admin"));
+commercialRouter.use(
+  "/trial",
+  authenticate,
+  selectFacilityContext,
+  requireFacility("owner", "admin"),
+);
 commercialRouter.use("/trial", requireRecentFormVerification);
 
 commercialRouter.get("/trial", async (_req, res, next) => {
   try {
-    res.json(await getCommercialTrialOverview());
+    res.json(await getCommercialTrialOverview(getFacilityContext(res).id));
   } catch (error) {
     next(error);
   }
@@ -83,6 +90,7 @@ commercialRouter.post(
         .json(
           await requestCommercialContact(
             getAuthenticatedUser(res).userId,
+            getFacilityContext(res).id,
             req.body,
           ),
         );
@@ -102,6 +110,7 @@ commercialRouter.post(
         .json(
           await createCommercialTrial(
             getAuthenticatedUser(res).userId,
+            getFacilityContext(res).id,
             req.body,
           ),
         );
@@ -115,7 +124,7 @@ commercialRouter.get(
   "/trial/conversion-draft",
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(await getCommercialConversionDraft());
+      res.json(await getCommercialConversionDraft(getFacilityContext(res).id));
     } catch (error) {
       next(error);
     }
@@ -130,6 +139,7 @@ commercialRouter.patch(
       res.json(
         await updateCommercialConversionDraft(
           getAuthenticatedUser(res).userId,
+          getFacilityContext(res).id,
           req.body.category,
           req.body.origin,
           req.body.decision,
@@ -149,6 +159,7 @@ commercialRouter.post(
       res.json(
         await restoreCommercialTrialConfiguration(
           getAuthenticatedUser(res).userId,
+          getFacilityContext(res).id,
         ),
       );
     } catch (error) {
@@ -163,7 +174,11 @@ commercialRouter.patch(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(
-        await updateCommercialTrial(getAuthenticatedUser(res).userId, req.body),
+        await updateCommercialTrial(
+          getAuthenticatedUser(res).userId,
+          getFacilityContext(res).id,
+          req.body,
+        ),
       );
     } catch (error) {
       next(error);
@@ -179,6 +194,7 @@ commercialRouter.post(
       res.json(
         await declareCommercialTrialData(
           getAuthenticatedUser(res).userId,
+          getFacilityContext(res).id,
           req.body.decision,
         ),
       );
@@ -193,7 +209,12 @@ commercialRouter.post(
   emptyCommercialTrialActionValidation,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(await closeCommercialTrial(getAuthenticatedUser(res).userId));
+      res.json(
+        await closeCommercialTrial(
+          getAuthenticatedUser(res).userId,
+          getFacilityContext(res).id,
+        ),
+      );
     } catch (error) {
       next(error);
     }

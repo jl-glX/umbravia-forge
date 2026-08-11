@@ -1537,6 +1537,7 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE commercialTrials (
         id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL UNIQUE,
         ownerUserId TEXT NOT NULL,
         facilityName TEXT NOT NULL,
         facilityType TEXT NOT NULL CHECK(facilityType IN (
@@ -1564,6 +1565,9 @@ async function initializeSqliteSchema(
         realDataDeclaration TEXT NOT NULL DEFAULT 'undeclared' CHECK(realDataDeclaration IN (
           'undeclared', 'yes', 'no', 'assistance'
         )),
+        autoCleanupEligible INTEGER NOT NULL DEFAULT 0 CHECK(autoCleanupEligible IN (0, 1)),
+        dataReviewRequestedAt INTEGER,
+        cleanupEligibleAt INTEGER,
         conversionDraft TEXT NOT NULL DEFAULT '[]',
         startedAt INTEGER NOT NULL,
         expiresAt INTEGER NOT NULL,
@@ -1571,6 +1575,7 @@ async function initializeSqliteSchema(
         closedAt INTEGER,
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
         FOREIGN KEY(ownerUserId) REFERENCES users(id) ON DELETE RESTRICT
       );
       CREATE INDEX idx_commercialTrials_status ON commercialTrials(status);
@@ -1593,6 +1598,11 @@ async function initializeSqliteSchema(
     const commercialColumns = sqliteDb
       .prepare("PRAGMA table_info(commercialTrials)")
       .all() as Array<{ name: string }>;
+    if (!commercialColumns.some((column) => column.name === "facilityId")) {
+      sqliteDb.exec(
+        "ALTER TABLE commercialTrials ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'primary'",
+      );
+    }
     if (
       !commercialColumns.some((column) => column.name === "conversionDraft")
     ) {
@@ -1600,7 +1610,69 @@ async function initializeSqliteSchema(
         "ALTER TABLE commercialTrials ADD COLUMN conversionDraft TEXT NOT NULL DEFAULT '[]'",
       );
     }
+    if (
+      !commercialColumns.some((column) => column.name === "autoCleanupEligible")
+    ) {
+      sqliteDb.exec(
+        "ALTER TABLE commercialTrials ADD COLUMN autoCleanupEligible INTEGER NOT NULL DEFAULT 0 CHECK(autoCleanupEligible IN (0, 1))",
+      );
+    }
+    if (
+      !commercialColumns.some(
+        (column) => column.name === "dataReviewRequestedAt",
+      )
+    ) {
+      sqliteDb.exec(
+        "ALTER TABLE commercialTrials ADD COLUMN dataReviewRequestedAt INTEGER",
+      );
+    }
+    if (
+      !commercialColumns.some((column) => column.name === "cleanupEligibleAt")
+    ) {
+      sqliteDb.exec(
+        "ALTER TABLE commercialTrials ADD COLUMN cleanupEligibleAt INTEGER",
+      );
+    }
   }
+
+  sqliteDb.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_commercialTrials_facility
+      ON commercialTrials(facilityId);
+    CREATE INDEX IF NOT EXISTS idx_commercialTrials_cleanup
+      ON commercialTrials(autoCleanupEligible, cleanupEligibleAt);
+    CREATE TRIGGER IF NOT EXISTS trg_commercialTrials_facility_insert
+    BEFORE INSERT ON commercialTrials
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_commercialTrials_facility_update
+    BEFORE UPDATE OF facilityId ON commercialTrials
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+  `);
+
+  sqliteDb.exec(`
+    CREATE TABLE IF NOT EXISTS administratorSignupProvisioning (
+      userId TEXT PRIMARY KEY,
+      facilityName TEXT NOT NULL,
+      facilityType TEXT NOT NULL CHECK(facilityType IN (
+        'traditional_gym', 'crossfit', 'hyrox', 'functional_training',
+        'personal_training', 'powerlifting', 'strongman', 'bodybuilding',
+        'martial_arts', 'yoga', 'pilates', 'indoor_cycling',
+        'multidisciplinary', 'custom'
+      )),
+      locale TEXT NOT NULL CHECK(locale IN ('es', 'en', 'de', 'de-CH')),
+      createdAt INTEGER NOT NULL,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
 
   if (!tableNames.includes("commercialRequests")) {
     sqliteDb.exec(`

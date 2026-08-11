@@ -125,6 +125,9 @@ export const signupValidation = validateRequest([
     "acceptedTerms",
     "acceptedPrivacy",
     "captchaToken",
+    "accountType",
+    "facilityName",
+    "facilityType",
   ]),
   body("email")
     .isString()
@@ -140,6 +143,29 @@ export const signupValidation = validateRequest([
     .toUpperCase()
     .matches(/^[A-Z]{2}$/),
   body("locale").isIn(["es", "en", "de", "de-CH"]),
+  body("accountType").optional().isIn(["member", "administrator"]),
+  body("facilityName")
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ min: 2, max: 120 }),
+  body("facilityType").optional().isIn(commercialFacilityTypes),
+  body().custom((_, { req }) => {
+    const administrator = req.body.accountType === "administrator";
+    if (administrator && (!req.body.facilityName || !req.body.facilityType)) {
+      throw new Error(
+        "Administrator signup requires a facility name and facility type",
+      );
+    }
+    if (
+      !administrator &&
+      (req.body.facilityName !== undefined ||
+        req.body.facilityType !== undefined)
+    ) {
+      throw new Error("Facility data is only valid for administrator signup");
+    }
+    return true;
+  }),
   body("acceptedTerms")
     .isBoolean()
     .custom((value) => value === true),

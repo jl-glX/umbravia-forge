@@ -187,6 +187,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       acceptedTerms: boolean;
       acceptedPrivacy: boolean;
       captchaToken: string;
+      accountType: "member" | "administrator";
+      facilityName?: string;
+      facilityType?: string;
     }) => {
       setIsLoading(true);
       setError(null);

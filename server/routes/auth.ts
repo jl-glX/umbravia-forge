@@ -72,6 +72,7 @@ import {
 import { emailVerificationIsEnabled } from "../lib/account-verification-mode.js";
 import { ManagerCoordinationConflictError } from "../services/manager-coordinator.js";
 import { listFacilityContexts } from "../services/facility-context.js";
+import { finalizeAdministratorSignup } from "../services/commercial-trial.js";
 
 export const authRouter = express.Router();
 
@@ -207,6 +208,9 @@ authRouter.post(
         locale,
         acceptedTerms,
         acceptedPrivacy,
+        accountType,
+        facilityName,
+        facilityType,
       } = req.body;
       const { sessionToken, user } = await signup(
         email,
@@ -219,10 +223,16 @@ authRouter.post(
           locale,
           acceptedTerms,
           acceptedPrivacy,
+          accountType,
+          facilityName,
+          facilityType,
         },
         { requireEmailVerification },
       );
       createdUserId = user.id;
+      if (!requireEmailVerification && accountType === "administrator") {
+        await finalizeAdministratorSignup(user.id);
+      }
       let verificationCode: string | undefined;
       let verificationEmailSent = false;
       if (requireEmailVerification) {

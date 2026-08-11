@@ -574,6 +574,14 @@
     "join": "Join Umbravia Forge",
     "createTitle": "Create your account",
     "createDescription": "Set up your profile and start planning your next training sessions.",
+    "accountType": "Account type",
+    "accountTypes": {
+      "member": "Member account",
+      "administrator": "Administrator account"
+    },
+    "facilityName": "Facility name",
+    "facilityType": "Facility type",
+    "administratorTrialNotice": "The facility and its 31-day trial are created only after email verification. Until then they do not occupy a tenant or count as real activity.",
     "fullName": "Full name",
     "confirmPassword": "Confirm password",
     "allRequired": "All fields are required",
@@ -1623,14 +1631,14 @@
       },
       "dataReview": {
         "title": "Have you entered real data?",
-        "description": "This answer determines the next step. There is no ambiguous option: request assistance if you need to review the contents first.",
+        "description": "At the end of the trial you have 6 hours to say whether you entered real data. If you answer no or do not respond, the trial account, facility and its environment will be deleted. Automatic deletion stops if real data exists or you request assistance.",
         "yes": "Yes",
         "no": "No",
         "assistance": "I need assistance",
         "close": "End trial",
         "states": {
           "yes": "The trial is paused to review and classify data before any conversion. Nothing is converted automatically.",
-          "no": "You indicated that the trial contains only fictional data. You may now end it.",
+          "no": "You indicated that the trial contains only fictional data. The trial account, facility and its environment are scheduled for deletion.",
           "assistance": "The trial is paused for assisted review. This foundation starts no automatic calls or contact."
         }
       },

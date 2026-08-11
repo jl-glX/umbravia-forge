@@ -244,4 +244,44 @@ describe("persistent authentication sessions", () => {
       privacyAcceptedAt: expect.any(Number),
     });
   });
+
+  it("stores administrator provisioning without creating an active tenant", async () => {
+    const result = await auth.signup(
+      "pending-administrator@example.com",
+      "Pending Administrator",
+      "ProgressivePassword123",
+      {},
+      {
+        lastName: "Account",
+        countryCode: "ES",
+        locale: "es",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+        accountType: "administrator",
+        facilityName: "Pending Facility",
+        facilityType: "traditional_gym",
+      },
+    );
+    expect(result.user).toMatchObject({
+      role: "admin",
+      accountStatus: "pending_verification",
+    });
+    await expect(
+      database.db
+        .selectFrom("administratorSignupProvisioning")
+        .select(["facilityName", "facilityType"])
+        .where("userId", "=", result.user.id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      facilityName: "Pending Facility",
+      facilityType: "traditional_gym",
+    });
+    await expect(
+      database.db
+        .selectFrom("facilityMemberships")
+        .select("id")
+        .where("userId", "=", result.user.id)
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
+  });
 });

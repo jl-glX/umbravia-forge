@@ -343,6 +343,7 @@ CREATE TABLE IF NOT EXISTS "facilityProfiles" (
 
 CREATE TABLE IF NOT EXISTS "commercialTrials" (
   "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL UNIQUE REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
   "ownerUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
   "facilityName" TEXT NOT NULL,
   "facilityType" TEXT NOT NULL CHECK ("facilityType" IN ('traditional_gym', 'crossfit', 'hyrox', 'functional_training', 'personal_training', 'powerlifting', 'strongman', 'bodybuilding', 'martial_arts', 'yoga', 'pilates', 'indoor_cycling', 'multidisciplinary', 'custom')),
@@ -360,6 +361,9 @@ CREATE TABLE IF NOT EXISTS "commercialTrials" (
   "status" TEXT NOT NULL CHECK ("status" IN ('trial_active', 'trial_paused_support', 'trial_conversion_review', 'trial_expired', 'trial_closed')),
   "subdomain" TEXT NOT NULL,
   "realDataDeclaration" TEXT NOT NULL DEFAULT 'undeclared' CHECK ("realDataDeclaration" IN ('undeclared', 'yes', 'no', 'assistance')),
+  "autoCleanupEligible" SMALLINT NOT NULL DEFAULT 0 CHECK ("autoCleanupEligible" IN (0, 1)),
+  "dataReviewRequestedAt" BIGINT,
+  "cleanupEligibleAt" BIGINT,
   "conversionDraft" TEXT NOT NULL DEFAULT '[]',
   "startedAt" BIGINT NOT NULL,
   "expiresAt" BIGINT NOT NULL,
@@ -380,6 +384,14 @@ CREATE TABLE IF NOT EXISTS "commercialTrialEvents" (
   "createdAt" BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS "idx_commercialTrialEvents_trial" ON "commercialTrialEvents" ("trialId", "createdAt" DESC);
+
+CREATE TABLE IF NOT EXISTS "administratorSignupProvisioning" (
+  "userId" TEXT PRIMARY KEY REFERENCES "users" ("id") ON DELETE CASCADE,
+  "facilityName" TEXT NOT NULL,
+  "facilityType" TEXT NOT NULL CHECK ("facilityType" IN ('traditional_gym', 'crossfit', 'hyrox', 'functional_training', 'personal_training', 'powerlifting', 'strongman', 'bodybuilding', 'martial_arts', 'yoga', 'pilates', 'indoor_cycling', 'multidisciplinary', 'custom')),
+  "locale" TEXT NOT NULL CHECK ("locale" IN ('es', 'en', 'de', 'de-CH')),
+  "createdAt" BIGINT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS "delegationGrants" (
   "id" TEXT PRIMARY KEY,
@@ -1410,6 +1422,59 @@ CREATE UNIQUE INDEX IF NOT EXISTS "idx_parentalControls_facility_pair"
   ON "parentalControls" ("facilityId", "childUserId", "guardianUserId");
 CREATE INDEX IF NOT EXISTS "idx_parentalControls_facility_status"
   ON "parentalControls" ("facilityId", "status", "updatedAt" DESC);
+`,
+  },
+  {
+    version: 22,
+    name: "commercial-trials-facility-scope",
+    sql: String.raw`
+ALTER TABLE "commercialTrials"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'commercialTrials_facilityId_fkey'
+  ) THEN
+    ALTER TABLE "commercialTrials"
+      ADD CONSTRAINT "commercialTrials_facilityId_fkey"
+      FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_commercialTrials_facility"
+  ON "commercialTrials" ("facilityId");
+`,
+  },
+  {
+    version: 23,
+    name: "administrator-signup-provisioning",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "administratorSignupProvisioning" (
+  "userId" TEXT PRIMARY KEY REFERENCES "users" ("id") ON DELETE CASCADE,
+  "facilityName" TEXT NOT NULL,
+  "facilityType" TEXT NOT NULL CHECK ("facilityType" IN ('traditional_gym', 'crossfit', 'hyrox', 'functional_training', 'personal_training', 'powerlifting', 'strongman', 'bodybuilding', 'martial_arts', 'yoga', 'pilates', 'indoor_cycling', 'multidisciplinary', 'custom')),
+  "locale" TEXT NOT NULL CHECK ("locale" IN ('es', 'en', 'de', 'de-CH')),
+  "createdAt" BIGINT NOT NULL
+);
+`,
+  },
+  {
+    version: 24,
+    name: "commercial-trial-abandonment-cleanup",
+    sql: String.raw`
+ALTER TABLE "commercialTrials"
+  ADD COLUMN IF NOT EXISTS "autoCleanupEligible" SMALLINT NOT NULL DEFAULT 0
+    CHECK ("autoCleanupEligible" IN (0, 1));
+ALTER TABLE "commercialTrials"
+  ADD COLUMN IF NOT EXISTS "dataReviewRequestedAt" BIGINT;
+ALTER TABLE "commercialTrials"
+  ADD COLUMN IF NOT EXISTS "cleanupEligibleAt" BIGINT;
+
+CREATE INDEX IF NOT EXISTS "idx_commercialTrials_cleanup"
+  ON "commercialTrials" ("autoCleanupEligible", "cleanupEligibleAt");
 `,
   },
 ];

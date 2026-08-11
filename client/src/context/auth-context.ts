@@ -25,6 +25,9 @@ export interface AuthContextValue {
     acceptedTerms: boolean;
     acceptedPrivacy: boolean;
     captchaToken: string;
+    accountType: "member" | "administrator";
+    facilityName?: string;
+    facilityType?: string;
   }) => Promise<{
     user: AuthUser;
     verificationRequired: boolean;

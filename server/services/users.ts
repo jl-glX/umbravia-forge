@@ -199,7 +199,7 @@ export async function deleteUser(id: string): Promise<void> {
     .execute((transaction) => deleteUserInTransaction(transaction, id));
 }
 
-async function deleteUserInTransaction(
+export async function deleteUserInTransaction(
   transaction: Transaction<Database>,
   id: string,
 ): Promise<void> {

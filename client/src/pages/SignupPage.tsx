@@ -25,6 +25,9 @@ export function SignupPage() {
     acceptedTerms: false,
     acceptedPrivacy: false,
     captchaToken: "",
+    accountType: "member" as "member" | "administrator",
+    facilityName: "",
+    facilityType: "traditional_gym",
   });
   const [step, setStep] = useState<1 | 2>(1);
   const [validationError, setValidationError] = useState("");
@@ -45,7 +48,8 @@ export function SignupPage() {
       !formData.name ||
       !formData.lastName ||
       !formData.password ||
-      !formData.confirmPassword
+      !formData.confirmPassword ||
+      (formData.accountType === "administrator" && !formData.facilityName)
     ) {
       setValidationError(t("auth.allRequired"));
       return;
@@ -99,6 +103,15 @@ export function SignupPage() {
         acceptedTerms: formData.acceptedTerms,
         acceptedPrivacy: formData.acceptedPrivacy,
         captchaToken: formData.captchaToken,
+        accountType: formData.accountType,
+        facilityName:
+          formData.accountType === "administrator"
+            ? formData.facilityName
+            : undefined,
+        facilityType:
+          formData.accountType === "administrator"
+            ? formData.facilityType
+            : undefined,
       });
       await i18n.changeLanguage(formData.locale);
       if (verification.verificationRequired) {
@@ -153,6 +166,97 @@ export function SignupPage() {
           </div>
           {step === 1 ? (
             <>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium text-slate-700">
+                  {t("auth.accountType")}
+                </legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["member", "administrator"] as const).map((accountType) => (
+                    <label
+                      key={accountType}
+                      className={`rounded-xl border p-3 text-sm ${
+                        formData.accountType === accountType
+                          ? "border-blue-500 bg-blue-50 text-blue-950"
+                          : "border-slate-200 bg-white text-slate-700"
+                      }`}
+                    >
+                      <input
+                        className="mr-2"
+                        type="radio"
+                        name="accountType"
+                        value={accountType}
+                        checked={formData.accountType === accountType}
+                        onChange={() =>
+                          setFormData((current) => ({
+                            ...current,
+                            accountType,
+                          }))
+                        }
+                      />
+                      {t(`auth.accountTypes.${accountType}`)}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              {formData.accountType === "administrator" ? (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="facilityName">
+                      {t("auth.facilityName")}
+                    </Label>
+                    <Input
+                      id="facilityName"
+                      name="facilityName"
+                      value={formData.facilityName}
+                      onChange={handleChange}
+                      maxLength={120}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="facilityType">
+                      {t("auth.facilityType")}
+                    </Label>
+                    <select
+                      id="facilityType"
+                      value={formData.facilityType}
+                      onChange={(event) =>
+                        setFormData((current) => ({
+                          ...current,
+                          facilityType: event.target.value,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3"
+                    >
+                      {[
+                        "traditional_gym",
+                        "crossfit",
+                        "hyrox",
+                        "functional_training",
+                        "personal_training",
+                        "powerlifting",
+                        "strongman",
+                        "bodybuilding",
+                        "martial_arts",
+                        "yoga",
+                        "pilates",
+                        "indoor_cycling",
+                        "multidisciplinary",
+                        "custom",
+                      ].map((facilityType) => (
+                        <option key={facilityType} value={facilityType}>
+                          {t(`commercial.facilityTypes.${facilityType}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+                    {t("auth.administratorTrialNotice")}
+                  </p>
+                </>
+              ) : null}
+
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-slate-700">
                   {t("auth.emailAddress")}
