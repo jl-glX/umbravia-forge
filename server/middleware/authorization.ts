@@ -161,6 +161,52 @@ export function requireSelfParamOrRole(
   };
 }
 
+export function requireSelfParamOrFacilityRole(
+  paramName: string,
+  ...roles: FacilityRole[]
+) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const auth = getAuthenticatedUser(res);
+    if (
+      req.params[paramName] !== auth.userId &&
+      (!auth.facility || !roles.includes(auth.facility.role))
+    ) {
+      forbidden(res);
+      return;
+    }
+    next();
+  };
+}
+
+export function requireClassFacility(classParamName: string) {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const facility = getAuthenticatedUser(res).facility;
+      if (!facility) {
+        forbidden(res, "An active facility membership is required");
+        return;
+      }
+      const gymClass = await db
+        .selectFrom("gymClasses")
+        .select("id")
+        .where("id", "=", req.params[classParamName])
+        .where("facilityId", "=", facility.id)
+        .executeTakeFirst();
+      if (!gymClass) {
+        forbidden(res);
+        return;
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
 export function requireSelfBodyOrRole(bodyName: string, ...roles: UserRole[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const auth = getAuthenticatedUser(res);
@@ -211,12 +257,20 @@ export function requireTrainerClassOrRole(
   ): Promise<void> => {
     try {
       const auth = getAuthenticatedUser(res);
-      if (roles.includes(auth.role)) {
+      const facility = auth.facility;
+      if (!facility) {
+        forbidden(res, "An active facility membership is required");
+        return;
+      }
+      if (
+        roles.includes("admin") &&
+        (facility.role === "owner" || facility.role === "admin")
+      ) {
         next();
         return;
       }
 
-      if (auth.role !== "trainer") {
+      if (facility.role !== "trainer") {
         forbidden(res);
         return;
       }
@@ -225,6 +279,7 @@ export function requireTrainerClassOrRole(
         .selectFrom("gymClasses")
         .select("trainerId")
         .where("id", "=", req.params[classParamName])
+        .where("facilityId", "=", facility.id)
         .executeTakeFirst();
 
       if (!gymClass || gymClass.trainerId !== auth.userId) {
@@ -250,11 +305,19 @@ export function requireTrainerBookingOrRole(
   ): Promise<void> => {
     try {
       const auth = getAuthenticatedUser(res);
-      if (roles.includes(auth.role)) {
+      const facility = auth.facility;
+      if (!facility) {
+        forbidden(res, "An active facility membership is required");
+        return;
+      }
+      if (
+        roles.includes("admin") &&
+        (facility.role === "owner" || facility.role === "admin")
+      ) {
         next();
         return;
       }
-      if (auth.role !== "trainer") {
+      if (facility.role !== "trainer") {
         forbidden(res);
         return;
       }
@@ -263,6 +326,7 @@ export function requireTrainerBookingOrRole(
         .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
         .select("gymClasses.trainerId")
         .where("bookings.id", "=", req.params[bookingParamName])
+        .where("gymClasses.facilityId", "=", facility.id)
         .executeTakeFirst();
       if (!booking || booking.trainerId !== auth.userId) {
         forbidden(res);

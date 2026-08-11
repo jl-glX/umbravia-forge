@@ -12,6 +12,7 @@ import {
   recordBookingReputationEvent,
 } from "./booking-reputation.js";
 import { parseBookingConfiguration } from "../lib/booking-configuration.js";
+import { PRIMARY_FACILITY_ID } from "./facility-context.js";
 
 const DEFAULT_PROMOTION_CONFIRMATION_MINUTES = 15;
 
@@ -392,14 +393,26 @@ async function cancelBookingInTransaction(
   return { lifecycleStatus };
 }
 
-export async function getClassWithAvailability(classId: string) {
-  await db.transaction().execute(async (transaction) => {
-    await fillAvailablePlacesFromWaitlist(transaction, classId, Date.now());
-  });
-  const gymClass = await db
+export async function getClassWithAvailability(
+  classId: string,
+  facilityId = PRIMARY_FACILITY_ID,
+) {
+  let gymClass = await db
     .selectFrom("gymClasses")
     .selectAll()
     .where("id", "=", classId)
+    .where("facilityId", "=", facilityId)
+    .executeTakeFirst();
+  if (!gymClass) return null;
+
+  await db.transaction().execute(async (transaction) => {
+    await fillAvailablePlacesFromWaitlist(transaction, classId, Date.now());
+  });
+  gymClass = await db
+    .selectFrom("gymClasses")
+    .selectAll()
+    .where("id", "=", classId)
+    .where("facilityId", "=", facilityId)
     .executeTakeFirst();
   if (!gymClass) return null;
 

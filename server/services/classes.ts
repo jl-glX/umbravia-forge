@@ -5,9 +5,11 @@ import {
   parseBookingConfiguration,
   type BookingConfiguration,
 } from "../lib/booking-configuration.js";
+import { PRIMARY_FACILITY_ID } from "./facility-context.js";
 
 export interface ClassWithAvailability {
   id: string;
+  facilityId: string;
   name: string;
   description: string;
   trainerId: string;
@@ -29,11 +31,13 @@ export async function saveClassBookingConfiguration(
     lifecycleState?: "active" | "suspended" | "cancelled";
     seriesId?: string | null;
   },
+  facilityId = PRIMARY_FACILITY_ID,
 ) {
   const gymClass = await db
     .selectFrom("gymClasses")
     .select("id")
     .where("id", "=", classId)
+    .where("facilityId", "=", facilityId)
     .executeTakeFirst();
   if (!gymClass) throw new Error("Class not found");
 
@@ -83,19 +87,22 @@ export async function saveClassBookingConfiguration(
       }),
     )
     .execute();
-  return getClassWithAvailability(classId);
+  return getClassWithAvailability(classId, facilityId);
 }
 
-export async function getAllClasses(): Promise<ClassWithAvailability[]> {
+export async function getAllClasses(
+  facilityId = PRIMARY_FACILITY_ID,
+): Promise<ClassWithAvailability[]> {
   const classes = await db
     .selectFrom("gymClasses")
     .selectAll()
+    .where("facilityId", "=", facilityId)
     .orderBy("scheduledAt", "asc")
     .execute();
 
   const withAvailability = await Promise.all(
     classes.map(async (gymClass) => {
-      return getClassWithAvailability(gymClass.id);
+      return getClassWithAvailability(gymClass.id, facilityId);
     }),
   );
 
@@ -104,11 +111,13 @@ export async function getAllClasses(): Promise<ClassWithAvailability[]> {
 
 export async function getClassWithAvailability(
   classId: string,
+  facilityId = PRIMARY_FACILITY_ID,
 ): Promise<ClassWithAvailability | null> {
   const gymClass = await db
     .selectFrom("gymClasses")
     .selectAll()
     .where("id", "=", classId)
+    .where("facilityId", "=", facilityId)
     .executeTakeFirst();
 
   if (!gymClass) {
@@ -149,14 +158,17 @@ export async function getClassWithAvailability(
   };
 }
 
-export async function createClass(data: {
-  name: string;
-  description: string;
-  trainerId: string;
-  trainerName: string;
-  maxCapacity: number;
-  scheduledAt: number;
-}): Promise<ClassWithAvailability> {
+export async function createClass(
+  data: {
+    name: string;
+    description: string;
+    trainerId: string;
+    trainerName: string;
+    maxCapacity: number;
+    scheduledAt: number;
+  },
+  facilityId = PRIMARY_FACILITY_ID,
+): Promise<ClassWithAvailability> {
   // Validate input
   if (!data.name || !data.trainerId || !data.maxCapacity || !data.scheduledAt) {
     throw new Error("Missing required fields");
@@ -176,6 +188,7 @@ export async function createClass(data: {
     .insertInto("gymClasses")
     .values({
       id: classId,
+      facilityId,
       name: data.name,
       description: data.description || "",
       trainerId: data.trainerId,
@@ -185,7 +198,7 @@ export async function createClass(data: {
     })
     .execute();
 
-  const newClass = await getClassWithAvailability(classId);
+  const newClass = await getClassWithAvailability(classId, facilityId);
   if (!newClass) {
     throw new Error("Failed to create class");
   }
@@ -203,11 +216,13 @@ export async function updateClass(
     maxCapacity?: number;
     scheduledAt?: number;
   },
+  facilityId = PRIMARY_FACILITY_ID,
 ): Promise<ClassWithAvailability> {
   const gymClass = await db
     .selectFrom("gymClasses")
     .selectAll()
     .where("id", "=", classId)
+    .where("facilityId", "=", facilityId)
     .executeTakeFirst();
 
   if (!gymClass) {
@@ -235,9 +250,10 @@ export async function updateClass(
     .updateTable("gymClasses")
     .set(updateValues)
     .where("id", "=", classId)
+    .where("facilityId", "=", facilityId)
     .execute();
 
-  const updatedClass = await getClassWithAvailability(classId);
+  const updatedClass = await getClassWithAvailability(classId, facilityId);
   if (!updatedClass) {
     throw new Error("Failed to retrieve updated class");
   }
@@ -245,11 +261,15 @@ export async function updateClass(
   return updatedClass;
 }
 
-export async function deleteClass(classId: string): Promise<void> {
+export async function deleteClass(
+  classId: string,
+  facilityId = PRIMARY_FACILITY_ID,
+): Promise<void> {
   const gymClass = await db
     .selectFrom("gymClasses")
     .selectAll()
     .where("id", "=", classId)
+    .where("facilityId", "=", facilityId)
     .executeTakeFirst();
 
   if (!gymClass) {
@@ -266,5 +286,9 @@ export async function deleteClass(classId: string): Promise<void> {
     .execute();
 
   // Delete class
-  await db.deleteFrom("gymClasses").where("id", "=", classId).execute();
+  await db
+    .deleteFrom("gymClasses")
+    .where("id", "=", classId)
+    .where("facilityId", "=", facilityId)
+    .execute();
 }

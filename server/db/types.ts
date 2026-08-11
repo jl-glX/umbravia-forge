@@ -174,6 +174,7 @@ interface DataRetentionRecord {
 
 interface GymClass {
   id: string;
+  facilityId: Generated<string>;
   name: string;
   description: string;
   trainerId: string;

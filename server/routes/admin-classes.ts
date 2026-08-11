@@ -13,11 +13,17 @@ import {
   updateClassValidation,
   validateId,
 } from "../middleware/validation.js";
-import { authenticate, requireRole } from "../middleware/authorization.js";
+import {
+  authenticate,
+  getFacilityContext,
+  requireFacility,
+  selectFacilityContext,
+} from "../middleware/authorization.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
 
 export const adminClassesRouter = express.Router();
-adminClassesRouter.use(authenticate, requireRole("admin"));
+adminClassesRouter.use(authenticate, selectFacilityContext);
+adminClassesRouter.use(requireFacility("owner", "admin"));
 adminClassesRouter.use(requireRecentFormVerification);
 
 // Get all classes
@@ -25,7 +31,7 @@ adminClassesRouter.get(
   "/",
   async (req: express.Request, res: express.Response) => {
     try {
-      const classes = await getAllClasses();
+      const classes = await getAllClasses(getFacilityContext(res).id);
       res.json(classes);
     } catch (error) {
       console.error("Error fetching classes:", error);
@@ -40,7 +46,10 @@ adminClassesRouter.get(
   validateId("id"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const gymClass = await getClassWithAvailability(req.params.id);
+      const gymClass = await getClassWithAvailability(
+        req.params.id,
+        getFacilityContext(res).id,
+      );
       if (!gymClass) {
         res.status(404).json({ error: "Class not found" });
         return;
@@ -73,14 +82,17 @@ adminClassesRouter.post(
         return;
       }
 
-      const newClass = await createClass({
-        name,
-        description: description || "",
-        trainerId,
-        trainerName,
-        maxCapacity,
-        scheduledAt,
-      });
+      const newClass = await createClass(
+        {
+          name,
+          description: description || "",
+          trainerId,
+          trainerName,
+          maxCapacity,
+          scheduledAt,
+        },
+        getFacilityContext(res).id,
+      );
 
       res.status(201).json(newClass);
     } catch (error) {
@@ -106,14 +118,18 @@ adminClassesRouter.put(
         scheduledAt,
       } = req.body;
 
-      const updatedClass = await updateClass(req.params.id, {
-        name,
-        description,
-        trainerId,
-        trainerName,
-        maxCapacity,
-        scheduledAt,
-      });
+      const updatedClass = await updateClass(
+        req.params.id,
+        {
+          name,
+          description,
+          trainerId,
+          trainerName,
+          maxCapacity,
+          scheduledAt,
+        },
+        getFacilityContext(res).id,
+      );
 
       res.json(updatedClass);
     } catch (error) {
@@ -130,11 +146,15 @@ adminClassesRouter.put(
   async (req: express.Request, res: express.Response) => {
     try {
       res.json(
-        await saveClassBookingConfiguration(req.params.id, {
-          configuration: req.body.configuration,
-          lifecycleState: req.body.lifecycleState,
-          seriesId: req.body.seriesId,
-        }),
+        await saveClassBookingConfiguration(
+          req.params.id,
+          {
+            configuration: req.body.configuration,
+            lifecycleState: req.body.lifecycleState,
+            seriesId: req.body.seriesId,
+          },
+          getFacilityContext(res).id,
+        ),
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -151,7 +171,7 @@ adminClassesRouter.delete(
   validateId("id"),
   async (req: express.Request, res: express.Response) => {
     try {
-      await deleteClass(req.params.id);
+      await deleteClass(req.params.id, getFacilityContext(res).id);
       res.json({ message: "Class deleted successfully" });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";

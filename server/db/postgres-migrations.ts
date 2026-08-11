@@ -1224,6 +1224,22 @@ AND NOT EXISTS (
 );
 `,
   },
+  {
+    version: 16,
+    name: "facility-class-scope",
+    sql: String.raw`
+ALTER TABLE "gymClasses"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+
+ALTER TABLE "gymClasses"
+  ADD CONSTRAINT "gymClasses_facilityId_fkey"
+  FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+  ON DELETE RESTRICT;
+
+CREATE INDEX IF NOT EXISTS "idx_gymClasses_facility_scheduled"
+  ON "gymClasses" ("facilityId", "scheduledAt");
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

@@ -654,6 +654,7 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE gymClasses (
         id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
         name TEXT NOT NULL,
         description TEXT NOT NULL,
         trainerId TEXT NOT NULL,
@@ -661,7 +662,22 @@ async function initializeSqliteSchema(
         maxCapacity INTEGER NOT NULL,
         scheduledAt INTEGER NOT NULL
       );
+      CREATE INDEX idx_gymClasses_facility_scheduled
+        ON gymClasses(facilityId, scheduledAt);
       CREATE INDEX idx_gymClasses_scheduledAt ON gymClasses(scheduledAt);
+    `);
+  } else {
+    const classColumns = requireSqliteDatabase()
+      .prepare("PRAGMA table_info(gymClasses)")
+      .all() as Array<{ name: string }>;
+    if (!classColumns.some((column) => column.name === "facilityId")) {
+      sqliteDb.exec(
+        "ALTER TABLE gymClasses ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'primary'",
+      );
+    }
+    sqliteDb.exec(`
+      CREATE INDEX IF NOT EXISTS idx_gymClasses_facility_scheduled
+        ON gymClasses(facilityId, scheduledAt);
     `);
   }
 
@@ -1243,6 +1259,25 @@ async function initializeSqliteSchema(
        VALUES ('primary', 'primary', 'Centro Umbravia Forge', '', '#2563eb', 'active', ?, ?)`,
     )
     .run(facilityCreatedAt, facilityCreatedAt);
+
+  sqliteDb.exec(`
+    CREATE TRIGGER IF NOT EXISTS trg_gymClasses_facility_insert
+    BEFORE INSERT ON gymClasses
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_gymClasses_facility_update
+    BEFORE UPDATE OF facilityId ON gymClasses
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+  `);
 
   if (!tableNames.includes("facilityMemberships")) {
     console.log("Creating facilityMemberships table...");

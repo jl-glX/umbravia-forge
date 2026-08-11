@@ -66,8 +66,10 @@ role in `users.role` does not authorize a write to another facility.
 ## Stabilized checkpoints
 
 - `637c831`: tenant root, memberships and idempotent `primary` backfill.
-- Facility context and profile isolation remain on the development branch until
-  their full repository gate and checkpoint commit pass.
+- `b454e9b`: server-resolved facility context, membership authorization and
+  isolated facility profiles.
+- Class ownership and derived booking data remain on the development branch
+  until their full repository gate and checkpoint commit pass.
 
 ## Initial data classification
 
