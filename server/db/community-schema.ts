@@ -119,13 +119,15 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
 
     CREATE TABLE IF NOT EXISTS parentalControls (
       id TEXT PRIMARY KEY,
+      facilityId TEXT NOT NULL DEFAULT 'primary',
       childUserId TEXT NOT NULL,
       guardianUserId TEXT NOT NULL,
       settings TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL CHECK(status IN ('parental_control_inactive','parental_control_pending','parental_control_active','parental_control_under_review','parental_control_transitioning','parental_control_ended')),
       createdAt INTEGER NOT NULL,
       updatedAt INTEGER NOT NULL,
-      UNIQUE(childUserId, guardianUserId),
+      UNIQUE(facilityId, childUserId, guardianUserId),
+      FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
       FOREIGN KEY(childUserId) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY(guardianUserId) REFERENCES users(id) ON DELETE CASCADE
     );
@@ -194,12 +196,45 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
     );
   }
 
+  const parentalControlColumns = sqliteDb
+    .prepare("PRAGMA table_info(parentalControls)")
+    .all() as Array<{ name: string }>;
+  if (!parentalControlColumns.some((column) => column.name === "facilityId")) {
+    sqliteDb.exec(`
+      ALTER TABLE parentalControls RENAME TO parentalControlsLegacy;
+      CREATE TABLE parentalControls (
+        id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
+        childUserId TEXT NOT NULL,
+        guardianUserId TEXT NOT NULL,
+        settings TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL CHECK(status IN ('parental_control_inactive','parental_control_pending','parental_control_active','parental_control_under_review','parental_control_transitioning','parental_control_ended')),
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL,
+        UNIQUE(facilityId, childUserId, guardianUserId),
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(childUserId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(guardianUserId) REFERENCES users(id) ON DELETE CASCADE
+      );
+      INSERT INTO parentalControls (
+        id, facilityId, childUserId, guardianUserId, settings, status,
+        createdAt, updatedAt
+      )
+      SELECT id, 'primary', childUserId, guardianUserId, settings, status,
+             createdAt, updatedAt
+      FROM parentalControlsLegacy;
+      DROP TABLE parentalControlsLegacy;
+    `);
+  }
+
   sqliteDb.exec(`
     DROP INDEX IF EXISTS idx_moderationCases_status;
     CREATE INDEX IF NOT EXISTS idx_moderationCases_status
       ON moderationCases(facilityId, status, urgency, createdAt DESC);
     CREATE INDEX IF NOT EXISTS idx_facilityLinks_source_status
       ON facilityLinks(sourceFacilityId, status, updatedAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_parentalControls_facility_status
+      ON parentalControls(facilityId, status, updatedAt DESC);
     CREATE TRIGGER IF NOT EXISTS trg_moderationCases_facility_insert
     BEFORE INSERT ON moderationCases
     WHEN NOT EXISTS (
@@ -228,6 +263,22 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
     BEFORE UPDATE OF sourceFacilityId ON facilityLinks
     WHEN NOT EXISTS (
       SELECT 1 FROM facilityProfiles WHERE id = NEW.sourceFacilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_parentalControls_facility_insert
+    BEFORE INSERT ON parentalControls
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_parentalControls_facility_update
+    BEFORE UPDATE OF facilityId ON parentalControls
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
     )
     BEGIN
       SELECT RAISE(ABORT, 'Unknown facility');

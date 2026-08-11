@@ -252,6 +252,19 @@ describe("community, identity and moderation APIs", () => {
   it("encrypts private class justifications at rest and decrypts authorized responses", async () => {
     const channelId = "community-private-class";
     await database.db
+      .insertInto("gymClasses")
+      .values({
+        id: "synthetic-class",
+        facilityId: "primary",
+        name: "Synthetic class",
+        description: "",
+        trainerId: "community-admin",
+        trainerName: "Admin",
+        maxCapacity: 10,
+        scheduledAt: Date.now() + 86_400_000,
+      })
+      .execute();
+    await database.db
       .insertInto("communityChannels")
       .values({
         id: channelId,
@@ -493,6 +506,55 @@ describe("community, identity and moderation APIs", () => {
     );
   });
 
+  it("isolates facility channels, messages and search results", async () => {
+    const secondaryChannel = await request(app)
+      .post("/api/community/channels")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "secondary")
+      .send({
+        scope: "facility",
+        scopeId: "secondary",
+        name: "Secondary general",
+      })
+      .expect(201);
+    await request(app)
+      .post(`/api/community/channels/${secondaryChannel.body.id}/messages`)
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .send({ body: "Secondary-only community message" })
+      .expect(201);
+
+    await request(app)
+      .get(`/api/community/channels/${secondaryChannel.body.id}/messages`)
+      .set("Cookie", memberCookie)
+      .expect(404);
+    const primaryChannels = await request(app)
+      .get("/api/community/channels")
+      .set("Cookie", memberCookie)
+      .expect(200);
+    expect(
+      primaryChannels.body.map((channel: { id: string }) => channel.id),
+    ).not.toContain(secondaryChannel.body.id);
+
+    const primarySearch = await request(app)
+      .get("/api/community/search/messages")
+      .query({ q: "Secondary-only" })
+      .set("Cookie", memberCookie)
+      .expect(200);
+    const secondarySearch = await request(app)
+      .get("/api/community/search/messages")
+      .query({ q: "Secondary-only" })
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(primarySearch.body.results).toEqual([]);
+    expect(secondarySearch.body.results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ body: "Secondary-only community message" }),
+      ]),
+    );
+  });
+
   it("creates auditable reports, actions and appeals", async () => {
     const reportableMessage = await database.db
       .selectFrom("communityMessages")
@@ -696,6 +758,21 @@ describe("community, identity and moderation APIs", () => {
       })
       .expect(201);
     expect(parental.body.status).toBe("parental_control_pending");
+    const secondaryParental = await request(app)
+      .post("/api/community/parental-controls")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "secondary")
+      .send({
+        childUserId: "community-member",
+        guardianUserId: "community-peer",
+        settings: { unknownMessages: "blocked" },
+      })
+      .expect(201);
+    await request(app)
+      .patch(`/api/community/parental-controls/${secondaryParental.body.id}`)
+      .set("Cookie", adminCookie)
+      .send({ status: "parental_control_active" })
+      .expect(404);
     await request(app)
       .patch(`/api/community/parental-controls/${parental.body.id}`)
       .set("Cookie", secondMemberCookie)

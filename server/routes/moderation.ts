@@ -109,7 +109,12 @@ moderationRouter.post("/cases", async (req, res, next) => {
         .where("id", "=", messageId)
         .executeTakeFirst();
       const channel = message
-        ? await canAccessChannel(auth.userId, auth.role, message.channelId)
+        ? await canAccessChannel(
+            auth.userId,
+            facilityId,
+            getFacilityContext(res).role,
+            message.channelId,
+          )
         : null;
       if (
         !message ||

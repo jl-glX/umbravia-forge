@@ -740,14 +740,17 @@ CREATE INDEX IF NOT EXISTS "idx_facilityLinks_source_status"
 
 CREATE TABLE IF NOT EXISTS "parentalControls" (
   "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL DEFAULT 'primary' REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
   "childUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
   "guardianUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
   "settings" TEXT NOT NULL DEFAULT '{}',
   "status" TEXT NOT NULL CHECK ("status" IN ('parental_control_inactive','parental_control_pending','parental_control_active','parental_control_under_review','parental_control_transitioning','parental_control_ended')),
   "createdAt" BIGINT NOT NULL,
   "updatedAt" BIGINT NOT NULL,
-  UNIQUE ("childUserId", "guardianUserId")
+  UNIQUE ("facilityId", "childUserId", "guardianUserId")
 );
+CREATE INDEX IF NOT EXISTS "idx_parentalControls_facility_status"
+  ON "parentalControls" ("facilityId", "status", "updatedAt" DESC);
 
 CREATE TABLE IF NOT EXISTS "moderationCases" (
   "id" TEXT PRIMARY KEY,
@@ -1379,6 +1382,34 @@ CREATE INDEX IF NOT EXISTS "idx_moderationCases_status"
   ON "moderationCases" ("facilityId", "status", "urgency", "createdAt" DESC);
 CREATE INDEX IF NOT EXISTS "idx_facilityLinks_source_status"
   ON "facilityLinks" ("sourceFacilityId", "status", "updatedAt" DESC);
+`,
+  },
+  {
+    version: 21,
+    name: "facility-community-controls-scope",
+    sql: String.raw`
+ALTER TABLE "parentalControls"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+ALTER TABLE "parentalControls"
+  DROP CONSTRAINT IF EXISTS "parentalControls_childUserId_guardianUserId_key";
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'parentalControls_facilityId_fkey'
+  ) THEN
+    ALTER TABLE "parentalControls"
+      ADD CONSTRAINT "parentalControls_facilityId_fkey"
+      FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_parentalControls_facility_pair"
+  ON "parentalControls" ("facilityId", "childUserId", "guardianUserId");
+CREATE INDEX IF NOT EXISTS "idx_parentalControls_facility_status"
+  ON "parentalControls" ("facilityId", "status", "updatedAt" DESC);
 `,
   },
 ];

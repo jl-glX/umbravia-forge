@@ -10,6 +10,9 @@ import { db } from "../db/client.js";
 import {
   authenticate,
   getAuthenticatedUser,
+  getFacilityContext,
+  requireFacility,
+  selectFacilityContext,
 } from "../middleware/authorization.js";
 import {
   contactStatuses,
@@ -31,7 +34,7 @@ import {
 import { recordSecurityEvent } from "../services/security-events.js";
 
 export const communityRouter = express.Router();
-communityRouter.use(authenticate);
+communityRouter.use(authenticate, selectFacilityContext, requireFacility());
 communityRouter.use((req, res, next) =>
   req.method === "GET" ? next() : requireRecentFormVerification(req, res, next),
 );
@@ -49,6 +52,11 @@ const privacyKeys = [
 
 function badRequest(res: express.Response, error: string) {
   res.status(400).json({ error, code: "VALIDATION_ERROR" });
+}
+
+function canAdministerFacility(res: express.Response): boolean {
+  const role = getFacilityContext(res).role;
+  return role === "owner" || role === "admin";
 }
 
 function handleCommunityAttachmentError(
@@ -120,7 +128,8 @@ function parseParentalSettings(value: unknown) {
 
 export async function canAccessChannel(
   userId: string,
-  role: string,
+  facilityId: string,
+  facilityRole: string,
   channelId: string,
 ) {
   const channel = await db
@@ -138,13 +147,17 @@ export async function canAccessChannel(
       .executeTakeFirst();
     return membership ? channel : null;
   }
-  if (channel.scope !== "class" || role === "admin") return channel;
-  if (role === "trainer") {
-    const gymClass = await db
-      .selectFrom("gymClasses")
-      .select("trainerId")
-      .where("id", "=", channel.scopeId)
-      .executeTakeFirst();
+  if (channel.scope === "facility") {
+    return channel.scopeId === facilityId ? channel : null;
+  }
+  const gymClass = await db
+    .selectFrom("gymClasses")
+    .select(["trainerId", "facilityId"])
+    .where("id", "=", channel.scopeId)
+    .executeTakeFirst();
+  if (!gymClass || gymClass.facilityId !== facilityId) return null;
+  if (facilityRole === "owner" || facilityRole === "admin") return channel;
+  if (facilityRole === "trainer") {
     return gymClass?.trainerId === userId ? channel : null;
   }
   const booking = await db
@@ -157,12 +170,32 @@ export async function canAccessChannel(
   return booking ? channel : null;
 }
 
-async function isCommunicationRestricted(userId: string) {
+async function isCommunicationRestricted(
+  userId: string,
+  facilityId: string | null,
+) {
   const action = await db
     .selectFrom("moderationActions")
-    .select(["state", "durationMinutes", "createdAt"])
-    .where("subjectUserId", "=", userId)
-    .orderBy("createdAt", "desc")
+    .innerJoin(
+      "moderationCases",
+      "moderationCases.id",
+      "moderationActions.caseId",
+    )
+    .select([
+      "moderationActions.state as state",
+      "moderationActions.durationMinutes as durationMinutes",
+      "moderationActions.createdAt as createdAt",
+    ])
+    .where("moderationActions.subjectUserId", "=", userId)
+    .where((expression) =>
+      expression.or([
+        expression("moderationActions.state", "=", "platform_suspended"),
+        ...(facilityId
+          ? [expression("moderationCases.facilityId", "=", facilityId)]
+          : []),
+      ]),
+    )
+    .orderBy("moderationActions.createdAt", "desc")
     .executeTakeFirst();
   if (!action || action.state === "unrestricted") return false;
   if (
@@ -183,10 +216,10 @@ async function isCommunicationRestricted(userId: string) {
 
 async function canManageChannel(
   userId: string,
-  role: string,
+  facilityId: string,
+  facilityRole: string,
   channel: { id: string; scope: string; scopeId: string },
 ) {
-  if (role === "admin") return true;
   if (channel.scope === "community") {
     const membership = await db
       .selectFrom("communityMembers")
@@ -196,13 +229,24 @@ async function canManageChannel(
       .executeTakeFirst();
     return membership?.role === "owner";
   }
-  if (channel.scope === "class" && role === "trainer") {
+  if (channel.scope === "facility") {
+    return (
+      channel.scopeId === facilityId &&
+      (facilityRole === "owner" || facilityRole === "admin")
+    );
+  }
+  if (channel.scope === "class") {
     const gymClass = await db
       .selectFrom("gymClasses")
-      .select("trainerId")
+      .select(["trainerId", "facilityId"])
       .where("id", "=", channel.scopeId)
       .executeTakeFirst();
-    return gymClass?.trainerId === userId;
+    if (!gymClass || gymClass.facilityId !== facilityId) return false;
+    return (
+      facilityRole === "owner" ||
+      facilityRole === "admin" ||
+      (facilityRole === "trainer" && gymClass.trainerId === userId)
+    );
   }
   return false;
 }
@@ -214,6 +258,7 @@ communityRouter.get("/principles", (_req, res) =>
 communityRouter.get("/search/messages", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
+    const facility = getFacilityContext(res);
     const search = String(req.query.q ?? "").trim();
     if (search.length < 2 || search.length > 120) {
       return badRequest(res, "Search must contain 2-120 characters");
@@ -265,7 +310,8 @@ communityRouter.get("/search/messages", async (req, res, next) => {
       if (!candidate.body.toLocaleLowerCase().includes(normalized)) continue;
       const channel = await canAccessChannel(
         auth.userId,
-        auth.role,
+        facility.id,
+        facility.role,
         candidate.channelId,
       );
       if (!channel) continue;
@@ -373,6 +419,7 @@ communityRouter.patch("/profile", async (req, res, next) => {
 communityRouter.get("/people", async (req, res, next) => {
   try {
     const { userId } = getAuthenticatedUser(res);
+    const facilityId = getFacilityContext(res).id;
     const query = String(req.query.query ?? "")
       .trim()
       .toLowerCase()
@@ -400,6 +447,11 @@ communityRouter.get("/people", async (req, res, next) => {
     const rows = await db
       .selectFrom("socialProfiles")
       .innerJoin("users", "users.id", "socialProfiles.userId")
+      .innerJoin(
+        "facilityMemberships",
+        "facilityMemberships.userId",
+        "socialProfiles.userId",
+      )
       .select([
         "socialProfiles.userId",
         "socialProfiles.username",
@@ -412,6 +464,8 @@ communityRouter.get("/people", async (req, res, next) => {
       ])
       .where("socialProfiles.username", "like", `%${query}%`)
       .where("socialProfiles.userId", "!=", userId)
+      .where("facilityMemberships.facilityId", "=", facilityId)
+      .where("facilityMemberships.status", "=", "active")
       .limit(20)
       .execute();
     res.json(
@@ -464,15 +518,19 @@ communityRouter.get("/contacts", async (_req, res, next) => {
 communityRouter.post("/contacts", async (req, res, next) => {
   try {
     const { userId } = getAuthenticatedUser(res);
+    const facilityId = getFacilityContext(res).id;
     const recipientUserId = String(req.body.recipientUserId ?? "");
     if (!recipientUserId || recipientUserId === userId)
       return badRequest(res, "A different recipient is required");
     const recipient = await db
-      .selectFrom("users")
+      .selectFrom("facilityMemberships")
       .select("id")
-      .where("id", "=", recipientUserId)
+      .where("facilityId", "=", facilityId)
+      .where("userId", "=", recipientUserId)
+      .where("status", "=", "active")
       .executeTakeFirst();
-    if (!recipient) return badRequest(res, "Recipient does not exist");
+    if (!recipient)
+      return badRequest(res, "Recipient is not an active facility member");
     const now = Date.now();
     const contact = {
       id: randomUUID(),
@@ -550,6 +608,7 @@ communityRouter.patch("/contacts/:id", async (req, res, next) => {
 communityRouter.get("/channels", async (_req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
+    const facility = getFacilityContext(res);
     const channels = await db
       .selectFrom("communityChannels")
       .selectAll()
@@ -557,7 +616,14 @@ communityRouter.get("/channels", async (_req, res, next) => {
       .execute();
     const allowed = [];
     for (const channel of channels)
-      if (await canAccessChannel(auth.userId, auth.role, channel.id))
+      if (
+        await canAccessChannel(
+          auth.userId,
+          facility.id,
+          facility.role,
+          channel.id,
+        )
+      )
         allowed.push(channel);
     res.json(allowed);
   } catch (error) {
@@ -568,6 +634,7 @@ communityRouter.get("/channels", async (_req, res, next) => {
 communityRouter.post("/channels", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
+    const facility = getFacilityContext(res);
     const scope = String(req.body.scope ?? "");
     const requestedScopeId = String(req.body.scopeId ?? "").trim();
     const name = String(req.body.name ?? "").trim();
@@ -580,20 +647,21 @@ communityRouter.post("/channels", async (req, res, next) => {
       return badRequest(res, "Channel data is invalid");
     if (
       scope !== "community" &&
-      !(["admin", "trainer"] as string[]).includes(auth.role)
+      !(["owner", "admin", "trainer"] as string[]).includes(facility.role)
     )
       return res.status(403).json({ error: "Staff access required" });
     const scopeId = scope === "community" ? auth.userId : requestedScopeId;
-    if (scope === "facility" && scopeId !== "primary")
+    if (scope === "facility" && scopeId !== facility.id)
       return badRequest(res, "Facility channel scope is invalid");
     if (scope === "class") {
       const gymClass = await db
         .selectFrom("gymClasses")
-        .select("trainerId")
+        .select(["trainerId", "facilityId"])
         .where("id", "=", scopeId)
         .executeTakeFirst();
-      if (!gymClass) return badRequest(res, "Class does not exist");
-      if (auth.role === "trainer" && gymClass.trainerId !== auth.userId)
+      if (!gymClass || gymClass.facilityId !== facility.id)
+        return badRequest(res, "Class does not exist in the selected facility");
+      if (facility.role === "trainer" && gymClass.trainerId !== auth.userId)
         return res
           .status(403)
           .json({ error: "This class is not assigned to you" });
@@ -644,12 +712,21 @@ communityRouter.post("/channels", async (req, res, next) => {
 communityRouter.patch("/channels/:id", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
+    const facility = getFacilityContext(res);
     const channel = await db
       .selectFrom("communityChannels")
       .selectAll()
       .where("id", "=", req.params.id)
       .executeTakeFirst();
-    if (!channel || !(await canManageChannel(auth.userId, auth.role, channel)))
+    if (
+      !channel ||
+      !(await canManageChannel(
+        auth.userId,
+        facility.id,
+        facility.role,
+        channel,
+      ))
+    )
       return res.status(404).json({ error: "Manageable channel not found" });
     const status =
       req.body.status == null
@@ -709,9 +786,11 @@ communityRouter.patch("/channels/:id", async (req, res, next) => {
 communityRouter.get("/channels/:id/messages", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
+    const facility = getFacilityContext(res);
     const channel = await canAccessChannel(
       auth.userId,
-      auth.role,
+      facility.id,
+      facility.role,
       req.params.id,
     );
     if (!channel) return res.status(404).json({ error: "Channel not found" });
@@ -743,7 +822,7 @@ communityRouter.get("/channels/:id/messages", async (req, res, next) => {
       .orderBy("communityMessages.createdAt")
       .limit(200)
       .execute();
-    if (auth.role === "member")
+    if (facility.role === "member")
       messages = messages.filter(
         (message) =>
           message.kind === "public" || message.authorUserId === auth.userId,
@@ -800,17 +879,24 @@ communityRouter.get("/channels/:id/messages", async (req, res, next) => {
 communityRouter.post("/channels/:id/messages", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
-    if (await isCommunicationRestricted(auth.userId))
+    const facility = getFacilityContext(res);
+    const channel = await canAccessChannel(
+      auth.userId,
+      facility.id,
+      facility.role,
+      req.params.id,
+    );
+    if (!channel) return res.status(404).json({ error: "Channel not found" });
+    if (
+      await isCommunicationRestricted(
+        auth.userId,
+        channel.scope === "community" ? null : facility.id,
+      )
+    )
       return res.status(403).json({
         error: "Your current moderation state does not allow messages",
         code: "COMMUNICATION_RESTRICTED",
       });
-    const channel = await canAccessChannel(
-      auth.userId,
-      auth.role,
-      req.params.id,
-    );
-    if (!channel) return res.status(404).json({ error: "Channel not found" });
     if (channel.status !== "community_active")
       return res
         .status(409)
@@ -945,9 +1031,11 @@ communityRouter.delete(
 communityRouter.post("/channels/:id/members", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
+    const facility = getFacilityContext(res);
     const channel = await canAccessChannel(
       auth.userId,
-      auth.role,
+      facility.id,
+      facility.role,
       req.params.id,
     );
     if (!channel || channel.scope !== "community")
@@ -1000,13 +1088,14 @@ communityRouter.post("/channels/:id/members", async (req, res, next) => {
 
 communityRouter.get("/facility-links", async (_req, res, next) => {
   try {
-    const auth = getAuthenticatedUser(res);
-    if (auth.role !== "admin")
+    const facilityId = getFacilityContext(res).id;
+    if (!canAdministerFacility(res))
       return res.status(403).json({ error: "Admin access required" });
     res.json(
       await db
         .selectFrom("facilityLinks")
         .selectAll()
+        .where("sourceFacilityId", "=", facilityId)
         .orderBy("updatedAt", "desc")
         .execute(),
     );
@@ -1017,7 +1106,8 @@ communityRouter.get("/facility-links", async (_req, res, next) => {
 communityRouter.post("/facility-links", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
-    if (auth.role !== "admin")
+    const facilityId = getFacilityContext(res).id;
+    if (!canAdministerFacility(res))
       return res.status(403).json({ error: "Admin access required" });
     const targetFacilityName = String(req.body.targetFacilityName ?? "").trim();
     const reason = String(req.body.reason ?? "").trim();
@@ -1056,7 +1146,7 @@ communityRouter.post("/facility-links", async (req, res, next) => {
     const now = Date.now();
     const link = {
       id: randomUUID(),
-      sourceFacilityId: "primary",
+      sourceFacilityId: facilityId,
       targetFacilityName,
       reason,
       mode,
@@ -1075,8 +1165,8 @@ communityRouter.post("/facility-links", async (req, res, next) => {
 });
 communityRouter.patch("/facility-links/:id", async (req, res, next) => {
   try {
-    const auth = getAuthenticatedUser(res);
-    if (auth.role !== "admin")
+    const facilityId = getFacilityContext(res).id;
+    if (!canAdministerFacility(res))
       return res.status(403).json({ error: "Admin access required" });
     const status = String(
       req.body.status ?? "",
@@ -1087,6 +1177,7 @@ communityRouter.patch("/facility-links/:id", async (req, res, next) => {
       .updateTable("facilityLinks")
       .set({ status, updatedAt: Date.now() })
       .where("id", "=", req.params.id)
+      .where("sourceFacilityId", "=", facilityId)
       .executeTakeFirst();
     if (!Number(result.numUpdatedRows))
       return res.status(404).json({ error: "Facility link not found" });
@@ -1099,10 +1190,14 @@ communityRouter.patch("/facility-links/:id", async (req, res, next) => {
 communityRouter.get("/parental-controls", async (_req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
-    const query = db.selectFrom("parentalControls").selectAll();
+    const facilityId = getFacilityContext(res).id;
+    const query = db
+      .selectFrom("parentalControls")
+      .selectAll()
+      .where("facilityId", "=", facilityId);
     res.json(
       await (
-        auth.role === "admin"
+        canAdministerFacility(res)
           ? query
           : query.where((eb) =>
               eb.or([
@@ -1118,8 +1213,8 @@ communityRouter.get("/parental-controls", async (_req, res, next) => {
 });
 communityRouter.post("/parental-controls", async (req, res, next) => {
   try {
-    const auth = getAuthenticatedUser(res);
-    if (auth.role !== "admin")
+    const facilityId = getFacilityContext(res).id;
+    if (!canAdministerFacility(res))
       return res.status(403).json({ error: "Admin review is required" });
     const childUserId = String(req.body.childUserId ?? "");
     const guardianUserId = String(req.body.guardianUserId ?? "");
@@ -1128,15 +1223,18 @@ communityRouter.post("/parental-controls", async (req, res, next) => {
       return badRequest(res, "Child and guardian are required");
     if (!settings) return badRequest(res, "Parental settings are invalid");
     const accounts = await db
-      .selectFrom("users")
-      .select("id")
-      .where("id", "in", [childUserId, guardianUserId])
+      .selectFrom("facilityMemberships")
+      .select("userId")
+      .where("facilityId", "=", facilityId)
+      .where("userId", "in", [childUserId, guardianUserId])
+      .where("status", "=", "active")
       .execute();
     if (accounts.length !== 2)
       return badRequest(res, "Child or guardian account does not exist");
     const now = Date.now();
     const control = {
       id: randomUUID(),
+      facilityId,
       childUserId,
       guardianUserId,
       settings: JSON.stringify(settings),
@@ -1160,14 +1258,16 @@ communityRouter.post("/parental-controls", async (req, res, next) => {
 communityRouter.patch("/parental-controls/:id", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
+    const facilityId = getFacilityContext(res).id;
     const control = await db
       .selectFrom("parentalControls")
       .selectAll()
       .where("id", "=", req.params.id)
+      .where("facilityId", "=", facilityId)
       .executeTakeFirst();
     if (
       !control ||
-      (auth.role !== "admin" && control.guardianUserId !== auth.userId)
+      (!canAdministerFacility(res) && control.guardianUserId !== auth.userId)
     )
       return res.status(404).json({ error: "Parental control not found" });
     const status =
@@ -1182,7 +1282,7 @@ communityRouter.patch("/parental-controls/:id", async (req, res, next) => {
         : parseParentalSettings(req.body.settings);
     if (!settings) return badRequest(res, "Parental settings are invalid");
     if (
-      auth.role !== "admin" &&
+      !canAdministerFacility(res) &&
       ![
         "parental_control_active",
         "parental_control_inactive",

@@ -653,6 +653,7 @@ interface FacilityLink {
 
 interface ParentalControl {
   id: string;
+  facilityId: string;
   childUserId: string;
   guardianUserId: string;
   settings: string;
