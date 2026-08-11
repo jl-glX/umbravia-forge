@@ -711,9 +711,24 @@ interface ModerationAppeal {
 
 interface FacilityProfile {
   id: string;
+  slug: Generated<string>;
   name: string;
   logoDataUrl: string;
   accentColor: string;
+  status: Generated<"active" | "suspended" | "closed">;
+  createdAt: Generated<number>;
+  updatedAt: number;
+}
+
+export type FacilityRole = "owner" | "admin" | "trainer" | "member";
+
+interface FacilityMembership {
+  id: string;
+  facilityId: string;
+  userId: string;
+  role: FacilityRole;
+  status: "active" | "invited" | "suspended" | "left";
+  createdAt: number;
   updatedAt: number;
 }
 
@@ -874,6 +889,7 @@ export interface Database {
   moderationActions: ModerationAction;
   moderationAppeals: ModerationAppeal;
   facilityProfiles: FacilityProfile;
+  facilityMemberships: FacilityMembership;
   commercialTrials: CommercialTrial;
   commercialTrialEvents: CommercialTrialEvent;
   commercialRequests: CommercialRequest;

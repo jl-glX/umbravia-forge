@@ -21,6 +21,7 @@ export const migrationTableGroups = {
   ],
   identity: [
     "users",
+    "facilityMemberships",
     "accountSupportIdentifiers",
     "accountDeletionPreferences",
     "accountDeletionRequests",

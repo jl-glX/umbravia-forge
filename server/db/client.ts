@@ -1197,13 +1197,117 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE facilityProfiles (
         id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
         logoDataUrl TEXT NOT NULL DEFAULT '',
         accentColor TEXT NOT NULL DEFAULT '#2563eb',
+        status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'suspended', 'closed')),
+        createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL
       );
     `);
+  } else {
+    const facilityColumns = sqliteDb
+      .prepare("PRAGMA table_info(facilityProfiles)")
+      .all() as Array<{ name: string }>;
+    const facilityColumnNames = facilityColumns.map((column) => column.name);
+    if (!facilityColumnNames.includes("slug")) {
+      sqliteDb.exec(
+        "ALTER TABLE facilityProfiles ADD COLUMN slug TEXT NOT NULL DEFAULT ''",
+      );
+      sqliteDb.exec("UPDATE facilityProfiles SET slug = id WHERE slug = ''");
+    }
+    if (!facilityColumnNames.includes("status")) {
+      sqliteDb.exec(
+        "ALTER TABLE facilityProfiles ADD COLUMN status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'suspended', 'closed'))",
+      );
+    }
+    if (!facilityColumnNames.includes("createdAt")) {
+      sqliteDb.exec(
+        "ALTER TABLE facilityProfiles ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0",
+      );
+      sqliteDb.exec(
+        "UPDATE facilityProfiles SET createdAt = updatedAt WHERE createdAt = 0",
+      );
+    }
+    sqliteDb.exec(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_facilityProfiles_slug ON facilityProfiles(slug)",
+    );
   }
+
+  const facilityCreatedAt = Date.now();
+  sqliteDb
+    .prepare(
+      `INSERT OR IGNORE INTO facilityProfiles
+       (id, slug, name, logoDataUrl, accentColor, status, createdAt, updatedAt)
+       VALUES ('primary', 'primary', 'Centro Umbravia Forge', '', '#2563eb', 'active', ?, ?)`,
+    )
+    .run(facilityCreatedAt, facilityCreatedAt);
+
+  if (!tableNames.includes("facilityMemberships")) {
+    console.log("Creating facilityMemberships table...");
+    sqliteDb.exec(`
+      CREATE TABLE facilityMemberships (
+        id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('owner', 'admin', 'trainer', 'member')),
+        status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'invited', 'suspended', 'left')),
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(facilityId, userId)
+      );
+      CREATE INDEX idx_facilityMemberships_user
+        ON facilityMemberships(userId, status);
+      CREATE INDEX idx_facilityMemberships_facility_role
+        ON facilityMemberships(facilityId, role, status);
+    `);
+  }
+
+  const membershipBackfillAt = Date.now();
+  sqliteDb
+    .prepare(
+      `INSERT OR IGNORE INTO facilityMemberships
+       (id, facilityId, userId, role, status, createdAt, updatedAt)
+       SELECT 'primary:' || id,
+              'primary',
+              id,
+              CASE role
+                WHEN 'admin' THEN 'admin'
+                WHEN 'trainer' THEN 'trainer'
+                ELSE 'member'
+              END,
+              'active',
+              createdAt,
+              ?
+       FROM users`,
+    )
+    .run(membershipBackfillAt);
+  sqliteDb
+    .prepare(
+      `UPDATE facilityMemberships
+       SET role = 'owner', updatedAt = ?
+       WHERE id = (
+         SELECT membership.id
+         FROM facilityMemberships AS membership
+         INNER JOIN users AS user ON user.id = membership.userId
+         WHERE membership.facilityId = 'primary'
+           AND membership.status = 'active'
+           AND user.role = 'admin'
+         ORDER BY user.createdAt ASC, user.id ASC
+         LIMIT 1
+       )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM facilityMemberships
+         WHERE facilityId = 'primary'
+           AND role = 'owner'
+           AND status = 'active'
+       )`,
+    )
+    .run(membershipBackfillAt);
 
   if (!tableNames.includes("commercialTrials")) {
     console.log("Creating commercialTrials tables...");
@@ -1353,14 +1457,6 @@ async function initializeSqliteSchema(
 
   initializeCommunitySchema(sqliteDb);
   initializeE2eeSchema(sqliteDb);
-
-  sqliteDb
-    .prepare(
-      `INSERT OR IGNORE INTO facilityProfiles
-       (id, name, logoDataUrl, accentColor, updatedAt)
-       VALUES ('primary', 'Centro Umbravia Forge', '', '#2563eb', ?)`,
-    )
-    .run(Date.now());
 
   console.log("Database initialized successfully");
 }

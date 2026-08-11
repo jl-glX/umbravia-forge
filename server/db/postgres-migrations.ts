@@ -1142,6 +1142,88 @@ CREATE INDEX IF NOT EXISTS "idx_e2eeAttachments_conversation"
   ON "e2eeAttachments" ("conversationId", "createdAt", "id");
 `,
   },
+  {
+    version: 15,
+    name: "facility-membership-foundation",
+    sql: String.raw`
+ALTER TABLE "facilityProfiles"
+  ADD COLUMN IF NOT EXISTS "slug" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "facilityProfiles"
+  ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'active'
+    CHECK ("status" IN ('active', 'suspended', 'closed'));
+ALTER TABLE "facilityProfiles"
+  ADD COLUMN IF NOT EXISTS "createdAt" BIGINT NOT NULL DEFAULT 0;
+
+UPDATE "facilityProfiles"
+SET "slug" = "id"
+WHERE "slug" = '';
+UPDATE "facilityProfiles"
+SET "createdAt" = "updatedAt"
+WHERE "createdAt" = 0;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_facilityProfiles_slug"
+  ON "facilityProfiles" ("slug");
+
+INSERT INTO "facilityProfiles"
+  ("id", "slug", "name", "logoDataUrl", "accentColor", "status", "createdAt", "updatedAt")
+VALUES
+  ('primary', 'primary', 'Centro Umbravia Forge', '', '#2563eb', 'active', 0, 0)
+ON CONFLICT ("id") DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS "facilityMemberships" (
+  "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "role" TEXT NOT NULL CHECK ("role" IN ('owner', 'admin', 'trainer', 'member')),
+  "status" TEXT NOT NULL DEFAULT 'active'
+    CHECK ("status" IN ('active', 'invited', 'suspended', 'left')),
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  UNIQUE ("facilityId", "userId")
+);
+CREATE INDEX IF NOT EXISTS "idx_facilityMemberships_user"
+  ON "facilityMemberships" ("userId", "status");
+CREATE INDEX IF NOT EXISTS "idx_facilityMemberships_facility_role"
+  ON "facilityMemberships" ("facilityId", "role", "status");
+
+INSERT INTO "facilityMemberships"
+  ("id", "facilityId", "userId", "role", "status", "createdAt", "updatedAt")
+SELECT
+  'primary:' || "id",
+  'primary',
+  "id",
+  CASE "role"
+    WHEN 'admin' THEN 'admin'
+    WHEN 'trainer' THEN 'trainer'
+    ELSE 'member'
+  END,
+  'active',
+  "createdAt",
+  "createdAt"
+FROM "users"
+ON CONFLICT ("facilityId", "userId") DO NOTHING;
+
+UPDATE "facilityMemberships"
+SET "role" = 'owner'
+WHERE "id" = (
+  SELECT membership."id"
+  FROM "facilityMemberships" AS membership
+  INNER JOIN "users" AS account ON account."id" = membership."userId"
+  WHERE membership."facilityId" = 'primary'
+    AND membership."status" = 'active'
+    AND account."role" = 'admin'
+  ORDER BY account."createdAt" ASC, account."id" ASC
+  LIMIT 1
+)
+AND NOT EXISTS (
+  SELECT 1
+  FROM "facilityMemberships"
+  WHERE "facilityId" = 'primary'
+    AND "role" = 'owner'
+    AND "status" = 'active'
+);
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {
