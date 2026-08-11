@@ -18,11 +18,33 @@ describe("Vitest process supervisor", () => {
     expect(source).not.toMatch(/taskkill|Stop-Process|pkill|killall/);
   });
 
-  it("uses worker threads so Windows owns a single Vitest process", async () => {
+  it("uses worker threads with an operating-system-neutral worker policy", async () => {
     const source = await readFile(path.resolve("vitest.config.ts"), "utf8");
 
     expect(source).toContain('pool: "threads"');
     expect(source).toContain("maxWorkers: workerCount");
+    expect(source).toContain("process.env.CI ? 2 : 1");
+    expect(source).not.toContain("process.platform");
+    expect(source).not.toContain("win32");
+  });
+
+  it("reuses npm's JavaScript entry point without platform-specific executable extensions", async () => {
+    const sourceFiles = await Promise.all(
+      ["scripts/run-ci.mjs", "scripts/audit-ci.mjs"].map((file) =>
+        readFile(path.resolve(file), "utf8"),
+      ),
+    );
+    const invocationSource = await readFile(
+      path.resolve("scripts", "lib", "npm-invocation.mjs"),
+      "utf8",
+    );
+
+    expect(invocationSource).toContain("environment.npm_execpath");
+    expect(invocationSource).toContain("command: process.execPath");
+    for (const source of sourceFiles) {
+      expect(source).toContain("resolveNpmInvocation");
+      expect(source).not.toMatch(/npm\.cmd|process\.platform|win32/);
+    }
   });
 
   it("serializes managed runs and removes only Vite's disposable config cache", async () => {

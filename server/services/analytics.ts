@@ -44,20 +44,24 @@ export interface MemberMetrics {
 export async function getMonthlyMetrics(
   year: number,
   month: number,
+  facilityId: string,
 ): Promise<MonthlyMetrics> {
   const startDate = new Date(year, month - 1, 1).getTime();
   const endDate = new Date(year, month, 0, 23, 59, 59).getTime();
 
   const bookings = await db
     .selectFrom("bookings")
-    .selectAll()
-    .where("createdAt", ">=", startDate)
-    .where("createdAt", "<=", endDate)
+    .innerJoin("gymClasses", "gymClasses.id", "bookings.classId")
+    .selectAll("bookings")
+    .where("gymClasses.facilityId", "=", facilityId)
+    .where("bookings.createdAt", ">=", startDate)
+    .where("bookings.createdAt", "<=", endDate)
     .execute();
 
   const classes = await db
     .selectFrom("gymClasses")
     .selectAll()
+    .where("facilityId", "=", facilityId)
     .where("scheduledAt", ">=", startDate)
     .where("scheduledAt", "<=", endDate)
     .execute();
@@ -104,8 +108,14 @@ export async function getMonthlyMetrics(
 }
 
 // Get class popularity metrics
-export async function getClassPopularity(): Promise<ClassPopularity[]> {
-  const classes = await db.selectFrom("gymClasses").selectAll().execute();
+export async function getClassPopularity(
+  facilityId: string,
+): Promise<ClassPopularity[]> {
+  const classes = await db
+    .selectFrom("gymClasses")
+    .selectAll()
+    .where("facilityId", "=", facilityId)
+    .execute();
 
   const popularity: ClassPopularity[] = [];
 
@@ -137,8 +147,12 @@ export async function getClassPopularity(): Promise<ClassPopularity[]> {
 }
 
 // Get peak hours based on class schedules and bookings
-export async function getPeakHours(): Promise<PeakHours[]> {
-  const classes = await db.selectFrom("gymClasses").selectAll().execute();
+export async function getPeakHours(facilityId: string): Promise<PeakHours[]> {
+  const classes = await db
+    .selectFrom("gymClasses")
+    .selectAll()
+    .where("facilityId", "=", facilityId)
+    .execute();
 
   const hourMap = new Map<
     number,
@@ -174,11 +188,16 @@ export async function getPeakHours(): Promise<PeakHours[]> {
 // Get user activity metrics
 export async function getUserActivityMetrics(
   userId: string,
+  facilityId: string,
 ): Promise<UserActivityMetrics | null> {
   const user = await db
-    .selectFrom("users")
-    .selectAll()
-    .where("id", "=", userId)
+    .selectFrom("facilityMemberships")
+    .innerJoin("users", "users.id", "facilityMemberships.userId")
+    .select(["users.id", "users.name", "users.email"])
+    .where("facilityMemberships.facilityId", "=", facilityId)
+    .where("facilityMemberships.userId", "=", userId)
+    .where("facilityMemberships.status", "=", "active")
+    .where("users.accountStatus", "=", "active")
     .executeTakeFirst();
 
   if (!user) {
@@ -187,8 +206,10 @@ export async function getUserActivityMetrics(
 
   const bookings = await db
     .selectFrom("bookings")
-    .selectAll()
-    .where("userId", "=", userId)
+    .innerJoin("gymClasses", "gymClasses.id", "bookings.classId")
+    .selectAll("bookings")
+    .where("bookings.userId", "=", userId)
+    .where("gymClasses.facilityId", "=", facilityId)
     .execute();
 
   const confirmedCount = bookings.filter(
@@ -202,6 +223,7 @@ export async function getUserActivityMetrics(
     .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
     .select("bookings.id")
     .where("bookings.userId", "=", userId)
+    .where("gymClasses.facilityId", "=", facilityId)
     .where("bookings.status", "=", "confirmed")
     .where("gymClasses.scheduledAt", ">", Date.now())
     .execute();
@@ -218,7 +240,10 @@ export async function getUserActivityMetrics(
 }
 
 // Get trainer activity metrics
-export async function getTrainerActivityMetrics(trainerId: string): Promise<{
+export async function getTrainerActivityMetrics(
+  trainerId: string,
+  facilityId: string,
+): Promise<{
   trainerId: string;
   totalClasses: number;
   totalBookings: number;
@@ -229,6 +254,7 @@ export async function getTrainerActivityMetrics(trainerId: string): Promise<{
     .selectFrom("gymClasses")
     .selectAll()
     .where("trainerId", "=", trainerId)
+    .where("facilityId", "=", facilityId)
     .execute();
 
   let totalBookings = 0;
@@ -266,11 +292,17 @@ export async function getTrainerActivityMetrics(trainerId: string): Promise<{
 }
 
 // Get member metrics
-export async function getMemberMetrics(): Promise<MemberMetrics> {
+export async function getMemberMetrics(
+  facilityId: string,
+): Promise<MemberMetrics> {
   const members = await db
-    .selectFrom("users")
-    .selectAll()
-    .where("role", "=", "member")
+    .selectFrom("facilityMemberships")
+    .innerJoin("users", "users.id", "facilityMemberships.userId")
+    .select(["facilityMemberships.userId", "facilityMemberships.createdAt"])
+    .where("facilityMemberships.facilityId", "=", facilityId)
+    .where("facilityMemberships.role", "=", "member")
+    .where("facilityMemberships.status", "=", "active")
+    .where("users.accountStatus", "=", "active")
     .execute();
 
   const now = Date.now();
@@ -280,9 +312,20 @@ export async function getMemberMetrics(): Promise<MemberMetrics> {
   // Get unique users who made bookings in last 30 days
   const activeBookings = await db
     .selectFrom("bookings")
-    .selectAll()
-    .where("status", "=", "confirmed")
-    .where("createdAt", ">", monthAgo)
+    .innerJoin("gymClasses", "gymClasses.id", "bookings.classId")
+    .innerJoin("facilityMemberships", (join) =>
+      join
+        .onRef("facilityMemberships.userId", "=", "bookings.userId")
+        .onRef("facilityMemberships.facilityId", "=", "gymClasses.facilityId"),
+    )
+    .innerJoin("users", "users.id", "bookings.userId")
+    .select("bookings.userId")
+    .where("gymClasses.facilityId", "=", facilityId)
+    .where("bookings.status", "=", "confirmed")
+    .where("bookings.createdAt", ">", monthAgo)
+    .where("facilityMemberships.role", "=", "member")
+    .where("facilityMemberships.status", "=", "active")
+    .where("users.accountStatus", "=", "active")
     .execute();
 
   const uniqueActiveMembers = new Set(activeBookings.map((b) => b.userId));
@@ -299,12 +342,13 @@ export async function getMemberMetrics(): Promise<MemberMetrics> {
 }
 
 // Get upcoming bookings for a user
-export async function getUpcomingBookings(userId: string) {
+export async function getUpcomingBookings(userId: string, facilityId: string) {
   return await db
     .selectFrom("bookings")
     .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
     .selectAll()
     .where("bookings.userId", "=", userId)
+    .where("gymClasses.facilityId", "=", facilityId)
     .where("bookings.status", "=", "confirmed")
     .where("gymClasses.scheduledAt", ">", Date.now())
     .orderBy("gymClasses.scheduledAt", "asc")
@@ -313,11 +357,15 @@ export async function getUpcomingBookings(userId: string) {
 }
 
 // Get upcoming classes for a trainer
-export async function getTrainerUpcomingClasses(trainerId: string) {
+export async function getTrainerUpcomingClasses(
+  trainerId: string,
+  facilityId: string,
+) {
   return await db
     .selectFrom("gymClasses")
     .selectAll()
     .where("trainerId", "=", trainerId)
+    .where("facilityId", "=", facilityId)
     .where("scheduledAt", ">", Date.now())
     .orderBy("scheduledAt", "asc")
     .limit(5)

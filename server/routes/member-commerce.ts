@@ -3,11 +3,17 @@ import { db } from "../db/client.js";
 import {
   authenticate,
   getAuthenticatedUser,
-  requireRole,
+  getFacilityContext,
+  requireFacility,
+  selectFacilityContext,
 } from "../middleware/authorization.js";
 
 export const memberCommerceRouter = express.Router();
-memberCommerceRouter.use(authenticate, requireRole("member"));
+memberCommerceRouter.use(
+  authenticate,
+  selectFacilityContext,
+  requireFacility("member"),
+);
 
 memberCommerceRouter.get(
   "/summary",
@@ -18,6 +24,7 @@ memberCommerceRouter.get(
   ) => {
     try {
       const member = getAuthenticatedUser(res);
+      const facility = getFacilityContext(res);
       const payments = await db
         .selectFrom("billingRecords")
         .select([
@@ -36,6 +43,7 @@ memberCommerceRouter.get(
             expression("customerEmail", "=", member.email),
           ]),
         )
+        .where("facilityId", "=", facility.id)
         .where("archivedAt", "is", null)
         .orderBy("updatedAt", "desc")
         .execute();

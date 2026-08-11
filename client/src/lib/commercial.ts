@@ -34,6 +34,9 @@ export interface CommercialTrial {
   status: string;
   subdomain: string;
   realDataDeclaration: "undeclared" | "yes" | "no" | "assistance";
+  autoCleanupEligible: boolean;
+  dataReviewRequestedAt: number | null;
+  cleanupEligibleAt: number | null;
   startedAt: number;
   expiresAt: number;
   notice: { elapsedDays: number; remainingDays: number; milestone: number };

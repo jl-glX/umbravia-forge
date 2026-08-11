@@ -10,6 +10,7 @@ import {
 } from "../lib/private-content-crypto.js";
 import type { AuthenticatedUser } from "../middleware/authorization.js";
 import { recordSecurityEvent } from "./security-events.js";
+import { stageStoredFilesForRemoval } from "../lib/staged-file-removal.js";
 
 export class CommunityAttachmentError extends Error {
   constructor(
@@ -38,6 +39,10 @@ function attachmentRoot(): string {
         "community-attachments",
       ),
   );
+}
+
+export function stageCommunityAttachmentFilesRemoval(storageKeys: string[]) {
+  return stageStoredFilesForRemoval(attachmentRoot(), storageKeys);
 }
 
 export function communityAttachmentLimitBytes(): number {

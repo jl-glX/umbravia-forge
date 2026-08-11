@@ -49,6 +49,8 @@ describe("delegations API", () => {
         .execute();
     }
 
+    await database.initializeDatabase();
+
     await database.db
       .insertInto("gymClasses")
       .values({

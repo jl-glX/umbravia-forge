@@ -54,6 +54,18 @@ describe("email manager API", () => {
       ])
       .execute();
     await database.db
+      .insertInto("facilityMemberships")
+      .values({
+        id: "primary:email-manager-admin",
+        facilityId: "primary",
+        userId: "email-manager-admin",
+        role: "owner",
+        status: "active",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      .execute();
+    await database.db
       .insertInto("emailDeliveries")
       .values({
         id: "email-manager-failed-delivery",

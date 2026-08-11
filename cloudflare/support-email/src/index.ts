@@ -98,10 +98,18 @@ async function preparePayload(
     maxHeadersSize: 128 * 1024,
     maxRfc822NestingDepth: 3,
   });
-  const from = mailboxAddress(parsed.from);
+  const headerFrom = mailboxAddress(parsed.from);
+  const envelopeFrom = message.from.trim().toLowerCase();
   const subject = parsed.subject?.trim() ?? "";
   const text = parsed.text?.trim() ?? "";
-  if (!from || !text || text.length > MAX_TEXT_LENGTH || subject.length > 160) {
+  if (
+    !headerFrom ||
+    !envelopeFrom ||
+    headerFrom !== envelopeFrom ||
+    !text ||
+    text.length > MAX_TEXT_LENGTH ||
+    subject.length > 160
+  ) {
     throw new Error("Message content is invalid");
   }
   if (parsed.attachments.length > 0) {
@@ -111,7 +119,7 @@ async function preparePayload(
   const payload: InboundPayload = {
     version: 1,
     envelopeTo: message.to.trim(),
-    from,
+    from: envelopeFrom,
     messageId: parsed.messageId?.trim() || (await digestMessageId(raw)),
     subject,
     text,

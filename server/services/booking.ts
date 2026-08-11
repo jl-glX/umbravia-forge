@@ -12,6 +12,7 @@ import {
   recordBookingReputationEvent,
 } from "./booking-reputation.js";
 import { parseBookingConfiguration } from "../lib/booking-configuration.js";
+import { PRIMARY_FACILITY_ID } from "./facility-context.js";
 
 const DEFAULT_PROMOTION_CONFIRMATION_MINUTES = 15;
 
@@ -30,18 +31,24 @@ async function getConfiguration(
 async function assertBookingEligibility(
   transaction: Transaction<Database>,
   userId: string,
+  facilityId: string,
   configuration: ReturnType<typeof parseBookingConfiguration>,
   now: number,
 ) {
   const user = await transaction
-    .selectFrom("users")
-    .select("role")
-    .where("id", "=", userId)
+    .selectFrom("facilityMemberships")
+    .innerJoin("users", "users.id", "facilityMemberships.userId")
+    .select("facilityMemberships.role")
+    .where("facilityMemberships.facilityId", "=", facilityId)
+    .where("facilityMemberships.userId", "=", userId)
+    .where("facilityMemberships.status", "=", "active")
+    .where("users.accountStatus", "=", "active")
     .executeTakeFirst();
   if (!user) throw new Error("User not found");
+  const role = user.role === "owner" ? "admin" : user.role;
   if (
     configuration.allowedRoles.length > 0 &&
-    !configuration.allowedRoles.includes(user.role)
+    !configuration.allowedRoles.includes(role)
   ) {
     throw new Error("User role is not eligible for this class");
   }
@@ -122,9 +129,21 @@ async function promoteFromWaitlist(
   classId: string,
   now = Date.now(),
 ) {
+  const gymClass = await transaction
+    .selectFrom("gymClasses")
+    .select("facilityId")
+    .where("id", "=", classId)
+    .executeTakeFirst();
+  if (!gymClass) return null;
+
   const entries = await transaction
     .selectFrom("waitlistEntries")
     .innerJoin("users", "waitlistEntries.userId", "users.id")
+    .innerJoin("facilityMemberships", (join) =>
+      join
+        .onRef("facilityMemberships.userId", "=", "waitlistEntries.userId")
+        .on("facilityMemberships.facilityId", "=", gymClass.facilityId),
+    )
     .select([
       "waitlistEntries.id",
       "waitlistEntries.classId",
@@ -133,10 +152,12 @@ async function promoteFromWaitlist(
       "waitlistEntries.createdAt",
       "waitlistEntries.promotedAt",
       "waitlistEntries.promotionExpiresAt",
-      "users.role",
+      "facilityMemberships.role",
     ])
     .where("classId", "=", classId)
     .where("promotedAt", "is", null)
+    .where("facilityMemberships.status", "=", "active")
+    .where("users.accountStatus", "=", "active")
     .execute();
   if (entries.length === 0) return null;
 
@@ -144,7 +165,9 @@ async function promoteFromWaitlist(
   const eligibleEntries = entries.filter(
     (entry) =>
       configuration.allowedRoles.length === 0 ||
-      configuration.allowedRoles.includes(entry.role),
+      configuration.allowedRoles.includes(
+        entry.role === "owner" ? "admin" : entry.role,
+      ),
   );
   if (eligibleEntries.length === 0) return null;
   const candidates = await Promise.all(
@@ -152,6 +175,7 @@ async function promoteFromWaitlist(
       const reputation = await ensureBookingReputation(
         transaction,
         entry.userId,
+        gymClass.facilityId,
       );
       return {
         entry,
@@ -313,6 +337,7 @@ async function cancelBookingInTransaction(
       "bookings.id",
       "bookings.classId",
       "bookings.status",
+      "gymClasses.facilityId",
       "gymClasses.scheduledAt",
     ])
     .where("bookings.id", "=", bookingId)
@@ -374,6 +399,7 @@ async function cancelBookingInTransaction(
       ));
     await recordBookingReputationEvent(transaction, {
       userId,
+      facilityId: booking.facilityId,
       bookingId,
       type: cancellationType,
       pointsDelta: alreadyRewarded ? 0 : undefined,
@@ -392,14 +418,26 @@ async function cancelBookingInTransaction(
   return { lifecycleStatus };
 }
 
-export async function getClassWithAvailability(classId: string) {
-  await db.transaction().execute(async (transaction) => {
-    await fillAvailablePlacesFromWaitlist(transaction, classId, Date.now());
-  });
-  const gymClass = await db
+export async function getClassWithAvailability(
+  classId: string,
+  facilityId = PRIMARY_FACILITY_ID,
+) {
+  let gymClass = await db
     .selectFrom("gymClasses")
     .selectAll()
     .where("id", "=", classId)
+    .where("facilityId", "=", facilityId)
+    .executeTakeFirst();
+  if (!gymClass) return null;
+
+  await db.transaction().execute(async (transaction) => {
+    await fillAvailablePlacesFromWaitlist(transaction, classId, Date.now());
+  });
+  gymClass = await db
+    .selectFrom("gymClasses")
+    .selectAll()
+    .where("id", "=", classId)
+    .where("facilityId", "=", facilityId)
     .executeTakeFirst();
   if (!gymClass) return null;
 
@@ -426,18 +464,33 @@ export async function getClassWithAvailability(classId: string) {
   };
 }
 
-export async function bookClass(classId: string, userId: string) {
+export async function bookClass(
+  classId: string,
+  userId: string,
+  facilityId = PRIMARY_FACILITY_ID,
+) {
   return db.transaction().execute(async (transaction) => {
     const now = Date.now();
-    await fillAvailablePlacesFromWaitlist(transaction, classId, now);
     const gymClass = await transaction
       .selectFrom("gymClasses")
       .select(["id", "maxCapacity", "scheduledAt"])
       .where("id", "=", classId)
+      .where("facilityId", "=", facilityId)
       .executeTakeFirst();
     if (!gymClass) throw new Error("Class not found");
     if (gymClass.scheduledAt <= now)
       throw new Error("Class has already started");
+
+    const membership = await transaction
+      .selectFrom("facilityMemberships")
+      .select("id")
+      .where("facilityId", "=", facilityId)
+      .where("userId", "=", userId)
+      .where("status", "=", "active")
+      .executeTakeFirst();
+    if (!membership) throw new Error("Active facility membership required");
+
+    await fillAvailablePlacesFromWaitlist(transaction, classId, now);
 
     const existingBooking = await transaction
       .selectFrom("bookings")
@@ -450,7 +503,13 @@ export async function bookClass(classId: string, userId: string) {
       throw new Error("User already has a booking for this class");
 
     const configuration = await getConfiguration(transaction, classId);
-    await assertBookingEligibility(transaction, userId, configuration, now);
+    await assertBookingEligibility(
+      transaction,
+      userId,
+      facilityId,
+      configuration,
+      now,
+    );
     const confirmedCount = await transaction
       .selectFrom("bookings")
       .select((eb) => eb.fn.count("id").as("count"))
@@ -551,6 +610,7 @@ export async function setAttendanceIntention(
         "bookings.id",
         "bookings.classId",
         "bookings.status",
+        "gymClasses.facilityId",
         "gymClasses.scheduledAt",
         "bookingLifecycles.attendanceIntention",
         "bookingLifecycles.lifecycleStatus",
@@ -619,6 +679,7 @@ export async function setAttendanceIntention(
     ) {
       await recordBookingReputationEvent(transaction, {
         userId,
+        facilityId: booking.facilityId,
         bookingId,
         type: "uncertain",
         reason: "La persona indicó que todavía no conoce su asistencia.",
@@ -720,6 +781,7 @@ export async function markBookingAttendance(
       .select([
         "bookings.userId",
         "bookings.status",
+        "gymClasses.facilityId",
         "gymClasses.scheduledAt",
         "bookingLifecycles.lifecycleStatus",
         "bookingLifecycles.attendanceIntention",
@@ -748,6 +810,7 @@ export async function markBookingAttendance(
       .execute();
     await recordBookingReputationEvent(transaction, {
       userId: booking.userId,
+      facilityId: booking.facilityId,
       bookingId,
       type: status,
       reason: correctingAcceptedJustification
@@ -762,6 +825,7 @@ export async function markBookingAttendance(
     if (status === "attended" && booking.attendanceIntention === "yes") {
       await recordBookingReputationEvent(transaction, {
         userId: booking.userId,
+        facilityId: booking.facilityId,
         bookingId,
         type: "confirmed_attended",
         reason: "La confirmación de asistencia se cumplió.",
@@ -772,7 +836,10 @@ export async function markBookingAttendance(
   });
 }
 
-export async function getUserBookings(userId: string) {
+export async function getUserBookings(
+  userId: string,
+  facilityId = PRIMARY_FACILITY_ID,
+) {
   const rows = await db
     .selectFrom("bookings")
     .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
@@ -798,6 +865,7 @@ export async function getUserBookings(userId: string) {
       "waitlistEntries.promotionExpiresAt",
     ])
     .where("bookings.userId", "=", userId)
+    .where("gymClasses.facilityId", "=", facilityId)
     .where("bookings.status", "!=", "cancelled")
     .orderBy("gymClasses.scheduledAt", "asc")
     .execute();
@@ -806,7 +874,7 @@ export async function getUserBookings(userId: string) {
     rows.map(async (row) => {
       let waitlistPosition = row.waitlistPosition;
       if (row.status === "waitlist") {
-        const ordered = await getClassWaitlist(row.classId);
+        const ordered = await getClassWaitlist(row.classId, facilityId);
         const dynamicIndex = ordered.findIndex(
           (entry) => entry.userId === userId,
         );
@@ -828,9 +896,13 @@ export async function getUserBookings(userId: string) {
   );
 }
 
-export async function getClassBookings(classId: string) {
+export async function getClassBookings(
+  classId: string,
+  facilityId = PRIMARY_FACILITY_ID,
+) {
   return db
     .selectFrom("bookings")
+    .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
     .innerJoin("users", "bookings.userId", "users.id")
     .leftJoin("bookingLifecycles", "bookings.id", "bookingLifecycles.bookingId")
     .select([
@@ -843,19 +915,24 @@ export async function getClassBookings(classId: string) {
       "bookingLifecycles.attendanceIntention",
     ])
     .where("bookings.classId", "=", classId)
+    .where("gymClasses.facilityId", "=", facilityId)
     .where("bookings.status", "=", "confirmed")
     .orderBy("bookings.createdAt", "asc")
     .execute();
 }
 
-export async function getClassWaitlist(classId: string) {
+export async function getClassWaitlist(
+  classId: string,
+  facilityId = PRIMARY_FACILITY_ID,
+) {
   const entries = await db
     .selectFrom("waitlistEntries")
+    .innerJoin("gymClasses", "waitlistEntries.classId", "gymClasses.id")
     .innerJoin("users", "waitlistEntries.userId", "users.id")
-    .leftJoin(
-      "bookingReputations",
-      "waitlistEntries.userId",
-      "bookingReputations.userId",
+    .leftJoin("bookingReputations", (join) =>
+      join
+        .onRef("bookingReputations.userId", "=", "waitlistEntries.userId")
+        .onRef("bookingReputations.facilityId", "=", "gymClasses.facilityId"),
     )
     .select([
       "waitlistEntries.id",
@@ -868,6 +945,7 @@ export async function getClassWaitlist(classId: string) {
       "bookingReputations.penaltyUntil",
     ])
     .where("waitlistEntries.classId", "=", classId)
+    .where("gymClasses.facilityId", "=", facilityId)
     .where("waitlistEntries.promotedAt", "is", null)
     .execute();
   const ordered = entries
@@ -892,15 +970,17 @@ export async function getClassWaitlist(classId: string) {
 
 export async function exportClassAttendeesCsv(
   classId: string,
+  facilityId = PRIMARY_FACILITY_ID,
 ): Promise<string> {
   const gymClass = await db
     .selectFrom("gymClasses")
     .select("id")
     .where("id", "=", classId)
+    .where("facilityId", "=", facilityId)
     .executeTakeFirst();
   if (!gymClass) throw new Error("Class not found");
-  const attendees = await getClassBookings(classId);
-  const waitlist = await getClassWaitlist(classId);
+  const attendees = await getClassBookings(classId, facilityId);
+  const waitlist = await getClassWaitlist(classId, facilityId);
   const rows = ['"Name","Email","Status","Waitlist Position"'];
   attendees.forEach((attendee) =>
     rows.push(

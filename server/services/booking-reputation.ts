@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Transaction } from "kysely";
 import { db } from "../db/client.js";
 import type { BookingReputationEventType, Database } from "../db/types.js";
+import { PRIMARY_FACILITY_ID } from "./facility-context.js";
 
 const STARTING_SCORE = 100;
 const MIN_SCORE = 0;
@@ -34,15 +35,18 @@ function penaltyDuration(type: BookingReputationEventType) {
 export async function ensureBookingReputation(
   transaction: Transaction<Database>,
   userId: string,
+  facilityId: string,
 ) {
   const existing = await transaction
     .selectFrom("bookingReputations")
     .selectAll()
+    .where("facilityId", "=", facilityId)
     .where("userId", "=", userId)
     .executeTakeFirst();
   if (existing) return existing;
 
   const created = {
+    facilityId,
     userId,
     score: STARTING_SCORE,
     penaltyUntil: null,
@@ -51,11 +55,14 @@ export async function ensureBookingReputation(
   await transaction
     .insertInto("bookingReputations")
     .values(created)
-    .onConflict((conflict) => conflict.column("userId").doNothing())
+    .onConflict((conflict) =>
+      conflict.columns(["facilityId", "userId"]).doNothing(),
+    )
     .execute();
   return transaction
     .selectFrom("bookingReputations")
     .selectAll()
+    .where("facilityId", "=", facilityId)
     .where("userId", "=", userId)
     .executeTakeFirstOrThrow();
 }
@@ -63,11 +70,13 @@ export async function ensureBookingReputation(
 async function recalculateBookingReputation(
   transaction: Transaction<Database>,
   userId: string,
+  facilityId: string,
   now: number,
 ) {
   const events = await transaction
     .selectFrom("bookingReputationEvents")
     .selectAll()
+    .where("facilityId", "=", facilityId)
     .where("userId", "=", userId)
     .orderBy("createdAt", "asc")
     .orderBy("id", "asc")
@@ -106,6 +115,7 @@ async function recalculateBookingReputation(
       penaltyUntil: (penaltyUntil ?? 0) > now ? penaltyUntil : null,
       updatedAt: now,
     })
+    .where("facilityId", "=", facilityId)
     .where("userId", "=", userId)
     .execute();
 }
@@ -114,6 +124,7 @@ export async function recordBookingReputationEvent(
   transaction: Transaction<Database>,
   input: {
     userId: string;
+    facilityId: string;
     bookingId?: string | null;
     type: BookingReputationEventType;
     reason: string;
@@ -122,7 +133,7 @@ export async function recordBookingReputationEvent(
   },
 ) {
   const now = input.now ?? Date.now();
-  await ensureBookingReputation(transaction, input.userId);
+  await ensureBookingReputation(transaction, input.userId, input.facilityId);
   const pointsDelta =
     input.pointsDelta ??
     reputationPolicy[input.type as keyof typeof reputationPolicy] ??
@@ -131,6 +142,7 @@ export async function recordBookingReputationEvent(
     .insertInto("bookingReputationEvents")
     .values({
       id: `reputation-${randomUUID()}`,
+      facilityId: input.facilityId,
       userId: input.userId,
       bookingId: input.bookingId ?? null,
       type: input.type,
@@ -139,32 +151,48 @@ export async function recordBookingReputationEvent(
       createdAt: now,
     })
     .execute();
-  await recalculateBookingReputation(transaction, input.userId, now);
+  await recalculateBookingReputation(
+    transaction,
+    input.userId,
+    input.facilityId,
+    now,
+  );
 }
 
-export async function getBookingReputation(userId: string) {
-  const user = await db
-    .selectFrom("users")
+export async function getBookingReputation(
+  userId: string,
+  facilityId = PRIMARY_FACILITY_ID,
+) {
+  const membership = await db
+    .selectFrom("facilityMemberships")
     .select("id")
-    .where("id", "=", userId)
+    .where("facilityId", "=", facilityId)
+    .where("userId", "=", userId)
+    .where("status", "=", "active")
     .executeTakeFirst();
-  if (!user) throw new Error("User not found");
+  if (!membership) throw new Error("User not found");
 
   let reputation = await db
     .selectFrom("bookingReputations")
     .selectAll()
+    .where("facilityId", "=", facilityId)
     .where("userId", "=", userId)
     .executeTakeFirst();
 
   if (!reputation) {
     await db.transaction().execute(async (transaction) => {
-      reputation = await ensureBookingReputation(transaction, userId);
+      reputation = await ensureBookingReputation(
+        transaction,
+        userId,
+        facilityId,
+      );
     });
   }
 
   const events = await db
     .selectFrom("bookingReputationEvents")
     .selectAll()
+    .where("facilityId", "=", facilityId)
     .where("userId", "=", userId)
     .orderBy("createdAt", "desc")
     .limit(20)
@@ -205,20 +233,24 @@ export function calculateWaitlistPriority(input: {
 
 export async function adjustBookingReputation(input: {
   userId: string;
+  facilityId: string;
   pointsDelta: number;
   reason: string;
   clearPenalty?: boolean;
 }) {
-  const user = await db
-    .selectFrom("users")
+  const membership = await db
+    .selectFrom("facilityMemberships")
     .select("id")
-    .where("id", "=", input.userId)
+    .where("facilityId", "=", input.facilityId)
+    .where("userId", "=", input.userId)
+    .where("status", "=", "active")
     .executeTakeFirst();
-  if (!user) throw new Error("User not found");
+  if (!membership) throw new Error("User not found");
 
   await db.transaction().execute(async (transaction) => {
     await recordBookingReputationEvent(transaction, {
       userId: input.userId,
+      facilityId: input.facilityId,
       type: "manual_adjustment",
       pointsDelta: input.pointsDelta,
       reason: input.reason,
@@ -226,11 +258,12 @@ export async function adjustBookingReputation(input: {
     if (input.clearPenalty) {
       await recordBookingReputationEvent(transaction, {
         userId: input.userId,
+        facilityId: input.facilityId,
         type: "penalty_cleared",
         pointsDelta: 0,
         reason: `Penalización retirada manualmente: ${input.reason}`,
       });
     }
   });
-  return getBookingReputation(input.userId);
+  return getBookingReputation(input.userId, input.facilityId);
 }

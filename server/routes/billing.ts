@@ -2,7 +2,12 @@ import { randomBytes } from "node:crypto";
 import express from "express";
 import { sql } from "kysely";
 import { db } from "../db/client.js";
-import { authenticate, requireRole } from "../middleware/authorization.js";
+import {
+  authenticate,
+  getFacilityContext,
+  requireFacility,
+  selectFacilityContext,
+} from "../middleware/authorization.js";
 import {
   createBillingRecordValidation,
   updateBillingRecordValidation,
@@ -11,19 +16,31 @@ import {
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
 
 export const billingRouter = express.Router();
-billingRouter.use(authenticate, requireRole("admin"));
+billingRouter.use(authenticate);
+billingRouter.use(selectFacilityContext);
+billingRouter.use(requireFacility("admin", "owner"));
 billingRouter.use(requireRecentFormVerification);
 
-async function findBillingMember(userId: string) {
+async function findBillingMember(userId: string, facilityId: string) {
   return db
     .selectFrom("users")
-    .select(["id", "name", "email", "role"])
-    .where("id", "=", userId)
+    .innerJoin("facilityMemberships", "facilityMemberships.userId", "users.id")
+    .select([
+      "users.id",
+      "users.name",
+      "users.email",
+      "facilityMemberships.role as facilityRole",
+    ])
+    .where("users.id", "=", userId)
+    .where("users.accountStatus", "=", "active")
+    .where("facilityMemberships.facilityId", "=", facilityId)
+    .where("facilityMemberships.status", "=", "active")
     .executeTakeFirst();
 }
 
 billingRouter.get("/members", async (req, res, next) => {
   try {
+    const facilityId = getFacilityContext(res).id;
     const query = String(req.query.query ?? "")
       .trim()
       .toLowerCase();
@@ -38,6 +55,11 @@ billingRouter.get("/members", async (req, res, next) => {
     const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
     const members = await db
       .selectFrom("users")
+      .innerJoin(
+        "facilityMemberships",
+        "facilityMemberships.userId",
+        "users.id",
+      )
       .leftJoin("accountSupportIdentifiers", (join) =>
         join
           .onRef("accountSupportIdentifiers.userId", "=", "users.id")
@@ -51,7 +73,10 @@ billingRouter.get("/members", async (req, res, next) => {
         "users.phone",
         "accountSupportIdentifiers.publicId",
       ])
-      .where("users.role", "=", "member")
+      .where("facilityMemberships.facilityId", "=", facilityId)
+      .where("facilityMemberships.status", "=", "active")
+      .where("facilityMemberships.role", "=", "member")
+      .where("users.accountStatus", "=", "active")
       .where((eb) =>
         eb.or([
           sql<boolean>`LOWER(${eb.ref("users.name")}) LIKE ${pattern} ESCAPE '\\'`,
@@ -73,9 +98,11 @@ billingRouter.get("/members", async (req, res, next) => {
 
 billingRouter.get("/summary", async (_req, res, next) => {
   try {
+    const facilityId = getFacilityContext(res).id;
     const records = await db
       .selectFrom("billingRecords")
       .selectAll()
+      .where("facilityId", "=", facilityId)
       .where("archivedAt", "is", null)
       .execute();
     const currencies: Record<
@@ -113,7 +140,11 @@ billingRouter.get("/summary", async (_req, res, next) => {
 
 billingRouter.get("/", async (req, res, next) => {
   try {
-    let query = db.selectFrom("billingRecords").selectAll();
+    const facilityId = getFacilityContext(res).id;
+    let query = db
+      .selectFrom("billingRecords")
+      .selectAll()
+      .where("facilityId", "=", facilityId);
     const status = String(req.query.status ?? "");
     if (status && !(["paid", "unpaid", "pending"] as string[]).includes(status))
       return res
@@ -162,22 +193,24 @@ billingRouter.post(
     next: express.NextFunction,
   ) => {
     try {
+      const facilityId = getFacilityContext(res).id;
       const now = Date.now();
       const id = `billing-${randomBytes(10).toString("hex")}`;
       const member = req.body.userId
-        ? await findBillingMember(req.body.userId)
+        ? await findBillingMember(req.body.userId, facilityId)
         : null;
       if (req.body.userId && !member) {
         res.status(400).json({ error: "Selected member does not exist" });
         return;
       }
-      if (member && member.role !== "member") {
+      if (member && member.facilityRole !== "member") {
         res.status(400).json({ error: "Selected account is not a member" });
         return;
       }
       const values = {
         ...req.body,
         id,
+        facilityId,
         userId: member?.id ?? null,
         customerName: member?.name ?? req.body.customerName,
         customerEmail: member?.email ?? req.body.customerEmail ?? "",
@@ -202,6 +235,7 @@ billingRouter.post(
             .selectFrom("billingRecords")
             .selectAll()
             .where("id", "=", id)
+            .where("facilityId", "=", facilityId)
             .executeTakeFirstOrThrow(),
         );
     } catch (error) {
@@ -219,16 +253,20 @@ billingRouter.patch(
     next: express.NextFunction,
   ) => {
     try {
+      const facilityId = getFacilityContext(res).id;
       const current = await db
         .selectFrom("billingRecords")
         .selectAll()
         .where("id", "=", req.params.id)
+        .where("facilityId", "=", facilityId)
         .executeTakeFirst();
       if (!current) {
         res.status(404).json({ error: "Billing record not found" });
         return;
       }
       const values = { ...req.body };
+      delete values.id;
+      delete values.facilityId;
       if (current.userId) {
         const hasOwnField = (field: string) =>
           Object.prototype.hasOwnProperty.call(req.body, field);
@@ -244,8 +282,8 @@ billingRouter.patch(
         }
         delete values.userId;
       } else if (req.body.userId) {
-        const member = await findBillingMember(req.body.userId);
-        if (!member || member.role !== "member") {
+        const member = await findBillingMember(req.body.userId, facilityId);
+        if (!member || member.facilityRole !== "member") {
           res.status(400).json({ error: "Selected member does not exist" });
           return;
         }
@@ -273,6 +311,7 @@ billingRouter.patch(
         .updateTable("billingRecords")
         .set(normalizedValues)
         .where("id", "=", req.params.id)
+        .where("facilityId", "=", facilityId)
         .executeTakeFirst();
       if (Number(result.numUpdatedRows) === 0) {
         res.status(404).json({ error: "Billing record not found" });
@@ -283,6 +322,7 @@ billingRouter.patch(
           .selectFrom("billingRecords")
           .selectAll()
           .where("id", "=", req.params.id)
+          .where("facilityId", "=", facilityId)
           .executeTakeFirstOrThrow(),
       );
     } catch (error) {
@@ -300,9 +340,11 @@ billingRouter.delete(
     next: express.NextFunction,
   ) => {
     try {
+      const facilityId = getFacilityContext(res).id;
       await db
         .deleteFrom("billingRecords")
         .where("id", "=", req.params.id)
+        .where("facilityId", "=", facilityId)
         .execute();
       res.status(204).end();
     } catch (error) {

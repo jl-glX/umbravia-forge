@@ -41,6 +41,22 @@ describe("persistent authentication sessions", () => {
     expect(await auth.verifyToken(result.sessionToken)).toMatchObject({
       userId: result.user.id,
       role: "member",
+      facility: {
+        id: "primary",
+        role: "member",
+      },
+    });
+
+    await expect(
+      database.db
+        .selectFrom("facilityMemberships")
+        .select(["facilityId", "role", "status"])
+        .where("userId", "=", result.user.id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      facilityId: "primary",
+      role: "member",
+      status: "active",
     });
 
     await database.db
@@ -227,5 +243,45 @@ describe("persistent authentication sessions", () => {
       termsAcceptedAt: expect.any(Number),
       privacyAcceptedAt: expect.any(Number),
     });
+  });
+
+  it("stores administrator provisioning without creating an active tenant", async () => {
+    const result = await auth.signup(
+      "pending-administrator@example.com",
+      "Pending Administrator",
+      "ProgressivePassword123",
+      {},
+      {
+        lastName: "Account",
+        countryCode: "ES",
+        locale: "es",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+        accountType: "administrator",
+        facilityName: "Pending Facility",
+        facilityType: "traditional_gym",
+      },
+    );
+    expect(result.user).toMatchObject({
+      role: "admin",
+      accountStatus: "pending_verification",
+    });
+    await expect(
+      database.db
+        .selectFrom("administratorSignupProvisioning")
+        .select(["facilityName", "facilityType"])
+        .where("userId", "=", result.user.id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      facilityName: "Pending Facility",
+      facilityType: "traditional_gym",
+    });
+    await expect(
+      database.db
+        .selectFrom("facilityMemberships")
+        .select("id")
+        .where("userId", "=", result.user.id)
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
   });
 });

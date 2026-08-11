@@ -244,7 +244,15 @@
     "passkeyChallengeInvalid": "Die Anmeldeanforderung ist abgelaufen. Bitte versuchen Sie es erneut.",
     "alternativeCodeHelp": "Wenn Sie 2FA verwenden, geben Sie hier einen Authentifizierungs- oder Wiederherstellungscode ein. Umbravia Forge überprüft zunächst Ihr Konto und Ihr Passwort.",
     "passwordPolicy": "Das Passwort muss mindestens 12 Zeichen und höchstens 1024 Byte sowie Großbuchstaben, Kleinbuchstaben und eine Zahl enthalten",
-    "createDescription": "Richten Sie Ihr Profil ein und beginnen Sie mit der Planung Ihrer nächsten Trainingseinheiten."
+    "createDescription": "Richten Sie Ihr Profil ein und beginnen Sie mit der Planung Ihrer nächsten Trainingseinheiten.",
+    "accountType": "Kontotyp",
+    "accountTypes": {
+      "member": "Mitgliedskonto",
+      "administrator": "Administratorkonto"
+    },
+    "facilityName": "Name des Studios",
+    "facilityType": "Art des Studios",
+    "administratorTrialNotice": "Das Studio und seine 31-tägige Testphase werden erst nach der E-Mail-Bestätigung erstellt. Bis dahin belegen sie keinen Mandanten und zählen nicht als echte Aktivität."
   },
   "home": {
     "welcome": "Willkommen zurück, {{name}}",
@@ -1636,14 +1644,14 @@
       },
       "dataReview": {
         "title": "Wurden echte Daten eingegeben?",
-        "description": "Diese Antwort bestimmt den nächsten Schritt. Wenn du den Inhalt zuerst prüfen musst, fordere Unterstützung an.",
+        "description": "Am Ende der Testphase bleiben 6 Stunden, um echte Daten zu melden. Bei Nein oder ausbleibender Antwort werden Testkonto, Zentrum und Umgebung gelöscht. Bei echten Daten oder Unterstützungsbedarf wird die automatische Löschung gestoppt.",
         "yes": "Ja",
         "no": "Nein",
         "assistance": "Ich brauche Hilfe",
         "close": "Testphase beenden",
         "states": {
           "yes": "Die Testphase wird vor jeder Konvertierung zur Prüfung und Klassifizierung pausiert. Nichts wird automatisch konvertiert.",
-          "no": "Die Testphase enthält laut Angabe nur fiktive Daten und kann beendet werden.",
+          "no": "Die Testphase enthält laut Angabe nur fiktive Daten. Testkonto, Zentrum und Umgebung sind zur Löschung vorgemerkt.",
           "assistance": "Die Testphase wird für eine unterstützte Prüfung pausiert. Es erfolgt keine automatische Kontaktaufnahme."
         }
       },

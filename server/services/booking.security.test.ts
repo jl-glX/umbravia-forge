@@ -38,6 +38,7 @@ describe("booking integrity and export security", () => {
         })),
       )
       .execute();
+    await database.initializeDatabase();
     await database.db
       .insertInto("gymClasses")
       .values({

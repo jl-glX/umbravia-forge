@@ -2,7 +2,7 @@ import express from "express";
 import {
   authenticate,
   getAuthenticatedUser,
-  requireRole,
+  requirePlatformOperator,
 } from "../middleware/authorization.js";
 import {
   createDraftRetentionPolicy,
@@ -17,7 +17,7 @@ import {
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
 
 export const dataRetentionRouter = express.Router();
-dataRetentionRouter.use(authenticate, requireRole("admin"));
+dataRetentionRouter.use(authenticate, requirePlatformOperator);
 dataRetentionRouter.use(requireRecentFormVerification);
 
 dataRetentionRouter.get("/", async (_req, res, next) => {

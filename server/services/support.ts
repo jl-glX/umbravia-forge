@@ -27,6 +27,7 @@ import {
   type SupportInboundEmailPayload,
 } from "../lib/support-email-inbound.js";
 import { getManagedEmailChannelCapabilities } from "./email-manager.js";
+import { stageStoredFilesForRemoval } from "../lib/staged-file-removal.js";
 
 export class SupportAccessError extends Error {
   readonly statusCode = 403;
@@ -131,7 +132,7 @@ function publicTicketId(): string {
 
 async function supportAgentRole(
   userId: string,
-  facilityId = "primary",
+  facilityId: string,
 ): Promise<"agent" | "manager" | null> {
   const row = await db
     .selectFrom("supportAgents")
@@ -143,17 +144,31 @@ async function supportAgentRole(
   return row?.role ?? null;
 }
 
+function facilityIdFor(auth: AuthenticatedUser): string {
+  if (!auth.facility) {
+    throw new SupportAccessError("An active facility membership is required");
+  }
+  return auth.facility.id;
+}
+
+function isFacilityAdministrator(auth: AuthenticatedUser): boolean {
+  return auth.facility?.role === "owner" || auth.facility?.role === "admin";
+}
+
 export async function isSupportStaff(
   auth: AuthenticatedUser,
 ): Promise<boolean> {
+  const facilityId = facilityIdFor(auth);
   return (
-    auth.role === "admin" || (await supportAgentRole(auth.userId)) !== null
+    isFacilityAdministrator(auth) ||
+    (await supportAgentRole(auth.userId, facilityId)) !== null
   );
 }
 
 export async function getSupportCapabilities(auth: AuthenticatedUser) {
-  const supportRole = await supportAgentRole(auth.userId);
-  const administrator = auth.role === "admin";
+  const facilityId = facilityIdFor(auth);
+  const supportRole = await supportAgentRole(auth.userId, facilityId);
+  const administrator = isFacilityAdministrator(auth);
   const staff = administrator || supportRole !== null;
   const email = getManagedEmailChannelCapabilities("support");
 
@@ -172,14 +187,22 @@ export async function getSupportCapabilities(auth: AuthenticatedUser) {
 }
 
 async function requireTicketAccess(auth: AuthenticatedUser, ticketId: string) {
+  const facilityId = facilityIdFor(auth);
   const ticket = await db
     .selectFrom("supportTickets")
     .selectAll()
     .where("id", "=", ticketId)
     .executeTakeFirst();
   if (!ticket) throw new SupportNotFoundError("Support ticket not found");
-  const staff = await isSupportStaff(auth);
-  if (!staff && ticket.requesterUserId !== auth.userId) {
+  const staff =
+    ticket.facilityId === facilityId && (await isSupportStaff(auth));
+  if (ticket.requesterUserId === auth.userId) {
+    return { ticket, staff };
+  }
+  if (ticket.facilityId !== facilityId) {
+    throw new SupportNotFoundError("Support ticket not found");
+  }
+  if (!staff) {
     throw new SupportAccessError("Support ticket access denied");
   }
   return { ticket, staff };
@@ -245,6 +268,7 @@ export async function createSupportTicket(
   auth: AuthenticatedUser,
   input: Record<string, unknown>,
 ) {
+  const facilityId = facilityIdFor(auth);
   const subject = requiredText(input.subject, "subject", 160);
   const message = requiredText(input.message, "message", 10_000);
   const category = requiredText(input.category ?? "general", "category", 32);
@@ -264,7 +288,7 @@ export async function createSupportTicket(
   const ticket = {
     id,
     publicId: publicTicketId(),
-    facilityId: "primary",
+    facilityId,
     requesterUserId: auth.userId,
     assigneeUserId: null,
     subject,
@@ -277,7 +301,7 @@ export async function createSupportTicket(
       | "general",
     priority,
     status: "open" as const,
-    source: (input.source === "system" && auth.role === "admin"
+    source: (input.source === "system" && isFacilityAdministrator(auth)
       ? "system"
       : "web") as "web" | "system",
     relatedType: optionalText(input.relatedType, 64),
@@ -339,6 +363,7 @@ export async function listSupportTickets(
   auth: AuthenticatedUser,
   filters: { status?: string; q?: string } = {},
 ) {
+  const facilityId = facilityIdFor(auth);
   const staff = await isSupportStaff(auth);
   let query = db
     .selectFrom("supportTickets")
@@ -367,8 +392,14 @@ export async function listSupportTickets(
       "requester.name as requesterName",
       "assignee.name as assigneeName",
     ]);
-  if (!staff)
-    query = query.where("supportTickets.requesterUserId", "=", auth.userId);
+  query = staff
+    ? query.where((expression) =>
+        expression.or([
+          expression("supportTickets.facilityId", "=", facilityId),
+          expression("supportTickets.requesterUserId", "=", auth.userId),
+        ]),
+      )
+    : query.where("supportTickets.requesterUserId", "=", auth.userId);
   if (filters.status && statuses.has(filters.status as SupportTicketStatus)) {
     query = query.where(
       "supportTickets.status",
@@ -841,12 +872,14 @@ export async function updateSupportTicket(
       .where("facilityId", "=", ticket.facilityId)
       .where("active", "=", 1)
       .executeTakeFirst();
-    const user = await db
-      .selectFrom("users")
+    const membership = await db
+      .selectFrom("facilityMemberships")
       .select("role")
-      .where("id", "=", assigneeUserId)
+      .where("facilityId", "=", ticket.facilityId)
+      .where("userId", "=", assigneeUserId)
+      .where("status", "=", "active")
       .executeTakeFirst();
-    if (!agent && user?.role !== "admin")
+    if (!agent && membership?.role !== "owner" && membership?.role !== "admin")
       throw new SupportValidationError(
         "Assignee is not an active support agent",
       );
@@ -894,6 +927,10 @@ function attachmentRoot(): string {
         "support-attachments",
       ),
   );
+}
+
+export function stageSupportAttachmentFilesRemoval(storageKeys: string[]) {
+  return stageStoredFilesForRemoval(attachmentRoot(), storageKeys);
 }
 
 export function supportAttachmentLimitBytes(): number {
@@ -1018,8 +1055,12 @@ export async function readSupportAttachment(
 }
 
 export async function listKnowledgeArticles(auth: AuthenticatedUser, q = "") {
+  const facilityId = facilityIdFor(auth);
   const staff = await isSupportStaff(auth);
-  let query = db.selectFrom("supportKnowledgeArticles").selectAll();
+  let query = db
+    .selectFrom("supportKnowledgeArticles")
+    .selectAll()
+    .where("facilityId", "=", facilityId);
   if (!staff) query = query.where("status", "=", "published");
   const search = normalizedSearch(q);
   if (search) {
@@ -1039,6 +1080,7 @@ export async function saveKnowledgeArticle(
   input: Record<string, unknown>,
   articleId?: string,
 ) {
+  const facilityId = facilityIdFor(auth);
   const staff = await isSupportStaff(auth);
   if (!staff) throw new SupportAccessError("Support staff access required");
   const title = requiredText(input.title, "title", 180);
@@ -1067,6 +1109,7 @@ export async function saveKnowledgeArticle(
       .selectFrom("supportKnowledgeArticles")
       .select(["id", "publishedAt"])
       .where("id", "=", articleId)
+      .where("facilityId", "=", facilityId)
       .executeTakeFirst();
     if (!existing)
       throw new SupportNotFoundError("Knowledge article not found");
@@ -1084,12 +1127,14 @@ export async function saveKnowledgeArticle(
           status === "published" ? (existing.publishedAt ?? now) : null,
       })
       .where("id", "=", articleId)
+      .where("facilityId", "=", facilityId)
       .execute();
   } else {
     await db
       .insertInto("supportKnowledgeArticles")
       .values({
         id,
+        facilityId,
         title,
         summary,
         body,
@@ -1107,10 +1152,12 @@ export async function saveKnowledgeArticle(
     .selectFrom("supportKnowledgeArticles")
     .selectAll()
     .where("id", "=", id)
+    .where("facilityId", "=", facilityId)
     .executeTakeFirstOrThrow();
 }
 
 export async function listSupportAgents(auth: AuthenticatedUser) {
+  const facilityId = facilityIdFor(auth);
   if (!(await isSupportStaff(auth))) {
     throw new SupportAccessError("Support staff access required");
   }
@@ -1126,7 +1173,7 @@ export async function listSupportAgents(auth: AuthenticatedUser) {
       "users.name",
       "users.email",
     ])
-    .where("supportAgents.facilityId", "=", "primary")
+    .where("supportAgents.facilityId", "=", facilityId)
     .orderBy("users.name")
     .execute();
 }
@@ -1135,24 +1182,30 @@ export async function saveSupportAgent(
   auth: AuthenticatedUser,
   input: Record<string, unknown>,
 ) {
-  if (auth.role !== "admin")
+  const facilityId = facilityIdFor(auth);
+  if (!isFacilityAdministrator(auth))
     throw new SupportAccessError("Administrator access required");
   const userId = requiredText(input.userId, "userId", 128);
   const role = requiredText(input.role ?? "agent", "role", 16) as
     "agent" | "manager";
   if (!["agent", "manager"].includes(role))
     throw new SupportValidationError("Invalid support role");
-  const user = await db
-    .selectFrom("users")
+  const membership = await db
+    .selectFrom("facilityMemberships")
     .select("id")
-    .where("id", "=", userId)
+    .where("facilityId", "=", facilityId)
+    .where("userId", "=", userId)
+    .where("status", "=", "active")
     .executeTakeFirst();
-  if (!user) throw new SupportValidationError("Support user does not exist");
+  if (!membership)
+    throw new SupportValidationError(
+      "Support user must be an active facility member",
+    );
   const now = Date.now();
   const existing = await db
     .selectFrom("supportAgents")
     .select("id")
-    .where("facilityId", "=", "primary")
+    .where("facilityId", "=", facilityId)
     .where("userId", "=", userId)
     .executeTakeFirst();
   if (existing) {
@@ -1168,7 +1221,7 @@ export async function saveSupportAgent(
     .insertInto("supportAgents")
     .values({
       id,
-      facilityId: "primary",
+      facilityId,
       userId,
       role,
       active: input.active === false ? 0 : 1,

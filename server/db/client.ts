@@ -654,6 +654,7 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE gymClasses (
         id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
         name TEXT NOT NULL,
         description TEXT NOT NULL,
         trainerId TEXT NOT NULL,
@@ -661,7 +662,22 @@ async function initializeSqliteSchema(
         maxCapacity INTEGER NOT NULL,
         scheduledAt INTEGER NOT NULL
       );
+      CREATE INDEX idx_gymClasses_facility_scheduled
+        ON gymClasses(facilityId, scheduledAt);
       CREATE INDEX idx_gymClasses_scheduledAt ON gymClasses(scheduledAt);
+    `);
+  } else {
+    const classColumns = requireSqliteDatabase()
+      .prepare("PRAGMA table_info(gymClasses)")
+      .all() as Array<{ name: string }>;
+    if (!classColumns.some((column) => column.name === "facilityId")) {
+      sqliteDb.exec(
+        "ALTER TABLE gymClasses ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'primary'",
+      );
+    }
+    sqliteDb.exec(`
+      CREATE INDEX IF NOT EXISTS idx_gymClasses_facility_scheduled
+        ON gymClasses(facilityId, scheduledAt);
     `);
   }
 
@@ -808,10 +824,13 @@ async function initializeSqliteSchema(
   if (!tableNames.includes("bookingReputations")) {
     sqliteDb.exec(`
       CREATE TABLE bookingReputations (
-        userId TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
+        userId TEXT NOT NULL,
         score INTEGER NOT NULL DEFAULT 100 CHECK(score BETWEEN 0 AND 100),
         penaltyUntil INTEGER,
         updatedAt INTEGER NOT NULL,
+        PRIMARY KEY(facilityId, userId),
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
         FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
       );
       CREATE INDEX idx_bookingReputations_penalty
@@ -823,12 +842,14 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE bookingReputationEvents (
         id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
         userId TEXT NOT NULL,
         bookingId TEXT,
         type TEXT NOT NULL,
         pointsDelta INTEGER NOT NULL,
         reason TEXT NOT NULL,
         createdAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
         FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY(bookingId) REFERENCES bookings(id) ON DELETE SET NULL
       );
@@ -1128,7 +1149,8 @@ async function initializeSqliteSchema(
 
       CREATE TABLE supportKnowledgeArticles (
         id TEXT PRIMARY KEY,
-        slug TEXT NOT NULL UNIQUE,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
+        slug TEXT NOT NULL,
         title TEXT NOT NULL,
         summary TEXT NOT NULL DEFAULT '',
         body TEXT NOT NULL,
@@ -1138,9 +1160,10 @@ async function initializeSqliteSchema(
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL,
         publishedAt INTEGER,
-        FOREIGN KEY(authorUserId) REFERENCES users(id) ON DELETE RESTRICT
+        FOREIGN KEY(authorUserId) REFERENCES users(id) ON DELETE RESTRICT,
+        UNIQUE(facilityId, slug)
       );
-      CREATE INDEX idx_supportKnowledge_status ON supportKnowledgeArticles(status, category, updatedAt DESC);
+      CREATE INDEX idx_supportKnowledge_status ON supportKnowledgeArticles(facilityId, status, category, updatedAt DESC);
     `);
   }
 
@@ -1148,6 +1171,7 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE billingRecords (
         id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
         userId TEXT,
         customerName TEXT NOT NULL,
         customerEmail TEXT NOT NULL DEFAULT '',
@@ -1164,6 +1188,7 @@ async function initializeSqliteSchema(
         archivedAt INTEGER,
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
         FOREIGN KEY(userId) REFERENCES users(id) ON DELETE SET NULL
       );
       CREATE INDEX idx_billingRecords_userId ON billingRecords(userId);
@@ -1176,6 +1201,12 @@ async function initializeSqliteSchema(
       .prepare("PRAGMA table_info(billingRecords)")
       .all() as Array<{ name: string }>;
     const billingColumnNames = billingColumns.map((column) => column.name);
+
+    if (!billingColumnNames.includes("facilityId")) {
+      sqliteDb.exec(
+        "ALTER TABLE billingRecords ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'primary'",
+      );
+    }
 
     if (!billingColumnNames.includes("customCycleLabel")) {
       sqliteDb.exec(
@@ -1197,19 +1228,316 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE facilityProfiles (
         id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
         logoDataUrl TEXT NOT NULL DEFAULT '',
         accentColor TEXT NOT NULL DEFAULT '#2563eb',
+        status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'suspended', 'closed')),
+        createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL
       );
     `);
+  } else {
+    const facilityColumns = sqliteDb
+      .prepare("PRAGMA table_info(facilityProfiles)")
+      .all() as Array<{ name: string }>;
+    const facilityColumnNames = facilityColumns.map((column) => column.name);
+    if (!facilityColumnNames.includes("slug")) {
+      sqliteDb.exec(
+        "ALTER TABLE facilityProfiles ADD COLUMN slug TEXT NOT NULL DEFAULT ''",
+      );
+      sqliteDb.exec("UPDATE facilityProfiles SET slug = id WHERE slug = ''");
+    }
+    if (!facilityColumnNames.includes("status")) {
+      sqliteDb.exec(
+        "ALTER TABLE facilityProfiles ADD COLUMN status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'suspended', 'closed'))",
+      );
+    }
+    if (!facilityColumnNames.includes("createdAt")) {
+      sqliteDb.exec(
+        "ALTER TABLE facilityProfiles ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0",
+      );
+      sqliteDb.exec(
+        "UPDATE facilityProfiles SET createdAt = updatedAt WHERE createdAt = 0",
+      );
+    }
+    sqliteDb.exec(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_facilityProfiles_slug ON facilityProfiles(slug)",
+    );
   }
+
+  const facilityCreatedAt = Date.now();
+  sqliteDb
+    .prepare(
+      `INSERT OR IGNORE INTO facilityProfiles
+       (id, slug, name, logoDataUrl, accentColor, status, createdAt, updatedAt)
+       VALUES ('primary', 'primary', 'Centro Umbravia Forge', '', '#2563eb', 'active', ?, ?)`,
+    )
+    .run(facilityCreatedAt, facilityCreatedAt);
+
+  sqliteDb.exec(`
+    CREATE TRIGGER IF NOT EXISTS trg_gymClasses_facility_insert
+    BEFORE INSERT ON gymClasses
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_gymClasses_facility_update
+    BEFORE UPDATE OF facilityId ON gymClasses
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+  `);
+
+  if (!tableNames.includes("facilityMemberships")) {
+    console.log("Creating facilityMemberships table...");
+    sqliteDb.exec(`
+      CREATE TABLE facilityMemberships (
+        id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('owner', 'admin', 'trainer', 'member')),
+        status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'invited', 'suspended', 'left')),
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(facilityId, userId)
+      );
+      CREATE INDEX idx_facilityMemberships_user
+        ON facilityMemberships(userId, status);
+      CREATE INDEX idx_facilityMemberships_facility_role
+        ON facilityMemberships(facilityId, role, status);
+    `);
+  }
+
+  const membershipBackfillAt = Date.now();
+  sqliteDb
+    .prepare(
+      `INSERT OR IGNORE INTO facilityMemberships
+       (id, facilityId, userId, role, status, createdAt, updatedAt)
+       SELECT 'primary:' || id,
+              'primary',
+              id,
+              CASE role
+                WHEN 'admin' THEN 'admin'
+                WHEN 'trainer' THEN 'trainer'
+                ELSE 'member'
+              END,
+              'active',
+              createdAt,
+              ?
+       FROM users`,
+    )
+    .run(membershipBackfillAt);
+
+  const supportKnowledgeColumns = sqliteDb
+    .prepare("PRAGMA table_info(supportKnowledgeArticles)")
+    .all() as Array<{ name: string }>;
+  if (!supportKnowledgeColumns.some((column) => column.name === "facilityId")) {
+    sqliteDb.exec(`
+      ALTER TABLE supportKnowledgeArticles
+        RENAME TO supportKnowledgeArticlesLegacy;
+      CREATE TABLE supportKnowledgeArticles (
+        id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
+        slug TEXT NOT NULL,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL DEFAULT '',
+        body TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'general',
+        status TEXT NOT NULL CHECK(status IN ('draft', 'published', 'archived')),
+        authorUserId TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL,
+        publishedAt INTEGER,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(authorUserId) REFERENCES users(id) ON DELETE RESTRICT,
+        UNIQUE(facilityId, slug)
+      );
+      INSERT INTO supportKnowledgeArticles (
+        id, facilityId, slug, title, summary, body, category, status,
+        authorUserId, createdAt, updatedAt, publishedAt
+      )
+      SELECT id, 'primary', slug, title, summary, body, category, status,
+             authorUserId, createdAt, updatedAt, publishedAt
+      FROM supportKnowledgeArticlesLegacy;
+      DROP TABLE supportKnowledgeArticlesLegacy;
+    `);
+  }
+
+  sqliteDb.exec(`
+    DROP INDEX IF EXISTS idx_supportKnowledge_status;
+    CREATE INDEX IF NOT EXISTS idx_supportKnowledge_status
+      ON supportKnowledgeArticles(facilityId, status, category, updatedAt DESC);
+    CREATE TRIGGER IF NOT EXISTS trg_supportTickets_facility_insert
+    BEFORE INSERT ON supportTickets
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportTickets_facility_update
+    BEFORE UPDATE OF facilityId ON supportTickets
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportAgents_facility_insert
+    BEFORE INSERT ON supportAgents
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportAgents_facility_update
+    BEFORE UPDATE OF facilityId ON supportAgents
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportKnowledge_facility_insert
+    BEFORE INSERT ON supportKnowledgeArticles
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportKnowledge_facility_update
+    BEFORE UPDATE OF facilityId ON supportKnowledgeArticles
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+  `);
+
+  sqliteDb.exec(`
+    CREATE INDEX IF NOT EXISTS idx_billingRecords_facility_status
+      ON billingRecords(facilityId, status, updatedAt DESC);
+    CREATE TRIGGER IF NOT EXISTS trg_billingRecords_facility_insert
+    BEFORE INSERT ON billingRecords
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_billingRecords_facility_update
+    BEFORE UPDATE OF facilityId ON billingRecords
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+  `);
+
+  const reputationColumns = sqliteDb
+    .prepare("PRAGMA table_info(bookingReputations)")
+    .all() as Array<{ name: string }>;
+  if (!reputationColumns.some((column) => column.name === "facilityId")) {
+    sqliteDb.exec(`
+      ALTER TABLE bookingReputations RENAME TO bookingReputationsLegacy;
+      CREATE TABLE bookingReputations (
+        facilityId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        score INTEGER NOT NULL DEFAULT 100 CHECK(score BETWEEN 0 AND 100),
+        penaltyUntil INTEGER,
+        updatedAt INTEGER NOT NULL,
+        PRIMARY KEY(facilityId, userId),
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+      );
+      INSERT INTO bookingReputations
+        (facilityId, userId, score, penaltyUntil, updatedAt)
+      SELECT 'primary', userId, score, penaltyUntil, updatedAt
+      FROM bookingReputationsLegacy;
+      DROP TABLE bookingReputationsLegacy;
+    `);
+  }
+
+  const reputationEventColumns = sqliteDb
+    .prepare("PRAGMA table_info(bookingReputationEvents)")
+    .all() as Array<{ name: string }>;
+  if (!reputationEventColumns.some((column) => column.name === "facilityId")) {
+    sqliteDb.exec(`
+      ALTER TABLE bookingReputationEvents
+        RENAME TO bookingReputationEventsLegacy;
+      CREATE TABLE bookingReputationEvents (
+        id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        bookingId TEXT,
+        type TEXT NOT NULL,
+        pointsDelta INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(bookingId) REFERENCES bookings(id) ON DELETE SET NULL
+      );
+      INSERT INTO bookingReputationEvents
+        (id, facilityId, userId, bookingId, type, pointsDelta, reason, createdAt)
+      SELECT id, 'primary', userId, bookingId, type, pointsDelta, reason, createdAt
+      FROM bookingReputationEventsLegacy;
+      DROP TABLE bookingReputationEventsLegacy;
+    `);
+  }
+
+  sqliteDb.exec(`
+    DROP INDEX IF EXISTS idx_bookingReputations_penalty;
+    DROP INDEX IF EXISTS idx_bookingReputationEvents_user;
+    CREATE INDEX IF NOT EXISTS idx_bookingReputations_facility_penalty
+      ON bookingReputations(facilityId, penaltyUntil);
+    CREATE INDEX IF NOT EXISTS idx_bookingReputationEvents_facility_user
+      ON bookingReputationEvents(facilityId, userId, createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_bookingReputationEvents_booking_type
+      ON bookingReputationEvents(bookingId, type);
+  `);
+  sqliteDb
+    .prepare(
+      `UPDATE facilityMemberships
+       SET role = 'owner', updatedAt = ?
+       WHERE id = (
+         SELECT membership.id
+         FROM facilityMemberships AS membership
+         INNER JOIN users AS user ON user.id = membership.userId
+         WHERE membership.facilityId = 'primary'
+           AND membership.status = 'active'
+           AND user.role = 'admin'
+         ORDER BY user.createdAt ASC, user.id ASC
+         LIMIT 1
+       )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM facilityMemberships
+         WHERE facilityId = 'primary'
+           AND role = 'owner'
+           AND status = 'active'
+       )`,
+    )
+    .run(membershipBackfillAt);
 
   if (!tableNames.includes("commercialTrials")) {
     console.log("Creating commercialTrials tables...");
     sqliteDb.exec(`
       CREATE TABLE commercialTrials (
         id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL UNIQUE,
         ownerUserId TEXT NOT NULL,
         facilityName TEXT NOT NULL,
         facilityType TEXT NOT NULL CHECK(facilityType IN (
@@ -1237,6 +1565,9 @@ async function initializeSqliteSchema(
         realDataDeclaration TEXT NOT NULL DEFAULT 'undeclared' CHECK(realDataDeclaration IN (
           'undeclared', 'yes', 'no', 'assistance'
         )),
+        autoCleanupEligible INTEGER NOT NULL DEFAULT 0 CHECK(autoCleanupEligible IN (0, 1)),
+        dataReviewRequestedAt INTEGER,
+        cleanupEligibleAt INTEGER,
         conversionDraft TEXT NOT NULL DEFAULT '[]',
         startedAt INTEGER NOT NULL,
         expiresAt INTEGER NOT NULL,
@@ -1244,6 +1575,7 @@ async function initializeSqliteSchema(
         closedAt INTEGER,
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
         FOREIGN KEY(ownerUserId) REFERENCES users(id) ON DELETE RESTRICT
       );
       CREATE INDEX idx_commercialTrials_status ON commercialTrials(status);
@@ -1266,6 +1598,11 @@ async function initializeSqliteSchema(
     const commercialColumns = sqliteDb
       .prepare("PRAGMA table_info(commercialTrials)")
       .all() as Array<{ name: string }>;
+    if (!commercialColumns.some((column) => column.name === "facilityId")) {
+      sqliteDb.exec(
+        "ALTER TABLE commercialTrials ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'primary'",
+      );
+    }
     if (
       !commercialColumns.some((column) => column.name === "conversionDraft")
     ) {
@@ -1273,7 +1610,69 @@ async function initializeSqliteSchema(
         "ALTER TABLE commercialTrials ADD COLUMN conversionDraft TEXT NOT NULL DEFAULT '[]'",
       );
     }
+    if (
+      !commercialColumns.some((column) => column.name === "autoCleanupEligible")
+    ) {
+      sqliteDb.exec(
+        "ALTER TABLE commercialTrials ADD COLUMN autoCleanupEligible INTEGER NOT NULL DEFAULT 0 CHECK(autoCleanupEligible IN (0, 1))",
+      );
+    }
+    if (
+      !commercialColumns.some(
+        (column) => column.name === "dataReviewRequestedAt",
+      )
+    ) {
+      sqliteDb.exec(
+        "ALTER TABLE commercialTrials ADD COLUMN dataReviewRequestedAt INTEGER",
+      );
+    }
+    if (
+      !commercialColumns.some((column) => column.name === "cleanupEligibleAt")
+    ) {
+      sqliteDb.exec(
+        "ALTER TABLE commercialTrials ADD COLUMN cleanupEligibleAt INTEGER",
+      );
+    }
   }
+
+  sqliteDb.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_commercialTrials_facility
+      ON commercialTrials(facilityId);
+    CREATE INDEX IF NOT EXISTS idx_commercialTrials_cleanup
+      ON commercialTrials(autoCleanupEligible, cleanupEligibleAt);
+    CREATE TRIGGER IF NOT EXISTS trg_commercialTrials_facility_insert
+    BEFORE INSERT ON commercialTrials
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_commercialTrials_facility_update
+    BEFORE UPDATE OF facilityId ON commercialTrials
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+  `);
+
+  sqliteDb.exec(`
+    CREATE TABLE IF NOT EXISTS administratorSignupProvisioning (
+      userId TEXT PRIMARY KEY,
+      facilityName TEXT NOT NULL,
+      facilityType TEXT NOT NULL CHECK(facilityType IN (
+        'traditional_gym', 'crossfit', 'hyrox', 'functional_training',
+        'personal_training', 'powerlifting', 'strongman', 'bodybuilding',
+        'martial_arts', 'yoga', 'pilates', 'indoor_cycling',
+        'multidisciplinary', 'custom'
+      )),
+      locale TEXT NOT NULL CHECK(locale IN ('es', 'en', 'de', 'de-CH')),
+      createdAt INTEGER NOT NULL,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
 
   if (!tableNames.includes("commercialRequests")) {
     sqliteDb.exec(`
@@ -1353,14 +1752,6 @@ async function initializeSqliteSchema(
 
   initializeCommunitySchema(sqliteDb);
   initializeE2eeSchema(sqliteDb);
-
-  sqliteDb
-    .prepare(
-      `INSERT OR IGNORE INTO facilityProfiles
-       (id, name, logoDataUrl, accentColor, updatedAt)
-       VALUES ('primary', 'Centro Umbravia Forge', '', '#2563eb', ?)`,
-    )
-    .run(Date.now());
 
   console.log("Database initialized successfully");
 }

@@ -4,17 +4,19 @@ import { useTranslation } from "react-i18next";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../hooks/useAuth";
+import { getAccessRole } from "../context/auth-context";
 
 export function CommercialPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const accessRole = getAccessRole(user);
   const primaryTarget = user
-    ? user.role === "admin"
+    ? accessRole === "admin"
       ? "/admin/commercial-trial"
       : "/"
     : "/signup";
   const primaryLabel = user
-    ? user.role === "admin"
+    ? accessRole === "admin"
       ? t("commercial.public.openEnvironment")
       : t("commercial.public.returnHome")
     : t("commercial.public.explore");

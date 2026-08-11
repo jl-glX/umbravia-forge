@@ -1,4 +1,3 @@
-import { availableParallelism } from "node:os";
 import { defineConfig } from "vitest/config";
 
 function resolveWorkerCount(): number {
@@ -10,14 +9,9 @@ function resolveWorkerCount(): number {
     return requested;
   }
 
-  // Two workers are reliable in Linux CI, but repeated full-suite runs can
-  // terminate intermittently on Windows without an assertion failure. Keep
-  // local Windows validation deterministic while retaining CI parallelism.
-  if (process.platform === "win32") {
-    return 1;
-  }
-
-  return Math.max(1, Math.min(2, availableParallelism()));
+  // Keep developer validation deterministic on every operating system. CI
+  // receives a second worker through its standard environment marker.
+  return process.env.CI ? 2 : 1;
 }
 
 const workerCount = resolveWorkerCount();
@@ -32,7 +26,7 @@ export default defineConfig({
     ],
     globalSetup: ["./scripts/testing/vitest-resource-guard.ts"],
     // Worker threads preserve isolation without leaving child Node processes
-    // behind when Windows or the terminal interrupts the supervised run.
+    // behind when the terminal interrupts the supervised run.
     pool: "threads",
     isolate: true,
     fileParallelism: true,

@@ -1,6 +1,7 @@
 import { db } from "./client.js";
 import { hashPassword } from "../services/auth.js";
 import { ensureSupportIdentifier } from "../services/support-identifiers.js";
+import { ensurePrimaryCompatibilityMembership } from "../services/facility-context.js";
 
 const DEMO_PASSWORDS = {
   admin: "UmbraviaForgeAdmin123",
@@ -249,6 +250,17 @@ export async function seedDatabase() {
     await Promise.all(
       seededUsers.map((user) => ensureSupportIdentifier(user.id)),
     );
+    const seededRoles = await db
+      .selectFrom("users")
+      .select(["id", "role", "createdAt"])
+      .execute();
+    for (const user of seededRoles) {
+      await ensurePrimaryCompatibilityMembership(
+        user.id,
+        user.role,
+        user.createdAt,
+      );
+    }
 
     // Check if classes already exist
     const existingClasses = await db

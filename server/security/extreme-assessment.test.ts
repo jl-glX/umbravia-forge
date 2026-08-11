@@ -71,6 +71,10 @@ describe("extreme local security assessment", () => {
         .execute();
     }
 
+    // Simulate the next startup of a persistent installation so the
+    // compatibility migration assigns every legacy account to `primary`.
+    await database.initializeDatabase();
+
     await database.db
       .insertInto("gymClasses")
       .values([

@@ -34,27 +34,82 @@ describe("member commerce API", () => {
         createdAt: Date.now(),
       })
       .execute();
+    await database.initializeDatabase();
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "secondary",
+        slug: "secondary",
+        name: "Secondary",
+        logoDataUrl: "",
+        accentColor: "#334155",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values({
+        id: "secondary:commerce-member",
+        facilityId: "secondary",
+        userId: "commerce-member",
+        role: "member",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
     await database.db
       .insertInto("billingRecords")
-      .values({
-        id: "member-payment",
-        userId: "commerce-member",
-        customerName: "Commerce Member",
-        customerEmail: "commerce-member@example.com",
-        concept: "Monthly membership",
-        billingCycle: "monthly",
-        customCycleLabel: "",
-        amountCents: 4500,
-        currency: "EUR",
-        status: "paid",
-        dueAt: null,
-        paidAt: Date.now(),
-        invoiceNumber: "HF-MEMBER-001",
-        notes: "",
-        archivedAt: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      })
+      .values([
+        {
+          id: "member-payment",
+          facilityId: "primary",
+          userId: "commerce-member",
+          customerName: "Commerce Member",
+          customerEmail: "commerce-member@example.com",
+          concept: "Monthly membership",
+          billingCycle: "monthly",
+          customCycleLabel: "",
+          amountCents: 4500,
+          currency: "EUR",
+          status: "paid",
+          dueAt: null,
+          paidAt: now,
+          invoiceNumber: "HF-MEMBER-001",
+          notes: "",
+          archivedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "secondary-payment",
+          facilityId: "secondary",
+          userId: "commerce-member",
+          customerName: "Commerce Member",
+          customerEmail: "commerce-member@example.com",
+          concept: "Secondary membership",
+          billingCycle: "monthly",
+          customCycleLabel: "",
+          amountCents: 5500,
+          currency: "EUR",
+          status: "paid",
+          dueAt: null,
+          paidAt: now,
+          invoiceNumber: "HF-MEMBER-002",
+          notes: "",
+          archivedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ])
+      .execute();
+    await database.db
+      .updateTable("users")
+      .set({ role: "admin" })
+      .where("id", "=", "commerce-member")
       .execute();
 
     app = (await import("../index.js")).app;
@@ -93,6 +148,36 @@ describe("member commerce API", () => {
       orders: false,
       bankPayments: false,
     });
+  });
+
+  it("uses the selected membership instead of the account's legacy global role", async () => {
+    const response = await request(app)
+      .get("/api/member-commerce/summary")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+
+    expect(response.body.payments[0].id).toBe("secondary-payment");
+  });
+
+  it("isolates payments by the selected facility", async () => {
+    const primary = await request(app)
+      .get("/api/member-commerce/summary")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "primary")
+      .expect(200);
+    const secondary = await request(app)
+      .get("/api/member-commerce/summary")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+
+    expect(
+      primary.body.payments.map((payment: { id: string }) => payment.id),
+    ).toEqual(["member-payment"]);
+    expect(
+      secondary.body.payments.map((payment: { id: string }) => payment.id),
+    ).toEqual(["secondary-payment"]);
   });
 
   it("rejects unauthenticated access", async () => {

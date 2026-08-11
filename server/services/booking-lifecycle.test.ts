@@ -53,6 +53,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
         })),
       )
       .execute();
+    await database.initializeDatabase();
   });
 
   afterAll(async () => {
@@ -120,6 +121,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await booking.bookClass("dynamic-waitlist-class", "first-waiting");
     await reputation.adjustBookingReputation({
       userId: "first-waiting",
+      facilityId: "primary",
       pointsDelta: -60,
       reason: "Test-only reduced priority",
     });
@@ -344,6 +346,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
   it("does not let repeated rebooking farm on-time cancellation points", async () => {
     await reputation.adjustBookingReputation({
       userId: "farm-member",
+      facilityId: "primary",
       pointsDelta: -10,
       reason: "Test baseline adjustment",
     });

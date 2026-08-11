@@ -93,6 +93,62 @@ describe("Forge Support API", () => {
         },
       ])
       .execute();
+    await database.initializeDatabase();
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "secondary",
+        slug: "secondary",
+        name: "Secondary",
+        logoDataUrl: "",
+        accentColor: "#334155",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values([
+        {
+          id: "secondary:support-admin",
+          facilityId: "secondary",
+          userId: "support-admin",
+          role: "admin",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "secondary:support-member",
+          facilityId: "secondary",
+          userId: "support-member",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "secondary:support-peer",
+          facilityId: "secondary",
+          userId: "support-peer",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "secondary:support-agent",
+          facilityId: "secondary",
+          userId: "support-agent",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ])
+      .execute();
     await database.db
       .updateTable("users")
       .set({ accountStatus: "active", emailVerifiedAt: Date.now() })
@@ -190,6 +246,79 @@ describe("Forge Support API", () => {
       .expect(200);
     expect(own.body.ticket.messages).toHaveLength(1);
     expect(own.body.ticket.context.route).toBe("/my-bookings");
+  });
+
+  it("isolates tickets, agents and knowledge by facility", async () => {
+    const secondaryTicket = await request(app)
+      .post("/api/support/tickets")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .send({
+        subject: "Secondary support request",
+        message: "This request must remain inside the secondary facility.",
+        category: "general",
+        priority: "normal",
+      })
+      .expect(201);
+
+    await request(app)
+      .get(`/api/support/tickets/${secondaryTicket.body.ticket.id}`)
+      .set("Cookie", adminCookie)
+      .expect(404);
+    await request(app)
+      .get(`/api/support/tickets/${secondaryTicket.body.ticket.id}`)
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+
+    const primaryQueue = await request(app)
+      .get("/api/support/tickets")
+      .set("Cookie", adminCookie)
+      .expect(200);
+    expect(
+      primaryQueue.body.tickets.map((ticket: { id: string }) => ticket.id),
+    ).not.toContain(secondaryTicket.body.ticket.id);
+
+    const secondaryAgentCapabilities = await request(app)
+      .get("/api/support/capabilities")
+      .set("Cookie", agentCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(secondaryAgentCapabilities.body.capabilities.staff).toBe(false);
+
+    const articleInput = {
+      title: "Tenant-specific guide",
+      summary: "Facility-scoped support guidance.",
+      body: "Only members of the selected facility may discover this guide.",
+      category: "general",
+      status: "published",
+      slug: "tenant-specific-guide",
+    };
+    await request(app)
+      .post("/api/support/knowledge")
+      .set("Cookie", adminCookie)
+      .send(articleInput)
+      .expect(201);
+    await request(app)
+      .post("/api/support/knowledge")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "secondary")
+      .send(articleInput)
+      .expect(201);
+
+    const primaryKnowledge = await request(app)
+      .get("/api/support/knowledge?q=Tenant-specific")
+      .set("Cookie", memberCookie)
+      .expect(200);
+    const secondaryKnowledge = await request(app)
+      .get("/api/support/knowledge?q=Tenant-specific")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(primaryKnowledge.body.articles).toHaveLength(1);
+    expect(secondaryKnowledge.body.articles).toHaveLength(1);
+    expect(primaryKnowledge.body.articles[0].facilityId).toBe("primary");
+    expect(secondaryKnowledge.body.articles[0].facilityId).toBe("secondary");
   });
 
   it("lets staff triage tickets while hiding internal notes", async () => {
@@ -412,6 +541,31 @@ describe("Forge Support API", () => {
       .select(["id", "publicId", "requesterUserId"])
       .where("publicId", "=", created.body.ticketPublicId)
       .executeTakeFirstOrThrow();
+    const visibleFromSecondary = await request(app)
+      .get("/api/support/tickets")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(
+      visibleFromSecondary.body.tickets.map(
+        (item: { publicId: string }) => item.publicId,
+      ),
+    ).toContain(ticket.publicId);
+    await request(app)
+      .get(`/api/support/tickets/${ticket.id}`)
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    const hiddenFromPeer = await request(app)
+      .get("/api/support/tickets")
+      .set("Cookie", peerCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(
+      hiddenFromPeer.body.tickets.map(
+        (item: { publicId: string }) => item.publicId,
+      ),
+    ).not.toContain(ticket.publicId);
     const replyAddress = buildSupportReplyAddress(
       ticket.publicId,
       ticket.requesterUserId,

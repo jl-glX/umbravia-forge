@@ -665,7 +665,7 @@ export function SupportPage() {
                           className="mt-2 w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-normal normal-case text-slate-800"
                         >
                           <option value="">{t("support.unassigned")}</option>
-                          {user?.role === "admin" && (
+                          {capabilities?.administrator && user && (
                             <option value={user.id}>{user.name}</option>
                           )}
                           {agents
@@ -924,7 +924,7 @@ export function SupportPage() {
           </div>
         )}
 
-        {view === "team" && user?.role === "admin" && (
+        {view === "team" && capabilities?.canManageTeam && (
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_28rem]">
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center gap-3">

@@ -582,6 +582,14 @@
     "join": "Únete a Umbravia Forge",
     "createTitle": "Crea tu cuenta",
     "createDescription": "Configura tu perfil y empieza a planificar tus próximos entrenamientos.",
+    "accountType": "Tipo de cuenta",
+    "accountTypes": {
+      "member": "Cuenta de socio",
+      "administrator": "Cuenta de administrador"
+    },
+    "facilityName": "Nombre del centro",
+    "facilityType": "Tipo de centro",
+    "administratorTrialNotice": "El centro y su prueba de 31 días se crearán únicamente después de verificar el correo. Hasta entonces no ocuparán un tenant ni contarán como actividad real.",
     "fullName": "Nombre completo",
     "confirmPassword": "Confirmar contraseña",
     "allRequired": "Todos los campos son obligatorios",
@@ -1637,14 +1645,14 @@
       },
       "dataReview": {
         "title": "¿Has introducido datos reales?",
-        "description": "Esta respuesta determina el siguiente paso. No existe una opción ambigua: si necesitas revisar el contenido antes de decidir, solicita ayuda.",
+        "description": "Al finalizar la prueba tienes 6 horas para indicar si introdujiste datos reales. Si respondes que no o no respondes, la cuenta de prueba, el centro y su entorno se eliminarán. Si existen datos reales o necesitas revisarlos, el borrado automático se detiene.",
         "yes": "Sí",
         "no": "No",
         "assistance": "Necesito ayuda",
         "close": "Finalizar prueba",
         "states": {
           "yes": "La prueba queda pausada para revisar y clasificar los datos antes de cualquier conversión. Nada se convierte automáticamente.",
-          "no": "Has indicado que la prueba solo contiene datos ficticios. Ya puedes finalizarla cuando quieras.",
+          "no": "Has indicado que la prueba solo contiene datos ficticios. La cuenta de prueba, el centro y su entorno quedan programados para eliminación.",
           "assistance": "La prueba queda pausada a la espera de una revisión asistida. Esta base no inicia llamadas ni contactos automáticos."
         }
       },

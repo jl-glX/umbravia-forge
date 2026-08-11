@@ -46,6 +46,44 @@ describe("billing API", () => {
         createdAt: Date.now(),
       })
       .execute();
+    await database.initializeDatabase();
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "secondary",
+        slug: "secondary",
+        name: "Secondary",
+        logoDataUrl: "",
+        accentColor: "#334155",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values([
+        {
+          id: "secondary:billing-admin",
+          facilityId: "secondary",
+          userId: "billing-admin",
+          role: "owner",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "secondary:billing-member",
+          facilityId: "secondary",
+          userId: "billing-member",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ])
+      .execute();
     app = (await import("../index.js")).app;
     const login = await request(app).post("/api/auth/login").send({
       identifier: "billing-admin@example.com",
@@ -262,6 +300,68 @@ describe("billing API", () => {
       .get("/api/billing?concept=%25_")
       .set("Cookie", adminCookie)
       .expect(400);
+  });
+
+  it("isolates billing documents by the selected facility", async () => {
+    const created = await request(app)
+      .post("/api/billing")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "secondary")
+      .send({
+        userId: "billing-member",
+        customerName: "Ignored snapshot",
+        customerEmail: "ignored@example.com",
+        concept: "Secondary membership",
+        billingCycle: "monthly",
+        customCycleLabel: "",
+        amountCents: 3000,
+        currency: "EUR",
+        status: "pending",
+        dueAt: null,
+        paidAt: null,
+        invoiceNumber: "SECONDARY-001",
+        notes: "",
+      })
+      .expect(201);
+    expect(created.body).toMatchObject({
+      facilityId: "secondary",
+      userId: "billing-member",
+    });
+
+    const primary = await request(app)
+      .get("/api/billing")
+      .set("Cookie", adminCookie)
+      .expect(200);
+    expect(
+      primary.body.some(
+        (record: { id: string }) => record.id === created.body.id,
+      ),
+    ).toBe(false);
+
+    const secondary = await request(app)
+      .get("/api/billing")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(secondary.body).toEqual([
+      expect.objectContaining({
+        id: created.body.id,
+        facilityId: "secondary",
+      }),
+    ]);
+
+    await request(app)
+      .patch(`/api/billing/${created.body.id}`)
+      .set("Cookie", adminCookie)
+      .send({ status: "paid" })
+      .expect(404);
+    await expect(
+      database.db
+        .selectFrom("billingRecords")
+        .select("status")
+        .where("id", "=", created.body.id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ status: "pending" });
   });
 
   it("summarises active billing documents without mixing currencies", async () => {

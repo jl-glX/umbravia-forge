@@ -174,6 +174,7 @@ interface DataRetentionRecord {
 
 interface GymClass {
   id: string;
+  facilityId: Generated<string>;
   name: string;
   description: string;
   trainerId: string;
@@ -250,6 +251,7 @@ export type BookingReputationEventType =
   | "manual_adjustment";
 
 interface BookingReputation {
+  facilityId: string;
   userId: string;
   score: number;
   penaltyUntil: number | null;
@@ -258,6 +260,7 @@ interface BookingReputation {
 
 interface BookingReputationEvent {
   id: string;
+  facilityId: string;
   userId: string;
   bookingId: string | null;
   type: BookingReputationEventType;
@@ -451,6 +454,7 @@ interface SupportEvent {
 
 interface SupportKnowledgeArticle {
   id: string;
+  facilityId: string;
   slug: string;
   title: string;
   summary: string;
@@ -465,6 +469,7 @@ interface SupportKnowledgeArticle {
 
 interface BillingRecord {
   id: string;
+  facilityId: string;
   userId: string | null;
   customerName: string;
   customerEmail: string;
@@ -648,6 +653,7 @@ interface FacilityLink {
 
 interface ParentalControl {
   id: string;
+  facilityId: string;
   childUserId: string;
   guardianUserId: string;
   settings: string;
@@ -711,9 +717,24 @@ interface ModerationAppeal {
 
 interface FacilityProfile {
   id: string;
+  slug: Generated<string>;
   name: string;
   logoDataUrl: string;
   accentColor: string;
+  status: Generated<"active" | "suspended" | "closed">;
+  createdAt: Generated<number>;
+  updatedAt: number;
+}
+
+export type FacilityRole = "owner" | "admin" | "trainer" | "member";
+
+interface FacilityMembership {
+  id: string;
+  facilityId: string;
+  userId: string;
+  role: FacilityRole;
+  status: "active" | "invited" | "suspended" | "left";
+  createdAt: number;
   updatedAt: number;
 }
 
@@ -746,6 +767,7 @@ export type RealDataDeclaration = "undeclared" | "yes" | "no" | "assistance";
 
 interface CommercialTrial {
   id: string;
+  facilityId: string;
   ownerUserId: string;
   facilityName: string;
   facilityType: CommercialFacilityType;
@@ -763,6 +785,9 @@ interface CommercialTrial {
   status: CommercialTrialStatus;
   subdomain: string;
   realDataDeclaration: RealDataDeclaration;
+  autoCleanupEligible: Generated<number>;
+  dataReviewRequestedAt: number | null;
+  cleanupEligibleAt: number | null;
   conversionDraft: string;
   startedAt: number;
   expiresAt: number;
@@ -801,6 +826,14 @@ interface CommercialTrialEvent {
   actorUserId: string;
   type: string;
   metadata: string;
+  createdAt: number;
+}
+
+interface AdministratorSignupProvisioning {
+  userId: string;
+  facilityName: string;
+  facilityType: CommercialFacilityType;
+  locale: "es" | "en" | "de" | "de-CH";
   createdAt: number;
 }
 
@@ -874,8 +907,10 @@ export interface Database {
   moderationActions: ModerationAction;
   moderationAppeals: ModerationAppeal;
   facilityProfiles: FacilityProfile;
+  facilityMemberships: FacilityMembership;
   commercialTrials: CommercialTrial;
   commercialTrialEvents: CommercialTrialEvent;
+  administratorSignupProvisioning: AdministratorSignupProvisioning;
   commercialRequests: CommercialRequest;
   delegationGrants: DelegationGrant;
 }

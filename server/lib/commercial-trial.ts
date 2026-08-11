@@ -1,8 +1,10 @@
 import type { CommercialFacilityType } from "../db/types.js";
 
-export const COMMERCIAL_TRIAL_ID = "primary";
 export const COMMERCIAL_TRIAL_DAYS = 31;
 export const COMMERCIAL_TRIAL_MS = COMMERCIAL_TRIAL_DAYS * 24 * 60 * 60 * 1000;
+export const COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_HOURS = 6;
+export const COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS =
+  COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_HOURS * 60 * 60 * 1000;
 
 export const commercialFacilityTypes: CommercialFacilityType[] = [
   "traditional_gym",
@@ -76,10 +78,11 @@ export const commercialFoundation = {
     implementedThroughPoint: 7,
     point8FoundationAvailable: true,
     conversionExecutionAvailable: false,
-    isolatedTenantProvisioningAvailable: false,
+    isolatedTenantProvisioningAvailable: true,
   },
   trialPolicy: {
     durationDays: COMMERCIAL_TRIAL_DAYS,
+    finalDataReviewGraceHours: COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_HOURS,
     reminderDays: [1, 14, 24, 28, 31],
     automaticRenewal: false,
     automaticSalesContact: false,

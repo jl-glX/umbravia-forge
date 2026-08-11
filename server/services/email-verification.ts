@@ -6,6 +6,7 @@ import {
 } from "node:crypto";
 import { db } from "../db/client.js";
 import { recordSecurityEvent } from "./security-events.js";
+import { finalizeAdministratorSignupInTransaction } from "./commercial-trial.js";
 
 const CHALLENGE_DURATION_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
@@ -119,6 +120,7 @@ export async function verifyEmailCode(
     if (Number(consumed.numUpdatedRows) !== 1) {
       return false;
     }
+    await finalizeAdministratorSignupInTransaction(transaction, userId);
     const userActivated = await transaction
       .updateTable("users")
       .set({ emailVerifiedAt: now, accountStatus: "active" })

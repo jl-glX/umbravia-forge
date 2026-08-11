@@ -50,6 +50,53 @@ describe("facility profile API", () => {
       ])
       .execute();
 
+    const membershipCreatedAt = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "secondary",
+        slug: "secondary",
+        name: "Centro Secundario",
+        logoDataUrl: "",
+        accentColor: "#334155",
+        status: "active",
+        createdAt: membershipCreatedAt,
+        updatedAt: membershipCreatedAt,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values([
+        {
+          id: "primary:facility-admin",
+          facilityId: "primary",
+          userId: "facility-admin",
+          role: "owner",
+          status: "active",
+          createdAt: membershipCreatedAt,
+          updatedAt: membershipCreatedAt,
+        },
+        {
+          id: "primary:facility-member",
+          facilityId: "primary",
+          userId: "facility-member",
+          role: "member",
+          status: "active",
+          createdAt: membershipCreatedAt,
+          updatedAt: membershipCreatedAt,
+        },
+        {
+          id: "secondary:facility-member",
+          facilityId: "secondary",
+          userId: "facility-member",
+          role: "member",
+          status: "active",
+          createdAt: membershipCreatedAt + 1,
+          updatedAt: membershipCreatedAt + 1,
+        },
+      ])
+      .execute();
+
     app = (await import("../index.js")).app;
     adminCookie = (
       await request(app).post("/api/auth/login").send({
@@ -111,5 +158,58 @@ describe("facility profile API", () => {
       .set("Cookie", adminCookie)
       .send({ logoDataUrl: "data:image/svg+xml;base64,PHN2Zy8+" })
       .expect(400);
+  });
+
+  it("selects only facilities with an active membership", async () => {
+    const selected = await request(app)
+      .get("/api/facility-profile")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(selected.body).toMatchObject({
+      id: "secondary",
+      name: "Centro Secundario",
+    });
+
+    const denied = await request(app)
+      .patch("/api/facility-profile")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "secondary")
+      .send({ name: "Cross-tenant write" })
+      .expect(403);
+    expect(denied.body.code).toBe("FORBIDDEN");
+
+    const unchanged = await database.db
+      .selectFrom("facilityProfiles")
+      .select("name")
+      .where("id", "=", "secondary")
+      .executeTakeFirstOrThrow();
+    expect(unchanged.name).toBe("Centro Secundario");
+  });
+
+  it("lists memberships without letting an invalid centre block account logout", async () => {
+    const memberships = await request(app)
+      .get("/api/auth/facilities")
+      .set("Cookie", memberCookie)
+      .expect(200);
+    expect(memberships.body.facilities).toEqual([
+      expect.objectContaining({ id: "primary", role: "member" }),
+      expect.objectContaining({ id: "secondary", role: "member" }),
+    ]);
+
+    const freshCookie = (
+      await request(app).post("/api/auth/login").send({
+        identifier: "facility-admin@example.com",
+        password: "FacilityAdmin123",
+        accessPortal: "staff",
+        rememberDevice: false,
+      })
+    ).headers["set-cookie"][0];
+
+    await request(app)
+      .post("/api/auth/logout")
+      .set("Cookie", freshCookie)
+      .set("X-Facility-Id", "not-a-membership")
+      .expect(200);
   });
 });

@@ -46,6 +46,7 @@ describe("commercial foundation API", () => {
         },
       ])
       .execute();
+    await database.initializeDatabase();
     app = (await import("../index.js")).app;
     const login = async (
       identifier: string,
@@ -98,10 +99,11 @@ describe("commercial foundation API", () => {
       implementedThroughPoint: 7,
       point8FoundationAvailable: true,
       conversionExecutionAvailable: false,
-      isolatedTenantProvisioningAvailable: false,
+      isolatedTenantProvisioningAvailable: true,
     });
     expect(response.body.trialPolicy).toEqual({
       durationDays: 31,
+      finalDataReviewGraceHours: 6,
       reminderDays: [1, 14, 24, 28, 31],
       automaticRenewal: false,
       automaticSalesContact: false,
@@ -218,6 +220,65 @@ describe("commercial foundation API", () => {
       .expect(409);
   });
 
+  it("isolates commercial trials and active-user counts by facility", async () => {
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "commercial-secondary",
+        slug: "commercial-secondary",
+        name: "Secondary Centre",
+        logoDataUrl: "",
+        accentColor: "#2563eb",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values({
+        id: "commercial-secondary:commercial-admin",
+        facilityId: "commercial-secondary",
+        userId: "commercial-admin",
+        role: "owner",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+
+    const secondary = await request(app)
+      .post("/api/commercial/trial")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "commercial-secondary")
+      .send({
+        facilityName: "Secondary Centre",
+        facilityType: "yoga",
+      })
+      .expect(201);
+    expect(secondary.body.trial).toMatchObject({
+      facilityId: "commercial-secondary",
+      facilityName: "Secondary Centre",
+    });
+    expect(secondary.body.environment.counts.users).toBe(1);
+
+    const primary = await request(app)
+      .get("/api/commercial/trial")
+      .set("Cookie", adminCookie)
+      .expect(200);
+    expect(primary.body.trial).toMatchObject({
+      facilityId: "primary",
+      facilityName: "Fitness Boreal",
+    });
+    const selectedSecondary = await request(app)
+      .get("/api/commercial/trial")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "commercial-secondary")
+      .expect(200);
+    expect(selectedSecondary.body.trial.facilityName).toBe("Secondary Centre");
+  });
+
   it("creates voluntary commercial contact without sharing environment data by default", async () => {
     const response = await request(app)
       .post("/api/commercial/trial/contact")
@@ -319,7 +380,7 @@ describe("commercial foundation API", () => {
         realDataDeclaration: "undeclared",
         pausedAt: null,
       })
-      .where("id", "=", "primary")
+      .where("facilityId", "=", "primary")
       .execute();
     const assistance = await request(app)
       .post("/api/commercial/trial/real-data-declaration")
@@ -338,7 +399,7 @@ describe("commercial foundation API", () => {
         realDataDeclaration: "undeclared",
         pausedAt: null,
       })
-      .where("id", "=", "primary")
+      .where("facilityId", "=", "primary")
       .execute();
     const withoutRealData = await request(app)
       .post("/api/commercial/trial/real-data-declaration")

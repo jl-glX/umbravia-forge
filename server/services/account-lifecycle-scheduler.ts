@@ -1,4 +1,5 @@
 import { evaluateDueInactivityDeletions } from "./account-lifecycle.js";
+import { evaluateDueCommercialTrialCleanups } from "./commercial-trial.js";
 
 const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
 let timer: NodeJS.Timeout | null = null;
@@ -20,7 +21,14 @@ function intervalMs(): number {
 
 export function runAccountLifecycleReview() {
   if (currentRun) return currentRun;
-  const execution = evaluateDueInactivityDeletions()
+  const execution = Promise.all([
+    evaluateDueInactivityDeletions(),
+    evaluateDueCommercialTrialCleanups(),
+  ])
+    .then(([accountResult, commercialTrialCleanup]) => ({
+      ...accountResult,
+      commercialTrialCleanup,
+    }))
     .then((result) => {
       lastResult = result;
       lastError = null;

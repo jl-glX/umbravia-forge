@@ -310,6 +310,7 @@ CREATE INDEX IF NOT EXISTS "idx_feedback_createdAt" ON "feedback" ("createdAt");
 
 CREATE TABLE IF NOT EXISTS "billingRecords" (
   "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL DEFAULT 'primary',
   "userId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
   "customerName" TEXT NOT NULL,
   "customerEmail" TEXT NOT NULL DEFAULT '',
@@ -342,6 +343,7 @@ CREATE TABLE IF NOT EXISTS "facilityProfiles" (
 
 CREATE TABLE IF NOT EXISTS "commercialTrials" (
   "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL UNIQUE REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
   "ownerUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
   "facilityName" TEXT NOT NULL,
   "facilityType" TEXT NOT NULL CHECK ("facilityType" IN ('traditional_gym', 'crossfit', 'hyrox', 'functional_training', 'personal_training', 'powerlifting', 'strongman', 'bodybuilding', 'martial_arts', 'yoga', 'pilates', 'indoor_cycling', 'multidisciplinary', 'custom')),
@@ -359,6 +361,9 @@ CREATE TABLE IF NOT EXISTS "commercialTrials" (
   "status" TEXT NOT NULL CHECK ("status" IN ('trial_active', 'trial_paused_support', 'trial_conversion_review', 'trial_expired', 'trial_closed')),
   "subdomain" TEXT NOT NULL,
   "realDataDeclaration" TEXT NOT NULL DEFAULT 'undeclared' CHECK ("realDataDeclaration" IN ('undeclared', 'yes', 'no', 'assistance')),
+  "autoCleanupEligible" SMALLINT NOT NULL DEFAULT 0 CHECK ("autoCleanupEligible" IN (0, 1)),
+  "dataReviewRequestedAt" BIGINT,
+  "cleanupEligibleAt" BIGINT,
   "conversionDraft" TEXT NOT NULL DEFAULT '[]',
   "startedAt" BIGINT NOT NULL,
   "expiresAt" BIGINT NOT NULL,
@@ -379,6 +384,14 @@ CREATE TABLE IF NOT EXISTS "commercialTrialEvents" (
   "createdAt" BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS "idx_commercialTrialEvents_trial" ON "commercialTrialEvents" ("trialId", "createdAt" DESC);
+
+CREATE TABLE IF NOT EXISTS "administratorSignupProvisioning" (
+  "userId" TEXT PRIMARY KEY REFERENCES "users" ("id") ON DELETE CASCADE,
+  "facilityName" TEXT NOT NULL,
+  "facilityType" TEXT NOT NULL CHECK ("facilityType" IN ('traditional_gym', 'crossfit', 'hyrox', 'functional_training', 'personal_training', 'powerlifting', 'strongman', 'bodybuilding', 'martial_arts', 'yoga', 'pilates', 'indoor_cycling', 'multidisciplinary', 'custom')),
+  "locale" TEXT NOT NULL CHECK ("locale" IN ('es', 'en', 'de', 'de-CH')),
+  "createdAt" BIGINT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS "delegationGrants" (
   "id" TEXT PRIMARY KEY,
@@ -473,7 +486,8 @@ CREATE INDEX IF NOT EXISTS "idx_supportEvents_ticket" ON "supportEvents" ("ticke
 
 CREATE TABLE IF NOT EXISTS "supportKnowledgeArticles" (
   "id" TEXT PRIMARY KEY,
-  "slug" TEXT NOT NULL UNIQUE,
+  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "slug" TEXT NOT NULL,
   "title" TEXT NOT NULL,
   "summary" TEXT NOT NULL DEFAULT '',
   "body" TEXT NOT NULL,
@@ -484,7 +498,7 @@ CREATE TABLE IF NOT EXISTS "supportKnowledgeArticles" (
   "updatedAt" BIGINT NOT NULL,
   "publishedAt" BIGINT
 );
-CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status" ON "supportKnowledgeArticles" ("status", "category", "updatedAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status" ON "supportKnowledgeArticles" ("facilityId", "status", "category", "updatedAt" DESC);
 
 INSERT INTO "facilityProfiles" ("id", "name", "logoDataUrl", "accentColor", "updatedAt")
 VALUES ('primary', 'Centro Umbravia Forge', '', '#2563eb', 0)
@@ -722,7 +736,7 @@ CREATE INDEX IF NOT EXISTS "idx_communityMembers_user"
 
 CREATE TABLE IF NOT EXISTS "facilityLinks" (
   "id" TEXT PRIMARY KEY,
-  "sourceFacilityId" TEXT NOT NULL,
+  "sourceFacilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
   "targetFacilityName" TEXT NOT NULL,
   "reason" TEXT NOT NULL DEFAULT '',
   "mode" TEXT NOT NULL CHECK ("mode" IN ('temporary','permanent')),
@@ -733,24 +747,29 @@ CREATE TABLE IF NOT EXISTS "facilityLinks" (
   "createdAt" BIGINT NOT NULL,
   "updatedAt" BIGINT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS "idx_facilityLinks_source_status"
+  ON "facilityLinks" ("sourceFacilityId", "status", "updatedAt" DESC);
 
 CREATE TABLE IF NOT EXISTS "parentalControls" (
   "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL DEFAULT 'primary' REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
   "childUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
   "guardianUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
   "settings" TEXT NOT NULL DEFAULT '{}',
   "status" TEXT NOT NULL CHECK ("status" IN ('parental_control_inactive','parental_control_pending','parental_control_active','parental_control_under_review','parental_control_transitioning','parental_control_ended')),
   "createdAt" BIGINT NOT NULL,
   "updatedAt" BIGINT NOT NULL,
-  UNIQUE ("childUserId", "guardianUserId")
+  UNIQUE ("facilityId", "childUserId", "guardianUserId")
 );
+CREATE INDEX IF NOT EXISTS "idx_parentalControls_facility_status"
+  ON "parentalControls" ("facilityId", "status", "updatedAt" DESC);
 
 CREATE TABLE IF NOT EXISTS "moderationCases" (
   "id" TEXT PRIMARY KEY,
   "reporterUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
   "subjectUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
   "messageId" TEXT REFERENCES "communityMessages" ("id") ON DELETE SET NULL,
-  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "facilityId" TEXT NOT NULL DEFAULT 'primary' REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
   "category" TEXT NOT NULL,
   "description" TEXT NOT NULL,
   "evidence" TEXT NOT NULL DEFAULT '[]',
@@ -761,7 +780,7 @@ CREATE TABLE IF NOT EXISTS "moderationCases" (
   "updatedAt" BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS "idx_moderationCases_status"
-  ON "moderationCases" ("status", "urgency", "createdAt" DESC);
+  ON "moderationCases" ("facilityId", "status", "urgency", "createdAt" DESC);
 
 CREATE TABLE IF NOT EXISTS "moderationActions" (
   "id" TEXT PRIMARY KEY,
@@ -928,7 +947,8 @@ CREATE INDEX IF NOT EXISTS "idx_supportEvents_ticket" ON "supportEvents" ("ticke
 
 CREATE TABLE IF NOT EXISTS "supportKnowledgeArticles" (
   "id" TEXT PRIMARY KEY,
-  "slug" TEXT NOT NULL UNIQUE,
+  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "slug" TEXT NOT NULL,
   "title" TEXT NOT NULL,
   "summary" TEXT NOT NULL DEFAULT '',
   "body" TEXT NOT NULL,
@@ -939,7 +959,7 @@ CREATE TABLE IF NOT EXISTS "supportKnowledgeArticles" (
   "updatedAt" BIGINT NOT NULL,
   "publishedAt" BIGINT
 );
-CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status" ON "supportKnowledgeArticles" ("status", "category", "updatedAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status" ON "supportKnowledgeArticles" ("facilityId", "status", "category", "updatedAt" DESC);
 `,
   },
   {
@@ -1140,6 +1160,321 @@ CREATE INDEX IF NOT EXISTS "idx_e2eeAttachments_recipient"
   ON "e2eeAttachments" ("recipientDeviceId", "createdAt", "id");
 CREATE INDEX IF NOT EXISTS "idx_e2eeAttachments_conversation"
   ON "e2eeAttachments" ("conversationId", "createdAt", "id");
+`,
+  },
+  {
+    version: 15,
+    name: "facility-membership-foundation",
+    sql: String.raw`
+ALTER TABLE "facilityProfiles"
+  ADD COLUMN IF NOT EXISTS "slug" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "facilityProfiles"
+  ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'active'
+    CHECK ("status" IN ('active', 'suspended', 'closed'));
+ALTER TABLE "facilityProfiles"
+  ADD COLUMN IF NOT EXISTS "createdAt" BIGINT NOT NULL DEFAULT 0;
+
+UPDATE "facilityProfiles"
+SET "slug" = "id"
+WHERE "slug" = '';
+UPDATE "facilityProfiles"
+SET "createdAt" = "updatedAt"
+WHERE "createdAt" = 0;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_facilityProfiles_slug"
+  ON "facilityProfiles" ("slug");
+
+INSERT INTO "facilityProfiles"
+  ("id", "slug", "name", "logoDataUrl", "accentColor", "status", "createdAt", "updatedAt")
+VALUES
+  ('primary', 'primary', 'Centro Umbravia Forge', '', '#2563eb', 'active', 0, 0)
+ON CONFLICT ("id") DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS "facilityMemberships" (
+  "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "role" TEXT NOT NULL CHECK ("role" IN ('owner', 'admin', 'trainer', 'member')),
+  "status" TEXT NOT NULL DEFAULT 'active'
+    CHECK ("status" IN ('active', 'invited', 'suspended', 'left')),
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  UNIQUE ("facilityId", "userId")
+);
+CREATE INDEX IF NOT EXISTS "idx_facilityMemberships_user"
+  ON "facilityMemberships" ("userId", "status");
+CREATE INDEX IF NOT EXISTS "idx_facilityMemberships_facility_role"
+  ON "facilityMemberships" ("facilityId", "role", "status");
+
+INSERT INTO "facilityMemberships"
+  ("id", "facilityId", "userId", "role", "status", "createdAt", "updatedAt")
+SELECT
+  'primary:' || "id",
+  'primary',
+  "id",
+  CASE "role"
+    WHEN 'admin' THEN 'admin'
+    WHEN 'trainer' THEN 'trainer'
+    ELSE 'member'
+  END,
+  'active',
+  "createdAt",
+  "createdAt"
+FROM "users"
+ON CONFLICT ("facilityId", "userId") DO NOTHING;
+
+UPDATE "facilityMemberships"
+SET "role" = 'owner'
+WHERE "id" = (
+  SELECT membership."id"
+  FROM "facilityMemberships" AS membership
+  INNER JOIN "users" AS account ON account."id" = membership."userId"
+  WHERE membership."facilityId" = 'primary'
+    AND membership."status" = 'active'
+    AND account."role" = 'admin'
+  ORDER BY account."createdAt" ASC, account."id" ASC
+  LIMIT 1
+)
+AND NOT EXISTS (
+  SELECT 1
+  FROM "facilityMemberships"
+  WHERE "facilityId" = 'primary'
+    AND "role" = 'owner'
+    AND "status" = 'active'
+);
+`,
+  },
+  {
+    version: 16,
+    name: "facility-class-scope",
+    sql: String.raw`
+ALTER TABLE "gymClasses"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+
+ALTER TABLE "gymClasses"
+  ADD CONSTRAINT "gymClasses_facilityId_fkey"
+  FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+  ON DELETE RESTRICT;
+
+CREATE INDEX IF NOT EXISTS "idx_gymClasses_facility_scheduled"
+  ON "gymClasses" ("facilityId", "scheduledAt");
+`,
+  },
+  {
+    version: 17,
+    name: "facility-booking-reputation-scope",
+    sql: String.raw`
+ALTER TABLE "bookingReputations"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+
+ALTER TABLE "bookingReputationEvents"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+
+UPDATE "bookingReputationEvents" AS event
+SET "facilityId" = (
+  SELECT gym_class."facilityId"
+  FROM "gymClasses" AS gym_class
+  WHERE gym_class."id" = booking."classId"
+)
+FROM "bookings" AS booking
+WHERE event."bookingId" = booking."id";
+
+ALTER TABLE "bookingReputations"
+  DROP CONSTRAINT "bookingReputations_pkey";
+ALTER TABLE "bookingReputations"
+  ADD CONSTRAINT "bookingReputations_pkey"
+  PRIMARY KEY ("facilityId", "userId");
+ALTER TABLE "bookingReputations"
+  ADD CONSTRAINT "bookingReputations_facilityId_fkey"
+  FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+  ON DELETE CASCADE;
+ALTER TABLE "bookingReputationEvents"
+  ADD CONSTRAINT "bookingReputationEvents_facilityId_fkey"
+  FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+  ON DELETE CASCADE;
+
+DROP INDEX IF EXISTS "idx_bookingReputations_penalty";
+DROP INDEX IF EXISTS "idx_bookingReputationEvents_user";
+CREATE INDEX IF NOT EXISTS "idx_bookingReputations_facility_penalty"
+  ON "bookingReputations" ("facilityId", "penaltyUntil");
+CREATE INDEX IF NOT EXISTS "idx_bookingReputationEvents_facility_user"
+  ON "bookingReputationEvents" ("facilityId", "userId", "createdAt" DESC);
+`,
+  },
+  {
+    version: 18,
+    name: "facility-billing-scope",
+    sql: String.raw`
+ALTER TABLE "billingRecords"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+ALTER TABLE "billingRecords"
+  ADD CONSTRAINT "billingRecords_facilityId_fkey"
+  FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+  ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS "idx_billingRecords_facility_status"
+  ON "billingRecords" ("facilityId", "status", "updatedAt" DESC);
+`,
+  },
+  {
+    version: 19,
+    name: "facility-support-scope",
+    sql: String.raw`
+ALTER TABLE "supportKnowledgeArticles"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+ALTER TABLE "supportKnowledgeArticles"
+  DROP CONSTRAINT IF EXISTS "supportKnowledgeArticles_slug_key";
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'supportTickets_facilityId_fkey'
+  ) THEN
+    ALTER TABLE "supportTickets"
+      ADD CONSTRAINT "supportTickets_facilityId_fkey"
+      FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'supportAgents_facilityId_fkey'
+  ) THEN
+    ALTER TABLE "supportAgents"
+      ADD CONSTRAINT "supportAgents_facilityId_fkey"
+      FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'supportKnowledgeArticles_facilityId_fkey'
+  ) THEN
+    ALTER TABLE "supportKnowledgeArticles"
+      ADD CONSTRAINT "supportKnowledgeArticles_facilityId_fkey"
+      FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+END $$;
+
+DROP INDEX IF EXISTS "idx_supportKnowledge_status";
+CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status"
+  ON "supportKnowledgeArticles"
+  ("facilityId", "status", "category", "updatedAt" DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_supportKnowledge_facility_slug"
+  ON "supportKnowledgeArticles" ("facilityId", "slug");
+`,
+  },
+  {
+    version: 20,
+    name: "facility-moderation-scope",
+    sql: String.raw`
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'moderationCases_facilityId_fkey'
+  ) THEN
+    ALTER TABLE "moderationCases"
+      ADD CONSTRAINT "moderationCases_facilityId_fkey"
+      FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'facilityLinks_sourceFacilityId_fkey'
+  ) THEN
+    ALTER TABLE "facilityLinks"
+      ADD CONSTRAINT "facilityLinks_sourceFacilityId_fkey"
+      FOREIGN KEY ("sourceFacilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+END $$;
+
+DROP INDEX IF EXISTS "idx_moderationCases_status";
+CREATE INDEX IF NOT EXISTS "idx_moderationCases_status"
+  ON "moderationCases" ("facilityId", "status", "urgency", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_facilityLinks_source_status"
+  ON "facilityLinks" ("sourceFacilityId", "status", "updatedAt" DESC);
+`,
+  },
+  {
+    version: 21,
+    name: "facility-community-controls-scope",
+    sql: String.raw`
+ALTER TABLE "parentalControls"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+ALTER TABLE "parentalControls"
+  DROP CONSTRAINT IF EXISTS "parentalControls_childUserId_guardianUserId_key";
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'parentalControls_facilityId_fkey'
+  ) THEN
+    ALTER TABLE "parentalControls"
+      ADD CONSTRAINT "parentalControls_facilityId_fkey"
+      FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_parentalControls_facility_pair"
+  ON "parentalControls" ("facilityId", "childUserId", "guardianUserId");
+CREATE INDEX IF NOT EXISTS "idx_parentalControls_facility_status"
+  ON "parentalControls" ("facilityId", "status", "updatedAt" DESC);
+`,
+  },
+  {
+    version: 22,
+    name: "commercial-trials-facility-scope",
+    sql: String.raw`
+ALTER TABLE "commercialTrials"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'commercialTrials_facilityId_fkey'
+  ) THEN
+    ALTER TABLE "commercialTrials"
+      ADD CONSTRAINT "commercialTrials_facilityId_fkey"
+      FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_commercialTrials_facility"
+  ON "commercialTrials" ("facilityId");
+`,
+  },
+  {
+    version: 23,
+    name: "administrator-signup-provisioning",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "administratorSignupProvisioning" (
+  "userId" TEXT PRIMARY KEY REFERENCES "users" ("id") ON DELETE CASCADE,
+  "facilityName" TEXT NOT NULL,
+  "facilityType" TEXT NOT NULL CHECK ("facilityType" IN ('traditional_gym', 'crossfit', 'hyrox', 'functional_training', 'personal_training', 'powerlifting', 'strongman', 'bodybuilding', 'martial_arts', 'yoga', 'pilates', 'indoor_cycling', 'multidisciplinary', 'custom')),
+  "locale" TEXT NOT NULL CHECK ("locale" IN ('es', 'en', 'de', 'de-CH')),
+  "createdAt" BIGINT NOT NULL
+);
+`,
+  },
+  {
+    version: 24,
+    name: "commercial-trial-abandonment-cleanup",
+    sql: String.raw`
+ALTER TABLE "commercialTrials"
+  ADD COLUMN IF NOT EXISTS "autoCleanupEligible" SMALLINT NOT NULL DEFAULT 0
+    CHECK ("autoCleanupEligible" IN (0, 1));
+ALTER TABLE "commercialTrials"
+  ADD COLUMN IF NOT EXISTS "dataReviewRequestedAt" BIGINT;
+ALTER TABLE "commercialTrials"
+  ADD COLUMN IF NOT EXISTS "cleanupEligibleAt" BIGINT;
+
+CREATE INDEX IF NOT EXISTS "idx_commercialTrials_cleanup"
+  ON "commercialTrials" ("autoCleanupEligible", "cleanupEligibleAt");
 `,
   },
 ];

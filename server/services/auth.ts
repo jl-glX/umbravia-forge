@@ -19,6 +19,14 @@ import {
   CURRENT_TERMS_VERSION,
 } from "../lib/legal-versions.js";
 import { completeAccountRecovery } from "./account-recovery.js";
+import {
+  ensurePrimaryCompatibilityMembership,
+  type FacilityContext,
+  isPlatformOperator,
+  resolveFacilityContext,
+} from "./facility-context.js";
+import { commercialFacilityTypes } from "../lib/commercial-trial.js";
+import type { CommercialFacilityType } from "../db/types.js";
 
 export { isStrongPassword } from "../lib/password-policy.js";
 
@@ -38,6 +46,8 @@ export interface SessionData {
   accountStatus: "pending_verification" | "active" | "security_review";
   createdAt: number;
   expiresAt: number;
+  facility: FacilityContext | null;
+  platformOperator: boolean;
 }
 
 export interface AuthResult {
@@ -50,6 +60,8 @@ export interface AuthResult {
     avatarDataUrl: string;
     role: "member" | "trainer" | "admin";
     accountStatus: "pending_verification" | "active" | "security_review";
+    facility?: FacilityContext | null;
+    platformOperator?: boolean;
   };
 }
 
@@ -69,6 +81,9 @@ export interface SignupProfile {
   locale: "es" | "en" | "de" | "de-CH";
   acceptedTerms: boolean;
   acceptedPrivacy: boolean;
+  accountType?: "member" | "administrator";
+  facilityName?: string;
+  facilityType?: CommercialFacilityType;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -140,6 +155,8 @@ export async function createSession(
     avatarDataUrl: user.avatarDataUrl,
     role: user.role,
     accountStatus: user.accountStatus,
+    facility: await resolveFacilityContext(user.id),
+    platformOperator: await isPlatformOperator(user.id),
   };
   return { sessionToken: token, user: publicUser, rememberDevice };
 }
@@ -174,10 +191,27 @@ export async function signup(
   if (!profile.acceptedTerms || !profile.acceptedPrivacy) {
     throw new Error("Terms and privacy acknowledgement are required");
   }
+  const administratorSignup = profile.accountType === "administrator";
+  if (
+    administratorSignup &&
+    (!profile.facilityName ||
+      profile.facilityName.trim().length < 2 ||
+      profile.facilityName.trim().length > 120)
+  ) {
+    throw new Error("A valid facility name is required");
+  }
+  if (
+    administratorSignup &&
+    (!profile.facilityType ||
+      !commercialFacilityTypes.includes(profile.facilityType))
+  ) {
+    throw new Error("A valid facility type is required");
+  }
 
   const createdAt = Date.now();
   const requireEmailVerification = options.requireEmailVerification ?? true;
 
+  const role = administratorSignup ? ("admin" as const) : ("member" as const);
   const user = {
     id: `user-${randomBytes(8).toString("hex")}`,
     email,
@@ -195,19 +229,37 @@ export async function signup(
     privacyVersion: CURRENT_PRIVACY_VERSION,
     privacyAcceptedAt: createdAt,
     avatarDataUrl: "",
-    role: "member" as const,
+    role,
     sessionIdleTimeoutMinutes: DEFAULT_SESSION_IDLE_TIMEOUT_MINUTES,
   };
 
-  await db
-    .insertInto("users")
-    .values({
-      ...user,
-      password: await hashPassword(password),
-      createdAt,
-    })
-    .execute();
+  const passwordHash = await hashPassword(password);
+  await db.transaction().execute(async (transaction) => {
+    await transaction
+      .insertInto("users")
+      .values({
+        ...user,
+        password: passwordHash,
+        createdAt,
+      })
+      .execute();
+    if (administratorSignup) {
+      await transaction
+        .insertInto("administratorSignupProvisioning")
+        .values({
+          userId: user.id,
+          facilityName: profile.facilityName!.trim(),
+          facilityType: profile.facilityType!,
+          locale: profile.locale,
+          createdAt,
+        })
+        .execute();
+    }
+  });
 
+  if (!administratorSignup) {
+    await ensurePrimaryCompatibilityMembership(user.id, user.role, createdAt);
+  }
   await ensureSupportIdentifier(user.id);
   return createSession(user, metadata);
 }
@@ -241,11 +293,27 @@ export async function login(
     )
     .executeTakeFirst();
 
+  const portalMembership = user
+    ? await db
+        .selectFrom("facilityMemberships")
+        .select("id")
+        .where("userId", "=", user.id)
+        .where("status", "=", "active")
+        .where(
+          "role",
+          "in",
+          accessPortal === "member"
+            ? ["member"]
+            : ["trainer", "admin", "owner"],
+        )
+        .executeTakeFirst()
+    : null;
   const portalMatches =
     user &&
-    (accessPortal === "member"
-      ? user.role === "member"
-      : user.role === "trainer" || user.role === "admin");
+    (portalMembership !== undefined ||
+      (accessPortal === "member"
+        ? user.role === "member"
+        : user.role === "trainer" || user.role === "admin"));
 
   if (!user || !portalMatches) {
     await performDummyPasswordVerification(password);
@@ -448,6 +516,8 @@ export async function verifyToken(token: string): Promise<SessionData | null> {
     createdAt: record.createdAt,
     expiresAt: record.expiresAt,
     sessionId: sessionId(token),
+    facility: await resolveFacilityContext(record.userId),
+    platformOperator: await isPlatformOperator(record.userId),
   };
 }
 

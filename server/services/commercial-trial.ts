@@ -1,16 +1,27 @@
 import { randomUUID } from "node:crypto";
+import type { Transaction } from "kysely";
 import { db } from "../db/client.js";
 import type {
   CommercialFacilityType,
+  Database,
   RealDataDeclaration,
 } from "../db/types.js";
 import {
-  COMMERCIAL_TRIAL_ID,
+  COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS,
   COMMERCIAL_TRIAL_MS,
   commercialTemplates,
   createTrialSubdomain,
   getTrialNotice,
 } from "../lib/commercial-trial.js";
+import { deleteUserInTransaction, UserDeletionBlockedError } from "./users.js";
+import { stageCommercialEnvironmentRemoval } from "./environment-manager.js";
+import {
+  ManagerCoordinationConflictError,
+  withCoordinatedManagerOperation,
+} from "./manager-coordinator.js";
+import { stageCommunityAttachmentFilesRemoval } from "./community-attachments.js";
+import { stageSupportAttachmentFilesRemoval } from "./support.js";
+import type { StagedFileRemoval } from "../lib/staged-file-removal.js";
 
 type TrialInput = {
   facilityName: string;
@@ -26,6 +37,11 @@ type TrialInput = {
   usesBookings?: boolean;
   usesWaitlist?: boolean;
 };
+
+export type AdministratorTrialTenantInput = Pick<
+  TrialInput,
+  "facilityName" | "facilityType" | "locale"
+>;
 
 const conversionCategories = [
   "facility_configuration",
@@ -70,6 +86,117 @@ function createConversionDraft(): ConversionDraftItem[] {
   }));
 }
 
+function createFacilitySlug(name: string): string {
+  const base = createTrialSubdomain(name).replace(/-demo$/, "");
+  return `${base}-${randomUUID().slice(0, 8)}`;
+}
+
+export async function finalizeAdministratorSignupInTransaction(
+  transaction: Transaction<Database>,
+  userId: string,
+) {
+  const pending = await transaction
+    .selectFrom("administratorSignupProvisioning")
+    .selectAll()
+    .where("userId", "=", userId)
+    .executeTakeFirst();
+  if (!pending) return null;
+
+  const template = commercialTemplates[pending.facilityType];
+  const now = Date.now();
+  const facilityId = `facility-${randomUUID()}`;
+  const trialId = `trial-${facilityId}`;
+  const slug = createFacilitySlug(pending.facilityName);
+  await transaction
+    .insertInto("facilityProfiles")
+    .values({
+      id: facilityId,
+      slug,
+      name: pending.facilityName,
+      logoDataUrl: "",
+      accentColor: "#2563eb",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    })
+    .execute();
+  await transaction
+    .insertInto("facilityMemberships")
+    .values({
+      id: `${facilityId}:${userId}`,
+      facilityId,
+      userId,
+      role: "owner",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    })
+    .execute();
+  await transaction
+    .insertInto("commercialTrials")
+    .values({
+      id: trialId,
+      facilityId,
+      ownerUserId: userId,
+      facilityName: pending.facilityName,
+      facilityType: pending.facilityType,
+      approximateMembers: null,
+      trainerCount: null,
+      spaceCount: null,
+      usualCapacity: template.usualCapacity,
+      classTypes: JSON.stringify(template.classTypes),
+      scheduleNotes: "",
+      locale: pending.locale,
+      currency: "EUR",
+      usesBookings: 1,
+      usesWaitlist: template.usesWaitlist ? 1 : 0,
+      templateKey: pending.facilityType,
+      status: "trial_active",
+      subdomain: createTrialSubdomain(pending.facilityName),
+      realDataDeclaration: "undeclared",
+      autoCleanupEligible: 1,
+      dataReviewRequestedAt: null,
+      cleanupEligibleAt: null,
+      conversionDraft: "[]",
+      startedAt: now,
+      expiresAt: now + COMMERCIAL_TRIAL_MS,
+      pausedAt: null,
+      closedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .execute();
+  await transaction
+    .insertInto("commercialTrialEvents")
+    .values({
+      id: randomUUID(),
+      trialId,
+      actorUserId: userId,
+      type: "trial_created_with_administrator_account",
+      metadata: JSON.stringify({ facilityType: pending.facilityType }),
+      createdAt: now,
+    })
+    .execute();
+  await transaction
+    .deleteFrom("administratorSignupProvisioning")
+    .where("userId", "=", userId)
+    .execute();
+  return {
+    id: facilityId,
+    slug,
+    name: pending.facilityName,
+    role: "owner" as const,
+  };
+}
+
+export async function finalizeAdministratorSignup(userId: string) {
+  return db
+    .transaction()
+    .execute((transaction) =>
+      finalizeAdministratorSignupInTransaction(transaction, userId),
+    );
+}
+
 function domainError(message: string, statusCode = 409) {
   return Object.assign(new Error(message), { statusCode });
 }
@@ -82,6 +209,9 @@ function serializeTrial<T extends { classTypes: string }>(trial: T) {
     classTypes: JSON.parse(trial.classTypes) as string[],
     usesBookings: Boolean((trial as T & { usesBookings: number }).usesBookings),
     usesWaitlist: Boolean((trial as T & { usesWaitlist: number }).usesWaitlist),
+    autoCleanupEligible: Boolean(
+      (trial as T & { autoCleanupEligible: number }).autoCleanupEligible,
+    ),
     notice: getTrialNotice(
       (trial as T & { startedAt: number }).startedAt,
       (trial as T & { expiresAt: number }).expiresAt,
@@ -108,16 +238,377 @@ async function recordEvent(
     .execute();
 }
 
-async function expireIfNeeded() {
+function cleanupExecutionEnabled(): boolean {
+  const configured = process.env.COMMERCIAL_TRIAL_CLEANUP_ENABLED;
+  if (configured === "true") return true;
+  if (configured === "false") return false;
+  return process.env.NODE_ENV !== "production";
+}
+
+async function deleteTrialTenantInTransaction(
+  transaction: Transaction<Database>,
+  trial: { id: string; facilityId: string; ownerUserId: string },
+) {
+  if (trial.facilityId === "primary") {
+    throw new Error("The primary facility cannot be removed automatically");
+  }
+
+  const classRows = await transaction
+    .selectFrom("gymClasses")
+    .select("id")
+    .where("facilityId", "=", trial.facilityId)
+    .execute();
+  const classIds = classRows.map((row) => row.id);
+
+  await transaction
+    .deleteFrom("moderationCases")
+    .where("facilityId", "=", trial.facilityId)
+    .execute();
+  await transaction
+    .deleteFrom("parentalControls")
+    .where("facilityId", "=", trial.facilityId)
+    .execute();
+  await transaction
+    .deleteFrom("facilityLinks")
+    .where("sourceFacilityId", "=", trial.facilityId)
+    .execute();
+  await transaction
+    .deleteFrom("supportTickets")
+    .where("facilityId", "=", trial.facilityId)
+    .execute();
+  await transaction
+    .deleteFrom("supportAgents")
+    .where("facilityId", "=", trial.facilityId)
+    .execute();
+  await transaction
+    .deleteFrom("supportKnowledgeArticles")
+    .where("facilityId", "=", trial.facilityId)
+    .execute();
+  await transaction
+    .deleteFrom("billingRecords")
+    .where("facilityId", "=", trial.facilityId)
+    .execute();
+  await transaction
+    .deleteFrom("bookingReputationEvents")
+    .where("facilityId", "=", trial.facilityId)
+    .execute();
+  await transaction
+    .deleteFrom("bookingReputations")
+    .where("facilityId", "=", trial.facilityId)
+    .execute();
+  await transaction
+    .deleteFrom("communityChannels")
+    .where("scope", "=", "facility")
+    .where("scopeId", "=", trial.facilityId)
+    .execute();
+
+  if (classIds.length > 0) {
+    await transaction
+      .deleteFrom("communityChannels")
+      .where("scope", "=", "class")
+      .where("scopeId", "in", classIds)
+      .execute();
+    await transaction
+      .deleteFrom("bookings")
+      .where("classId", "in", classIds)
+      .execute();
+    await transaction
+      .deleteFrom("waitlistEntries")
+      .where("classId", "in", classIds)
+      .execute();
+    await transaction
+      .deleteFrom("gymClasses")
+      .where("id", "in", classIds)
+      .execute();
+  }
+
+  await transaction
+    .deleteFrom("commercialTrials")
+    .where("id", "=", trial.id)
+    .execute();
+  await transaction
+    .deleteFrom("facilityProfiles")
+    .where("id", "=", trial.facilityId)
+    .execute();
+
+  const [remainingMembership, remainingTrial] = await Promise.all([
+    transaction
+      .selectFrom("facilityMemberships")
+      .select("id")
+      .where("userId", "=", trial.ownerUserId)
+      .where("status", "in", ["active", "invited", "suspended"])
+      .executeTakeFirst(),
+    transaction
+      .selectFrom("commercialTrials")
+      .select("id")
+      .where("ownerUserId", "=", trial.ownerUserId)
+      .executeTakeFirst(),
+  ]);
+  if (remainingMembership || remainingTrial) {
+    return {
+      accountDeleted: false as const,
+      retainedFor: ["other_active_tenant"],
+    };
+  }
+
+  try {
+    await deleteUserInTransaction(transaction, trial.ownerUserId);
+    return { accountDeleted: true as const };
+  } catch (error) {
+    if (error instanceof UserDeletionBlockedError) {
+      return {
+        accountDeleted: false as const,
+        retainedFor: error.blockers.map((blocker) => blocker.code),
+      };
+    }
+    throw error;
+  }
+}
+
+async function stageTrialAttachmentRemoval(
+  transaction: Transaction<Database>,
+  facilityId: string,
+) {
+  const classRows = await transaction
+    .selectFrom("gymClasses")
+    .select("id")
+    .where("facilityId", "=", facilityId)
+    .execute();
+  const classIds = classRows.map((gymClass) => gymClass.id);
+  const channelRows = await transaction
+    .selectFrom("communityChannels")
+    .select("id")
+    .where((expression) =>
+      expression.or([
+        expression.and([
+          expression("scope", "=", "facility"),
+          expression("scopeId", "=", facilityId),
+        ]),
+        ...(classIds.length > 0
+          ? [
+              expression.and([
+                expression("scope", "=", "class"),
+                expression("scopeId", "in", classIds),
+              ]),
+            ]
+          : []),
+      ]),
+    )
+    .execute();
+  const channelIds = channelRows.map((channel) => channel.id);
+  const [supportRows, communityRows] = await Promise.all([
+    transaction
+      .selectFrom("supportAttachments")
+      .innerJoin(
+        "supportTickets",
+        "supportTickets.id",
+        "supportAttachments.ticketId",
+      )
+      .select("supportAttachments.storageKey")
+      .where("supportTickets.facilityId", "=", facilityId)
+      .execute(),
+    channelIds.length > 0
+      ? transaction
+          .selectFrom("communityAttachments")
+          .select("storageKey")
+          .where("channelId", "in", channelIds)
+          .execute()
+      : Promise.resolve([]),
+  ]);
+
+  const removals: StagedFileRemoval[] = [];
+  try {
+    removals.push(
+      await stageSupportAttachmentFilesRemoval(
+        supportRows.map((attachment) => attachment.storageKey),
+      ),
+    );
+    removals.push(
+      await stageCommunityAttachmentFilesRemoval(
+        communityRows.map((attachment) => attachment.storageKey),
+      ),
+    );
+  } catch (error) {
+    for (const removal of [...removals].reverse()) await removal.rollback();
+    throw error;
+  }
+  return {
+    commit: async () => {
+      for (const removal of removals) await removal.commit();
+    },
+    rollback: async () => {
+      for (const removal of [...removals].reverse()) await removal.rollback();
+    },
+  };
+}
+
+async function cleanupDueCommercialTrial(
+  trial: { id: string; facilityId: string; subdomain: string },
+  now: number,
+) {
+  return withCoordinatedManagerOperation(
+    "account",
+    "cleanup-abandoned-commercial-trial",
+    [`commercial-trial:${trial.facilityId}`],
+    async () => {
+      const environment = await stageCommercialEnvironmentRemoval(
+        trial.subdomain,
+      );
+      let result;
+      try {
+        result = await db.transaction().execute(async (transaction) => {
+          const current = await transaction
+            .selectFrom("commercialTrials")
+            .select([
+              "id",
+              "facilityId",
+              "ownerUserId",
+              "realDataDeclaration",
+              "autoCleanupEligible",
+              "cleanupEligibleAt",
+              "status",
+            ])
+            .where("id", "=", trial.id)
+            .executeTakeFirst();
+          if (
+            !current ||
+            current.autoCleanupEligible !== 1 ||
+            current.cleanupEligibleAt === null ||
+            current.cleanupEligibleAt > now ||
+            !["undeclared", "no"].includes(current.realDataDeclaration) ||
+            !["trial_expired", "trial_closed"].includes(current.status)
+          ) {
+            return null;
+          }
+          const attachments = await stageTrialAttachmentRemoval(
+            transaction,
+            current.facilityId,
+          );
+          try {
+            return {
+              outcome: await deleteTrialTenantInTransaction(
+                transaction,
+                current,
+              ),
+              attachments,
+            };
+          } catch (error) {
+            await attachments.rollback();
+            throw error;
+          }
+        });
+      } catch (error) {
+        await environment.rollback();
+        throw error;
+      }
+      if (result) {
+        await result.attachments.commit();
+        await environment.commit();
+      } else {
+        await environment.rollback();
+      }
+      return result?.outcome ?? null;
+    },
+  );
+}
+
+export async function evaluateDueCommercialTrialCleanups(now = Date.now()) {
+  const expiredTrials = await db
+    .selectFrom("commercialTrials")
+    .select(["id", "autoCleanupEligible"])
+    .where("status", "=", "trial_active")
+    .where("expiresAt", "<=", now)
+    .execute();
+  for (const trial of expiredTrials) {
+    await db
+      .updateTable("commercialTrials")
+      .set({
+        status: "trial_expired",
+        dataReviewRequestedAt: now,
+        cleanupEligibleAt:
+          trial.autoCleanupEligible === 1
+            ? now + COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS
+            : null,
+        updatedAt: now,
+      })
+      .where("id", "=", trial.id)
+      .where("status", "=", "trial_active")
+      .execute();
+  }
+
+  const dueTrials = await db
+    .selectFrom("commercialTrials")
+    .select([
+      "id",
+      "facilityId",
+      "ownerUserId",
+      "realDataDeclaration",
+      "subdomain",
+    ])
+    .where("autoCleanupEligible", "=", 1)
+    .where("cleanupEligibleAt", "is not", null)
+    .where("cleanupEligibleAt", "<=", now)
+    .where("realDataDeclaration", "in", ["undeclared", "no"])
+    .where("status", "in", ["trial_expired", "trial_closed"])
+    .execute();
+
+  if (!cleanupExecutionEnabled()) {
+    return {
+      expired: expiredTrials.length,
+      eligible: dueTrials.length,
+      deletedTenants: 0,
+      deletedAccounts: 0,
+      retainedAccounts: 0,
+      executionEnabled: false as const,
+    };
+  }
+
+  let deletedTenants = 0;
+  let deletedAccounts = 0;
+  let retainedAccounts = 0;
+  for (const trial of dueTrials) {
+    let outcome;
+    try {
+      outcome = await cleanupDueCommercialTrial(trial, now);
+    } catch (error) {
+      if (error instanceof ManagerCoordinationConflictError) continue;
+      throw error;
+    }
+    if (!outcome) continue;
+    deletedTenants += 1;
+    if (outcome.accountDeleted) deletedAccounts += 1;
+    else retainedAccounts += 1;
+  }
+
+  return {
+    expired: expiredTrials.length,
+    eligible: dueTrials.length,
+    deletedTenants,
+    deletedAccounts,
+    retainedAccounts,
+    executionEnabled: true as const,
+  };
+}
+
+async function expireIfNeeded(facilityId: string) {
   const trial = await db
     .selectFrom("commercialTrials")
     .selectAll()
-    .where("id", "=", COMMERCIAL_TRIAL_ID)
+    .where("facilityId", "=", facilityId)
     .executeTakeFirst();
   if (trial?.status === "trial_active" && trial.expiresAt <= Date.now()) {
+    const now = Date.now();
     await db
       .updateTable("commercialTrials")
-      .set({ status: "trial_expired", updatedAt: Date.now() })
+      .set({
+        status: "trial_expired",
+        dataReviewRequestedAt: now,
+        cleanupEligibleAt:
+          trial.autoCleanupEligible === 1
+            ? now + COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS
+            : null,
+        updatedAt: now,
+      })
       .where("id", "=", trial.id)
       .execute();
     return { ...trial, status: "trial_expired" as const };
@@ -125,35 +616,56 @@ async function expireIfNeeded() {
   return trial;
 }
 
-async function count(
-  table:
-    "users" | "gymClasses" | "bookings" | "waitlistEntries" | "billingRecords",
-) {
-  const row = await db
-    .selectFrom(table)
-    .select(({ fn }) => fn.countAll<number>().as("count"))
-    .executeTakeFirstOrThrow();
-  return Number(row.count);
-}
-
-async function createEnvironmentSummary() {
+async function createEnvironmentSummary(facilityId: string) {
   const [users, classes, bookings, waitlist, billingRecords] =
     await Promise.all([
-      count("users"),
-      count("gymClasses"),
-      count("bookings"),
-      count("waitlistEntries"),
-      count("billingRecords"),
+      db
+        .selectFrom("facilityMemberships")
+        .innerJoin("users", "users.id", "facilityMemberships.userId")
+        .select(({ fn }) => fn.countAll<number>().as("count"))
+        .where("facilityMemberships.facilityId", "=", facilityId)
+        .where("facilityMemberships.status", "=", "active")
+        .where("users.accountStatus", "=", "active")
+        .executeTakeFirstOrThrow(),
+      db
+        .selectFrom("gymClasses")
+        .select(({ fn }) => fn.countAll<number>().as("count"))
+        .where("facilityId", "=", facilityId)
+        .executeTakeFirstOrThrow(),
+      db
+        .selectFrom("bookings")
+        .innerJoin("gymClasses", "gymClasses.id", "bookings.classId")
+        .select(({ fn }) => fn.countAll<number>().as("count"))
+        .where("gymClasses.facilityId", "=", facilityId)
+        .executeTakeFirstOrThrow(),
+      db
+        .selectFrom("waitlistEntries")
+        .innerJoin("gymClasses", "gymClasses.id", "waitlistEntries.classId")
+        .select(({ fn }) => fn.countAll<number>().as("count"))
+        .where("gymClasses.facilityId", "=", facilityId)
+        .executeTakeFirstOrThrow(),
+      db
+        .selectFrom("billingRecords")
+        .select(({ fn }) => fn.countAll<number>().as("count"))
+        .where("facilityId", "=", facilityId)
+        .executeTakeFirstOrThrow(),
     ]);
-  return { users, classes, bookings, waitlist, billingRecords };
+  return {
+    users: Number(users.count),
+    classes: Number(classes.count),
+    bookings: Number(bookings.count),
+    waitlist: Number(waitlist.count),
+    billingRecords: Number(billingRecords.count),
+  };
 }
 
 async function insertCommercialRequest(
   actorUserId: string,
+  facilityId: string,
   kind: "commercial_contact" | "support" | "problem",
   input: CommercialRequestInput,
 ) {
-  const trial = await expireIfNeeded();
+  const trial = await expireIfNeeded(facilityId);
   if (!trial) throw domainError("Commercial trial not found", 404);
   if (!input.contactConsent)
     throw domainError("Contact consent is required", 400);
@@ -161,7 +673,7 @@ async function insertCommercialRequest(
   const id = `commercial-request-${randomUUID()}`;
   const now = Date.now();
   const environmentSummary = input.includeEnvironmentSummary
-    ? JSON.stringify(await createEnvironmentSummary())
+    ? JSON.stringify(await createEnvironmentSummary(facilityId))
     : null;
   await db
     .insertInto("commercialRequests")
@@ -196,44 +708,39 @@ async function insertCommercialRequest(
   return { id, kind, status: "open" as const };
 }
 
-export async function getCommercialTrialOverview() {
-  const trial = await expireIfNeeded();
+export async function getCommercialTrialOverview(facilityId: string) {
+  const trial = await expireIfNeeded(facilityId);
   if (!trial) return null;
-  const [users, classes, bookings, waitlist, billingRecords, events, requests] =
-    await Promise.all([
-      count("users"),
-      count("gymClasses"),
-      count("bookings"),
-      count("waitlistEntries"),
-      count("billingRecords"),
-      db
-        .selectFrom("commercialTrialEvents")
-        .select(["id", "type", "metadata", "createdAt"])
-        .where("trialId", "=", trial.id)
-        .orderBy("createdAt", "desc")
-        .limit(12)
-        .execute(),
-      db
-        .selectFrom("commercialRequests")
-        .select([
-          "id",
-          "kind",
-          "status",
-          "preferredChannel",
-          "problemCategory",
-          "createdAt",
-          "resolvedAt",
-        ])
-        .where("trialId", "=", trial.id)
-        .orderBy("createdAt", "desc")
-        .limit(12)
-        .execute(),
-    ]);
+  const [counts, events, requests] = await Promise.all([
+    createEnvironmentSummary(facilityId),
+    db
+      .selectFrom("commercialTrialEvents")
+      .select(["id", "type", "metadata", "createdAt"])
+      .where("trialId", "=", trial.id)
+      .orderBy("createdAt", "desc")
+      .limit(12)
+      .execute(),
+    db
+      .selectFrom("commercialRequests")
+      .select([
+        "id",
+        "kind",
+        "status",
+        "preferredChannel",
+        "problemCategory",
+        "createdAt",
+        "resolvedAt",
+      ])
+      .where("trialId", "=", trial.id)
+      .orderBy("createdAt", "desc")
+      .limit(12)
+      .execute(),
+  ]);
   return {
     trial: serializeTrial(trial),
     environment: {
       isolation: "shared_local_demo" as const,
-      counts: { users, classes, bookings, waitlist, billingRecords },
+      counts,
       modules: [
         "bookings",
         "waitlist",
@@ -255,21 +762,29 @@ export async function getCommercialTrialOverview() {
 
 export async function requestCommercialContact(
   actorUserId: string,
+  facilityId: string,
   input: CommercialRequestInput,
 ) {
-  return insertCommercialRequest(actorUserId, "commercial_contact", input);
+  return insertCommercialRequest(
+    actorUserId,
+    facilityId,
+    "commercial_contact",
+    input,
+  );
 }
 
 export async function createCommercialTrial(
   actorUserId: string,
+  facilityId: string,
   input: TrialInput,
 ) {
-  if (await expireIfNeeded())
+  if (await expireIfNeeded(facilityId))
     throw domainError("A commercial trial already exists");
   const template = commercialTemplates[input.facilityType];
   const now = Date.now();
   const values = {
-    id: COMMERCIAL_TRIAL_ID,
+    id: `trial-${facilityId}`,
+    facilityId,
     ownerUserId: actorUserId,
     facilityName: input.facilityName,
     facilityType: input.facilityType,
@@ -287,6 +802,9 @@ export async function createCommercialTrial(
     status: "trial_active" as const,
     subdomain: createTrialSubdomain(input.facilityName),
     realDataDeclaration: "undeclared" as const,
+    autoCleanupEligible: 0,
+    dataReviewRequestedAt: null,
+    cleanupEligibleAt: null,
     conversionDraft: "[]",
     startedAt: now,
     expiresAt: now + COMMERCIAL_TRIAL_MS,
@@ -300,20 +818,21 @@ export async function createCommercialTrial(
     await trx
       .updateTable("facilityProfiles")
       .set({ name: input.facilityName, updatedAt: now })
-      .where("id", "=", "primary")
+      .where("id", "=", facilityId)
       .execute();
   });
   await recordEvent(values.id, actorUserId, "trial_created", {
     facilityType: input.facilityType,
   });
-  return getCommercialTrialOverview();
+  return getCommercialTrialOverview(facilityId);
 }
 
 export async function updateCommercialTrial(
   actorUserId: string,
+  facilityId: string,
   input: Partial<TrialInput>,
 ) {
-  const trial = await expireIfNeeded();
+  const trial = await expireIfNeeded(facilityId);
   if (!trial) throw domainError("Commercial trial not found", 404);
   if (trial.status !== "trial_active")
     throw domainError("Only an active trial can be edited");
@@ -361,17 +880,20 @@ export async function updateCommercialTrial(
     await db
       .updateTable("facilityProfiles")
       .set({ name: input.facilityName, updatedAt: Date.now() })
-      .where("id", "=", "primary")
+      .where("id", "=", facilityId)
       .execute();
   }
   await recordEvent(trial.id, actorUserId, "trial_configuration_updated", {
     fields: Object.keys(input),
   });
-  return getCommercialTrialOverview();
+  return getCommercialTrialOverview(facilityId);
 }
 
-export async function restoreCommercialTrialConfiguration(actorUserId: string) {
-  const trial = await expireIfNeeded();
+export async function restoreCommercialTrialConfiguration(
+  actorUserId: string,
+  facilityId: string,
+) {
+  const trial = await expireIfNeeded(facilityId);
   if (!trial) throw domainError("Commercial trial not found", 404);
   if (trial.status !== "trial_active")
     throw domainError("Only an active trial can be restored");
@@ -397,45 +919,59 @@ export async function restoreCommercialTrialConfiguration(actorUserId: string) {
       scope: "commercial_configuration_only",
     },
   );
-  return getCommercialTrialOverview();
+  return getCommercialTrialOverview(facilityId);
 }
 
 export async function declareCommercialTrialData(
   actorUserId: string,
+  facilityId: string,
   decision: Exclude<RealDataDeclaration, "undeclared">,
 ) {
-  const trial = await expireIfNeeded();
-  if (!trial) throw domainError("Commercial trial not found", 404);
-  if (trial.status !== "trial_active" && trial.status !== "trial_expired") {
-    throw domainError("This trial cannot enter another data review");
-  }
-  const now = Date.now();
-  const status =
-    decision === "yes"
-      ? ("trial_conversion_review" as const)
-      : decision === "assistance"
-        ? ("trial_paused_support" as const)
-        : trial.status;
-  await db
-    .updateTable("commercialTrials")
-    .set({
-      realDataDeclaration: decision,
-      conversionDraft:
+  return withCoordinatedManagerOperation(
+    "account",
+    "declare-commercial-trial-data",
+    [`commercial-trial:${facilityId}`],
+    async () => {
+      const trial = await expireIfNeeded(facilityId);
+      if (!trial) throw domainError("Commercial trial not found", 404);
+      if (trial.status !== "trial_active" && trial.status !== "trial_expired") {
+        throw domainError("This trial cannot enter another data review");
+      }
+      const now = Date.now();
+      const status =
         decision === "yes"
-          ? JSON.stringify(createConversionDraft())
-          : trial.conversionDraft,
-      status,
-      pausedAt: decision === "no" ? null : now,
-      updatedAt: now,
-    })
-    .where("id", "=", trial.id)
-    .execute();
-  await recordEvent(trial.id, actorUserId, "real_data_declared", { decision });
-  return getCommercialTrialOverview();
+          ? ("trial_conversion_review" as const)
+          : decision === "assistance"
+            ? ("trial_paused_support" as const)
+            : ("trial_closed" as const);
+      await db
+        .updateTable("commercialTrials")
+        .set({
+          realDataDeclaration: decision,
+          conversionDraft:
+            decision === "yes"
+              ? JSON.stringify(createConversionDraft())
+              : trial.conversionDraft,
+          status,
+          pausedAt: decision === "no" ? null : now,
+          closedAt: decision === "no" ? now : trial.closedAt,
+          dataReviewRequestedAt: trial.dataReviewRequestedAt ?? now,
+          cleanupEligibleAt:
+            decision === "no" && trial.autoCleanupEligible === 1 ? now : null,
+          updatedAt: now,
+        })
+        .where("id", "=", trial.id)
+        .execute();
+      await recordEvent(trial.id, actorUserId, "real_data_declared", {
+        decision,
+      });
+      return getCommercialTrialOverview(facilityId);
+    },
+  );
 }
 
-export async function getCommercialConversionDraft() {
-  const trial = await expireIfNeeded();
+export async function getCommercialConversionDraft(facilityId: string) {
+  const trial = await expireIfNeeded(facilityId);
   if (!trial) throw domainError("Commercial trial not found", 404);
   if (trial.realDataDeclaration !== "yes") {
     throw domainError("Real data must be declared before classification");
@@ -449,11 +985,12 @@ export async function getCommercialConversionDraft() {
 
 export async function updateCommercialConversionDraft(
   actorUserId: string,
+  facilityId: string,
   category: ConversionCategory,
   origin: ConversionOrigin,
   decision: ConversionDecision,
 ) {
-  const current = await getCommercialConversionDraft();
+  const current = await getCommercialConversionDraft(facilityId);
   const items = current.items.map((item) =>
     item.category === category ? { ...item, origin, decision } : item,
   );
@@ -463,19 +1000,23 @@ export async function updateCommercialConversionDraft(
   await db
     .updateTable("commercialTrials")
     .set({ conversionDraft: JSON.stringify(items), updatedAt: Date.now() })
-    .where("id", "=", COMMERCIAL_TRIAL_ID)
+    .where("facilityId", "=", facilityId)
     .execute();
-  await recordEvent(
-    COMMERCIAL_TRIAL_ID,
-    actorUserId,
-    "conversion_draft_updated",
-    { category, origin, decision },
-  );
+  const trial = await expireIfNeeded(facilityId);
+  if (!trial) throw domainError("Commercial trial not found", 404);
+  await recordEvent(trial.id, actorUserId, "conversion_draft_updated", {
+    category,
+    origin,
+    decision,
+  });
   return { ...current, items };
 }
 
-export async function closeCommercialTrial(actorUserId: string) {
-  const trial = await expireIfNeeded();
+export async function closeCommercialTrial(
+  actorUserId: string,
+  facilityId: string,
+) {
+  const trial = await expireIfNeeded(facilityId);
   if (!trial) throw domainError("Commercial trial not found", 404);
   if (trial.realDataDeclaration !== "no") {
     throw domainError(
@@ -485,9 +1026,15 @@ export async function closeCommercialTrial(actorUserId: string) {
   const now = Date.now();
   await db
     .updateTable("commercialTrials")
-    .set({ status: "trial_closed", closedAt: now, updatedAt: now })
+    .set({
+      status: "trial_closed",
+      closedAt: now,
+      dataReviewRequestedAt: trial.dataReviewRequestedAt ?? now,
+      cleanupEligibleAt: trial.autoCleanupEligible === 1 ? now : null,
+      updatedAt: now,
+    })
     .where("id", "=", trial.id)
     .execute();
   await recordEvent(trial.id, actorUserId, "trial_closed");
-  return getCommercialTrialOverview();
+  return getCommercialTrialOverview(facilityId);
 }

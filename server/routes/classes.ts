@@ -8,10 +8,13 @@ import {
 } from "../middleware/validation.js";
 import {
   authenticate,
+  getFacilityContext,
   getAuthenticatedUser,
-  requireRole,
-  requireSelfParamOrRole,
+  requireClassFacility,
+  requireFacility,
+  requireSelfParamOrFacilityRole,
   requireTrainerClassOrRole,
+  selectFacilityContext,
 } from "../middleware/authorization.js";
 import {
   getSessionContent,
@@ -23,19 +26,26 @@ import { requireRecentFormVerification } from "../middleware/form-verification.j
 
 export const classesRouter = express.Router();
 classesRouter.use(authenticate);
+classesRouter.use(selectFacilityContext);
+classesRouter.use(requireFacility());
 
 // Get all classes
 classesRouter.get("/", async (req: express.Request, res: express.Response) => {
   try {
+    const facility = getFacilityContext(res);
     const classes = await db
       .selectFrom("gymClasses")
       .selectAll()
+      .where("facilityId", "=", facility.id)
       .orderBy("scheduledAt", "asc")
       .execute();
 
     const classesWithAvailability = await Promise.all(
       classes.map(async (gymClass) => {
-        const withAvailability = await getClassWithAvailability(gymClass.id);
+        const withAvailability = await getClassWithAvailability(
+          gymClass.id,
+          facility.id,
+        );
         return withAvailability;
       }),
     );
@@ -51,20 +61,25 @@ classesRouter.get("/", async (req: express.Request, res: express.Response) => {
 classesRouter.get(
   "/trainer/:trainerId",
   validateId("trainerId"),
-  requireRole("trainer", "admin"),
-  requireSelfParamOrRole("trainerId", "admin"),
+  requireFacility("trainer", "admin", "owner"),
+  requireSelfParamOrFacilityRole("trainerId", "admin", "owner"),
   async (req: express.Request, res: express.Response) => {
     try {
+      const facility = getFacilityContext(res);
       const classes = await db
         .selectFrom("gymClasses")
         .selectAll()
         .where("trainerId", "=", req.params.trainerId)
+        .where("facilityId", "=", facility.id)
         .orderBy("scheduledAt", "asc")
         .execute();
 
       const classesWithAvailability = await Promise.all(
         classes.map(async (gymClass) => {
-          const withAvailability = await getClassWithAvailability(gymClass.id);
+          const withAvailability = await getClassWithAvailability(
+            gymClass.id,
+            facility.id,
+          );
           return withAvailability;
         }),
       );
@@ -80,6 +95,7 @@ classesRouter.get(
 classesRouter.get(
   "/:id/session-content",
   validateId("id"),
+  requireClassFacility("id"),
   async (req: express.Request, res: express.Response) => {
     try {
       res.json(await getSessionContent(req.params.id));
@@ -118,6 +134,7 @@ classesRouter.put(
 classesRouter.get(
   "/:id/session-progress",
   validateId("id"),
+  requireClassFacility("id"),
   async (req: express.Request, res: express.Response) => {
     try {
       res.json(
@@ -138,6 +155,7 @@ classesRouter.get(
 classesRouter.put(
   "/:id/session-progress",
   sessionProgressValidation,
+  requireClassFacility("id"),
   async (req: express.Request, res: express.Response) => {
     try {
       res.json(
@@ -163,9 +181,13 @@ classesRouter.put(
 classesRouter.get(
   "/:id",
   validateId("id"),
+  requireClassFacility("id"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const gymClass = await getClassWithAvailability(req.params.id);
+      const gymClass = await getClassWithAvailability(
+        req.params.id,
+        getFacilityContext(res).id,
+      );
 
       if (!gymClass) {
         res.status(404).json({ error: "Class not found" });
