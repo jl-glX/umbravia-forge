@@ -824,10 +824,13 @@ async function initializeSqliteSchema(
   if (!tableNames.includes("bookingReputations")) {
     sqliteDb.exec(`
       CREATE TABLE bookingReputations (
-        userId TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
+        userId TEXT NOT NULL,
         score INTEGER NOT NULL DEFAULT 100 CHECK(score BETWEEN 0 AND 100),
         penaltyUntil INTEGER,
         updatedAt INTEGER NOT NULL,
+        PRIMARY KEY(facilityId, userId),
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
         FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
       );
       CREATE INDEX idx_bookingReputations_penalty
@@ -839,12 +842,14 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE bookingReputationEvents (
         id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
         userId TEXT NOT NULL,
         bookingId TEXT,
         type TEXT NOT NULL,
         pointsDelta INTEGER NOT NULL,
         reason TEXT NOT NULL,
         createdAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
         FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY(bookingId) REFERENCES bookings(id) ON DELETE SET NULL
       );
@@ -1320,6 +1325,69 @@ async function initializeSqliteSchema(
        FROM users`,
     )
     .run(membershipBackfillAt);
+
+  const reputationColumns = sqliteDb
+    .prepare("PRAGMA table_info(bookingReputations)")
+    .all() as Array<{ name: string }>;
+  if (!reputationColumns.some((column) => column.name === "facilityId")) {
+    sqliteDb.exec(`
+      ALTER TABLE bookingReputations RENAME TO bookingReputationsLegacy;
+      CREATE TABLE bookingReputations (
+        facilityId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        score INTEGER NOT NULL DEFAULT 100 CHECK(score BETWEEN 0 AND 100),
+        penaltyUntil INTEGER,
+        updatedAt INTEGER NOT NULL,
+        PRIMARY KEY(facilityId, userId),
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+      );
+      INSERT INTO bookingReputations
+        (facilityId, userId, score, penaltyUntil, updatedAt)
+      SELECT 'primary', userId, score, penaltyUntil, updatedAt
+      FROM bookingReputationsLegacy;
+      DROP TABLE bookingReputationsLegacy;
+    `);
+  }
+
+  const reputationEventColumns = sqliteDb
+    .prepare("PRAGMA table_info(bookingReputationEvents)")
+    .all() as Array<{ name: string }>;
+  if (!reputationEventColumns.some((column) => column.name === "facilityId")) {
+    sqliteDb.exec(`
+      ALTER TABLE bookingReputationEvents
+        RENAME TO bookingReputationEventsLegacy;
+      CREATE TABLE bookingReputationEvents (
+        id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        bookingId TEXT,
+        type TEXT NOT NULL,
+        pointsDelta INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(bookingId) REFERENCES bookings(id) ON DELETE SET NULL
+      );
+      INSERT INTO bookingReputationEvents
+        (id, facilityId, userId, bookingId, type, pointsDelta, reason, createdAt)
+      SELECT id, 'primary', userId, bookingId, type, pointsDelta, reason, createdAt
+      FROM bookingReputationEventsLegacy;
+      DROP TABLE bookingReputationEventsLegacy;
+    `);
+  }
+
+  sqliteDb.exec(`
+    DROP INDEX IF EXISTS idx_bookingReputations_penalty;
+    DROP INDEX IF EXISTS idx_bookingReputationEvents_user;
+    CREATE INDEX IF NOT EXISTS idx_bookingReputations_facility_penalty
+      ON bookingReputations(facilityId, penaltyUntil);
+    CREATE INDEX IF NOT EXISTS idx_bookingReputationEvents_facility_user
+      ON bookingReputationEvents(facilityId, userId, createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_bookingReputationEvents_booking_type
+      ON bookingReputationEvents(bookingId, type);
+  `);
   sqliteDb
     .prepare(
       `UPDATE facilityMemberships

@@ -251,6 +251,7 @@ export type BookingReputationEventType =
   | "manual_adjustment";
 
 interface BookingReputation {
+  facilityId: string;
   userId: string;
   score: number;
   penaltyUntil: number | null;
@@ -259,6 +260,7 @@ interface BookingReputation {
 
 interface BookingReputationEvent {
   id: string;
+  facilityId: string;
   userId: string;
   bookingId: string | null;
   type: BookingReputationEventType;

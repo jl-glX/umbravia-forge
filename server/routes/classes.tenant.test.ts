@@ -260,4 +260,33 @@ describe("class tenant isolation", () => {
       .executeTakeFirstOrThrow();
     expect(unchanged.status).toBe("confirmed");
   });
+
+  it("returns only the reputation owned by the selected facility", async () => {
+    const reputation = await import("../services/booking-reputation.js");
+    await reputation.adjustBookingReputation({
+      userId: "tenant-member",
+      facilityId: "primary",
+      pointsDelta: -5,
+      reason: "Primary tenant check",
+    });
+    await reputation.adjustBookingReputation({
+      userId: "tenant-member",
+      facilityId: "secondary",
+      pointsDelta: -20,
+      reason: "Secondary tenant check",
+    });
+
+    const primary = await request(app)
+      .get("/api/bookings/reputation/tenant-member")
+      .set("Cookie", memberCookie)
+      .expect(200);
+    expect(primary.body).toMatchObject({ score: 95 });
+
+    const secondary = await request(app)
+      .get("/api/bookings/reputation/tenant-member")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(secondary.body).toMatchObject({ score: 80 });
+  });
 });

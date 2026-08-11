@@ -192,7 +192,12 @@ bookingsRouter.get(
     next: express.NextFunction,
   ) => {
     try {
-      res.json(await getBookingReputation(req.params.userId));
+      res.json(
+        await getBookingReputation(
+          req.params.userId,
+          getFacilityContext(res).id,
+        ),
+      );
     } catch (error) {
       if (error instanceof Error && error.message === "User not found") {
         res.status(404).json({ error: error.message });
@@ -217,6 +222,7 @@ bookingsRouter.post(
       res.json(
         await adjustBookingReputation({
           userId: req.params.userId,
+          facilityId: getFacilityContext(res).id,
           pointsDelta: req.body.pointsDelta,
           reason: req.body.reason,
           clearPenalty: req.body.clearPenalty,

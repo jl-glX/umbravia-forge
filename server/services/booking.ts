@@ -123,6 +123,13 @@ async function promoteFromWaitlist(
   classId: string,
   now = Date.now(),
 ) {
+  const gymClass = await transaction
+    .selectFrom("gymClasses")
+    .select("facilityId")
+    .where("id", "=", classId)
+    .executeTakeFirst();
+  if (!gymClass) return null;
+
   const entries = await transaction
     .selectFrom("waitlistEntries")
     .innerJoin("users", "waitlistEntries.userId", "users.id")
@@ -153,6 +160,7 @@ async function promoteFromWaitlist(
       const reputation = await ensureBookingReputation(
         transaction,
         entry.userId,
+        gymClass.facilityId,
       );
       return {
         entry,
@@ -314,6 +322,7 @@ async function cancelBookingInTransaction(
       "bookings.id",
       "bookings.classId",
       "bookings.status",
+      "gymClasses.facilityId",
       "gymClasses.scheduledAt",
     ])
     .where("bookings.id", "=", bookingId)
@@ -375,6 +384,7 @@ async function cancelBookingInTransaction(
       ));
     await recordBookingReputationEvent(transaction, {
       userId,
+      facilityId: booking.facilityId,
       bookingId,
       type: cancellationType,
       pointsDelta: alreadyRewarded ? 0 : undefined,
@@ -579,6 +589,7 @@ export async function setAttendanceIntention(
         "bookings.id",
         "bookings.classId",
         "bookings.status",
+        "gymClasses.facilityId",
         "gymClasses.scheduledAt",
         "bookingLifecycles.attendanceIntention",
         "bookingLifecycles.lifecycleStatus",
@@ -647,6 +658,7 @@ export async function setAttendanceIntention(
     ) {
       await recordBookingReputationEvent(transaction, {
         userId,
+        facilityId: booking.facilityId,
         bookingId,
         type: "uncertain",
         reason: "La persona indicó que todavía no conoce su asistencia.",
@@ -748,6 +760,7 @@ export async function markBookingAttendance(
       .select([
         "bookings.userId",
         "bookings.status",
+        "gymClasses.facilityId",
         "gymClasses.scheduledAt",
         "bookingLifecycles.lifecycleStatus",
         "bookingLifecycles.attendanceIntention",
@@ -776,6 +789,7 @@ export async function markBookingAttendance(
       .execute();
     await recordBookingReputationEvent(transaction, {
       userId: booking.userId,
+      facilityId: booking.facilityId,
       bookingId,
       type: status,
       reason: correctingAcceptedJustification
@@ -790,6 +804,7 @@ export async function markBookingAttendance(
     if (status === "attended" && booking.attendanceIntention === "yes") {
       await recordBookingReputationEvent(transaction, {
         userId: booking.userId,
+        facilityId: booking.facilityId,
         bookingId,
         type: "confirmed_attended",
         reason: "La confirmación de asistencia se cumplió.",
@@ -893,10 +908,10 @@ export async function getClassWaitlist(
     .selectFrom("waitlistEntries")
     .innerJoin("gymClasses", "waitlistEntries.classId", "gymClasses.id")
     .innerJoin("users", "waitlistEntries.userId", "users.id")
-    .leftJoin(
-      "bookingReputations",
-      "waitlistEntries.userId",
-      "bookingReputations.userId",
+    .leftJoin("bookingReputations", (join) =>
+      join
+        .onRef("bookingReputations.userId", "=", "waitlistEntries.userId")
+        .onRef("bookingReputations.facilityId", "=", "gymClasses.facilityId"),
     )
     .select([
       "waitlistEntries.id",

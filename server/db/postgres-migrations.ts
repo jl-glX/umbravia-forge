@@ -1240,6 +1240,47 @@ CREATE INDEX IF NOT EXISTS "idx_gymClasses_facility_scheduled"
   ON "gymClasses" ("facilityId", "scheduledAt");
 `,
   },
+  {
+    version: 17,
+    name: "facility-booking-reputation-scope",
+    sql: String.raw`
+ALTER TABLE "bookingReputations"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+
+ALTER TABLE "bookingReputationEvents"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+
+UPDATE "bookingReputationEvents" AS event
+SET "facilityId" = (
+  SELECT gym_class."facilityId"
+  FROM "gymClasses" AS gym_class
+  WHERE gym_class."id" = booking."classId"
+)
+FROM "bookings" AS booking
+WHERE event."bookingId" = booking."id";
+
+ALTER TABLE "bookingReputations"
+  DROP CONSTRAINT "bookingReputations_pkey";
+ALTER TABLE "bookingReputations"
+  ADD CONSTRAINT "bookingReputations_pkey"
+  PRIMARY KEY ("facilityId", "userId");
+ALTER TABLE "bookingReputations"
+  ADD CONSTRAINT "bookingReputations_facilityId_fkey"
+  FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+  ON DELETE CASCADE;
+ALTER TABLE "bookingReputationEvents"
+  ADD CONSTRAINT "bookingReputationEvents_facilityId_fkey"
+  FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+  ON DELETE CASCADE;
+
+DROP INDEX IF EXISTS "idx_bookingReputations_penalty";
+DROP INDEX IF EXISTS "idx_bookingReputationEvents_user";
+CREATE INDEX IF NOT EXISTS "idx_bookingReputations_facility_penalty"
+  ON "bookingReputations" ("facilityId", "penaltyUntil");
+CREATE INDEX IF NOT EXISTS "idx_bookingReputationEvents_facility_user"
+  ON "bookingReputationEvents" ("facilityId", "userId", "createdAt" DESC);
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {
