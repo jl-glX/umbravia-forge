@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { resolveNpmInvocation } from "./lib/npm-invocation.mjs";
 
 const temporaryExceptions = new Map([
   [
@@ -27,16 +28,8 @@ const temporaryExceptions = new Map([
 ]);
 
 function runAudit() {
-  const npmEntryPoint = process.env.npm_execpath;
-  const command = npmEntryPoint
-    ? process.execPath
-    : process.platform === "win32"
-      ? "npm.cmd"
-      : "npm";
-  const args = npmEntryPoint
-    ? [npmEntryPoint, "audit", "--json"]
-    : ["audit", "--json"];
-  const result = spawnSync(command, args, {
+  const invocation = resolveNpmInvocation(["audit", "--json"]);
+  const result = spawnSync(invocation.command, invocation.args, {
     cwd: process.cwd(),
     env: process.env,
     encoding: "utf8",

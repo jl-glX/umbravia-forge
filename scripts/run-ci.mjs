@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { resolveNpmInvocation } from "./lib/npm-invocation.mjs";
 
 const protectedFiles = ["package.json", "package-lock.json"];
 
@@ -19,20 +20,14 @@ async function snapshot() {
 
 function runNpm(args) {
   const environment = { ...process.env };
-  const npmEntryPoint = process.env.npm_execpath;
 
   // `npm run CI --force` must not weaken the clean install or validation steps.
   delete environment.npm_config_force;
   delete environment.NPM_CONFIG_FORCE;
 
-  const command = npmEntryPoint
-    ? process.execPath
-    : process.platform === "win32"
-      ? "npm.cmd"
-      : "npm";
-  const commandArguments = npmEntryPoint ? [npmEntryPoint, ...args] : args;
+  const invocation = resolveNpmInvocation(args, process.env);
 
-  const result = spawnSync(command, commandArguments, {
+  const result = spawnSync(invocation.command, invocation.args, {
     cwd: process.cwd(),
     env: environment,
     stdio: "inherit",
