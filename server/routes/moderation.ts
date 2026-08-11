@@ -4,13 +4,16 @@ import { db } from "../db/client.js";
 import {
   authenticate,
   getAuthenticatedUser,
+  getFacilityContext,
+  requireFacility,
+  selectFacilityContext,
 } from "../middleware/authorization.js";
 import { moderationStatuses } from "../lib/community-policy.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
 import { canAccessChannel } from "./community.js";
 
 export const moderationRouter = express.Router();
-moderationRouter.use(authenticate);
+moderationRouter.use(authenticate, selectFacilityContext, requireFacility());
 moderationRouter.use((req, res, next) =>
   req.method === "GET" ? next() : requireRecentFormVerification(req, res, next),
 );
@@ -27,16 +30,38 @@ function parseEvidence(value: unknown) {
   return value.map((item: string) => item.trim());
 }
 
+function isFacilityModerator(res: express.Response): boolean {
+  const role = getFacilityContext(res).role;
+  return role === "owner" || role === "admin";
+}
+
+async function channelBelongsToFacility(
+  channel: { scope: string; scopeId: string },
+  facilityId: string,
+): Promise<boolean> {
+  if (channel.scope === "facility") return channel.scopeId === facilityId;
+  if (channel.scope !== "class") return true;
+  const gymClass = await db
+    .selectFrom("gymClasses")
+    .select("id")
+    .where("id", "=", channel.scopeId)
+    .where("facilityId", "=", facilityId)
+    .executeTakeFirst();
+  return Boolean(gymClass);
+}
+
 moderationRouter.get("/cases", async (_req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
+    const facilityId = getFacilityContext(res).id;
     const query = db
       .selectFrom("moderationCases")
       .selectAll()
+      .where("facilityId", "=", facilityId)
       .orderBy("createdAt", "desc");
     res.json(
       await (
-        auth.role === "admin"
+        isFacilityModerator(res)
           ? query
           : query.where((eb) =>
               eb.or([
@@ -54,6 +79,7 @@ moderationRouter.get("/cases", async (_req, res, next) => {
 moderationRouter.post("/cases", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
+    const facilityId = getFacilityContext(res).id;
     const category = String(req.body.category ?? "").trim();
     const description = String(req.body.description ?? "").trim();
     if (
@@ -88,6 +114,7 @@ moderationRouter.post("/cases", async (req, res, next) => {
       if (
         !message ||
         !channel ||
+        !(await channelBelongsToFacility(channel, facilityId)) ||
         (auth.role === "member" &&
           message.kind === "private_justification" &&
           message.authorUserId !== auth.userId)
@@ -101,21 +128,25 @@ moderationRouter.post("/cases", async (req, res, next) => {
     }
     if (subjectUserId === auth.userId)
       return res.status(400).json({ error: "You cannot report yourself" });
-    if (
-      subjectUserId &&
-      !(await db
-        .selectFrom("users")
+    if (subjectUserId) {
+      const membership = await db
+        .selectFrom("facilityMemberships")
         .select("id")
-        .where("id", "=", subjectUserId)
-        .executeTakeFirst())
-    )
-      return res.status(400).json({ error: "Subject account does not exist" });
+        .where("facilityId", "=", facilityId)
+        .where("userId", "=", subjectUserId)
+        .where("status", "=", "active")
+        .executeTakeFirst();
+      if (!membership)
+        return res
+          .status(400)
+          .json({ error: "Subject is not an active facility member" });
+    }
     const report = {
       id: randomUUID(),
       reporterUserId: auth.userId,
       subjectUserId,
       messageId,
-      facilityId: "primary",
+      facilityId,
       category,
       description,
       evidence: JSON.stringify(evidence),
@@ -140,8 +171,8 @@ moderationRouter.post("/cases", async (req, res, next) => {
 
 moderationRouter.patch("/cases/:id", async (req, res, next) => {
   try {
-    const auth = getAuthenticatedUser(res);
-    if (auth.role !== "admin")
+    const facilityId = getFacilityContext(res).id;
+    if (!isFacilityModerator(res))
       return res.status(403).json({ error: "Admin access required" });
     const status = String(req.body.status ?? "");
     if (
@@ -164,7 +195,8 @@ moderationRouter.patch("/cases/:id", async (req, res, next) => {
         resolution,
         updatedAt: Date.now(),
       })
-      .where("id", "=", req.params.id)
+      .where("moderationCases.id", "=", req.params.id)
+      .where("facilityId", "=", facilityId)
       .executeTakeFirst();
     if (!Number(result.numUpdatedRows))
       return res.status(404).json({ error: "Case not found" });
@@ -177,7 +209,8 @@ moderationRouter.patch("/cases/:id", async (req, res, next) => {
 moderationRouter.post("/cases/:id/actions", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
-    if (auth.role !== "admin")
+    const facilityId = getFacilityContext(res).id;
+    if (!isFacilityModerator(res))
       return res.status(403).json({ error: "Admin access required" });
     const state = String(
       req.body.state ?? "",
@@ -193,13 +226,16 @@ moderationRouter.post("/cases/:id/actions", async (req, res, next) => {
       return res.status(400).json({ error: "Moderation action is invalid" });
     const moderationCase = await db
       .selectFrom("moderationCases")
-      .select(["id", "subjectUserId", "status"])
+      .select(["id", "subjectUserId", "status", "facilityId"])
       .where("id", "=", req.params.id)
+      .where("facilityId", "=", facilityId)
       .executeTakeFirst();
     const subject = await db
-      .selectFrom("users")
+      .selectFrom("facilityMemberships")
       .select("id")
-      .where("id", "=", subjectUserId)
+      .where("facilityId", "=", facilityId)
+      .where("userId", "=", subjectUserId)
+      .where("status", "=", "active")
       .executeTakeFirst();
     if (!moderationCase || !subject)
       return res
@@ -212,6 +248,12 @@ moderationRouter.post("/cases/:id/actions", async (req, res, next) => {
       });
     if (["resolved", "rejected"].includes(moderationCase.status))
       return res.status(409).json({ error: "Moderation case is closed" });
+    if (state === "platform_suspended" && facilityId !== "primary") {
+      return res.status(403).json({
+        error: "Platform suspension requires central moderation",
+        code: "CENTRAL_MODERATION_REQUIRED",
+      });
+    }
     let durationMinutes: number | null = null;
     if (req.body.durationMinutes != null) {
       durationMinutes = Number(req.body.durationMinutes);
@@ -247,10 +289,12 @@ moderationRouter.post("/cases/:id/actions", async (req, res, next) => {
 moderationRouter.post("/cases/:id/appeals", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
+    const facilityId = getFacilityContext(res).id;
     const moderationCase = await db
       .selectFrom("moderationCases")
       .selectAll()
       .where("id", "=", req.params.id)
+      .where("facilityId", "=", facilityId)
       .executeTakeFirst();
     if (!moderationCase || moderationCase.subjectUserId !== auth.userId)
       return res
@@ -306,14 +350,16 @@ moderationRouter.post("/cases/:id/appeals", async (req, res, next) => {
 moderationRouter.get("/cases/:id/appeals", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
+    const facilityId = getFacilityContext(res).id;
     const moderationCase = await db
       .selectFrom("moderationCases")
       .select(["id", "reporterUserId", "subjectUserId"])
       .where("id", "=", req.params.id)
+      .where("facilityId", "=", facilityId)
       .executeTakeFirst();
     if (
       !moderationCase ||
-      (auth.role !== "admin" &&
+      (!isFacilityModerator(res) &&
         moderationCase.reporterUserId !== auth.userId &&
         moderationCase.subjectUserId !== auth.userId)
     )
@@ -333,8 +379,8 @@ moderationRouter.get("/cases/:id/appeals", async (req, res, next) => {
 
 moderationRouter.patch("/appeals/:id", async (req, res, next) => {
   try {
-    const auth = getAuthenticatedUser(res);
-    if (auth.role !== "admin")
+    const facilityId = getFacilityContext(res).id;
+    if (!isFacilityModerator(res))
       return res.status(403).json({ error: "Admin access required" });
     const status = String(req.body.status ?? "");
     const resolution = String(req.body.resolution ?? "").trim();
@@ -344,8 +390,14 @@ moderationRouter.patch("/appeals/:id", async (req, res, next) => {
       return res.status(400).json({ error: "Appeal resolution is invalid" });
     const appeal = await db
       .selectFrom("moderationAppeals")
-      .selectAll()
-      .where("id", "=", req.params.id)
+      .innerJoin(
+        "moderationCases",
+        "moderationCases.id",
+        "moderationAppeals.caseId",
+      )
+      .selectAll("moderationAppeals")
+      .where("moderationAppeals.id", "=", req.params.id)
+      .where("moderationCases.facilityId", "=", facilityId)
       .executeTakeFirst();
     if (!appeal) return res.status(404).json({ error: "Appeal not found" });
     if (appeal.status !== "open")

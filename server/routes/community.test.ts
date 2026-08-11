@@ -63,6 +63,53 @@ describe("community, identity and moderation APIs", () => {
         },
       ])
       .execute();
+    await database.initializeDatabase();
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "secondary",
+        slug: "secondary",
+        name: "Secondary",
+        logoDataUrl: "",
+        accentColor: "#334155",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values([
+        {
+          id: "secondary:community-admin",
+          facilityId: "secondary",
+          userId: "community-admin",
+          role: "admin",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "secondary:community-member",
+          facilityId: "secondary",
+          userId: "community-member",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "secondary:community-peer",
+          facilityId: "secondary",
+          userId: "community-peer",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ])
+      .execute();
     app = (await import("../index.js")).app;
     const login = async (
       identifier: string,
@@ -561,6 +608,59 @@ describe("community, identity and moderation APIs", () => {
       .set("Cookie", adminCookie)
       .send({ status: "rejected", resolution: "Must not close twice." })
       .expect(409);
+  });
+
+  it("isolates moderation cases and facility sanctions by facility", async () => {
+    const secondaryCase = await request(app)
+      .post("/api/moderation/cases")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .send({
+        subjectUserId: "community-peer",
+        category: "conduct",
+        description: "This case belongs only to the secondary facility.",
+      })
+      .expect(201);
+
+    const primaryCases = await request(app)
+      .get("/api/moderation/cases")
+      .set("Cookie", adminCookie)
+      .expect(200);
+    expect(
+      primaryCases.body.map((item: { id: string }) => item.id),
+    ).not.toContain(secondaryCase.body.id);
+
+    const secondaryCases = await request(app)
+      .get("/api/moderation/cases")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(
+      secondaryCases.body.map((item: { id: string }) => item.id),
+    ).toContain(secondaryCase.body.id);
+
+    await request(app)
+      .patch(`/api/moderation/cases/${secondaryCase.body.id}`)
+      .set("Cookie", adminCookie)
+      .send({ status: "in_review" })
+      .expect(404);
+    await request(app)
+      .patch(`/api/moderation/cases/${secondaryCase.body.id}`)
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "secondary")
+      .send({ status: "in_review" })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/moderation/cases/${secondaryCase.body.id}/actions`)
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "secondary")
+      .send({
+        subjectUserId: "community-peer",
+        state: "platform_suspended",
+        reason: "A facility cannot apply a platform-wide sanction.",
+      })
+      .expect(403);
   });
 
   it("keeps facility links and parental controls under administrator review", async () => {

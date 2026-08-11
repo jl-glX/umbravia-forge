@@ -724,7 +724,7 @@ CREATE INDEX IF NOT EXISTS "idx_communityMembers_user"
 
 CREATE TABLE IF NOT EXISTS "facilityLinks" (
   "id" TEXT PRIMARY KEY,
-  "sourceFacilityId" TEXT NOT NULL,
+  "sourceFacilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
   "targetFacilityName" TEXT NOT NULL,
   "reason" TEXT NOT NULL DEFAULT '',
   "mode" TEXT NOT NULL CHECK ("mode" IN ('temporary','permanent')),
@@ -735,6 +735,8 @@ CREATE TABLE IF NOT EXISTS "facilityLinks" (
   "createdAt" BIGINT NOT NULL,
   "updatedAt" BIGINT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS "idx_facilityLinks_source_status"
+  ON "facilityLinks" ("sourceFacilityId", "status", "updatedAt" DESC);
 
 CREATE TABLE IF NOT EXISTS "parentalControls" (
   "id" TEXT PRIMARY KEY,
@@ -752,7 +754,7 @@ CREATE TABLE IF NOT EXISTS "moderationCases" (
   "reporterUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
   "subjectUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
   "messageId" TEXT REFERENCES "communityMessages" ("id") ON DELETE SET NULL,
-  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "facilityId" TEXT NOT NULL DEFAULT 'primary' REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
   "category" TEXT NOT NULL,
   "description" TEXT NOT NULL,
   "evidence" TEXT NOT NULL DEFAULT '[]',
@@ -763,7 +765,7 @@ CREATE TABLE IF NOT EXISTS "moderationCases" (
   "updatedAt" BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS "idx_moderationCases_status"
-  ON "moderationCases" ("status", "urgency", "createdAt" DESC);
+  ON "moderationCases" ("facilityId", "status", "urgency", "createdAt" DESC);
 
 CREATE TABLE IF NOT EXISTS "moderationActions" (
   "id" TEXT PRIMARY KEY,
@@ -1344,6 +1346,39 @@ CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status"
   ("facilityId", "status", "category", "updatedAt" DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_supportKnowledge_facility_slug"
   ON "supportKnowledgeArticles" ("facilityId", "slug");
+`,
+  },
+  {
+    version: 20,
+    name: "facility-moderation-scope",
+    sql: String.raw`
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'moderationCases_facilityId_fkey'
+  ) THEN
+    ALTER TABLE "moderationCases"
+      ADD CONSTRAINT "moderationCases_facilityId_fkey"
+      FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'facilityLinks_sourceFacilityId_fkey'
+  ) THEN
+    ALTER TABLE "facilityLinks"
+      ADD CONSTRAINT "facilityLinks_sourceFacilityId_fkey"
+      FOREIGN KEY ("sourceFacilityId") REFERENCES "facilityProfiles" ("id")
+      ON DELETE CASCADE;
+  END IF;
+END $$;
+
+DROP INDEX IF EXISTS "idx_moderationCases_status";
+CREATE INDEX IF NOT EXISTS "idx_moderationCases_status"
+  ON "moderationCases" ("facilityId", "status", "urgency", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_facilityLinks_source_status"
+  ON "facilityLinks" ("sourceFacilityId", "status", "updatedAt" DESC);
 `,
   },
 ];

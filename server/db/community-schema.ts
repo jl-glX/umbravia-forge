@@ -111,8 +111,11 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
       createdBy TEXT NOT NULL,
       createdAt INTEGER NOT NULL,
       updatedAt INTEGER NOT NULL,
+      FOREIGN KEY(sourceFacilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
       FOREIGN KEY(createdBy) REFERENCES users(id) ON DELETE RESTRICT
     );
+    CREATE INDEX IF NOT EXISTS idx_facilityLinks_source_status
+      ON facilityLinks(sourceFacilityId, status, updatedAt DESC);
 
     CREATE TABLE IF NOT EXISTS parentalControls (
       id TEXT PRIMARY KEY,
@@ -141,12 +144,13 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
       resolution TEXT NOT NULL DEFAULT '',
       createdAt INTEGER NOT NULL,
       updatedAt INTEGER NOT NULL,
+      FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
       FOREIGN KEY(reporterUserId) REFERENCES users(id) ON DELETE RESTRICT,
       FOREIGN KEY(subjectUserId) REFERENCES users(id) ON DELETE SET NULL,
       FOREIGN KEY(messageId) REFERENCES communityMessages(id) ON DELETE SET NULL
     );
     CREATE INDEX IF NOT EXISTS idx_moderationCases_status
-      ON moderationCases(status, urgency, createdAt DESC);
+      ON moderationCases(facilityId, status, urgency, createdAt DESC);
 
     CREATE TABLE IF NOT EXISTS moderationActions (
       id TEXT PRIMARY KEY,
@@ -189,4 +193,44 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
       "ALTER TABLE communityMessages ADD COLUMN protectedBody TEXT",
     );
   }
+
+  sqliteDb.exec(`
+    DROP INDEX IF EXISTS idx_moderationCases_status;
+    CREATE INDEX IF NOT EXISTS idx_moderationCases_status
+      ON moderationCases(facilityId, status, urgency, createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_facilityLinks_source_status
+      ON facilityLinks(sourceFacilityId, status, updatedAt DESC);
+    CREATE TRIGGER IF NOT EXISTS trg_moderationCases_facility_insert
+    BEFORE INSERT ON moderationCases
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_moderationCases_facility_update
+    BEFORE UPDATE OF facilityId ON moderationCases
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_facilityLinks_source_insert
+    BEFORE INSERT ON facilityLinks
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.sourceFacilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_facilityLinks_source_update
+    BEFORE UPDATE OF sourceFacilityId ON facilityLinks
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.sourceFacilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+  `);
 }
