@@ -84,6 +84,21 @@
       );
   }
 
+  .commercial-identity-canvas {
+    background-color: #fbfaf8;
+    background-image:
+      radial-gradient(
+        circle at 12% 14%,
+        rgb(240 122 58 / 0.1),
+        transparent 22rem
+      ),
+      radial-gradient(
+        circle at 88% 34%,
+        rgb(107 114 128 / 0.1),
+        transparent 24rem
+      );
+  }
+
   .brand-corner-dots {
     background-image: radial-gradient(
       circle,
@@ -112,6 +127,29 @@
         45deg,
         transparent 73%,
         rgb(42 157 143 / 0.08) 73.6%,
+        transparent 74.2%
+      );
+    mask-image: linear-gradient(45deg, black, transparent 78%);
+  }
+
+  .commercial-brand-corner-lines {
+    background-image:
+      linear-gradient(
+        45deg,
+        transparent 48.8%,
+        rgb(15 23 32 / 0.08) 49.5%,
+        transparent 50.2%
+      ),
+      linear-gradient(
+        45deg,
+        transparent 61%,
+        rgb(240 122 58 / 0.1) 61.6%,
+        transparent 62.2%
+      ),
+      linear-gradient(
+        45deg,
+        transparent 73%,
+        rgb(107 114 128 / 0.1) 73.6%,
         transparent 74.2%
       );
     mask-image: linear-gradient(45deg, black, transparent 78%);
