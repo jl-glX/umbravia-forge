@@ -47,6 +47,12 @@ export default tseslint.config(
     },
   },
   {
+    files: ["cloudflare/**/*.ts"],
+    languageOptions: {
+      globals: globals.serviceworker,
+    },
+  },
+  {
     files: ["client/src/components/ui/{button,toggle}.tsx"],
     rules: {
       "react-refresh/only-export-components": "off",

@@ -1,4 +1,9 @@
 import { randomBytes } from "node:crypto";
+import {
+  getManagerConnectionCryptoStatus,
+  protectManagerConnectionPayload,
+  revealManagerConnectionPayload,
+} from "../lib/manager-connection-crypto.js";
 
 export type ManagerId =
   | "account"
@@ -6,10 +11,13 @@ export type ManagerId =
   | "resource"
   | "encryption"
   | "environment"
+  | "email"
   | "notification"
   | "support";
 export type ManagerSignalSeverity = "info" | "warning" | "critical";
 export type ProtectedManagerScope = "security-files" | "encryption-files";
+export type ManagerConnectionCapability =
+  "channel-readiness" | "deployment-readiness" | "scheduled-maintenance";
 
 interface ActiveManagerOperation {
   id: string;
@@ -24,7 +32,7 @@ interface ManagerSignal {
   source: ManagerId;
   severity: ManagerSignalSeverity;
   code: string;
-  message: string;
+  messageEncrypted: string;
   createdAt: number;
 }
 
@@ -42,6 +50,43 @@ const forbiddenScopes = new Set([
   "secret-values",
   "raw-key-material",
 ]);
+
+const managedConnections = [
+  {
+    consumer: "account",
+    provider: "email",
+    capability: "channel-readiness",
+    mode: "read-only",
+    scopes: ["notification-delivery"],
+  },
+  {
+    consumer: "support",
+    provider: "email",
+    capability: "channel-readiness",
+    mode: "read-only",
+    scopes: ["notification-delivery", "support-email-ingress"],
+  },
+  {
+    consumer: "environment",
+    provider: "email",
+    capability: "deployment-readiness",
+    mode: "read-only",
+    scopes: ["notification-delivery", "support-email-ingress"],
+  },
+  {
+    consumer: "resource",
+    provider: "email",
+    capability: "scheduled-maintenance",
+    mode: "delegated-run",
+    scopes: ["notification-delivery"],
+  },
+] as const satisfies readonly {
+  consumer: ManagerId;
+  provider: ManagerId;
+  capability: ManagerConnectionCapability;
+  mode: "read-only" | "delegated-run";
+  scopes: readonly string[];
+}[];
 
 export class ManagerCoordinationConflictError extends Error {
   readonly status = 409;
@@ -65,6 +110,65 @@ export class ManagerAccessPolicyError extends Error {
     super("The manager is not authorized to use this protected scope");
     this.name = "ManagerAccessPolicyError";
   }
+}
+
+export class ManagerConnectionPolicyError extends Error {
+  readonly status = 403;
+  readonly statusCode = 403;
+  readonly code = "MANAGER_CONNECTION_DENIED";
+
+  constructor(
+    public readonly consumer: ManagerId,
+    public readonly provider: ManagerId,
+    public readonly capability: ManagerConnectionCapability,
+  ) {
+    super("The requested manager connection is not registered");
+    this.name = "ManagerConnectionPolicyError";
+  }
+}
+
+export function requireManagerConnection(
+  consumer: ManagerId,
+  provider: ManagerId,
+  capability: ManagerConnectionCapability,
+) {
+  const connection = managedConnections.find(
+    (candidate) =>
+      candidate.consumer === consumer &&
+      candidate.provider === provider &&
+      candidate.capability === capability,
+  );
+  if (!connection) {
+    throw new ManagerConnectionPolicyError(consumer, provider, capability);
+  }
+  assertManagerScopeAccess(consumer, [...connection.scopes]);
+  assertManagerScopeAccess(provider, [...connection.scopes]);
+  return {
+    ...connection,
+    scopes: [...connection.scopes],
+    compatible: true as const,
+  };
+}
+
+export function transferManagerConnectionPayload<T>(
+  consumer: ManagerId,
+  provider: ManagerId,
+  capability: ManagerConnectionCapability,
+  payload: T,
+): T {
+  requireManagerConnection(consumer, provider, capability);
+  const serialized = JSON.stringify(payload);
+  if (serialized === undefined) {
+    throw new Error("A manager connection payload must be JSON serializable");
+  }
+  const context = `manager-connection:${consumer}:${provider}:${capability}`;
+  const envelope = protectManagerConnectionPayload(
+    Buffer.from(serialized, "utf8"),
+    context,
+  );
+  return JSON.parse(
+    revealManagerConnectionPayload(envelope, context).toString("utf8"),
+  ) as T;
 }
 
 function assertManagerScopeAccess(manager: ManagerId, scopes: string[]): void {
@@ -111,12 +215,17 @@ export function publishManagerSignal(
   if (!/^[A-Z][A-Z0-9_]{2,80}$/.test(code)) {
     throw new Error("Manager signal codes must be stable public identifiers");
   }
+  const id = `manager-signal-${randomBytes(8).toString("hex")}`;
+  const sanitizedMessage = sanitizeManagerSignalMessage(message);
   signals.unshift({
-    id: `manager-signal-${randomBytes(8).toString("hex")}`,
+    id,
     source,
     severity,
     code,
-    message: sanitizeManagerSignalMessage(message),
+    messageEncrypted: protectManagerConnectionPayload(
+      Buffer.from(sanitizedMessage, "utf8"),
+      `manager-signal:${source}:${id}`,
+    ),
     createdAt: Date.now(),
   });
   if (signals.length > MAX_SIGNALS) signals.length = MAX_SIGNALS;
@@ -170,6 +279,7 @@ export function getManagerCoordinationStatus() {
       "resource",
       "encryption",
       "environment",
+      "email",
       "notification",
       "support",
     ] as const,
@@ -177,12 +287,40 @@ export function getManagerCoordinationStatus() {
       ...operation,
       scopes: [...operation.scopes],
     })),
-    recentSignals: signals.slice(0, 20).map((signal) => ({ ...signal })),
+    recentSignals: signals.slice(0, 20).map((signal) => {
+      let message = "Encrypted manager signal unavailable.";
+      try {
+        message = revealManagerConnectionPayload(
+          signal.messageEncrypted,
+          `manager-signal:${signal.source}:${signal.id}`,
+        ).toString("utf8");
+      } catch {
+        // A removed rotation key must not expose the encrypted envelope.
+      }
+      return {
+        id: signal.id,
+        source: signal.source,
+        severity: signal.severity,
+        code: signal.code,
+        message,
+        createdAt: signal.createdAt,
+      };
+    }),
+    connections: managedConnections.map((connection) => ({
+      ...connection,
+      scopes: [...connection.scopes],
+      compatible: true as const,
+    })),
     accessPolicy: {
       defaultSensitiveFileAccess: "denied" as const,
       rawSecretExposure: "denied" as const,
       protectedScopes: { ...protectedScopeOwners },
       keyChangesRequireExplicitOperatorAction: true as const,
+    },
+    connectionProtection: {
+      ...getManagerConnectionCryptoStatus(),
+      payloadsEncryptedInTransit: true as const,
+      signalMessagesEncryptedAtRest: true as const,
     },
   };
 }

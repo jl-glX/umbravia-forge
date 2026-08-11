@@ -20,5 +20,6 @@
     "paths": {
       "@/*": ["./client/src/*"]
     }
-  }
+  },
+  "exclude": ["cloudflare"]
 }

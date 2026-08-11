@@ -7,6 +7,7 @@ import {
   resetEmailTransportForTests,
   resolveEmailDeliveryConfiguration,
   sendEmailVerificationCode,
+  sendTransactionalEmail,
 } from "./email-delivery.js";
 
 describe("email delivery configuration", () => {
@@ -131,8 +132,21 @@ describe("email delivery configuration", () => {
           locale: "en",
         }),
       ).resolves.toMatchObject({ delivered: true });
+      await expect(
+        sendTransactionalEmail({
+          email: "member@example.com",
+          kind: "support_update",
+          subject: "Support reply",
+          text: "Reply body",
+          html: "<p>Reply body</p>",
+          replyTo: "support+ufs-0123456789.tokenvalue@example.com",
+        }),
+      ).resolves.toMatchObject({ delivered: true });
       expect(receivedMessages.join("\n")).toContain("member@example.com");
       expect(receivedMessages.join("\n")).toContain("123456");
+      expect(receivedMessages.join("\n")).toContain(
+        "support+ufs-0123456789.tokenvalue@example.com",
+      );
     } finally {
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),

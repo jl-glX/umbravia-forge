@@ -238,6 +238,8 @@
     "dataRetentionDescription": "Prepara políticas en borrador y revisa sus futuros registros.",
     "environmentManager": "Gestor de entornos",
     "environmentManagerDescription": "Crea entornos SQLite aislados y prepara su promoción revisada a PostgreSQL.",
+    "emailManager": "Gestor de correo",
+    "emailManagerDescription": "Gestiona, confirma y avisa sobre los canales de correo y su cola sin mostrar destinatarios ni secretos.",
     "capabilityRoadmap": "Ruta de capacidades",
     "capabilityRoadmapDescription": "Compara lo implementado, lo parcial y lo que todavía falta frente al mercado.",
     "notifications": "Notificaciones",
@@ -648,6 +650,8 @@
     "resourcesDescription": "Supervisa y controla las tareas internas registradas por Umbravia Forge.",
     "environments": "Entornos y bases de datos",
     "environmentsDescription": "Administra demos aisladas y su preparación para PostgreSQL.",
+    "emailManager": "Correo interno",
+    "emailManagerDescription": "Supervisa los canales de correo, su cola y las conexiones coordinadas con cuentas y soporte.",
     "capabilityRoadmap": "Ruta de capacidades",
     "capabilityRoadmapDescription": "Revisa la cobertura real y las carencias priorizadas del producto."
   },
@@ -772,6 +776,26 @@
         "description": "Comprueba que los entornos SQLite administrados conservan un esquema completo antes de preparar su promoción a PostgreSQL."
       }
     }
+  },
+  "emailManager": {
+    "eyebrow": "Comunicaciones internas",
+    "title": "Gestor de correo",
+    "description": "Gestiona la entrega y recepción, confirma su preparación y avisa de incidencias mediante el coordinador de gestores.",
+    "loadError": "No se ha podido cargar el gestor de correo.",
+    "actionError": "No se ha podido completar la operación de correo.",
+    "outbound": "Salida",
+    "inbound": "Entrada",
+    "pending": "Pendientes",
+    "failed": "Fallidos",
+    "audit": "Comprobar",
+    "maintenance": "Mantener cola",
+    "ready": "Canales preparados",
+    "attention": "Hay avisos que requieren atención",
+    "coordinationNotice": "El gestor opera el correo; el coordinador valida sus conexiones, evita solapamientos y distribuye confirmaciones y avisos.",
+    "recentFailures": "Fallos recientes",
+    "privacyNotice": "Solo se muestran códigos técnicos saneados. Nunca aparecen destinatarios, contenido ni valores de claves.",
+    "noFailures": "No hay fallos recientes.",
+    "attempts": "intentos"
   },
   "environmentManager": {
     "eyebrow": "Infraestructura de datos",

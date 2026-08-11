@@ -7,6 +7,7 @@ import {
   CircleAlert,
   CircleCheck,
   LoaderCircle,
+  MailCheck,
   CalendarDays,
   CreditCard,
   Download,
@@ -233,6 +234,12 @@ export function AccountControlPage() {
       icon: Database,
       title: t("accountControl.environmentManager"),
       description: t("accountControl.environmentManagerDescription"),
+    },
+    {
+      to: "/admin/email-manager",
+      icon: MailCheck,
+      title: t("accountControl.emailManager"),
+      description: t("accountControl.emailManagerDescription"),
     },
     {
       to: "/admin/capability-roadmap",

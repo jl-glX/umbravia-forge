@@ -3,9 +3,11 @@
 ## Propósito
 
 Forge Notify es la frontera interna de correo transaccional de Umbravia Forge.
-La aplicación controla las plantillas, la cola, el cifrado, los reintentos, la
-trazabilidad y la coordinación con otros gestores. El transporte final se hace
-mediante SMTP, tanto con un relay autorizado como con un MTA local.
+El gestor de correo controla las plantillas, la cola, el cifrado, los reintentos
+y la trazabilidad. El coordinador de gestores administra sus conexiones con
+cuentas, soporte, recursos y entornos, evita ámbitos solapados y distribuye las
+confirmaciones o alertas saneadas. El transporte final se hace mediante SMTP,
+tanto con un relay autorizado como con un MTA local.
 
 ```text
 Cuenta o Forge Support
@@ -33,8 +35,34 @@ verificación o Forge Support.
   inesperado;
 - purga de cargas cifradas ya entregadas o agotadas;
 - registro técnico de intentos y errores sin almacenar la contraseña SMTP;
-- avisos al gestor de seguridad y recursos cuando una entrega queda pendiente;
-- notificaciones opcionales al buzón interno de Forge Support.
+- confirmaciones y avisos del gestor de correo distribuidos por el coordinador;
+- notificaciones opcionales al buzón interno de Forge Support;
+- panel administrativo del gestor de correo sin destinatarios, cuerpos ni
+  valores de claves;
+- auditoría explícita de los canales y mantenimiento manual coordinado de la
+  cola.
+
+## Interconexión entre gestores
+
+El coordinador conserva un registro cerrado de conexiones compatibles:
+
+- Cuentas puede consultar si verificación y recuperación están disponibles;
+- Soporte puede consultar recepción, respuestas y notificaciones;
+- Entornos puede incorporar la preparación del correo a su diagnóstico;
+- Recursos puede programar el mantenimiento de la cola en el ámbito compartido
+  `notification-delivery`.
+
+El gestor de correo gestiona, confirma y avisa. El coordinador valida cada
+enlace, impide operaciones simultáneas sobre el mismo ámbito y distribuye sus
+señales. Ninguna de estas conexiones autoriza leer o modificar archivos de
+seguridad, material criptográfico o valores de secretos.
+
+Los datos que atraviesan una conexión aprobada se encapsulan con
+XChaCha20-Poly1305 y datos autenticados que fijan consumidor, proveedor y
+capacidad. Los mensajes que el coordinador conserva para distribuir avisos
+permanecen cifrados mientras están almacenados en memoria. La capacidad y el
+estado de la clave pertenecen al gestor de cifrado; el coordinador aplica el
+control sin obtener ni publicar el valor de la clave.
 
 ## Límite frente a Resend o Postmark
 
@@ -69,6 +97,7 @@ EMAIL_PUBLIC_MAIL_HOST=<host publico del MTA, por ejemplo mail.example.com>
 EMAIL_DKIM_SELECTOR=<selector DKIM publicado>
 EMAIL_PUBLIC_DNS_CHECK=<warn durante preparacion; strict antes de correo real>
 EMAIL_PUBLIC_INBOUND_ENABLED=<false hasta preparar recepcion; true exige MX>
+EMAIL_PUBLIC_INBOUND_PROVIDER=<cloudflare o postfix>
 ```
 
 `EMAIL_QUEUE_ENCRYPTION_KEY` no debe reutilizarse como clave MFA ni guardarse
@@ -129,14 +158,18 @@ sudo cat /etc/umbravia-forge-mail/dns-records.txt
 Los registros A, SPF, DKIM y DMARC se publican en Cloudflare solo después de
 compararlos con los existentes. El host `mail` debe quedar en **DNS only**. El
 MX se mantiene deliberadamente sin publicar hasta que la recepción tenga
-destinos definidos, antispam, manejo de rebotes, supresiones y una prueba de
-relay abierto. La clave privada permanece exclusivamente en el servidor.
+destino, autenticación y una prueba controlada. Forge Support recibe mediante
+Cloudflare Email Routing y un Email Worker; no necesita publicar Postfix ni
+convertir el servidor en receptor SMTP. La clave privada permanece
+exclusivamente en el servidor.
 
 El comprobador distingue las dos fronteras. Con
 `EMAIL_PUBLIC_INBOUND_ENABLED=false` valida host, PTR, SPF, DKIM y DMARC sin
-exigir un MX. Solo cuando el valor pasa explícitamente a `true` comprueba que
-el MX apunta al MTA propio. Esto evita anunciar recepción antes de disponer de
-destinos, antispam y tratamiento de rebotes.
+exigir un MX. Cuando el valor pasa explícitamente a `true`, el proveedor
+`postfix` exige que el MX apunte al MTA propio y el proveedor `cloudflare`
+exige un MX de Email Routing, mientras las comprobaciones de salida siguen
+validando el host, PTR, SPF y DKIM del MTA. Esto evita confundir la red proxy
+web de Cloudflare, el IPv6 real del servidor y la identidad SMTP saliente.
 
 ## Ciclo de verificación
 
@@ -153,8 +186,9 @@ Cambiar la configuración nunca activa silenciosamente cuentas pendientes.
 
 ## Mantenimiento y observabilidad
 
-El gestor de recursos ejecuta el mantenimiento de la cola y publica señales
-coordinadas. Deben vigilarse como mínimo:
+El gestor de correo ejecuta y confirma el mantenimiento de la cola. El gestor de
+recursos conserva únicamente la programación periódica, previa autorización del
+coordinador. Deben vigilarse como mínimo:
 
 - antigüedad del mensaje pendiente más antiguo;
 - número de reintentos y trabajos agotados;
@@ -171,7 +205,7 @@ mensajes ni destinatarios completos.
 - receptor autenticado de rebotes y quejas;
 - lista de supresión por destinatario y motivo;
 - gestión y rotación asistida de claves DKIM desde el gestor de entorno;
-- métricas y panel operativo de entregabilidad;
+- métricas avanzadas de entregabilidad;
 - plantillas versionadas con previsualización;
 - API para otros productos Umbravia con scopes, cuotas e idempotencia;
 - rotación de claves de cola con envoltura de claves.

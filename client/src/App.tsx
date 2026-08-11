@@ -123,6 +123,10 @@ const EnvironmentManagerPage = lazyPage(
   () => import("./pages/EnvironmentManagerPage"),
   "EnvironmentManagerPage",
 );
+const EmailManagerPage = lazyPage(
+  () => import("./pages/EmailManagerPage"),
+  "EmailManagerPage",
+);
 const CapabilityRoadmapPage = lazyPage(
   () => import("./pages/CapabilityRoadmapPage"),
   "CapabilityRoadmapPage",
@@ -395,6 +399,14 @@ function AppContent() {
             element={
               <ProtectedRoute requiredRole="admin">
                 <EnvironmentManagerPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/email-manager"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <EmailManagerPage />
               </ProtectedRoute>
             }
           />

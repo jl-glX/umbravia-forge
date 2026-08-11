@@ -33,7 +33,11 @@ Development uses a single launcher for Vite and Express. Production builds the c
 - Public legal information.
 - Account identity, reversible closure scheduling and draft-only data-retention
   policies.
-- Coordinated account, security, resource and environment managers.
+- Coordinated account, security, resource, environment, email, notification and
+  support managers.
+- A manager coordinator that owns the connection registry, rejects overlapping
+  scopes and distributes sanitized confirmations and alerts; domain managers
+  retain responsibility for operating their own area.
 - Isolated SQLite environment provisioning and reviewed PostgreSQL promotion
   planning.
 

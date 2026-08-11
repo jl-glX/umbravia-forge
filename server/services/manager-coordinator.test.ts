@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   getManagerCoordinationStatus,
   ManagerAccessPolicyError,
+  ManagerConnectionPolicyError,
   ManagerCoordinationConflictError,
   publishManagerSignal,
+  requireManagerConnection,
+  transferManagerConnectionPayload,
   withCoordinatedManagerOperation,
 } from "./manager-coordinator.js";
 
@@ -47,6 +50,55 @@ describe("manager coordinator", () => {
       severity: "warning",
       code: "TEST_SIGNAL",
     });
+  });
+
+  it("administers an explicit compatibility registry between managers", () => {
+    expect(
+      requireManagerConnection("support", "email", "channel-readiness"),
+    ).toMatchObject({
+      consumer: "support",
+      provider: "email",
+      mode: "read-only",
+      compatible: true,
+      scopes: ["notification-delivery", "support-email-ingress"],
+    });
+    expect(getManagerCoordinationStatus().connections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          consumer: "resource",
+          provider: "email",
+          capability: "scheduled-maintenance",
+          compatible: true,
+        }),
+      ]),
+    );
+  });
+
+  it("rejects unregistered or reversed manager connections", () => {
+    expect(() =>
+      requireManagerConnection("email", "account", "channel-readiness"),
+    ).toThrow(ManagerConnectionPolicyError);
+  });
+
+  it("protects registered payloads and stored coordinator messages", () => {
+    const original = { verification: true, recovery: false };
+    const transferred = transferManagerConnectionPayload(
+      "account",
+      "email",
+      "channel-readiness",
+      original,
+    );
+    expect(transferred).toEqual({ verification: true, recovery: false });
+    expect(transferred).not.toBe(original);
+
+    const status = getManagerCoordinationStatus();
+    expect(status.connectionProtection).toMatchObject({
+      primitive: "XChaCha20-Poly1305",
+      payloadsEncryptedInTransit: true,
+      signalMessagesEncryptedAtRest: true,
+      keyMaterialExposed: false,
+    });
+    expect(JSON.stringify(status)).not.toContain("messageEncrypted");
   });
 
   it("normalizes operation scopes before detecting conflicts", async () => {

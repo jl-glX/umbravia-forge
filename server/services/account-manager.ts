@@ -3,6 +3,7 @@ import { getAccountLifecycle } from "./account-lifecycle.js";
 import { getRecoveryCapabilities } from "./account-recovery.js";
 import { getManagerCoordinationStatus } from "./manager-coordinator.js";
 import { getAccountDataProtectionOverview } from "./encryption-manager.js";
+import { getManagedEmailChannelCapabilities } from "./email-manager.js";
 
 export async function getAccountManagerOverview(
   userId: string,
@@ -38,6 +39,7 @@ export async function getAccountManagerOverview(
         .filter((method) => method.status === "planned")
         .map((method) => method.id),
     },
+    communication: getManagedEmailChannelCapabilities("account"),
     continuity: lifecycle.continuityBridge,
     dataProtection: getAccountDataProtectionOverview(),
     coordination: getManagerCoordinationStatus(),

@@ -29,12 +29,21 @@ async function main(): Promise<void> {
   if (!["true", "false"].includes(inboundValue)) {
     throw new Error("EMAIL_PUBLIC_INBOUND_ENABLED debe ser true o false.");
   }
+  const inboundProvider =
+    environment.EMAIL_PUBLIC_INBOUND_PROVIDER?.trim().toLowerCase() ||
+    "postfix";
+  if (!new Set(["postfix", "cloudflare"]).has(inboundProvider)) {
+    throw new Error(
+      "EMAIL_PUBLIC_INBOUND_PROVIDER debe ser postfix o cloudflare.",
+    );
+  }
   const findings = await assessMailDnsReadiness({
     emailFrom: environment.EMAIL_FROM ?? "",
     expectedMailHost: environment.EMAIL_PUBLIC_MAIL_HOST,
     dkimSelector: environment.EMAIL_DKIM_SELECTOR,
     strictAuthentication: strict,
     inboundEnabled: inboundValue === "true",
+    inboundProvider: inboundProvider as "postfix" | "cloudflare",
   });
   for (const finding of findings) {
     const prefix =

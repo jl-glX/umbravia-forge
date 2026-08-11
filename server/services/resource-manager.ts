@@ -8,7 +8,7 @@ import {
 import { cleanupStaleRuntimeRecords } from "../lib/runtime-registry.js";
 import { auditSourceHygiene } from "./source-hygiene.js";
 import { runEnvironmentReadinessAudit } from "./environment-manager.js";
-import { maintainEmailDeliveryQueue } from "./email-delivery.js";
+import { maintainManagedEmailQueue } from "./email-manager.js";
 import { auditSupportSla } from "./support.js";
 import { purgeExpiredOpaqueE2eeAttachments } from "./e2ee-attachments.js";
 import { runEncryptionManagerAudit } from "./encryption-manager.js";
@@ -274,7 +274,7 @@ registerTask({
   intervalMs: 60 * 1000,
   priority: "critical",
   enabledByDefault: true,
-  run: maintainEmailDeliveryQueue,
+  run: maintainManagedEmailQueue,
 });
 
 registerTask({

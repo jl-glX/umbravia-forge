@@ -102,6 +102,22 @@ describe("environment manager API", () => {
     });
   });
 
+  it("includes coordinator-approved email readiness without secret values", async () => {
+    const response = await request(app)
+      .get("/api/admin/environment-manager")
+      .set("Cookie", adminCookie)
+      .expect(200);
+
+    expect(response.body.communication).toMatchObject({
+      productionLike: false,
+      inbound: { state: "disabled", provider: "unconfigured" },
+      queueProtection: { state: "development_fallback" },
+    });
+    expect(JSON.stringify(response.body.communication)).not.toMatch(
+      /password|secret|token|private[-_ ]?key/i,
+    );
+  });
+
   it("creates an isolated SQLite environment", async () => {
     const response = await request(app)
       .post("/api/admin/environment-manager/environments")

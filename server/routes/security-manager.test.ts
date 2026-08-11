@@ -119,6 +119,7 @@ describe("security manager API", () => {
           "resource",
           "encryption",
           "environment",
+          "email",
           "notification",
           "support",
         ],

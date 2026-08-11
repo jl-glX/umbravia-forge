@@ -35,11 +35,13 @@ import { resourceManagerRouter } from "./routes/resource-manager.js";
 import { securityManagerRouter } from "./routes/security-manager.js";
 import { encryptionManagerRouter } from "./routes/encryption-manager.js";
 import { environmentManagerRouter } from "./routes/environment-manager.js";
+import { emailManagerRouter } from "./routes/email-manager.js";
 import { capabilityRoadmapRouter } from "./routes/capability-roadmap.js";
 import { commercialRouter } from "./routes/commercial.js";
 import { communityRouter } from "./routes/community.js";
 import { moderationRouter } from "./routes/moderation.js";
 import { supportRouter } from "./routes/support.js";
+import { supportEmailInboundRouter } from "./routes/support-email-inbound.js";
 import { e2eeRouter } from "./routes/e2ee.js";
 import {
   apiLimiter,
@@ -120,6 +122,10 @@ app.use("/api", apiSecurityHeaders);
 app.use("/api", enforceTrustedMutationOrigin);
 app.use("/api", apiLimiter);
 
+// The Email Worker signs the exact JSON bytes. Mount its raw-body endpoint
+// before the general parsers while retaining the common API protections.
+app.use("/api/internal/support-email", supportEmailInboundRouter);
+
 // Facility logos use a larger JSON allowance inside their authenticated router.
 // The general API keeps its deliberately small request limit below.
 app.use("/api/facility-profile", facilityProfileRouter);
@@ -152,6 +158,7 @@ app.use("/api/admin/resource-manager", resourceManagerRouter);
 app.use("/api/admin/security-manager", securityManagerRouter);
 app.use("/api/admin/encryption-manager", encryptionManagerRouter);
 app.use("/api/admin/environment-manager", environmentManagerRouter);
+app.use("/api/admin/email-manager", emailManagerRouter);
 app.use("/api/admin/capability-roadmap", capabilityRoadmapRouter);
 app.use("/api/commercial", commercialRouter);
 app.use("/api/community", communityRouter);

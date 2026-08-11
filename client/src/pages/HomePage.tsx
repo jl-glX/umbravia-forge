@@ -14,6 +14,7 @@ import {
   ServerCog,
   Database,
   Route,
+  MailCheck,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useCurrentUser } from "../hooks/useCurrentUser";
@@ -182,6 +183,12 @@ function AdminHome({ name }: { name: string }) {
       icon: Database,
       title: t("adminHome.environments"),
       text: t("adminHome.environmentsDescription"),
+    },
+    {
+      to: "/admin/email-manager",
+      icon: MailCheck,
+      title: t("adminHome.emailManager"),
+      text: t("adminHome.emailManagerDescription"),
     },
     {
       to: "/admin/capability-roadmap",

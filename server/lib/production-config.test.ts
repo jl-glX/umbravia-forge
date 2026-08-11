@@ -13,6 +13,7 @@ const validEnvironment = {
   TURNSTILE_SECRET_KEY: "turnstile-production-secret-123456789",
   EMAIL_VERIFICATION_ENABLED: "true",
   EMAIL_QUEUE_ENCRYPTION_KEY: Buffer.alloc(32, 11).toString("base64"),
+  MANAGER_CONNECTION_ENCRYPTION_KEY: Buffer.alloc(32, 19).toString("base64"),
   MFA_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
   SMTP_HOST: "smtp.example.invalid",
   SMTP_PORT: "587",
@@ -126,6 +127,27 @@ describe("production configuration", () => {
     ).toThrow(/configured together/i);
   });
 
+  it("requires independent secrets for Cloudflare support email inbound", () => {
+    const inboundEnvironment = {
+      ...validEnvironment,
+      EMAIL_PUBLIC_INBOUND_ENABLED: "true",
+      EMAIL_PUBLIC_INBOUND_PROVIDER: "cloudflare",
+      SUPPORT_EMAIL_INBOUND_ENABLED: "true",
+      SUPPORT_EMAIL_ADDRESS: "support@example.invalid",
+      SUPPORT_EMAIL_REPLY_TOKEN_KEY: Buffer.alloc(32, 31).toString("base64"),
+      SUPPORT_EMAIL_WEBHOOK_SECRET: Buffer.alloc(32, 32).toString("base64"),
+    };
+    expect(
+      validateProductionConfiguration(inboundEnvironment, "postgresql"),
+    ).toMatchObject({ deploymentProfile: "production" });
+    expect(() =>
+      validateProductionConfiguration(
+        { ...inboundEnvironment, SUPPORT_EMAIL_WEBHOOK_SECRET: "" },
+        "postgresql",
+      ),
+    ).toThrow(/SUPPORT_EMAIL_WEBHOOK_SECRET/);
+  });
+
   it("rejects public demo credentials in production", () => {
     expect(() =>
       validateProductionConfiguration({
@@ -166,6 +188,12 @@ describe("production configuration", () => {
         EMAIL_QUEUE_ENCRYPTION_KEY: "not-a-valid-key",
       }),
     ).toThrow(/32 random bytes/i);
+    expect(() =>
+      validateProductionConfiguration({
+        ...validEnvironment,
+        MANAGER_CONNECTION_ENCRYPTION_KEY: "not-a-valid-key",
+      }),
+    ).toThrow(/32 random bytes|canonical base64/i);
     expect(() =>
       validateProductionConfiguration({
         ...validEnvironment,

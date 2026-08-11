@@ -12,20 +12,36 @@ infraestructura separada.
 
 ## Tránsito
 
-| Trayecto                    | Control actual | Regla                                |
-| --------------------------- | -------------- | ------------------------------------ |
-| Navegador a Cloudflare      | HTTPS          | TLS obligatorio y modo Full (strict) |
-| Cloudflare a Caddy          | TLS 1.3        | certificado válido en el origen      |
-| Caddy a Node.js             | loopback       | Node solo escucha en `127.0.0.1`     |
-| Node.js a PostgreSQL local  | loopback       | puede usar `DATABASE_SSL=false`      |
-| Node.js a PostgreSQL remoto | TLS            | certificado obligatorio y verificado |
-| Node.js a Postfix local     | loopback       | Postfix no acepta relay externo      |
-| Node.js a SMTP remoto       | TLS            | no se permite degradar el transporte |
+| Trayecto                    | Control actual     | Regla                                  |
+| --------------------------- | ------------------ | -------------------------------------- |
+| Navegador a Cloudflare      | HTTPS              | TLS obligatorio y modo Full (strict)   |
+| Cloudflare a Caddy          | TLS 1.3            | certificado válido en el origen        |
+| Caddy a Node.js             | loopback           | Node solo escucha en `127.0.0.1`       |
+| Node.js a PostgreSQL local  | loopback           | puede usar `DATABASE_SSL=false`        |
+| Node.js a PostgreSQL remoto | TLS                | certificado obligatorio y verificado   |
+| Node.js a Postfix local     | loopback           | Postfix no acepta relay externo        |
+| Node.js a SMTP remoto       | TLS                | no se permite degradar el transporte   |
+| Gestor a gestor             | XChaCha20-Poly1305 | identidad y capacidad ligadas al sobre |
+| Gestor a gestor             | XChaCha20-Poly1305 | identidad y capacidad ligadas al sobre |
 
 La validación de producción rechaza una base PostgreSQL remota si
 `DATABASE_SSL=false` o si `DATABASE_SSL_REJECT_UNAUTHORIZED=false`. Un servicio
 local puede usar loopback sin TLS porque el tráfico no abandona el host; su
 protección depende además del aislamiento del proceso y del sistema.
+
+El coordinador no entrega objetos internos directamente entre gestores. Valida
+primero la conexión registrada y encapsula el contenido con
+XChaCha20-Poly1305. El contexto autenticado contiene el consumidor, el proveedor
+y la capacidad autorizada, de modo que un sobre no puede reutilizarse en otra
+interconexión sin fallar la autenticación. Este control complementa TLS cuando
+un gestor se separe en otro proceso; no lo sustituye.
+
+El coordinador no entrega objetos internos directamente entre gestores. Valida
+primero la conexión registrada y encapsula el contenido con
+XChaCha20-Poly1305. El contexto autenticado contiene el consumidor, el proveedor
+y la capacidad autorizada, de modo que un sobre no puede reutilizarse en otra
+interconexión sin fallar la autenticación. Este control complementa TLS cuando
+un gestor se separe en otro proceso; no lo sustituye.
 
 ## Reposo
 
@@ -35,6 +51,12 @@ protección depende además del aislamiento del proceso y del sistema.
   los sobres anteriores siguen siendo legibles durante la migracion;
 - justificaciones privadas y adjuntos de soporte: XChaCha20-Poly1305
   autenticado, con envoltorio versionado y contexto asociado;
+- mensajes conservados por el coordinador: XChaCha20-Poly1305 con clave
+  exclusiva y sobres versionados; el estado público solo descifra mensajes
+  saneados y nunca devuelve el sobre;
+- mensajes conservados por el coordinador: XChaCha20-Poly1305 con clave
+  exclusiva y sobres versionados; el estado público solo descifra mensajes
+  saneados y nunca devuelve el sobre;
 - copias PostgreSQL: `pg_dump` transmite directamente a `age`;
 - clave privada de recuperación: fuera del servidor de producción;
 - archivos de entorno: permisos `600` o `640` y nunca incluidos en Git.
@@ -47,6 +69,18 @@ La cola de correo usa un formato versionado con huella no secreta de la clave.
 Si la clave activa no coincide con la que cifró un mensaje pendiente, conserva
 la carga para que el operador pueda restaurar la clave correcta; no la destruye
 como si fuera un texto manipulado. El formato anterior sigue siendo legible.
+
+Las interconexiones usan una clave independiente. La versión con keyring permite
+incorporar una clave nueva y mantener las anteriores solo para lectura durante
+una rotación controlada. Producción no arranca sin una configuración válida y
+el gestor de cifrado la incluye en su auditoría. La plataforma no genera, rota
+ni elimina estas claves automáticamente.
+
+Las interconexiones usan una clave independiente. La versión con keyring permite
+incorporar una clave nueva y mantener las anteriores solo para lectura durante
+una rotación controlada. Producción no arranca sin una configuración válida y
+el gestor de cifrado la incluye en su auditoría. La plataforma no genera, rota
+ni elimina estas claves automáticamente.
 
 La activación de XChaCha20-Poly1305 y el límite de Signal Protocol están
 documentados en

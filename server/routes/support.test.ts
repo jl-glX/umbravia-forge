@@ -3,6 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  buildSupportReplyAddress,
+  resolveSupportEmailInboundConfiguration,
+  signSupportEmailWebhook,
+} from "../lib/support-email-inbound.js";
 
 describe("Forge Support API", () => {
   let directory: string;
@@ -18,6 +23,18 @@ describe("Forge Support API", () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-support-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("EMAIL_PUBLIC_INBOUND_ENABLED", "true");
+    vi.stubEnv("EMAIL_PUBLIC_INBOUND_PROVIDER", "cloudflare");
+    vi.stubEnv("SUPPORT_EMAIL_INBOUND_ENABLED", "true");
+    vi.stubEnv("SUPPORT_EMAIL_ADDRESS", "support@example.com");
+    vi.stubEnv(
+      "SUPPORT_EMAIL_REPLY_TOKEN_KEY",
+      Buffer.alloc(32, 41).toString("base64"),
+    );
+    vi.stubEnv(
+      "SUPPORT_EMAIL_WEBHOOK_SECRET",
+      Buffer.alloc(32, 43).toString("base64"),
+    );
     vi.stubEnv("PRIVATE_CONTENT_ENCRYPTION_ENABLED", "true");
     vi.stubEnv(
       "PRIVATE_CONTENT_ENCRYPTION_KEY",
@@ -75,6 +92,11 @@ describe("Forge Support API", () => {
           createdAt: Date.now(),
         },
       ])
+      .execute();
+    await database.db
+      .updateTable("users")
+      .set({ accountStatus: "active", emailVerifiedAt: Date.now() })
+      .where("id", "=", "support-member")
       .execute();
     await database.db
       .insertInto("supportAgents")
@@ -339,5 +361,93 @@ describe("Forge Support API", () => {
       .get("/api/support/search?q=%25_")
       .set("Cookie", memberCookie)
       .expect(400);
+  });
+
+  it("creates and replies to a ticket through an authenticated email webhook", async () => {
+    const configuration = resolveSupportEmailInboundConfiguration();
+    expect(configuration).not.toBeNull();
+    const sendInbound = async (payload: Record<string, unknown>) => {
+      const body = JSON.stringify(payload);
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      const signature = signSupportEmailWebhook(
+        Buffer.from(body),
+        timestamp,
+        configuration!.webhookSecret,
+      );
+      return request(app)
+        .post("/api/internal/support-email")
+        .set("Content-Type", "application/json")
+        .set("X-Umbravia-Timestamp", timestamp)
+        .set("X-Umbravia-Signature", signature)
+        .send(body);
+    };
+
+    await request(app)
+      .post("/api/internal/support-email")
+      .set("Content-Type", "application/json")
+      .send("{}")
+      .expect(401);
+
+    const newTicketPayload = {
+      version: 1,
+      envelopeTo: "support@example.com",
+      from: "support-member@example.com",
+      messageId: "<new-ticket@example.com>",
+      subject: "Consulta recibida por correo",
+      text: "Necesito ayuda desde mi cuenta verificada.",
+      attachmentCount: 0,
+    };
+    const created = await sendInbound(newTicketPayload);
+    expect(created.status).toBe(202);
+    expect(created.body.ticketPublicId).toMatch(/^UFS-[A-F0-9]{10}$/);
+    const duplicateTicket = await sendInbound(newTicketPayload);
+    expect(duplicateTicket.status).toBe(200);
+    expect(duplicateTicket.body).toMatchObject({
+      duplicate: true,
+      ticketPublicId: created.body.ticketPublicId,
+    });
+
+    const ticket = await database.db
+      .selectFrom("supportTickets")
+      .select(["id", "publicId", "requesterUserId"])
+      .where("publicId", "=", created.body.ticketPublicId)
+      .executeTakeFirstOrThrow();
+    const replyAddress = buildSupportReplyAddress(
+      ticket.publicId,
+      ticket.requesterUserId,
+      configuration!,
+    );
+    const replyPayload = {
+      version: 1,
+      envelopeTo: replyAddress,
+      from: "support-member@example.com",
+      messageId: "<ticket-reply@example.com>",
+      subject: `Re: [${ticket.publicId}] Consulta recibida por correo`,
+      text: "Añado un detalle.\n\nEl equipo escribió:\n> Respuesta anterior",
+      attachmentCount: 0,
+    };
+    const firstReply = await sendInbound(replyPayload);
+    expect(firstReply.status).toBe(202);
+    expect(firstReply.body.duplicate).toBe(false);
+    const duplicateReply = await sendInbound(replyPayload);
+    expect(duplicateReply.status).toBe(200);
+    expect(duplicateReply.body.duplicate).toBe(true);
+
+    const messages = await database.db
+      .selectFrom("supportMessages")
+      .select(["body", "authorUserId"])
+      .where("ticketId", "=", ticket.id)
+      .orderBy("createdAt", "asc")
+      .execute();
+    expect(messages).toEqual([
+      expect.objectContaining({
+        body: "Necesito ayuda desde mi cuenta verificada.",
+        authorUserId: "support-member",
+      }),
+      expect.objectContaining({
+        body: "Añado un detalle.",
+        authorUserId: "support-member",
+      }),
+    ]);
   });
 });

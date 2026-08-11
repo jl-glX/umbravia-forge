@@ -19,6 +19,7 @@ type EmailDeliveryPayload = {
   subject?: string;
   text?: string;
   html?: string;
+  replyTo?: string;
 };
 type EmailDeliveryKind =
   | "email_verification"
@@ -331,6 +332,7 @@ export async function sendTransactionalEmail(input: {
   subject: string;
   text: string;
   html: string;
+  replyTo?: string;
 }): Promise<{ delivered: boolean; messageId?: string }> {
   const configuration = resolveEmailDeliveryConfiguration();
   if (!configuration) {
@@ -347,6 +349,7 @@ export async function sendTransactionalEmail(input: {
       subject: input.subject,
       text: input.text,
       html: input.html,
+      replyTo: input.replyTo,
       headers: {
         "X-Umbravia-Message-Type": input.kind.replace(/_/g, "-"),
         "Auto-Submitted": "auto-generated",
@@ -456,7 +459,8 @@ function validateDecryptedPayload(
   } else if (
     typeof payload.subject !== "string" ||
     typeof payload.text !== "string" ||
-    typeof payload.html !== "string"
+    typeof payload.html !== "string" ||
+    (payload.replyTo !== undefined && typeof payload.replyTo !== "string")
   ) {
     throw new EmailQueuePayloadError();
   }
@@ -556,7 +560,7 @@ export async function queueEmailVerificationCode(input: {
     supersedePending: true,
   });
   publishManagerSignal(
-    "notification",
+    "email",
     "info",
     "EMAIL_VERIFICATION_QUEUED",
     "A verification message was queued for delivery.",
@@ -591,7 +595,7 @@ export async function queueAccountRecoveryCode(input: {
     supersedePending: true,
   });
   publishManagerSignal(
-    "notification",
+    "email",
     "info",
     "ACCOUNT_RECOVERY_QUEUED",
     "An account recovery message was queued for delivery.",
@@ -606,6 +610,7 @@ export async function queueSupportUpdateEmail(input: {
   ticketPublicId: string;
   subject: string;
   message: string;
+  replyTo?: string;
 }): Promise<string> {
   const title = `[${input.ticketPublicId}] ${input.subject}`;
   const safeMessage = escapeHtml(input.message);
@@ -621,10 +626,11 @@ export async function queueSupportUpdateEmail(input: {
       subject: title,
       text: `${input.ticketPublicId}\n\n${input.message}`,
       html: `<p><strong>${escapeHtml(input.ticketPublicId)}</strong></p><p>${safeMessage.replace(/\n/g, "<br>")}</p>`,
+      replyTo: input.replyTo,
     },
   });
   publishManagerSignal(
-    "notification",
+    "email",
     "info",
     "SUPPORT_UPDATE_QUEUED",
     "A support update was queued for delivery.",
@@ -655,7 +661,7 @@ export async function queueSupportStaffNotificationEmail(input: {
     },
   });
   publishManagerSignal(
-    "notification",
+    "email",
     "info",
     "SUPPORT_STAFF_NOTIFICATION_QUEUED",
     "A support queue notification was prepared for delivery.",
@@ -716,6 +722,7 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
             subject: payload.subject ?? "Umbravia Forge",
             text: payload.text ?? "",
             html: payload.html ?? "",
+            replyTo: payload.replyTo,
           });
     if (!delivery.delivered) throw new EmailDeliveryUnavailableError();
     await db
@@ -797,7 +804,7 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
       }
     }
     publishManagerSignal(
-      payloadRejected || keyUnavailable ? "security" : "notification",
+      payloadRejected || keyUnavailable ? "security" : "email",
       terminal ? "warning" : "info",
       keyUnavailable
         ? "EMAIL_DELIVERY_KEY_UNAVAILABLE"
@@ -835,7 +842,7 @@ export async function processPendingEmailDeliveries(
       if (await deliverQueuedEmail(row.id)) delivered += 1;
     } catch {
       publishManagerSignal(
-        "notification",
+        "email",
         "warning",
         "EMAIL_DELIVERY_WORKER_ITEM_FAILED",
         "One email queue item failed unexpectedly; processing continued.",

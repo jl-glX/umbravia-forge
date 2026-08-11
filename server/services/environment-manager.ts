@@ -11,6 +11,7 @@ import {
   inspectSqliteDatabase,
 } from "../db/database-bridge.js";
 import { resolveDeploymentProfile } from "../lib/deployment-profile.js";
+import { getManagedEmailDeploymentReadiness } from "./email-manager.js";
 import {
   getManagerCoordinationStatus,
   publishManagerSignal,
@@ -299,6 +300,7 @@ export async function getEnvironmentManagerOverview() {
     activeDatabase: databaseProvider,
     primaryDatabase: "postgresql" as const,
     deploymentProfile: profile,
+    communication: getManagedEmailDeploymentReadiness(),
     policy: {
       postgresql: ["staging", "production", "normal-hosted-environment"],
       sqlite: ["development", "test", "commercial_mvp", "customer_sandbox"],

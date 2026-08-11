@@ -32,6 +32,8 @@ Usuario -> ticket -> conversación pública -> agente
 - búsqueda combinada de tickets y conocimiento;
 - correo opcional al equipo en altas y respuestas del solicitante;
 - correo al solicitante cuando el equipo publica una respuesta;
+- receptor de correo preparado para crear tickets de cuentas verificadas y
+  añadir respuestas autenticadas mediante Cloudflare Email Routing;
 - señales al gestor coordinador cuando hay fallos de notificación o SLA.
 
 ## Autorización
@@ -108,11 +110,21 @@ GET    /api/support/search
 
 Las mutaciones usan límites específicos y rechazan campos JSON desconocidos.
 
+El receptor servidor-a-servidor usa una ruta interna independiente. Exige una
+firma HMAC reciente sobre los bytes exactos, no usa la sesión del navegador y
+permanece cerrado mientras la recepción de correo no esté habilitada. Las
+direcciones de respuesta incluyen una capacidad firmada ligada al ticket y al
+solicitante; conocer el identificador público `UFS-*` no basta para publicar un
+mensaje.
+
+La arquitectura y el orden de activación están documentados en
+[`SUPPORT-EMAIL-INBOUND.md`](./SUPPORT-EMAIL-INBOUND.md).
+
 ## Alcance pendiente
 
 No se han fingido funciones que todavía no existen:
 
-- recepción y respuesta por correo;
+- activación y prueba real de recepción y respuesta por correo en producción;
 - chat en tiempo real, bot o centro de llamadas;
 - redes sociales o mensajería externa;
 - reglas visuales de automatización;

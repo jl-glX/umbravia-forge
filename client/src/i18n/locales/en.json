@@ -230,6 +230,8 @@
     "dataRetentionDescription": "Prepare draft policies and review their future records.",
     "environmentManager": "Environment manager",
     "environmentManagerDescription": "Create isolated SQLite environments and prepare their reviewed promotion to PostgreSQL.",
+    "emailManager": "Email manager",
+    "emailManagerDescription": "Manage, confirm and alert on email channels and their queue without exposing recipients or secrets.",
     "capabilityRoadmap": "Capability roadmap",
     "capabilityRoadmapDescription": "Compare implemented, partial and missing product capabilities against the market.",
     "notifications": "Notifications",
@@ -640,6 +642,8 @@
     "resourcesDescription": "Monitor and control internal tasks registered by Umbravia Forge.",
     "environments": "Environments and databases",
     "environmentsDescription": "Manage isolated demos and their PostgreSQL readiness.",
+    "emailManager": "Internal email",
+    "emailManagerDescription": "Monitor email channels, their queue and coordinated connections with accounts and support.",
     "capabilityRoadmap": "Capability roadmap",
     "capabilityRoadmapDescription": "Review real coverage and prioritized product gaps."
   },
@@ -764,6 +768,26 @@
         "description": "Checks that managed SQLite environments keep a complete schema before their promotion to PostgreSQL is prepared."
       }
     }
+  },
+  "emailManager": {
+    "eyebrow": "Internal communications",
+    "title": "Email manager",
+    "description": "Manage delivery and reception, confirm readiness and report incidents through the manager coordinator.",
+    "loadError": "The email manager could not be loaded.",
+    "actionError": "The email operation could not be completed.",
+    "outbound": "Outbound",
+    "inbound": "Inbound",
+    "pending": "Pending",
+    "failed": "Failed",
+    "audit": "Check",
+    "maintenance": "Maintain queue",
+    "ready": "Channels ready",
+    "attention": "Some alerts require attention",
+    "coordinationNotice": "The manager operates email; the coordinator validates connections, prevents overlap and distributes confirmations and alerts.",
+    "recentFailures": "Recent failures",
+    "privacyNotice": "Only sanitized technical codes are shown. Recipients, content and key values are never exposed.",
+    "noFailures": "There are no recent failures.",
+    "attempts": "attempts"
   },
   "environmentManager": {
     "eyebrow": "Data infrastructure",

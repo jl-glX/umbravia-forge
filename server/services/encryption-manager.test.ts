@@ -18,6 +18,7 @@ function productionEnvironment(
     EMAIL_QUEUE_ENCRYPTION_KEY: key,
     PRIVATE_CONTENT_ENCRYPTION_ENABLED: "true",
     PRIVATE_CONTENT_ENCRYPTION_KEY: key,
+    MANAGER_CONNECTION_ENCRYPTION_KEY: key,
     SMTP_HOST: "127.0.0.1",
     SMTP_PORT: "25",
     SMTP_SECURE: "false",
@@ -48,6 +49,12 @@ describe("encryption manager", () => {
           state: "active",
         }),
         expect.objectContaining({
+          id: "manager_connections",
+          primitive: "XChaCha20-Poly1305 authenticated envelopes",
+          state: "active",
+          keyMaterialExposed: false,
+        }),
+        expect.objectContaining({
           id: "e2ee_relay",
           state: "client_managed",
         }),
@@ -66,6 +73,7 @@ describe("encryption manager", () => {
         MFA_ENCRYPTION_KEY: "not-a-key",
         EMAIL_QUEUE_ENCRYPTION_KEY: "also-not-a-key",
         PRIVATE_CONTENT_ENCRYPTION_KEY: "invalid",
+        MANAGER_CONNECTION_ENCRYPTION_KEY: "invalid",
         UMBRAVIA_BACKUP_AGE_RECIPIENT: "not-an-age-recipient",
       }),
     );
@@ -76,6 +84,7 @@ describe("encryption manager", () => {
         "MFA_KEY_INVALID",
         "EMAIL_QUEUE_KEY_INVALID",
         "PRIVATE_CONTENT_CONFIGURATION_INVALID",
+        "MANAGER_CONNECTION_KEY_INVALID",
         "BACKUP_RECIPIENT_INVALID",
         "TRANSPORT_ORIGIN_NOT_HTTPS",
       ]),

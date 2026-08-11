@@ -1,4 +1,5 @@
 import { getPrivateContentEncryptionStatus } from "../lib/private-content-crypto.js";
+import { getManagerConnectionCryptoStatus } from "../lib/manager-connection-crypto.js";
 import {
   isProductionLike,
   resolveDeploymentProfile,
@@ -22,6 +23,7 @@ export interface EncryptionCapability {
     | "mfa_secrets"
     | "email_queue"
     | "private_content"
+    | "manager_connections"
     | "e2ee_relay"
     | "encrypted_backups"
     | "transport_security";
@@ -121,6 +123,28 @@ export function auditEncryptionConfiguration(
         "invalid",
         "encryption",
         "PRIVATE_CONTENT_CONFIGURATION_INVALID",
+      ),
+    );
+  }
+
+  try {
+    getManagerConnectionCryptoStatus(environment);
+    capabilities.push(
+      capability(
+        "manager_connections",
+        "XChaCha20-Poly1305 authenticated envelopes",
+        "active",
+        "encryption",
+      ),
+    );
+  } catch {
+    capabilities.push(
+      capability(
+        "manager_connections",
+        "XChaCha20-Poly1305 authenticated envelopes",
+        "invalid",
+        "encryption",
+        "MANAGER_CONNECTION_KEY_INVALID",
       ),
     );
   }

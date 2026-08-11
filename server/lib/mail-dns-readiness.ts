@@ -30,6 +30,7 @@ export interface MailDnsReadinessInput {
   dkimSelector?: string;
   strictAuthentication?: boolean;
   inboundEnabled?: boolean;
+  inboundProvider?: "postfix" | "cloudflare";
 }
 
 const systemResolver: MailDnsResolver = {
@@ -114,20 +115,36 @@ export async function assessMailDnsReadiness(
     const mxHosts = [...usableMxRecords]
       .sort((left, right) => left.priority - right.priority)
       .map((record) => normalizedHostname(record.exchange));
-    expectedMailHost ??= mxHosts[0];
-    if (!expectedMailHost || !mxHosts.includes(expectedMailHost)) {
+    if (input.inboundProvider === "cloudflare") {
+      if (!mxHosts.some((host) => host.endsWith(".mx.cloudflare.net"))) {
+        findings.push({
+          code: "MX_TARGET_MISMATCH",
+          level: "error",
+          message: `El MX de ${senderDomain} no apunta a Cloudflare Email Routing.`,
+        });
+        return findings;
+      }
       findings.push({
-        code: "MX_TARGET_MISMATCH",
-        level: "error",
-        message: `El MX de ${senderDomain} no apunta al host esperado ${expectedMailHost ?? "sin definir"}.`,
+        code: "MX_CLOUDFLARE_READY",
+        level: "pass",
+        message: `MX publico disponible mediante Cloudflare Email Routing para ${senderDomain}.`,
       });
-      return findings;
+    } else {
+      expectedMailHost ??= mxHosts[0];
+      if (!expectedMailHost || !mxHosts.includes(expectedMailHost)) {
+        findings.push({
+          code: "MX_TARGET_MISMATCH",
+          level: "error",
+          message: `El MX de ${senderDomain} no apunta al host esperado ${expectedMailHost ?? "sin definir"}.`,
+        });
+        return findings;
+      }
+      findings.push({
+        code: "MX_READY",
+        level: "pass",
+        message: `MX publico disponible: ${senderDomain} -> ${expectedMailHost}.`,
+      });
     }
-    findings.push({
-      code: "MX_READY",
-      level: "pass",
-      message: `MX publico disponible: ${senderDomain} -> ${expectedMailHost}.`,
-    });
   } else {
     findings.push({
       code: "INBOUND_DISABLED",

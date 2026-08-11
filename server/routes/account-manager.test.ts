@@ -67,6 +67,11 @@ describe("account manager API", () => {
       recovery: {
         availableMethods: ["password", "email", "code", "passkey"],
       },
+      communication: {
+        accountVerification: false,
+        accountRecovery: false,
+        supportInbound: false,
+      },
       continuity: {
         status: "draft_available",
         executionEnabled: false,

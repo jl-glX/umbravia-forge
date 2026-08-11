@@ -98,6 +98,38 @@ describe("mail DNS readiness", () => {
     );
   });
 
+  it("accepts Cloudflare MX while continuing to validate the outbound MTA", async () => {
+    const findings = await assessMailDnsReadiness(
+      {
+        emailFrom: "notify@example.com",
+        expectedMailHost: "mail.example.com",
+        dkimSelector: "forge",
+        strictAuthentication: true,
+        inboundEnabled: true,
+        inboundProvider: "cloudflare",
+      },
+      resolver({
+        resolveMx: async () => [
+          { exchange: "route1.mx.cloudflare.net", priority: 5 },
+          { exchange: "route2.mx.cloudflare.net", priority: 22 },
+        ],
+      }),
+    );
+
+    expect(findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "MX_CLOUDFLARE_READY",
+          level: "pass",
+        }),
+        expect.objectContaining({
+          code: "MAIL_HOST_ADDRESS_READY",
+          level: "pass",
+        }),
+      ]),
+    );
+  });
+
   it("reports missing authentication as warnings until strict mode is enabled", async () => {
     const noAuthentication = resolver({ resolveTxt: async () => [] });
     const advisory = await assessMailDnsReadiness(

@@ -17,6 +17,16 @@ import {
   protectPrivateBytes,
   revealPrivateBytes,
 } from "../lib/private-content-crypto.js";
+import {
+  buildSupportReplyAddress,
+  extractUnquotedSupportReply,
+  parseSupportEmailRecipient,
+  resolveSupportEmailInboundConfiguration,
+  verifySupportReplyToken,
+  type SupportEmailInboundConfiguration,
+  type SupportInboundEmailPayload,
+} from "../lib/support-email-inbound.js";
+import { getManagedEmailChannelCapabilities } from "./email-manager.js";
 
 export class SupportAccessError extends Error {
   readonly statusCode = 403;
@@ -145,6 +155,7 @@ export async function getSupportCapabilities(auth: AuthenticatedUser) {
   const supportRole = await supportAgentRole(auth.userId);
   const administrator = auth.role === "admin";
   const staff = administrator || supportRole !== null;
+  const email = getManagedEmailChannelCapabilities("support");
 
   return {
     staff,
@@ -152,6 +163,11 @@ export async function getSupportCapabilities(auth: AuthenticatedUser) {
     supportRole: administrator ? "manager" : supportRole,
     canManageKnowledge: staff,
     canManageTeam: administrator,
+    email: {
+      inbound: email.supportInbound,
+      replies: email.supportReplies,
+      notifications: email.supportNotifications,
+    },
   };
 }
 
@@ -194,6 +210,12 @@ async function notifySupportInbox(
 ): Promise<void> {
   const email = process.env.SUPPORT_NOTIFICATION_EMAIL?.trim();
   if (!email) return;
+  if (
+    email.toLowerCase() ===
+    process.env.SUPPORT_EMAIL_ADDRESS?.trim().toLowerCase()
+  ) {
+    return;
+  }
   try {
     const deliveryId = await queueSupportStaffNotificationEmail({
       email,
@@ -500,6 +522,7 @@ export async function addSupportMessage(
       .executeTakeFirst();
     if (requester) {
       try {
+        const inboundConfiguration = resolveSupportEmailInboundConfiguration();
         const deliveryId = await queueSupportUpdateEmail({
           userId: ticket.requesterUserId,
           email: requester.email,
@@ -509,6 +532,13 @@ export async function addSupportMessage(
           ticketPublicId: ticket.publicId,
           subject: ticket.subject,
           message: body,
+          replyTo: inboundConfiguration
+            ? buildSupportReplyAddress(
+                ticket.publicId,
+                ticket.requesterUserId,
+                inboundConfiguration,
+              )
+            : undefined,
         });
         void deliverQueuedEmail(deliveryId).catch(() => {
           publishManagerSignal(
@@ -531,6 +561,253 @@ export async function addSupportMessage(
     await notifySupportInbox(ticket, body);
   }
   return message;
+}
+
+function normalizedInboundMailbox(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
+  ) {
+    throw new SupportValidationError("Inbound sender is not a valid mailbox");
+  }
+  return normalized;
+}
+
+export async function ingestSupportInboundEmail(
+  input: SupportInboundEmailPayload,
+  configuration: SupportEmailInboundConfiguration,
+): Promise<{
+  duplicate: boolean;
+  ticketPublicId: string;
+}> {
+  if (input.attachmentCount !== 0) {
+    throw new SupportValidationError(
+      "Inbound support attachments are not accepted until malware scanning is available",
+    );
+  }
+  const recipient = parseSupportEmailRecipient(input.envelopeTo, configuration);
+  if (!recipient) {
+    throw new SupportValidationError("Inbound support recipient is invalid");
+  }
+  const sender = normalizedInboundMailbox(input.from);
+  const body = requiredText(
+    extractUnquotedSupportReply(input.text),
+    "message",
+    10_000,
+  );
+
+  if (recipient.kind === "new_ticket") {
+    const requester = await db
+      .selectFrom("users")
+      .select([
+        "id",
+        "email",
+        "name",
+        "avatarDataUrl",
+        "role",
+        "accountStatus",
+        "emailVerifiedAt",
+      ])
+      .where("email", "=", sender)
+      .executeTakeFirst();
+    if (
+      !requester ||
+      requester.accountStatus !== "active" ||
+      requester.emailVerifiedAt === null
+    ) {
+      throw new SupportAccessError(
+        "Inbound support email requires an active verified account",
+      );
+    }
+    const messageIdHash = createHash("sha256")
+      .update(input.messageId.trim().toLowerCase())
+      .digest("hex");
+    const inboundIdentity = createHash("sha256")
+      .update(`${sender}\n${messageIdHash}`)
+      .digest("hex");
+    const now = Date.now();
+    const ticket = {
+      id: `support-ticket-email-${inboundIdentity}`,
+      publicId: publicTicketId(),
+      facilityId: "primary",
+      requesterUserId: requester.id,
+      assigneeUserId: null,
+      subject: requiredText(
+        input.subject || "Solicitud recibida por correo",
+        "subject",
+        160,
+      ),
+      category: "general" as const,
+      priority: "normal" as const,
+      status: "open" as const,
+      source: "api" as const,
+      relatedType: null,
+      relatedId: null,
+      context: JSON.stringify({ channel: "email" }),
+      firstResponseDueAt: now + slaByPriority.normal.firstResponseMs,
+      resolutionDueAt: now + slaByPriority.normal.resolutionMs,
+      firstRespondedAt: null,
+      resolvedAt: null,
+      closedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const inserted = await db.transaction().execute(async (transaction) => {
+      const created = await transaction
+        .insertInto("supportTickets")
+        .values(ticket)
+        .onConflict((conflict) => conflict.column("id").doNothing())
+        .returning("id")
+        .executeTakeFirst();
+      if (!created) return false;
+      await transaction
+        .insertInto("supportMessages")
+        .values({
+          id: `support-email-${inboundIdentity}`,
+          ticketId: ticket.id,
+          authorUserId: requester.id,
+          visibility: "requester",
+          body,
+          createdAt: now,
+        })
+        .execute();
+      await transaction
+        .insertInto("supportEvents")
+        .values([
+          {
+            id: `support-event-${randomUUID()}`,
+            ticketId: ticket.id,
+            actorUserId: requester.id,
+            type: "ticket_created",
+            metadata: JSON.stringify({
+              priority: "normal",
+              category: "general",
+              source: "api",
+            }),
+            createdAt: now,
+          },
+          {
+            id: `support-event-${randomUUID()}`,
+            ticketId: ticket.id,
+            actorUserId: requester.id,
+            type: "email_ticket_received",
+            metadata: JSON.stringify({
+              channel: "cloudflare_email_worker",
+              messageIdHash,
+            }),
+            createdAt: now,
+          },
+        ])
+        .execute();
+      return true;
+    });
+    if (!inserted) {
+      const existing = await db
+        .selectFrom("supportTickets")
+        .select("publicId")
+        .where("id", "=", ticket.id)
+        .executeTakeFirstOrThrow();
+      return { duplicate: true, ticketPublicId: existing.publicId };
+    }
+    publishManagerSignal(
+      "support",
+      "info",
+      "SUPPORT_EMAIL_TICKET_CREATED",
+      `${ticket.publicId} entered the support queue by authenticated email.`,
+    );
+    await notifySupportInbox(ticket, body);
+    return { duplicate: false, ticketPublicId: ticket.publicId };
+  }
+
+  const ticket = await db
+    .selectFrom("supportTickets")
+    .innerJoin(
+      "users as requester",
+      "requester.id",
+      "supportTickets.requesterUserId",
+    )
+    .select([
+      "supportTickets.id as ticketId",
+      "supportTickets.publicId as publicId",
+      "supportTickets.requesterUserId as requesterUserId",
+      "supportTickets.subject as subject",
+      "supportTickets.status as status",
+      "requester.email as requesterEmail",
+      "requester.accountStatus as requesterAccountStatus",
+      "requester.emailVerifiedAt as requesterEmailVerifiedAt",
+    ])
+    .where("supportTickets.publicId", "=", recipient.publicId)
+    .executeTakeFirst();
+  if (!ticket) throw new SupportNotFoundError("Support ticket not found");
+  if (
+    ticket.requesterAccountStatus !== "active" ||
+    ticket.requesterEmailVerifiedAt === null ||
+    ticket.requesterEmail.toLowerCase() !== sender ||
+    !verifySupportReplyToken(recipient, ticket.requesterUserId, configuration)
+  ) {
+    throw new SupportAccessError("Inbound support reply was not authorized");
+  }
+  if (ticket.status === "closed") {
+    throw new SupportValidationError("Closed tickets cannot receive messages");
+  }
+
+  const messageIdHash = createHash("sha256")
+    .update(input.messageId.trim().toLowerCase())
+    .digest("hex");
+  const deterministicMessageId = `support-email-${createHash("sha256")
+    .update(`${ticket.ticketId}\n${messageIdHash}`)
+    .digest("hex")}`;
+  const now = Date.now();
+  const inserted = await db.transaction().execute(async (transaction) => {
+    const message = await transaction
+      .insertInto("supportMessages")
+      .values({
+        id: deterministicMessageId,
+        ticketId: ticket.ticketId,
+        authorUserId: ticket.requesterUserId,
+        visibility: "requester",
+        body,
+        createdAt: now,
+      })
+      .onConflict((conflict) => conflict.column("id").doNothing())
+      .returning("id")
+      .executeTakeFirst();
+    if (!message) return false;
+    await transaction
+      .updateTable("supportTickets")
+      .set({ status: "open", updatedAt: now })
+      .where("id", "=", ticket.ticketId)
+      .execute();
+    await transaction
+      .insertInto("supportEvents")
+      .values({
+        id: `support-event-${randomUUID()}`,
+        ticketId: ticket.ticketId,
+        actorUserId: ticket.requesterUserId,
+        type: "email_reply_received",
+        metadata: JSON.stringify({
+          channel: "cloudflare_email_worker",
+          messageIdHash,
+          status: "open",
+        }),
+        createdAt: now,
+      })
+      .execute();
+    return true;
+  });
+
+  if (!inserted) {
+    return { duplicate: true, ticketPublicId: ticket.publicId };
+  }
+  publishManagerSignal(
+    "support",
+    "info",
+    "SUPPORT_EMAIL_REPLY_RECEIVED",
+    `${ticket.publicId} received an authenticated email reply.`,
+  );
+  await notifySupportInbox(ticket, body);
+  return { duplicate: false, ticketPublicId: ticket.publicId };
 }
 
 export async function updateSupportTicket(
