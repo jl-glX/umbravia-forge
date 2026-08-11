@@ -31,6 +31,15 @@ log() {
   printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1"
 }
 
+restart_app_service() {
+  # A release that exits repeatedly can exhaust systemd's StartLimitBurst
+  # while the updater waits for the health endpoint. Clear that transient
+  # counter before both activation and rollback so the selected release is
+  # actually allowed to start.
+  systemctl reset-failed "$UMBRAVIA_APP_SERVICE" 2>/dev/null || true
+  systemctl restart "$UMBRAVIA_APP_SERVICE"
+}
+
 fail() {
   log "ERR $1" >&2
   exit 1
@@ -270,12 +279,12 @@ mv -Tf "$next_link" "$UMBRAVIA_CURRENT_LINK"
 release_activated=1
 
 log "activando $remote_commit"
-if ! systemctl restart "$UMBRAVIA_APP_SERVICE" || ! health_check "$UMBRAVIA_LOCAL_HEALTH_URL"; then
+if ! restart_app_service || ! health_check "$UMBRAVIA_LOCAL_HEALTH_URL"; then
   log "ERR la nueva release no supera la salud local; restaurando la anterior" >&2
   if [ -n "$current_target" ] && [ -d "$current_target" ]; then
     ln -s "$current_target" "$next_link"
     mv -Tf "$next_link" "$UMBRAVIA_CURRENT_LINK"
-    systemctl restart "$UMBRAVIA_APP_SERVICE" || true
+    restart_app_service || true
     release_activated=0
   fi
   exit 1
@@ -286,7 +295,7 @@ if [ -n "$UMBRAVIA_PUBLIC_HEALTH_URL" ] && ! health_check "$UMBRAVIA_PUBLIC_HEAL
   if [ -n "$current_target" ] && [ -d "$current_target" ]; then
     ln -s "$current_target" "$next_link"
     mv -Tf "$next_link" "$UMBRAVIA_CURRENT_LINK"
-    systemctl restart "$UMBRAVIA_APP_SERVICE" || true
+    restart_app_service || true
     release_activated=0
   fi
   exit 1

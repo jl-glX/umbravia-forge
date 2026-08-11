@@ -93,6 +93,7 @@ require_file "$PROJECT_ROOT/node_modules/argon2/package.json"
 require_file "$PROJECT_ROOT/node_modules/@noble/ciphers/package.json"
 require_file "$PROJECT_ROOT/deploy/check-crypto-runtime.mjs"
 require_file "$PROJECT_ROOT/deploy/check-private-content-key.mjs"
+require_file "$PROJECT_ROOT/deploy/check-manager-connection-key.mjs"
 
 CRYPTO_RUNTIME_OUTPUT=""
 if CRYPTO_RUNTIME_OUTPUT=$(node "$PROJECT_ROOT/deploy/check-crypto-runtime.mjs" 2>&1); then
@@ -153,6 +154,12 @@ if [ -f "$ENV_FILE" ]; then
     else
       fail "configuracion invalida del cifrado de contenido privado"
     fi
+  fi
+
+  if node "$PROJECT_ROOT/deploy/check-manager-connection-key.mjs" "$ENV_FILE" >/dev/null 2>&1; then
+    pass "cifrado XChaCha20-Poly1305 de interconexiones de gestores activo y valido"
+  else
+    fail "configuracion invalida del cifrado de interconexiones de gestores"
   fi
 
   if grep -Eq '^UMBRAVIA_BACKUP_AGE_RECIPIENT=(age1|age1pq1).+' "$ENV_FILE"; then

@@ -72,6 +72,7 @@ for (const requiredFile of [
   "deploy/umbravia-forge-update.service",
   "deploy/umbravia-forge-update.timer",
   "deploy/configure-mail.sh",
+  "deploy/check-manager-connection-key.mjs",
 ]) {
   const platformPath = requiredFile.split("/").join(path.sep);
   if (!files.includes(platformPath)) {

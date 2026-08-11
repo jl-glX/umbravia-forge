@@ -97,6 +97,7 @@ describe("systemd deployment service", () => {
     expect(readiness).toContain("CRYPTO_RUNTIME_OUTPUT");
     expect(readiness).toContain("check-crypto-runtime.mjs");
     expect(readiness).toContain("check-private-content-key.mjs");
+    expect(readiness).toContain("check-manager-connection-key.mjs");
     expect(readiness).toContain("host publico del MTA aun no configurado");
     expect(readiness).toContain(
       "EMAIL_PUBLIC_MAIL_HOST es obligatorio en el modo DNS estricto",
@@ -251,6 +252,62 @@ describe("systemd deployment service", () => {
     }
   });
 
+  it("checks the manager-connection key before activating a release", async () => {
+    const directory = await mkdtemp(
+      path.join(tmpdir(), "umbravia-manager-key-check-"),
+    );
+    const envFile = path.join(directory, "production.env");
+    const key = Buffer.alloc(32, 23).toString("base64");
+    const nextKey = Buffer.alloc(32, 24).toString("base64");
+    try {
+      await writeFile(envFile, `MANAGER_CONNECTION_ENCRYPTION_KEY=${key}\n`, {
+        mode: 0o600,
+      });
+      const result = await execFileAsync(process.execPath, [
+        path.resolve("deploy", "check-manager-connection-key.mjs"),
+        envFile,
+      ]);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+
+      await writeFile(
+        envFile,
+        [
+          `MANAGER_CONNECTION_ENCRYPTION_KEYRING=current:${key},next:${nextKey}`,
+          "MANAGER_CONNECTION_ENCRYPTION_ACTIVE_KEY_ID=next",
+          "",
+        ].join("\n"),
+        { mode: 0o600 },
+      );
+      const rotatedResult = await execFileAsync(process.execPath, [
+        path.resolve("deploy", "check-manager-connection-key.mjs"),
+        envFile,
+      ]);
+      expect(rotatedResult.stdout).toBe("");
+      expect(rotatedResult.stderr).toBe("");
+
+      await writeFile(envFile, "MANAGER_CONNECTION_ENCRYPTION_KEY=invalid\n", {
+        mode: 0o600,
+      });
+      await expect(
+        execFileAsync(process.execPath, [
+          path.resolve("deploy", "check-manager-connection-key.mjs"),
+          envFile,
+        ]),
+      ).rejects.toMatchObject({ code: 1 });
+
+      await writeFile(envFile, "", { mode: 0o600 });
+      await expect(
+        execFileAsync(process.execPath, [
+          path.resolve("deploy", "check-manager-connection-key.mjs"),
+          envFile,
+        ]),
+      ).rejects.toMatchObject({ code: 1 });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("keeps persistent security environment files outside release cleanup", async () => {
     const [updater, disableUpdates] = await Promise.all([
       readFile(path.resolve("deploy", "auto-update.sh"), "utf8"),
@@ -324,6 +381,9 @@ describe("systemd deployment service", () => {
     expect(updater).toContain("trap cleanup EXIT");
     expect(updater).toContain("trap 'exit 1' HUP INT TERM");
     expect(updater).toContain('chmod -R u+rwX,g+rX,o-rwx "$release_dir"');
+    expect(updater).toContain("restart_app_service()");
+    expect(updater).toContain('systemctl reset-failed "$UMBRAVIA_APP_SERVICE"');
+    expect(updater.match(/restart_app_service/g)).toHaveLength(4);
   });
 
   it("covers npm, readiness and health failures with the expected cleanup state", async () => {
