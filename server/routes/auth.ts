@@ -27,6 +27,7 @@ import {
   authenticate,
   authenticateAccountSession,
   getAuthenticatedUser,
+  selectFacilityContext,
 } from "../middleware/authorization.js";
 import {
   clearSessionCookie,
@@ -70,6 +71,7 @@ import {
 } from "../services/form-verification.js";
 import { emailVerificationIsEnabled } from "../lib/account-verification-mode.js";
 import { ManagerCoordinationConflictError } from "../services/manager-coordinator.js";
+import { listFacilityContexts } from "../services/facility-context.js";
 
 export const authRouter = express.Router();
 
@@ -453,6 +455,7 @@ authRouter.post(
 authRouter.get(
   "/session",
   authenticateAccountSession,
+  selectFacilityContext,
   (_req: express.Request, res: express.Response) => {
     const session = getAuthenticatedUser(res);
     res.json({
@@ -463,8 +466,25 @@ authRouter.get(
         avatarDataUrl: session.avatarDataUrl,
         role: session.role,
         accountStatus: session.accountStatus,
+        facility: session.facility,
       },
     });
+  },
+);
+
+authRouter.get(
+  "/facilities",
+  authenticateAccountSession,
+  async (_req: express.Request, res: express.Response, next) => {
+    try {
+      res.json({
+        facilities: await listFacilityContexts(
+          getAuthenticatedUser(res).userId,
+        ),
+      });
+    } catch (error) {
+      next(error);
+    }
   },
 );
 

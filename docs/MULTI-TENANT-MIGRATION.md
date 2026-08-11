@@ -47,6 +47,28 @@ automatic destructive down migrations are not used.
 7. Remove compatibility fallbacks only after production data and every route
    have passed isolation tests.
 
+## Facility context contract
+
+Authenticated facility routes may accept `X-Facility-Id`. The value is only a
+selector: the server resolves it against the account's active memberships and
+an active facility before any route handler runs. Missing, suspended or foreign
+memberships are rejected without revealing whether another facility exists.
+
+When the header is omitted, the oldest active membership is selected to retain
+compatibility with existing `primary` accounts. The authenticated facilities
+endpoint exposes the permitted selector values. Account-global operations such
+as logout and recovery do not depend on a facility selector, so losing access
+to a centre cannot lock a user out of account security.
+
+Facility administration uses the membership role. The global compatibility
+role in `users.role` does not authorize a write to another facility.
+
+## Stabilized checkpoints
+
+- `637c831`: tenant root, memberships and idempotent `primary` backfill.
+- Facility context and profile isolation remain on the development branch until
+  their full repository gate and checkpoint commit pass.
+
 ## Initial data classification
 
 | Category                | Scope                                           | Examples                                                                                    |

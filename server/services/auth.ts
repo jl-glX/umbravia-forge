@@ -19,6 +19,11 @@ import {
   CURRENT_TERMS_VERSION,
 } from "../lib/legal-versions.js";
 import { completeAccountRecovery } from "./account-recovery.js";
+import {
+  ensurePrimaryCompatibilityMembership,
+  type FacilityContext,
+  resolveFacilityContext,
+} from "./facility-context.js";
 
 export { isStrongPassword } from "../lib/password-policy.js";
 
@@ -38,6 +43,7 @@ export interface SessionData {
   accountStatus: "pending_verification" | "active" | "security_review";
   createdAt: number;
   expiresAt: number;
+  facility: FacilityContext | null;
 }
 
 export interface AuthResult {
@@ -208,6 +214,7 @@ export async function signup(
     })
     .execute();
 
+  await ensurePrimaryCompatibilityMembership(user.id, user.role, createdAt);
   await ensureSupportIdentifier(user.id);
   return createSession(user, metadata);
 }
@@ -448,6 +455,7 @@ export async function verifyToken(token: string): Promise<SessionData | null> {
     createdAt: record.createdAt,
     expiresAt: record.expiresAt,
     sessionId: sessionId(token),
+    facility: await resolveFacilityContext(record.userId),
   };
 }
 

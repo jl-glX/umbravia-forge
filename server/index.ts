@@ -88,6 +88,7 @@ app.use(
       "Authorization",
       "X-File-Name",
       "X-Message-Id",
+      "X-Facility-Id",
     ],
     credentials: true,
     maxAge: 600,

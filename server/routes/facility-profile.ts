@@ -1,24 +1,29 @@
 import express from "express";
 import type { RequestHandler } from "express";
 import { db } from "../db/client.js";
-import { authenticate, requireRole } from "../middleware/authorization.js";
+import {
+  authenticate,
+  getFacilityContext,
+  requireFacility,
+  selectFacilityContext,
+} from "../middleware/authorization.js";
 import { facilityProfileValidation } from "../middleware/validation.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
 
-const PRIMARY_FACILITY_ID = "primary";
-
 export const facilityProfileRouter = express.Router();
 facilityProfileRouter.use(authenticate);
+facilityProfileRouter.use(selectFacilityContext);
 facilityProfileRouter.use(express.json({ limit: "768kb" }));
 facilityProfileRouter.use(requireRecentFormVerification);
 
-facilityProfileRouter.get("/", async (_req, res, next) => {
+facilityProfileRouter.get("/", requireFacility(), async (_req, res, next) => {
   try {
+    const facility = getFacilityContext(res);
     res.json(
       await db
         .selectFrom("facilityProfiles")
         .selectAll()
-        .where("id", "=", PRIMARY_FACILITY_ID)
+        .where("id", "=", facility.id)
         .executeTakeFirstOrThrow(),
     );
   } catch (error) {
@@ -28,17 +33,18 @@ facilityProfileRouter.get("/", async (_req, res, next) => {
 
 const updateFacilityProfile: RequestHandler = async (req, res, next) => {
   try {
+    const facility = getFacilityContext(res);
     await db
       .updateTable("facilityProfiles")
       .set({ ...req.body, updatedAt: Date.now() })
-      .where("id", "=", PRIMARY_FACILITY_ID)
+      .where("id", "=", facility.id)
       .executeTakeFirstOrThrow();
 
     res.json(
       await db
         .selectFrom("facilityProfiles")
         .selectAll()
-        .where("id", "=", PRIMARY_FACILITY_ID)
+        .where("id", "=", facility.id)
         .executeTakeFirstOrThrow(),
     );
   } catch (error) {
@@ -48,7 +54,7 @@ const updateFacilityProfile: RequestHandler = async (req, res, next) => {
 
 facilityProfileRouter.patch(
   "/",
-  requireRole("admin"),
+  requireFacility("owner", "admin"),
   facilityProfileValidation,
   updateFacilityProfile,
 );

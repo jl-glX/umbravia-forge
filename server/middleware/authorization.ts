@@ -3,6 +3,11 @@ import { db } from "../db/client.js";
 import { verifyToken } from "../services/auth.js";
 import { readSessionToken } from "../lib/session-cookie.js";
 import { hasActiveBookingDelegation } from "../services/delegations.js";
+import type { FacilityRole } from "../db/types.js";
+import {
+  FacilityAccessDeniedError,
+  resolveFacilityContext,
+} from "../services/facility-context.js";
 
 export type UserRole = "member" | "trainer" | "admin";
 
@@ -14,6 +19,12 @@ export interface AuthenticatedUser {
   avatarDataUrl: string;
   role: UserRole;
   accountStatus: "pending_verification" | "active" | "security_review";
+  facility: {
+    id: string;
+    slug: string;
+    name: string;
+    role: FacilityRole;
+  } | null;
 }
 
 function unauthorized(res: Response, message = "Authentication required") {
@@ -60,6 +71,34 @@ async function authenticateSession(
     }
     next();
   } catch (error) {
+    if (error instanceof FacilityAccessDeniedError) {
+      forbidden(res, error.message);
+      return;
+    }
+    next(error);
+  }
+}
+
+export async function selectFacilityContext(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const auth = getAuthenticatedUser(res);
+    const requestedFacilityId = req.get("X-Facility-Id");
+    if (requestedFacilityId !== undefined) {
+      auth.facility = await resolveFacilityContext(
+        auth.userId,
+        requestedFacilityId,
+      );
+    }
+    next();
+  } catch (error) {
+    if (error instanceof FacilityAccessDeniedError) {
+      forbidden(res, error.message);
+      return;
+    }
     next(error);
   }
 }
@@ -85,6 +124,23 @@ export function requireRole(...roles: UserRole[]) {
     const auth = getAuthenticatedUser(res);
     if (!roles.includes(auth.role)) {
       forbidden(res);
+      return;
+    }
+    next();
+  };
+}
+
+export function getFacilityContext(res: Response) {
+  const facility = getAuthenticatedUser(res).facility;
+  if (!facility) throw new FacilityAccessDeniedError();
+  return facility;
+}
+
+export function requireFacility(...roles: FacilityRole[]) {
+  return (_req: Request, res: Response, next: NextFunction): void => {
+    const facility = getAuthenticatedUser(res).facility;
+    if (!facility || (roles.length > 0 && !roles.includes(facility.role))) {
+      forbidden(res, "An active facility membership is required");
       return;
     }
     next();

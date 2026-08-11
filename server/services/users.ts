@@ -4,6 +4,7 @@ import { randomBytes } from "crypto";
 import { ensureSupportIdentifier } from "./support-identifiers.js";
 import type { Transaction } from "kysely";
 import type { Database } from "../db/types.js";
+import { ensurePrimaryCompatibilityMembership } from "./facility-context.js";
 
 export interface UserWithoutPassword {
   id: string;
@@ -108,6 +109,7 @@ export async function createUser(
     })
     .execute();
 
+  await ensurePrimaryCompatibilityMembership(userId, role);
   await ensureSupportIdentifier(userId);
   return {
     id: userId,

@@ -41,6 +41,22 @@ describe("persistent authentication sessions", () => {
     expect(await auth.verifyToken(result.sessionToken)).toMatchObject({
       userId: result.user.id,
       role: "member",
+      facility: {
+        id: "primary",
+        role: "member",
+      },
+    });
+
+    await expect(
+      database.db
+        .selectFrom("facilityMemberships")
+        .select(["facilityId", "role", "status"])
+        .where("userId", "=", result.user.id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      facilityId: "primary",
+      role: "member",
+      status: "active",
     });
 
     await database.db
