@@ -1169,6 +1169,7 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE billingRecords (
         id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL DEFAULT 'primary',
         userId TEXT,
         customerName TEXT NOT NULL,
         customerEmail TEXT NOT NULL DEFAULT '',
@@ -1185,6 +1186,7 @@ async function initializeSqliteSchema(
         archivedAt INTEGER,
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
         FOREIGN KEY(userId) REFERENCES users(id) ON DELETE SET NULL
       );
       CREATE INDEX idx_billingRecords_userId ON billingRecords(userId);
@@ -1197,6 +1199,12 @@ async function initializeSqliteSchema(
       .prepare("PRAGMA table_info(billingRecords)")
       .all() as Array<{ name: string }>;
     const billingColumnNames = billingColumns.map((column) => column.name);
+
+    if (!billingColumnNames.includes("facilityId")) {
+      sqliteDb.exec(
+        "ALTER TABLE billingRecords ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'primary'",
+      );
+    }
 
     if (!billingColumnNames.includes("customCycleLabel")) {
       sqliteDb.exec(
@@ -1325,6 +1333,27 @@ async function initializeSqliteSchema(
        FROM users`,
     )
     .run(membershipBackfillAt);
+
+  sqliteDb.exec(`
+    CREATE INDEX IF NOT EXISTS idx_billingRecords_facility_status
+      ON billingRecords(facilityId, status, updatedAt DESC);
+    CREATE TRIGGER IF NOT EXISTS trg_billingRecords_facility_insert
+    BEFORE INSERT ON billingRecords
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_billingRecords_facility_update
+    BEFORE UPDATE OF facilityId ON billingRecords
+    WHEN NOT EXISTS (
+      SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown facility');
+    END;
+  `);
 
   const reputationColumns = sqliteDb
     .prepare("PRAGMA table_info(bookingReputations)")

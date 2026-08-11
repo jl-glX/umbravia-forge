@@ -310,6 +310,7 @@ CREATE INDEX IF NOT EXISTS "idx_feedback_createdAt" ON "feedback" ("createdAt");
 
 CREATE TABLE IF NOT EXISTS "billingRecords" (
   "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL DEFAULT 'primary',
   "userId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
   "customerName" TEXT NOT NULL,
   "customerEmail" TEXT NOT NULL DEFAULT '',
@@ -1279,6 +1280,20 @@ CREATE INDEX IF NOT EXISTS "idx_bookingReputations_facility_penalty"
   ON "bookingReputations" ("facilityId", "penaltyUntil");
 CREATE INDEX IF NOT EXISTS "idx_bookingReputationEvents_facility_user"
   ON "bookingReputationEvents" ("facilityId", "userId", "createdAt" DESC);
+`,
+  },
+  {
+    version: 18,
+    name: "facility-billing-scope",
+    sql: String.raw`
+ALTER TABLE "billingRecords"
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+ALTER TABLE "billingRecords"
+  ADD CONSTRAINT "billingRecords_facilityId_fkey"
+  FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
+  ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS "idx_billingRecords_facility_status"
+  ON "billingRecords" ("facilityId", "status", "updatedAt" DESC);
 `,
   },
 ];

@@ -468,6 +468,7 @@ interface SupportKnowledgeArticle {
 
 interface BillingRecord {
   id: string;
+  facilityId: string;
   userId: string | null;
   customerName: string;
   customerEmail: string;
