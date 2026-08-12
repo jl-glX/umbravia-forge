@@ -24,13 +24,13 @@ describe("systemd deployment service", () => {
     expect(npmConfig).toContain("strict-allow-scripts=true");
     expect(packageJson.allowScripts).toMatchObject({
       "argon2@0.45.1": true,
-      "better-sqlite3@13.0.2": true,
+      "better-sqlite3@13.0.3": true,
       "esbuild@0.28.1": true,
     });
     expect(Object.keys(packageJson.allowScripts ?? {})).toEqual(
       expect.arrayContaining([
         "argon2@0.45.1",
-        "better-sqlite3@13.0.2",
+        "better-sqlite3@13.0.3",
         "esbuild@0.28.1",
       ]),
     );

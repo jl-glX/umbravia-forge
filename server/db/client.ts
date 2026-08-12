@@ -1336,6 +1336,26 @@ async function initializeSqliteSchema(
     )
     .run(membershipBackfillAt);
 
+  sqliteDb.exec(`
+    CREATE TABLE IF NOT EXISTS supportKnowledgeArticles (
+      id TEXT PRIMARY KEY,
+      facilityId TEXT NOT NULL DEFAULT 'primary',
+      slug TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      body TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'general',
+      status TEXT NOT NULL CHECK(status IN ('draft', 'published', 'archived')),
+      authorUserId TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      publishedAt INTEGER,
+      FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+      FOREIGN KEY(authorUserId) REFERENCES users(id) ON DELETE RESTRICT,
+      UNIQUE(facilityId, slug)
+    );
+  `);
+
   const supportKnowledgeColumns = sqliteDb
     .prepare("PRAGMA table_info(supportKnowledgeArticles)")
     .all() as Array<{ name: string }>;

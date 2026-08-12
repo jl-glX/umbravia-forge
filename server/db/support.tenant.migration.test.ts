@@ -121,4 +121,40 @@ describe("support tenant migration", () => {
       },
     ]);
   });
+
+  it("recreates the knowledge table when the rest of the support schema already exists", async () => {
+    directory = await mkdtemp(
+      join(tmpdir(), "umbravia-forge-support-partial-"),
+    );
+    vi.stubEnv("DATA_DIRECTORY", directory);
+    vi.stubEnv("NODE_ENV", "test");
+    vi.resetModules();
+
+    const baselineDatabase = await import("./client.js");
+    await baselineDatabase.initializeDatabase();
+    await baselineDatabase.closeDatabase();
+
+    const raw = new Database(join(directory, "database.sqlite"));
+    raw.exec("DROP TABLE supportKnowledgeArticles");
+    expect(
+      raw
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'supportTickets'",
+        )
+        .get(),
+    ).toEqual({ name: "supportTickets" });
+    raw.close();
+
+    vi.resetModules();
+    migratedDatabase = await import("./client.js");
+    await expect(
+      migratedDatabase.initializeDatabase(),
+    ).resolves.toBeUndefined();
+    await expect(
+      migratedDatabase.db
+        .selectFrom("supportKnowledgeArticles")
+        .selectAll()
+        .execute(),
+    ).resolves.toEqual([]);
+  });
 });
