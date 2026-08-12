@@ -8,10 +8,12 @@ import {
   getMemberMetrics,
   getUpcomingBookings,
   getTrainerUpcomingClasses,
+  getAnalyticsOverview,
 } from "../services/analytics.js";
 import { monthValidation, validateId } from "../middleware/validation.js";
 import {
   authenticate,
+  getAuthenticatedUser,
   getFacilityContext,
   requireFacility,
   requireSelfParamOrFacilityRole,
@@ -20,6 +22,55 @@ import {
 
 export const analyticsRouter = express.Router();
 analyticsRouter.use(authenticate, selectFacilityContext, requireFacility());
+
+const MAX_ANALYTICS_PERIOD_MS = 93 * 24 * 60 * 60 * 1_000;
+
+analyticsRouter.get(
+  "/overview",
+  requireFacility("trainer", "owner", "admin"),
+  async (req: express.Request, res: express.Response) => {
+    const from = Number(req.query.from);
+    const to = Number(req.query.to);
+    const utcOffsetMinutes = Number(req.query.utcOffsetMinutes ?? 0);
+    if (
+      !Number.isSafeInteger(from) ||
+      !Number.isSafeInteger(to) ||
+      from >= to ||
+      to - from > MAX_ANALYTICS_PERIOD_MS ||
+      !Number.isInteger(utcOffsetMinutes) ||
+      utcOffsetMinutes < -840 ||
+      utcOffsetMinutes > 840
+    ) {
+      res.status(400).json({
+        error: "The analytics period is invalid or exceeds 93 days",
+        code: "ANALYTICS_PERIOD_INVALID",
+      });
+      return;
+    }
+
+    try {
+      const auth = getAuthenticatedUser(res);
+      const facility = getFacilityContext(res);
+      const consumer =
+        facility.role === "trainer" ? "trainer" : "administration";
+      const overview = await getAnalyticsOverview({
+        from,
+        to,
+        utcOffsetMinutes,
+        facilityId: facility.id,
+        consumer,
+        trainerId: consumer === "trainer" ? auth.userId : undefined,
+      });
+      res.json(overview);
+    } catch (error) {
+      console.error("Error fetching analytics overview:", error);
+      res.status(500).json({
+        error: "Failed to fetch analytics overview",
+        code: "ANALYTICS_OVERVIEW_FAILED",
+      });
+    }
+  },
+);
 
 // Get monthly metrics
 analyticsRouter.get(
@@ -52,6 +103,7 @@ analyticsRouter.get(
 // Get class popularity
 analyticsRouter.get(
   "/class-popularity",
+  requireFacility("member", "trainer", "owner", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
       const popularity = await getClassPopularity(getFacilityContext(res).id);
@@ -66,6 +118,7 @@ analyticsRouter.get(
 // Get peak hours
 analyticsRouter.get(
   "/peak-hours",
+  requireFacility("member", "trainer", "owner", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
       const peakHours = await getPeakHours(getFacilityContext(res).id);

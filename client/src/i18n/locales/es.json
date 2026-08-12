@@ -1251,7 +1251,57 @@
     "noSystemData": "Todavía no hay datos del sistema",
     "systemDataHint": "La analítica aparecerá cuando los usuarios se registren y reserven clases",
     "bookingsAt": "{{count}} reservas a las {{hour}}",
-    "occupancy": "{{value}} % de ocupación"
+    "occupancy": "{{value}} % de ocupación",
+    "loadError": "No se ha podido cargar Forge Analytics",
+    "loadErrorHint": "Vuelve a intentarlo. Si persiste, soporte podrá identificar el fallo mediante su código sin acceder a tus métricas.",
+    "weightedCapacity": "Calculada sobre las plazas ofertadas",
+    "recordedAttendance": "Solo asistencias registradas por el centro",
+    "activeInPeriod": "Socios con actividad en el periodo",
+    "onlyYourClasses": "Solo tus clases en el periodo",
+    "onlyYourParticipants": "Solo participantes de tus clases",
+    "yourPeakHours": "Horas con más demanda en tus clases",
+    "decisionTitle": "Decisiones sugeridas",
+    "decisionDescription": "Señales verificables para revisar; no son decisiones automáticas.",
+    "noRecommendation": "No hay una señal operativa clara en este periodo. Mantén la observación antes de cambiar la programación.",
+    "activityPerformance": "Rendimiento por actividad",
+    "activityPerformanceDescription": "Sesiones agrupadas por actividad dentro del periodo seleccionado.",
+    "activity": "Actividad",
+    "sessions": "Sesiones",
+    "bookings": "Reservas",
+    "occupancyLabel": "Ocupación",
+    "attendanceLabel": "Asistencia",
+    "waitlistDemand": "Lista de espera actual",
+    "notMeasured": "Sin medir",
+    "memberEngagement": "Actividad de socios",
+    "memberEngagementDescription": "Participación real en este centro y periodo. No incluye correo ni otros datos de contacto.",
+    "member": "Socio",
+    "attended": "Asistió",
+    "absent": "Ausencias",
+    "favoriteActivity": "Actividad más reservada",
+    "lastSession": "Última sesión",
+    "dataQualityTitle": "Calidad y alcance del dato",
+    "noAttendanceCoverage": "Todavía no hay clases pasadas con reservas para medir la cobertura de asistencia.",
+    "attendanceCoverage": "El {{value}} % de las reservas de clases ya celebradas tiene una asistencia registrada.",
+    "surveyCausalityHint": "Estas métricas muestran qué ocurre. Para explicar por qué ocurre, habrá que contrastarlas con las futuras encuestas mensuales.",
+    "period": { "day": "Hoy", "week": "Esta semana", "month": "Este mes" },
+    "recommendations": {
+      "COLLECT_MORE_DATA": {
+        "title": "Recoge más datos antes de decidir",
+        "body": "Hay {{value}} reservas confirmadas en este periodo; todavía no forman una muestra estable."
+      },
+      "INCREASE_CAPACITY": {
+        "title": "Revisa la capacidad de {{activity}}",
+        "body": "La ocupación alcanza el {{value}} % y aún existe demanda en lista de espera."
+      },
+      "REVIEW_LOW_DEMAND": {
+        "title": "Revisa la programación de {{activity}}",
+        "body": "La ocupación observada es del {{value}} %. Contrasta horario, propuesta y encuesta antes de cambiarla."
+      },
+      "REDUCE_NO_SHOWS": {
+        "title": "Revisa las ausencias",
+        "body": "El {{value}} % de los resultados de asistencia registrados son ausencias."
+      }
+    }
   },
   "demoClasses": {
     "yogaFlow": {

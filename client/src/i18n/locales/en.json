@@ -1243,7 +1243,57 @@
     "noSystemData": "No system data yet",
     "systemDataHint": "Analytics will appear as users register and book classes",
     "bookingsAt": "{{count}} bookings at {{hour}}",
-    "occupancy": "{{value}}% full"
+    "occupancy": "{{value}}% full",
+    "loadError": "Forge Analytics could not be loaded",
+    "loadErrorHint": "Try again. If it persists, support can identify the failure by its code without accessing your metrics.",
+    "weightedCapacity": "Calculated from the places offered",
+    "recordedAttendance": "Only attendance recorded by the facility",
+    "activeInPeriod": "Members with activity in the period",
+    "onlyYourClasses": "Only your classes in the period",
+    "onlyYourParticipants": "Only participants in your classes",
+    "yourPeakHours": "Highest-demand hours in your classes",
+    "decisionTitle": "Suggested decisions",
+    "decisionDescription": "Verifiable signals to review; they are not automatic decisions.",
+    "noRecommendation": "There is no clear operational signal in this period. Keep observing before changing the schedule.",
+    "activityPerformance": "Performance by activity",
+    "activityPerformanceDescription": "Sessions grouped by activity within the selected period.",
+    "activity": "Activity",
+    "sessions": "Sessions",
+    "bookings": "Bookings",
+    "occupancyLabel": "Occupancy",
+    "attendanceLabel": "Attendance",
+    "waitlistDemand": "Current waitlist",
+    "notMeasured": "Not measured",
+    "memberEngagement": "Member activity",
+    "memberEngagementDescription": "Actual participation in this facility and period. Email and other contact data are not included.",
+    "member": "Member",
+    "attended": "Attended",
+    "absent": "Absences",
+    "favoriteActivity": "Most-booked activity",
+    "lastSession": "Last session",
+    "dataQualityTitle": "Data quality and scope",
+    "noAttendanceCoverage": "There are no past classes with bookings yet to measure attendance coverage.",
+    "attendanceCoverage": "{{value}}% of bookings for completed classes have a recorded attendance outcome.",
+    "surveyCausalityHint": "These metrics show what happens. Explaining why will require comparison with the future monthly surveys.",
+    "period": { "day": "Today", "week": "This week", "month": "This month" },
+    "recommendations": {
+      "COLLECT_MORE_DATA": {
+        "title": "Collect more data before deciding",
+        "body": "There are {{value}} confirmed bookings in this period; they are not yet a stable sample."
+      },
+      "INCREASE_CAPACITY": {
+        "title": "Review {{activity}} capacity",
+        "body": "Occupancy reaches {{value}}% and waitlist demand still exists."
+      },
+      "REVIEW_LOW_DEMAND": {
+        "title": "Review the {{activity}} schedule",
+        "body": "Observed occupancy is {{value}}%. Compare time, offering and survey results before changing it."
+      },
+      "REDUCE_NO_SHOWS": {
+        "title": "Review absences",
+        "body": "{{value}}% of recorded attendance outcomes are absences."
+      }
+    }
   },
   "demoClasses": {
     "yogaFlow": {

@@ -9,6 +9,7 @@ describe("analytics tenant isolation", () => {
   let database: typeof import("../db/client.js");
   let app: typeof import("../index.js").app;
   let adminCookie: string;
+  let trainerCookie: string;
   let now: number;
 
   beforeAll(async () => {
@@ -90,6 +91,19 @@ describe("analytics tenant isolation", () => {
           sessionIdleTimeoutMinutes: 7 * 24 * 60,
           createdAt: now,
         },
+        {
+          id: "analytics-trainer",
+          email: "analytics-trainer@example.com",
+          phone: null,
+          name: "Analytics Trainer",
+          accountStatus: "active",
+          emailVerifiedAt: now,
+          avatarDataUrl: "",
+          password: await auth.hashPassword("AnalyticsTrainerPassword123"),
+          role: "trainer",
+          sessionIdleTimeoutMinutes: 7 * 24 * 60,
+          createdAt: now,
+        },
       ])
       .execute();
     await database.db
@@ -140,6 +154,15 @@ describe("analytics tenant isolation", () => {
           createdAt: now,
           updatedAt: now,
         },
+        {
+          id: "analytics-secondary:analytics-trainer",
+          facilityId: "analytics-secondary",
+          userId: "analytics-trainer",
+          role: "trainer",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
       ])
       .execute();
     await database.db
@@ -165,6 +188,26 @@ describe("analytics tenant isolation", () => {
           maxCapacity: 5,
           scheduledAt: now + 7_200_000,
         },
+        {
+          id: "analytics-trainer-class",
+          facilityId: "analytics-secondary",
+          name: "Trainer analytics class",
+          description: "",
+          trainerId: "analytics-trainer",
+          trainerName: "Analytics Trainer",
+          maxCapacity: 4,
+          scheduledAt: now + 10_800_000,
+        },
+        {
+          id: "analytics-trainer-past-class",
+          facilityId: "analytics-secondary",
+          name: "Trainer analytics class",
+          description: "",
+          trainerId: "analytics-trainer",
+          trainerName: "Analytics Trainer",
+          maxCapacity: 4,
+          scheduledAt: now - 3_600_000,
+        },
       ])
       .execute();
     await database.db
@@ -186,7 +229,36 @@ describe("analytics tenant isolation", () => {
           createdAt: now,
           cancelledAt: null,
         },
+        {
+          id: "analytics-trainer-booking",
+          classId: "analytics-trainer-class",
+          userId: "analytics-secondary-member",
+          status: "confirmed",
+          createdAt: now,
+          cancelledAt: null,
+        },
+        {
+          id: "analytics-trainer-past-booking",
+          classId: "analytics-trainer-past-class",
+          userId: "analytics-secondary-member",
+          status: "confirmed",
+          createdAt: now - 7_200_000,
+          cancelledAt: null,
+        },
       ])
+      .execute();
+    await database.db
+      .insertInto("bookingLifecycles")
+      .values({
+        bookingId: "analytics-trainer-past-booking",
+        lifecycleStatus: "attended",
+        attendanceIntention: "yes",
+        intentionUpdatedAt: now - 7_200_000,
+        confirmedAt: now - 7_200_000,
+        lastReminderAt: null,
+        reminderCount: 0,
+        updatedAt: now - 3_600_000,
+      })
       .execute();
 
     app = (await import("../index.js")).app;
@@ -194,6 +266,14 @@ describe("analytics tenant isolation", () => {
       await request(app).post("/api/auth/login").send({
         identifier: "analytics-admin@example.com",
         password: "AnalyticsAdminPassword123",
+        accessPortal: "staff",
+        rememberDevice: false,
+      })
+    ).headers["set-cookie"][0];
+    trainerCookie = (
+      await request(app).post("/api/auth/login").send({
+        identifier: "analytics-trainer@example.com",
+        password: "AnalyticsTrainerPassword123",
         accessPortal: "staff",
         rememberDevice: false,
       })
@@ -212,16 +292,29 @@ describe("analytics tenant isolation", () => {
       .set("X-Facility-Id", "analytics-secondary");
   }
 
+  function secondaryTrainer(requestBuilder: request.Test) {
+    return requestBuilder
+      .set("Cookie", trainerCookie)
+      .set("X-Facility-Id", "analytics-secondary");
+  }
+
   it("reports classes and bookings only for the selected facility", async () => {
     const popularity = await secondary(
       request(app).get("/api/analytics/class-popularity"),
     ).expect(200);
-    expect(popularity.body).toEqual([
-      expect.objectContaining({
-        classId: "analytics-secondary-class",
-        totalBookings: 1,
-      }),
-    ]);
+    expect(popularity.body).toHaveLength(3);
+    expect(popularity.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          classId: "analytics-secondary-class",
+          totalBookings: 1,
+        }),
+        expect.objectContaining({
+          classId: "analytics-trainer-class",
+          totalBookings: 1,
+        }),
+      ]),
+    );
 
     const date = new Date(now);
     const monthly = await secondary(
@@ -233,7 +326,7 @@ describe("analytics tenant isolation", () => {
         }),
     ).expect(200);
     expect(monthly.body).toEqual(
-      expect.objectContaining({ totalBookings: 1, totalClasses: 1 }),
+      expect.objectContaining({ totalBookings: 3, totalClasses: 3 }),
     );
   });
 
@@ -264,5 +357,84 @@ describe("analytics tenant isolation", () => {
     expect(
       response.body.map((gymClass: { id: string }) => gymClass.id),
     ).toEqual(["analytics-secondary-class"]);
+  });
+
+  it("builds an administration overview without leaking contact data", async () => {
+    const response = await secondary(
+      request(app)
+        .get("/api/analytics/overview")
+        .query({
+          from: now - 2 * 60 * 60 * 1_000,
+          to: now + 24 * 60 * 60 * 1_000,
+          utcOffsetMinutes: 120,
+        }),
+    ).expect(200);
+
+    expect(response.body).toMatchObject({
+      consumer: "administration",
+      summary: {
+        sessions: 3,
+        availablePlaces: 13,
+        confirmedBookings: 3,
+        uniqueMembers: 1,
+        occupancyRate: 23,
+        attendanceRate: 100,
+      },
+      dataQuality: {
+        attendanceCoverageRate: 100,
+        causalExplanation: "survey_required",
+        currentWaitlistOnly: true,
+      },
+    });
+    expect(response.body.members).toEqual([
+      expect.objectContaining({
+        userId: "analytics-secondary-member",
+        bookedSessions: 3,
+        attendedSessions: 1,
+      }),
+    ]);
+    expect(JSON.stringify(response.body.members)).not.toContain(
+      "analytics-secondary@example.com",
+    );
+  });
+
+  it("limits trainer analytics to that trainer's sessions and participants", async () => {
+    const response = await secondaryTrainer(
+      request(app)
+        .get("/api/analytics/overview")
+        .query({
+          from: now - 2 * 60 * 60 * 1_000,
+          to: now + 24 * 60 * 60 * 1_000,
+          utcOffsetMinutes: 120,
+        }),
+    ).expect(200);
+
+    expect(response.body).toMatchObject({
+      consumer: "trainer",
+      summary: {
+        sessions: 2,
+        availablePlaces: 8,
+        confirmedBookings: 2,
+        uniqueMembers: 1,
+        occupancyRate: 25,
+        attendanceRate: 100,
+      },
+    });
+    expect(response.body.activities).toEqual([
+      expect.objectContaining({ activityName: "Trainer analytics class" }),
+    ]);
+  });
+
+  it("rejects invalid or excessively broad analytics periods", async () => {
+    const response = await secondary(
+      request(app)
+        .get("/api/analytics/overview")
+        .query({
+          from: now,
+          to: now + 94 * 24 * 60 * 60 * 1_000,
+          utcOffsetMinutes: 0,
+        }),
+    ).expect(400);
+    expect(response.body.code).toBe("ANALYTICS_PERIOD_INVALID");
   });
 });

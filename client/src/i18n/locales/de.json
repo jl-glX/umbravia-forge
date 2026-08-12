@@ -1247,7 +1247,61 @@
     "systemDataHint": "Analytics wird angezeigt, wenn sich Benutzer registrieren und Kurse buchen",
     "bookingsAt": "{{count}} Buchungen bei {{hour}}",
     "noSystemData": "Noch keine Systemdaten",
-    "occupancy": "{{value}}% voll"
+    "occupancy": "{{value}}% voll",
+    "loadError": "Forge Analytics konnte nicht geladen werden",
+    "loadErrorHint": "Versuche es erneut. Wenn der Fehler bleibt, kann der Support ihn über den Code erkennen, ohne auf deine Kennzahlen zuzugreifen.",
+    "weightedCapacity": "Aus den angebotenen Plätzen berechnet",
+    "recordedAttendance": "Nur vom Zentrum erfasste Anwesenheit",
+    "activeInPeriod": "Mitglieder mit Aktivität im Zeitraum",
+    "onlyYourClasses": "Nur deine Kurse im Zeitraum",
+    "onlyYourParticipants": "Nur Teilnehmende deiner Kurse",
+    "yourPeakHours": "Nachfragestärkste Zeiten deiner Kurse",
+    "decisionTitle": "Vorgeschlagene Entscheidungen",
+    "decisionDescription": "Prüfbare Signale; keine automatischen Entscheidungen.",
+    "noRecommendation": "In diesem Zeitraum gibt es kein klares Betriebssignal. Beobachte weiter, bevor du den Plan änderst.",
+    "activityPerformance": "Leistung nach Aktivität",
+    "activityPerformanceDescription": "Nach Aktivität gruppierte Einheiten im ausgewählten Zeitraum.",
+    "activity": "Aktivität",
+    "sessions": "Einheiten",
+    "bookings": "Buchungen",
+    "occupancyLabel": "Auslastung",
+    "attendanceLabel": "Anwesenheit",
+    "waitlistDemand": "Aktuelle Warteliste",
+    "notMeasured": "Nicht gemessen",
+    "memberEngagement": "Mitgliederaktivität",
+    "memberEngagementDescription": "Tatsächliche Teilnahme in diesem Zentrum und Zeitraum. E-Mail und andere Kontaktdaten sind nicht enthalten.",
+    "member": "Mitglied",
+    "attended": "Teilgenommen",
+    "absent": "Abwesenheiten",
+    "favoriteActivity": "Meistgebuchte Aktivität",
+    "lastSession": "Letzte Einheit",
+    "dataQualityTitle": "Datenqualität und Umfang",
+    "noAttendanceCoverage": "Es gibt noch keine vergangenen Kurse mit Buchungen, um die Erfassung zu messen.",
+    "attendanceCoverage": "Für {{value}} % der Buchungen abgeschlossener Kurse wurde die Anwesenheit erfasst.",
+    "surveyCausalityHint": "Diese Kennzahlen zeigen, was geschieht. Das Warum muss später mit monatlichen Umfragen abgeglichen werden.",
+    "period": {
+      "day": "Heute",
+      "week": "Diese Woche",
+      "month": "Dieser Monat"
+    },
+    "recommendations": {
+      "COLLECT_MORE_DATA": {
+        "title": "Vor einer Entscheidung mehr Daten sammeln",
+        "body": "In diesem Zeitraum gibt es {{value}} bestätigte Buchungen; die Stichprobe ist noch nicht stabil."
+      },
+      "INCREASE_CAPACITY": {
+        "title": "Kapazität von {{activity}} prüfen",
+        "body": "Die Auslastung erreicht {{value}} % und es besteht weiterhin Wartelistennachfrage."
+      },
+      "REVIEW_LOW_DEMAND": {
+        "title": "Planung von {{activity}} prüfen",
+        "body": "Die beobachtete Auslastung beträgt {{value}} %. Zeit, Angebot und Umfrage vor Änderungen abgleichen."
+      },
+      "REDUCE_NO_SHOWS": {
+        "title": "Abwesenheiten prüfen",
+        "body": "{{value}} % der erfassten Anwesenheitsergebnisse sind Abwesenheiten."
+      }
+    }
   },
   "demoClasses": {
     "hiitBootcamp": {

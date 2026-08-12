@@ -69,6 +69,134 @@ export interface UpcomingScheduleItem {
   trainerName?: string;
 }
 
+export type AnalyticsPeriodType = "day" | "week" | "month";
+
+export interface AnalyticsOverview {
+  consumer: "administration" | "trainer";
+  period: { from: number; to: number; utcOffsetMinutes: number };
+  summary: {
+    sessions: number;
+    availablePlaces: number;
+    confirmedBookings: number;
+    cancellations: number;
+    currentWaitlistDemand: number;
+    attended: number;
+    absent: number;
+    excused: number;
+    uniqueMembers: number;
+    occupancyRate: number;
+    attendanceRate: number | null;
+    noShowRate: number | null;
+  };
+  activities: Array<{
+    activityName: string;
+    trainerName: string;
+    sessions: number;
+    availablePlaces: number;
+    confirmedBookings: number;
+    cancellations: number;
+    currentWaitlistDemand: number;
+    attended: number;
+    absent: number;
+    occupancyRate: number;
+    attendanceRate: number | null;
+  }>;
+  peakHours: PeakHourMetric[];
+  members: Array<{
+    userId: string;
+    userName: string;
+    bookedSessions: number;
+    attendedSessions: number;
+    absentSessions: number;
+    cancelledSessions: number;
+    favoriteActivity: string | null;
+    lastSessionAt: number | null;
+  }>;
+  recommendations: Array<{
+    code:
+      | "COLLECT_MORE_DATA"
+      | "INCREASE_CAPACITY"
+      | "REVIEW_LOW_DEMAND"
+      | "REDUCE_NO_SHOWS";
+    priority: "info" | "opportunity" | "attention";
+    activityName: string | null;
+    observedValue: number | null;
+  }>;
+  dataQuality: {
+    attendanceCoverageRate: number | null;
+    causalExplanation: "survey_required";
+    currentWaitlistOnly: true;
+  };
+}
+
+export function analyticsPeriodBounds(
+  period: AnalyticsPeriodType,
+  reference = new Date(),
+) {
+  const from = new Date(reference);
+  from.setHours(0, 0, 0, 0);
+  if (period === "week") {
+    const daysSinceMonday = (from.getDay() + 6) % 7;
+    from.setDate(from.getDate() - daysSinceMonday);
+  } else if (period === "month") {
+    from.setDate(1);
+  }
+
+  const to = new Date(from);
+  if (period === "day") to.setDate(to.getDate() + 1);
+  if (period === "week") to.setDate(to.getDate() + 7);
+  if (period === "month") to.setMonth(to.getMonth() + 1);
+
+  return {
+    from: from.getTime(),
+    to: to.getTime(),
+    utcOffsetMinutes: -reference.getTimezoneOffset(),
+  };
+}
+
+export function useAnalyticsOverview(period: AnalyticsPeriodType) {
+  const [data, setData] = useState<AnalyticsOverview | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const bounds = analyticsPeriodBounds(period);
+    const query = new URLSearchParams({
+      from: String(bounds.from),
+      to: String(bounds.to),
+      utcOffsetMinutes: String(bounds.utcOffsetMinutes),
+    });
+
+    const fetchOverview = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await authFetch(
+          `${API_BASE}/api/analytics/overview?${query.toString()}`,
+          { signal: controller.signal },
+        );
+        if (!response.ok) throw new Error("ANALYTICS_OVERVIEW_FAILED");
+        setData((await response.json()) as AnalyticsOverview);
+      } catch (fetchError) {
+        if (controller.signal.aborted) return;
+        setError(
+          fetchError instanceof Error
+            ? fetchError.message
+            : "ANALYTICS_OVERVIEW_FAILED",
+        );
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+
+    void fetchOverview();
+    return () => controller.abort();
+  }, [period]);
+
+  return { data, loading, error };
+}
+
 export function useMonthlyMetrics(year: number, month: number) {
   const [data, setData] = useState<MonthlyMetric | null>(null);
   const [loading, setLoading] = useState(false);

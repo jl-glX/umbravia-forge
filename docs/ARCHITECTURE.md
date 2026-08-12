@@ -28,6 +28,10 @@ Development uses a single launcher for Vite and Express. Production builds the c
 - Gym classes and trainer assignments.
 - Bookings, capacity and waitlist promotion.
 - Activity and administrative analytics.
+- Forge Analytics as a tenant-scoped read layer shared by administrative and
+  trainer views; future CRM, support and sanitized crash analytics consumers
+  must keep independent authorization boundaries. See
+  [Forge Analytics](./FORGE-ANALYTICS.md).
 - Umbravia Forge financial records adapted internally from App-ProTrack's budget and transaction domain.
 - Internationalized user interface.
 - Public legal information.
