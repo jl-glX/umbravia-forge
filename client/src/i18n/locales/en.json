@@ -1275,6 +1275,18 @@
     "noAttendanceCoverage": "There are no past classes with bookings yet to measure attendance coverage.",
     "attendanceCoverage": "{{value}}% of bookings for completed classes have a recorded attendance outcome.",
     "surveyCausalityHint": "These metrics show what happens. Explaining why will require comparison with the future monthly surveys.",
+    "historyTitle": "Historical booking funnel",
+    "historyDescription": "Compare the demand journey with the previous period using operational snapshots.",
+    "historySources": "{{baseline}} baseline · {{live}} live events",
+    "vsPrevious": "{{delta}} versus previous period",
+    "history": {
+      "observedBookings": "Observed bookings",
+      "waitlistEntries": "Waitlist entries",
+      "promotions": "Promotions",
+      "cancellations": "Cancellations",
+      "attended": "Attendance",
+      "absent": "Absences"
+    },
     "period": { "day": "Today", "week": "This week", "month": "This month" },
     "recommendations": {
       "COLLECT_MORE_DATA": {

@@ -1294,6 +1294,99 @@ async function initializeSqliteSchema(
     END;
   `);
 
+  if (!tableNames.includes("bookingAnalyticsEvents")) {
+    sqliteDb.exec(`
+      CREATE TABLE bookingAnalyticsEvents (
+        id TEXT PRIMARY KEY,
+        deduplicationKey TEXT NOT NULL UNIQUE,
+        facilityId TEXT NOT NULL,
+        bookingId TEXT,
+        classId TEXT,
+        memberUserId TEXT,
+        trainerUserId TEXT,
+        eventType TEXT NOT NULL CHECK(eventType IN (
+          'baseline_import',
+          'booking_created',
+          'waitlist_promoted',
+          'promotion_expired',
+          'booking_cancelled',
+          'attendance_intention_changed',
+          'attendance_recorded',
+          'attendance_corrected'
+        )),
+        source TEXT NOT NULL CHECK(source IN ('baseline', 'live')),
+        fromState TEXT,
+        toState TEXT NOT NULL,
+        activityName TEXT NOT NULL,
+        scheduledAt INTEGER NOT NULL,
+        capacitySnapshot INTEGER NOT NULL CHECK(capacitySnapshot >= 0),
+        occurredAt INTEGER NOT NULL,
+        recordedAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(bookingId) REFERENCES bookings(id) ON DELETE SET NULL,
+        FOREIGN KEY(classId) REFERENCES gymClasses(id) ON DELETE SET NULL,
+        FOREIGN KEY(memberUserId) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY(trainerUserId) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE INDEX idx_bookingAnalyticsEvents_facility_occurred
+        ON bookingAnalyticsEvents(facilityId, occurredAt);
+      CREATE INDEX idx_bookingAnalyticsEvents_facility_scheduled
+        ON bookingAnalyticsEvents(facilityId, scheduledAt);
+      CREATE INDEX idx_bookingAnalyticsEvents_member_scheduled
+        ON bookingAnalyticsEvents(facilityId, memberUserId, scheduledAt);
+      CREATE INDEX idx_bookingAnalyticsEvents_class_event
+        ON bookingAnalyticsEvents(facilityId, classId, eventType, occurredAt);
+    `);
+    sqliteDb.exec(`
+      INSERT OR IGNORE INTO bookingAnalyticsEvents (
+        id,
+        deduplicationKey,
+        facilityId,
+        bookingId,
+        classId,
+        memberUserId,
+        trainerUserId,
+        eventType,
+        source,
+        fromState,
+        toState,
+        activityName,
+        scheduledAt,
+        capacitySnapshot,
+        occurredAt,
+        recordedAt
+      )
+      SELECT
+        'baseline:' || bookings.id,
+        'baseline:' || bookings.id,
+        gymClasses.facilityId,
+        bookings.id,
+        bookings.classId,
+        bookings.userId,
+        (SELECT id FROM users WHERE id = gymClasses.trainerId),
+        'baseline_import',
+        'baseline',
+        NULL,
+        COALESCE(
+          bookingLifecycles.lifecycleStatus,
+          CASE bookings.status
+            WHEN 'waitlist' THEN 'waitlisted'
+            WHEN 'cancelled' THEN 'cancelled_on_time'
+            ELSE 'confirmation_pending'
+          END
+        ),
+        gymClasses.name,
+        gymClasses.scheduledAt,
+        gymClasses.maxCapacity,
+        bookings.createdAt,
+        CAST(strftime('%s', 'now') AS INTEGER) * 1000
+      FROM bookings
+      INNER JOIN gymClasses ON gymClasses.id = bookings.classId
+      LEFT JOIN bookingLifecycles
+        ON bookingLifecycles.bookingId = bookings.id;
+    `);
+  }
+
   if (!tableNames.includes("facilityMemberships")) {
     console.log("Creating facilityMemberships table...");
     sqliteDb.exec(`

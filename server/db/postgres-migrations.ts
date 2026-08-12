@@ -1477,6 +1477,95 @@ CREATE INDEX IF NOT EXISTS "idx_commercialTrials_cleanup"
   ON "commercialTrials" ("autoCleanupEligible", "cleanupEligibleAt");
 `,
   },
+  {
+    version: 25,
+    name: "booking-analytics-event-history",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "bookingAnalyticsEvents" (
+  "id" TEXT PRIMARY KEY,
+  "deduplicationKey" TEXT NOT NULL UNIQUE,
+  "facilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "bookingId" TEXT REFERENCES "bookings" ("id") ON DELETE SET NULL,
+  "classId" TEXT REFERENCES "gymClasses" ("id") ON DELETE SET NULL,
+  "memberUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "trainerUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "eventType" TEXT NOT NULL CHECK ("eventType" IN (
+    'baseline_import',
+    'booking_created',
+    'waitlist_promoted',
+    'promotion_expired',
+    'booking_cancelled',
+    'attendance_intention_changed',
+    'attendance_recorded',
+    'attendance_corrected'
+  )),
+  "source" TEXT NOT NULL CHECK ("source" IN ('baseline', 'live')),
+  "fromState" TEXT,
+  "toState" TEXT NOT NULL,
+  "activityName" TEXT NOT NULL,
+  "scheduledAt" BIGINT NOT NULL,
+  "capacitySnapshot" INTEGER NOT NULL CHECK ("capacitySnapshot" >= 0),
+  "occurredAt" BIGINT NOT NULL,
+  "recordedAt" BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_bookingAnalyticsEvents_facility_occurred"
+  ON "bookingAnalyticsEvents" ("facilityId", "occurredAt");
+CREATE INDEX IF NOT EXISTS "idx_bookingAnalyticsEvents_facility_scheduled"
+  ON "bookingAnalyticsEvents" ("facilityId", "scheduledAt");
+CREATE INDEX IF NOT EXISTS "idx_bookingAnalyticsEvents_member_scheduled"
+  ON "bookingAnalyticsEvents" ("facilityId", "memberUserId", "scheduledAt");
+CREATE INDEX IF NOT EXISTS "idx_bookingAnalyticsEvents_class_event"
+  ON "bookingAnalyticsEvents" ("facilityId", "classId", "eventType", "occurredAt");
+
+INSERT INTO "bookingAnalyticsEvents" (
+  "id",
+  "deduplicationKey",
+  "facilityId",
+  "bookingId",
+  "classId",
+  "memberUserId",
+  "trainerUserId",
+  "eventType",
+  "source",
+  "fromState",
+  "toState",
+  "activityName",
+  "scheduledAt",
+  "capacitySnapshot",
+  "occurredAt",
+  "recordedAt"
+)
+SELECT
+  'baseline:' || bookings."id",
+  'baseline:' || bookings."id",
+  classes."facilityId",
+  bookings."id",
+  bookings."classId",
+  bookings."userId",
+  (SELECT "id" FROM "users" WHERE "id" = classes."trainerId"),
+  'baseline_import',
+  'baseline',
+  NULL,
+  COALESCE(
+    lifecycles."lifecycleStatus",
+    CASE bookings."status"
+      WHEN 'waitlist' THEN 'waitlisted'
+      WHEN 'cancelled' THEN 'cancelled_on_time'
+      ELSE 'confirmation_pending'
+    END
+  ),
+  classes."name",
+  classes."scheduledAt",
+  classes."maxCapacity",
+  bookings."createdAt",
+  (EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::BIGINT
+FROM "bookings" AS bookings
+INNER JOIN "gymClasses" AS classes ON classes."id" = bookings."classId"
+LEFT JOIN "bookingLifecycles" AS lifecycles
+  ON lifecycles."bookingId" = bookings."id"
+ON CONFLICT ("deduplicationKey") DO NOTHING;
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

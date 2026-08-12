@@ -19,10 +19,32 @@ segunda fuente de verdad.
 - Genera señales operativas mediante reglas transparentes. Las señales no
   aplican cambios ni se presentan como causalidad demostrada.
 
-La lista de espera de esta primera versión representa demanda actualmente
-pendiente. Medir demanda histórica y plazas recuperadas exigirá eventos
-inmutables de promoción, aceptación y asistencia; no se deduce de una fila que
-ya pudo ser eliminada al promocionar al socio.
+La lista de espera operativa sigue representando demanda actualmente pendiente.
+La infraestructura histórica añade eventos de reserva, promoción, expiración,
+cancelación, intención y asistencia dentro de la misma transacción que cambia
+la reserva. Esto permite comparar periodos sin deducir el pasado de una fila
+que ya cambió o fue eliminada.
+
+## Historial, migración y privacidad
+
+La migración 25 de PostgreSQL y la inicialización equivalente de SQLite crean
+`bookingAnalyticsEvents` de forma aditiva. La primera ejecución importa una
+única instantánea por reserva existente con `eventType=baseline_import` y
+`source=baseline`. Esa instantánea expresa únicamente el estado observable en
+el momento de migrar; no inventa promociones, cancelaciones ni asistencias
+anteriores.
+
+Los cambios posteriores se guardan con `source=live`. Cada evento conserva el
+centro, la actividad, el horario y el aforo vigentes al producirse el cambio.
+No incluye correo, teléfono, IP, texto libre, credenciales ni respuestas de
+encuestas. La clave de deduplicación evita registrar dos veces una misma
+transición reintentada.
+
+El centro es obligatorio y se elimina en cascada al eliminar el tenant. Los
+identificadores de socio, entrenador, reserva y clase son anulables: al borrar
+la cuenta o el objeto operativo pasan a `NULL`, mientras la instantánea
+agregable permanece. Esta es la excepción de privacidad deliberada al modelo
+de solo añadir.
 
 ## Separación por consumidor
 
@@ -79,8 +101,8 @@ disponible.
 ## Evolución prevista
 
 1. Validar esta vertical con datos sintéticos y centros piloto.
-2. Añadir eventos de reserva y una bandeja transaccional para conservar cambios
-   históricos sin bloquear el flujo principal.
+2. Validar y observar la nueva historia transaccional en producción antes de
+   ampliar los periodos disponibles.
 3. Incorporar encuestas mensuales con modos anónimo, confidencial e
    identificado, umbral mínimo de agregación y preguntas versionadas.
 4. Crear permisos comerciales independientes de la analítica.

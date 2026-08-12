@@ -10,6 +10,7 @@ export const migrationTableGroups = {
   operational: [
     "bookings",
     "bookingLifecycles",
+    "bookingAnalyticsEvents",
     "waitlistEntries",
     "bookingReputations",
     "bookingReputationEvents",

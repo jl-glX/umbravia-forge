@@ -102,6 +102,33 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
       lifecycleStatus: "confirmed",
       attendanceIntention: "yes",
     });
+    expect(
+      await database.db
+        .selectFrom("bookingAnalyticsEvents")
+        .select(["eventType", "fromState", "toState", "source"])
+        .where("bookingId", "=", created.bookingId)
+        .orderBy("occurredAt", "asc")
+        .execute(),
+    ).toEqual([
+      {
+        eventType: "booking_created",
+        fromState: null,
+        toState: "confirmation_pending",
+        source: "live",
+      },
+      {
+        eventType: "attendance_intention_changed",
+        fromState: "confirmation_pending",
+        toState: "uncertain",
+        source: "live",
+      },
+      {
+        eventType: "attendance_intention_changed",
+        fromState: "uncertain",
+        toState: "confirmed",
+        source: "live",
+      },
+    ]);
   });
 
   it("promotes the more reliable eligible member instead of using FIFO alone", async () => {
@@ -144,6 +171,25 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
       .where("bookingId", "=", reliable.bookingId)
       .executeTakeFirstOrThrow();
     expect(lifecycle.lifecycleStatus).toBe("promoted");
+    expect(
+      await database.db
+        .selectFrom("bookingAnalyticsEvents")
+        .select(["eventType", "fromState", "toState"])
+        .where("bookingId", "=", reliable.bookingId)
+        .orderBy("occurredAt", "asc")
+        .execute(),
+    ).toEqual([
+      {
+        eventType: "booking_created",
+        fromState: null,
+        toState: "waitlisted",
+      },
+      {
+        eventType: "waitlist_promoted",
+        fromState: "waitlisted",
+        toState: "promoted",
+      },
+    ]);
   });
 
   it("applies a temporary and explainable late-cancellation penalty", async () => {
@@ -257,6 +303,25 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     expect(
       await reputation.getBookingReputation("attendance-member"),
     ).toMatchObject({ score: 100, penaltyActive: false });
+    expect(
+      await database.db
+        .selectFrom("bookingAnalyticsEvents")
+        .select(["eventType", "fromState", "toState"])
+        .where("bookingId", "=", "past-attendance-booking")
+        .orderBy("occurredAt", "asc")
+        .execute(),
+    ).toEqual([
+      {
+        eventType: "attendance_recorded",
+        fromState: "confirmation_pending",
+        toState: "absent",
+      },
+      {
+        eventType: "attendance_corrected",
+        fromState: "absent",
+        toState: "excused",
+      },
+    ]);
   });
 
   it("rejects intentions and attendance for a member who is still waitlisted", async () => {

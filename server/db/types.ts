@@ -228,6 +228,35 @@ interface BookingLifecycle {
   updatedAt: number;
 }
 
+export type BookingAnalyticsEventType =
+  | "baseline_import"
+  | "booking_created"
+  | "waitlist_promoted"
+  | "promotion_expired"
+  | "booking_cancelled"
+  | "attendance_intention_changed"
+  | "attendance_recorded"
+  | "attendance_corrected";
+
+interface BookingAnalyticsEvent {
+  id: string;
+  deduplicationKey: string;
+  facilityId: string;
+  bookingId: string | null;
+  classId: string | null;
+  memberUserId: string | null;
+  trainerUserId: string | null;
+  eventType: BookingAnalyticsEventType;
+  source: "baseline" | "live";
+  fromState: string | null;
+  toState: string;
+  activityName: string;
+  scheduledAt: number;
+  capacitySnapshot: number;
+  occurredAt: number;
+  recordedAt: number;
+}
+
 interface WaitlistEntry {
   id: string;
   classId: string;
@@ -871,6 +900,7 @@ export interface Database {
   classBookingConfigurations: ClassBookingConfiguration;
   bookings: Booking;
   bookingLifecycles: BookingLifecycle;
+  bookingAnalyticsEvents: BookingAnalyticsEvent;
   waitlistEntries: WaitlistEntry;
   bookingReputations: BookingReputation;
   bookingReputationEvents: BookingReputationEvent;

@@ -103,6 +103,25 @@ export interface AnalyticsDataQuality {
   attendanceCoverageRate: number | null;
   causalExplanation: "survey_required";
   currentWaitlistOnly: true;
+  historyCoverage: "baseline_and_live";
+}
+
+export interface BookingEventFunnel {
+  observedBookings: number;
+  waitlistEntries: number;
+  promotions: number;
+  cancellations: number;
+  attended: number;
+  absent: number;
+  excused: number;
+}
+
+export interface AnalyticsHistory {
+  current: BookingEventFunnel;
+  previous: BookingEventFunnel;
+  baselineEvents: number;
+  liveEvents: number;
+  previousPeriod: { from: number; to: number };
 }
 
 export interface AnalyticsOverview {
@@ -114,6 +133,7 @@ export interface AnalyticsOverview {
   members: MemberEngagement[];
   recommendations: AnalyticsRecommendation[];
   dataQuality: AnalyticsDataQuality;
+  history: AnalyticsHistory;
 }
 
 interface AnalyticsOverviewInput extends AnalyticsPeriod {
@@ -225,6 +245,69 @@ function buildRecommendations(
   return recommendations.slice(0, 6);
 }
 
+function emptyBookingEventFunnel(): BookingEventFunnel {
+  return {
+    observedBookings: 0,
+    waitlistEntries: 0,
+    promotions: 0,
+    cancellations: 0,
+    attended: 0,
+    absent: 0,
+    excused: 0,
+  };
+}
+
+function buildBookingEventFunnel(
+  events: Array<{
+    eventType: string;
+    source: "baseline" | "live";
+    fromState: string | null;
+    toState: string;
+  }>,
+): BookingEventFunnel {
+  const funnel = emptyBookingEventFunnel();
+  for (const event of events) {
+    if (
+      event.eventType === "booking_created" ||
+      event.eventType === "baseline_import"
+    ) {
+      funnel.observedBookings += 1;
+    }
+    if (
+      (event.eventType === "booking_created" ||
+        event.eventType === "baseline_import") &&
+      event.toState === "waitlisted"
+    ) {
+      funnel.waitlistEntries += 1;
+    }
+    if (event.eventType === "waitlist_promoted") funnel.promotions += 1;
+    if (
+      event.eventType === "booking_cancelled" ||
+      event.eventType === "promotion_expired" ||
+      (event.eventType === "baseline_import" &&
+        event.toState.startsWith("cancelled_"))
+    ) {
+      funnel.cancellations += 1;
+    }
+    if (event.eventType === "attendance_recorded") {
+      if (event.toState === "attended") funnel.attended += 1;
+      if (event.toState === "absent") funnel.absent += 1;
+      if (event.toState === "excused") funnel.excused += 1;
+    }
+    if (event.eventType === "attendance_corrected") {
+      if (event.fromState === "absent") funnel.absent -= 1;
+      if (event.toState === "excused") funnel.excused += 1;
+      if (event.toState === "attended") funnel.attended += 1;
+    }
+    if (event.eventType === "baseline_import") {
+      if (event.toState === "attended") funnel.attended += 1;
+      if (event.toState === "absent") funnel.absent += 1;
+      if (event.toState === "excused") funnel.excused += 1;
+    }
+  }
+  return funnel;
+}
+
 export async function getAnalyticsOverview(
   input: AnalyticsOverviewInput,
 ): Promise<AnalyticsOverview> {
@@ -247,6 +330,24 @@ export async function getAnalyticsOverview(
   }
 
   const classes = await classesQuery.orderBy("scheduledAt", "asc").execute();
+  const periodDuration = input.to - input.from;
+  const previousFrom = input.from - periodDuration;
+  let eventQuery = db
+    .selectFrom("bookingAnalyticsEvents")
+    .select(["eventType", "source", "fromState", "toState", "scheduledAt"])
+    .where("facilityId", "=", input.facilityId)
+    .where("scheduledAt", ">=", previousFrom)
+    .where("scheduledAt", "<", input.to);
+  if (input.trainerId) {
+    eventQuery = eventQuery.where("trainerUserId", "=", input.trainerId);
+  }
+  const eventRows = await eventQuery.execute();
+  const currentEvents = eventRows.filter(
+    (event) => event.scheduledAt >= input.from,
+  );
+  const previousEvents = eventRows.filter(
+    (event) => event.scheduledAt < input.from,
+  );
   const classIds = classes.map((gymClass) => gymClass.id);
   const classById = new Map(classes.map((gymClass) => [gymClass.id, gymClass]));
 
@@ -472,6 +573,17 @@ export async function getAnalyticsOverview(
       ),
       causalExplanation: "survey_required",
       currentWaitlistOnly: true,
+      historyCoverage: "baseline_and_live",
+    },
+    history: {
+      current: buildBookingEventFunnel(currentEvents),
+      previous: buildBookingEventFunnel(previousEvents),
+      baselineEvents: currentEvents.filter(
+        (event) => event.source === "baseline",
+      ).length,
+      liveEvents: currentEvents.filter((event) => event.source === "live")
+        .length,
+      previousPeriod: { from: previousFrom, to: input.from },
     },
   };
 }
