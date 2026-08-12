@@ -22,6 +22,9 @@ type EmailDeliveryPayload = {
   text?: string;
   html?: string;
   replyTo?: string;
+  purpose?: "account_inactivity_review" | "account_deletion_preparation";
+  reminder?: boolean;
+  reviewDeliveryId?: string;
 };
 type EmailDeliveryKind =
   | "email_verification"
@@ -532,6 +535,22 @@ function validateDecryptedPayload(
   ) {
     throw new EmailQueuePayloadError();
   }
+  if (
+    payload.purpose !== undefined &&
+    payload.purpose !== "account_inactivity_review" &&
+    payload.purpose !== "account_deletion_preparation"
+  ) {
+    throw new EmailQueuePayloadError();
+  }
+  if (payload.reminder !== undefined && typeof payload.reminder !== "boolean") {
+    throw new EmailQueuePayloadError();
+  }
+  if (
+    payload.reviewDeliveryId !== undefined &&
+    typeof payload.reviewDeliveryId !== "string"
+  ) {
+    throw new EmailQueuePayloadError();
+  }
 
   return payload as EmailDeliveryPayload;
 }
@@ -737,6 +756,189 @@ export async function queueSupportStaffNotificationEmail(input: {
   return id;
 }
 
+export async function queueAccountInactivityReviewEmail(input: {
+  userId: string;
+  email: string;
+  name: string;
+  locale: SupportedLocale;
+  actionUrl: string;
+  reminder?: boolean;
+  reviewDeliveryId?: string;
+}): Promise<string> {
+  const isReminder = Boolean(input.reminder);
+  const content: Record<
+    SupportedLocale,
+    { subject: string; question: string; explanation: string; action: string }
+  > = {
+    es: {
+      subject: isReminder
+        ? "Recordatorio: ¿sigues usando tu cuenta?"
+        : "¿Sigues usando tu cuenta de Umbravia Forge?",
+      question: "¿Sigues usando tu cuenta?",
+      explanation:
+        "No hemos registrado actividad durante seis meses. Inicia sesión y confirma tu respuesta. Si no respondes en el plazo indicado, se iniciará el periodo de gracia de 30 días para el borrado; podrás cancelarlo durante ese periodo.",
+      action: "Revisar mi cuenta",
+    },
+    en: {
+      subject: isReminder
+        ? "Reminder: are you still using your account?"
+        : "Are you still using your Umbravia Forge account?",
+      question: "Are you still using your account?",
+      explanation:
+        "We have not recorded activity for six months. Sign in and confirm your answer. If you do not respond by the stated deadline, the 30-day deletion grace period will begin; you can cancel it during that period.",
+      action: "Review my account",
+    },
+    de: {
+      subject: isReminder
+        ? "Erinnerung: Nutzen Sie Ihr Konto noch?"
+        : "Nutzen Sie Ihr Umbravia-Forge-Konto noch?",
+      question: "Nutzen Sie Ihr Konto noch?",
+      explanation:
+        "Seit sechs Monaten wurde keine Aktivität registriert. Melden Sie sich an und bestätigen Sie Ihre Antwort. Ohne Antwort beginnt nach Ablauf der Frist die 30-tägige Löschfrist; während dieser Frist können Sie den Vorgang abbrechen.",
+      action: "Konto überprüfen",
+    },
+    "de-CH": {
+      subject: isReminder
+        ? "Erinnerung: Nutzen Sie Ihr Konto noch?"
+        : "Nutzen Sie Ihr Umbravia-Forge-Konto noch?",
+      question: "Nutzen Sie Ihr Konto noch?",
+      explanation:
+        "Seit sechs Monaten wurde keine Aktivität registriert. Melden Sie sich an und bestätigen Sie Ihre Antwort. Ohne Antwort beginnt nach Ablauf der Frist die 30-tägige Löschfrist; während dieser Frist können Sie den Vorgang abbrechen.",
+      action: "Konto überprüfen",
+    },
+  };
+  const message = content[input.locale] ?? content.es;
+  const safeUrl = escapeHtml(input.actionUrl);
+  const id = await queueEncryptedDelivery({
+    userId: input.userId,
+    kind: "security_notice",
+    recipient: input.email,
+    locale: input.locale,
+    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    payload: {
+      email: input.email,
+      locale: input.locale,
+      subject: message.subject,
+      text: `${input.name}\n\n${message.question}\n\n${message.explanation}\n\n${input.actionUrl}`,
+      html: `<!doctype html><html lang="${escapeHtml(input.locale)}"><body style="margin:0;padding:0;background:#f4f5f6;color:#0f1720;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f5f6;border-collapse:collapse"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;border-collapse:separate"><tr><td style="padding:32px"><p style="margin:0 0 18px;font-size:16px;line-height:1.6">${escapeHtml(input.name)}</p><h1 style="margin:0 0 18px;font-size:26px;line-height:1.25">${escapeHtml(message.question)}</h1><p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#334155">${escapeHtml(message.explanation)}</p><table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td bgcolor="#f07a3a" style="border-radius:10px"><a href="${safeUrl}" style="display:inline-block;padding:13px 20px;color:#ffffff;text-decoration:none;font-weight:700">${escapeHtml(message.action)}</a></td></tr></table></td></tr></table></td></tr></table></body></html>`,
+      purpose: "account_inactivity_review",
+      reminder: isReminder,
+      reviewDeliveryId: input.reviewDeliveryId,
+    },
+  });
+  publishManagerSignal(
+    "email",
+    "info",
+    isReminder
+      ? "ACCOUNT_INACTIVITY_REVIEW_REMINDER_QUEUED"
+      : "ACCOUNT_INACTIVITY_REVIEW_QUEUED",
+    "An inactivity review message was queued for delivery.",
+  );
+  return id;
+}
+
+export async function queueAccountDeletionPreparationEmail(input: {
+  userId: string;
+  email: string;
+  name: string;
+  locale: SupportedLocale;
+  graceEndsAt: number;
+  revokedOtherSessions: boolean;
+  removedTemporaryChallenges: boolean;
+}): Promise<string> {
+  const date = new Intl.DateTimeFormat(input.locale, {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(input.graceEndsAt);
+  const content: Record<
+    SupportedLocale,
+    {
+      subject: string;
+      title: string;
+      intro: string;
+      kept: string;
+      cancel: string;
+    }
+  > = {
+    es: {
+      subject: "El cierre de tu cuenta se ha programado",
+      title: "Tu cuenta está en periodo de gracia",
+      intro: `El cierre definitivo está previsto para el ${date} (UTC).`,
+      kept: "Tu contraseña, la verificación en dos pasos, las passkeys y esta sesión siguen activas para que puedas entrar y cancelar el cierre.",
+      cancel:
+        "Si cambias de opinión, inicia sesión y cancela el cierre antes de que termine el periodo de gracia.",
+    },
+    en: {
+      subject: "Your account closure has been scheduled",
+      title: "Your account is in its grace period",
+      intro: `Final closure is scheduled for ${date} (UTC).`,
+      kept: "Your password, two-step verification, passkeys and this session remain active so you can sign in and cancel the closure.",
+      cancel:
+        "If you change your mind, sign in and cancel the closure before the grace period ends.",
+    },
+    de: {
+      subject: "Die Schliessung Ihres Kontos wurde geplant",
+      title: "Ihr Konto befindet sich in der Nachfrist",
+      intro: `Die endgültige Schliessung ist für den ${date} (UTC) vorgesehen.`,
+      kept: "Passwort, Zwei-Faktor-Authentifizierung, Passkeys und diese Sitzung bleiben aktiv, damit Sie die Schliessung abbrechen können.",
+      cancel:
+        "Wenn Sie Ihre Meinung ändern, melden Sie sich an und brechen Sie die Schliessung vor Ablauf der Nachfrist ab.",
+    },
+    "de-CH": {
+      subject: "Die Schliessung Ihres Kontos wurde geplant",
+      title: "Ihr Konto befindet sich in der Nachfrist",
+      intro: `Die endgültige Schliessung ist für den ${date} (UTC) vorgesehen.`,
+      kept: "Passwort, Zwei-Faktor-Authentifizierung, Passkeys und diese Sitzung bleiben aktiv, damit Sie die Schliessung abbrechen können.",
+      cancel:
+        "Wenn Sie Ihre Meinung ändern, melden Sie sich an und brechen Sie die Schliessung vor Ablauf der Nachfrist ab.",
+    },
+  };
+  const message = content[input.locale] ?? content.es;
+  const changes = [
+    input.revokedOtherSessions
+      ? input.locale === "es"
+        ? "Se han cerrado las demás sesiones activas."
+        : input.locale === "en"
+          ? "Your other active sessions have been closed."
+          : "Ihre anderen aktiven Sitzungen wurden beendet."
+      : "",
+    input.removedTemporaryChallenges
+      ? input.locale === "es"
+        ? "Se han invalidado los códigos y solicitudes temporales de verificación o recuperación pendientes."
+        : input.locale === "en"
+          ? "Pending temporary verification and recovery codes or requests have been invalidated."
+          : "Ausstehende temporäre Verifizierungs- und Wiederherstellungscodes oder -anfragen wurden ungültig gemacht."
+      : "",
+  ].filter(Boolean);
+  const changesText = changes.join("\n");
+  const changesHtml = changes
+    .map((change) => `<li style="margin:0 0 8px">${escapeHtml(change)}</li>`)
+    .join("");
+  const id = await queueEncryptedDelivery({
+    userId: input.userId,
+    kind: "security_notice",
+    recipient: input.email,
+    locale: input.locale,
+    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    payload: {
+      email: input.email,
+      locale: input.locale,
+      subject: message.subject,
+      text: `${input.name}\n\n${message.title}\n\n${message.intro}\n${changesText ? `\n${changesText}\n` : ""}\n${message.kept}\n\n${message.cancel}`,
+      html: `<!doctype html><html lang="${escapeHtml(input.locale)}"><body style="margin:0;padding:0;background:#f4f5f6;color:#0f1720;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#fff;border:1px solid #e5e7eb;border-radius:16px"><tr><td style="padding:32px"><p style="margin:0 0 18px">${escapeHtml(input.name)}</p><h1 style="margin:0 0 18px;font-size:26px">${escapeHtml(message.title)}</h1><p style="line-height:1.6">${escapeHtml(message.intro)}</p>${changesHtml ? `<ul style="padding-left:22px;line-height:1.5">${changesHtml}</ul>` : ""}<p style="line-height:1.6">${escapeHtml(message.kept)}</p><p style="line-height:1.6;color:#475569">${escapeHtml(message.cancel)}</p></td></tr></table></td></tr></table></body></html>`,
+      purpose: "account_deletion_preparation",
+    },
+  });
+  publishManagerSignal(
+    "email",
+    "info",
+    "ACCOUNT_DELETION_PREPARATION_QUEUED",
+    "An account closure preparation notice was queued for delivery.",
+  );
+  return id;
+}
+
 function retryDelay(attempt: number): number {
   return Math.min(30 * 60 * 1000, 30_000 * 2 ** Math.max(0, attempt - 1));
 }
@@ -807,6 +1009,26 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
       .where("id", "=", row.id)
       .where("status", "=", "processing")
       .execute();
+    if (payload.purpose === "account_inactivity_review") {
+      try {
+        await recordSecurityEvent(
+          "account_inactivity_review_delivered",
+          row.userId,
+          {
+            deliveryId: row.id,
+            reminder: Boolean(payload.reminder),
+            reviewDeliveryId: payload.reviewDeliveryId ?? row.id,
+          },
+        );
+      } catch {
+        publishManagerSignal(
+          "security",
+          "warning",
+          "ACCOUNT_INACTIVITY_REVIEW_AUDIT_FAILED",
+          "The inactivity review email was sent but its audit event could not be recorded.",
+        );
+      }
+    }
     if (row.kind === "email_verification") {
       try {
         await recordSecurityEvent("verification_email_sent", row.userId, {

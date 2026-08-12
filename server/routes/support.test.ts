@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
@@ -414,6 +414,31 @@ describe("Forge Support API", () => {
     expect(storedBytes.toString("utf8")).toMatch(/^xcp1\./);
     expect(storedBytes.toString("utf8")).not.toContain("support diagnostic");
 
+    const integrityUpload = await request(app)
+      .post(`/api/support/tickets/${ticketId}/attachments`)
+      .set("Cookie", memberCookie)
+      .set("Content-Type", "text/plain")
+      .set("X-File-Name", "integridad.txt")
+      .send(Buffer.from("integrity protected"))
+      .expect(201);
+    await database.db
+      .updateTable("supportAttachments")
+      .set({ checksumSha256: "0".repeat(64) })
+      .where("id", "=", integrityUpload.body.attachment.id)
+      .execute();
+    await request(app)
+      .get(
+        `/api/support/tickets/${ticketId}/attachments/${integrityUpload.body.attachment.id}`,
+      )
+      .set("Cookie", memberCookie)
+      .expect(500);
+    await request(app)
+      .delete(
+        `/api/support/tickets/${ticketId}/attachments/${integrityUpload.body.attachment.id}`,
+      )
+      .set("Cookie", memberCookie)
+      .expect(204);
+
     const staffView = await request(app)
       .get(`/api/support/tickets/${ticketId}`)
       .set("Cookie", adminCookie)
@@ -445,6 +470,45 @@ describe("Forge Support API", () => {
         expect.objectContaining({ id: internalUpload.body.attachment.id }),
       ]),
     );
+
+    await request(app)
+      .delete(
+        `/api/support/tickets/${ticketId}/attachments/${uploaded.body.attachment.id}`,
+      )
+      .set("Cookie", peerCookie)
+      .expect(403);
+    await request(app)
+      .delete(
+        `/api/support/tickets/${ticketId}/attachments/${uploaded.body.attachment.id}`,
+      )
+      .set("Cookie", memberCookie)
+      .expect(204);
+    await expect(
+      access(
+        join(directory, "support-attachments", storedAttachment.storageKey),
+      ),
+    ).rejects.toThrow();
+    expect(
+      await database.db
+        .selectFrom("supportAttachments")
+        .select("id")
+        .where("id", "=", uploaded.body.attachment.id)
+        .executeTakeFirst(),
+    ).toBeUndefined();
+
+    await request(app)
+      .delete(
+        `/api/support/tickets/${ticketId}/attachments/${internalUpload.body.attachment.id}`,
+      )
+      .set("Cookie", adminCookie)
+      .expect(204);
+    const removalEvents = await database.db
+      .selectFrom("supportEvents")
+      .select("id")
+      .where("ticketId", "=", ticketId)
+      .where("type", "=", "attachment_removed")
+      .execute();
+    expect(removalEvents).toHaveLength(3);
   });
 
   it("publishes searchable knowledge without exposing drafts", async () => {

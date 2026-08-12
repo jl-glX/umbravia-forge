@@ -30,7 +30,7 @@ export function AuthShell({
   ];
 
   return (
-    <main className="grid min-h-screen bg-brand-night lg:grid-cols-[1.05fr_0.95fr]">
+    <main className="auth-shell-enter grid min-h-screen bg-brand-night lg:grid-cols-[1.05fr_0.95fr]">
       <section className="relative hidden overflow-hidden px-12 py-14 text-white lg:flex lg:flex-col lg:justify-between xl:px-20">
         <div className="absolute -left-40 top-1/3 h-96 w-96 rounded-full bg-brand-ember/20 blur-3xl" />
         <div className="absolute -right-32 -top-20 h-80 w-80 rounded-full bg-brand-path/15 blur-3xl" />

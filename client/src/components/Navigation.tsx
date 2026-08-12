@@ -5,7 +5,6 @@ import {
   ArrowRight,
   Bookmark,
   CreditCard,
-  LifeBuoy,
   Settings,
   Shield,
   Building2,
@@ -188,16 +187,6 @@ export function Navigation() {
             >
               <BrandGlyph kind="community" size={20} />
               <span>{t("nav.community")}</span>
-            </Link>
-
-            <Link
-              to="/support"
-              className={`${navLinkClass} ${
-                isActive("/support") ? activeClass : inactiveClass
-              }`}
-            >
-              <LifeBuoy size={20} />
-              <span>{t("nav.support")}</span>
             </Link>
 
             {accessRole === "admin" ? (

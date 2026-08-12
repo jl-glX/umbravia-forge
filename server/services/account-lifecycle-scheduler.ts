@@ -1,12 +1,27 @@
-import { evaluateDueInactivityDeletions } from "./account-lifecycle.js";
+import {
+  executeDueAccountDeletionJobs,
+  evaluateDueInactivityDeletions,
+  evaluateUnconfiguredInactivityReviews,
+} from "./account-lifecycle.js";
 import { evaluateDueCommercialTrialCleanups } from "./commercial-trial.js";
 
 const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
 let timer: NodeJS.Timeout | null = null;
 let running = false;
-let currentRun: Promise<{ evaluated: number; scheduled: number }> | null = null;
+type AccountLifecycleReviewResult = {
+  evaluated: number;
+  scheduled: number;
+  inactivityReview: Awaited<
+    ReturnType<typeof evaluateUnconfiguredInactivityReviews>
+  >;
+  deletionExecution: Awaited<ReturnType<typeof executeDueAccountDeletionJobs>>;
+  commercialTrialCleanup: Awaited<
+    ReturnType<typeof evaluateDueCommercialTrialCleanups>
+  >;
+};
+let currentRun: Promise<AccountLifecycleReviewResult> | null = null;
 let lastRunAt: number | null = null;
-let lastResult: { evaluated: number; scheduled: number } | null = null;
+let lastResult: AccountLifecycleReviewResult | null = null;
 let lastError: string | null = null;
 
 function intervalMs(): number {
@@ -23,12 +38,17 @@ export function runAccountLifecycleReview() {
   if (currentRun) return currentRun;
   const execution = Promise.all([
     evaluateDueInactivityDeletions(),
+    evaluateUnconfiguredInactivityReviews(),
     evaluateDueCommercialTrialCleanups(),
   ])
-    .then(([accountResult, commercialTrialCleanup]) => ({
-      ...accountResult,
-      commercialTrialCleanup,
-    }))
+    .then(
+      async ([accountResult, inactivityReview, commercialTrialCleanup]) => ({
+        ...accountResult,
+        inactivityReview,
+        deletionExecution: await executeDueAccountDeletionJobs(),
+        commercialTrialCleanup,
+      }),
+    )
     .then((result) => {
       lastResult = result;
       lastError = null;

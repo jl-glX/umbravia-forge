@@ -34,6 +34,7 @@ export interface SupportMessage {
 
 export interface SupportAttachment {
   id: string;
+  uploadedByUserId: string;
   messageId: string | null;
   fileName: string;
   mimeType: string;
@@ -201,6 +202,16 @@ export function supportAttachmentUrl(
   attachmentId: string,
 ): string {
   return `${API_BASE}/api/support/tickets/${encodeURIComponent(ticketId)}/attachments/${encodeURIComponent(attachmentId)}`;
+}
+
+export async function deleteSupportAttachment(
+  ticketId: string,
+  attachmentId: string,
+): Promise<void> {
+  await supportRequest(
+    `/tickets/${encodeURIComponent(ticketId)}/attachments/${encodeURIComponent(attachmentId)}`,
+    { method: "DELETE" },
+  );
 }
 
 export async function fetchKnowledgeArticles(

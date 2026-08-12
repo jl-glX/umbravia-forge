@@ -23,6 +23,7 @@ describe("Vitest process supervisor", () => {
 
     expect(source).toContain('pool: "threads"');
     expect(source).toContain("maxWorkers: workerCount");
+    expect(source).toContain("fileParallelism: false");
     expect(source).toContain("process.env.CI ? 2 : 1");
     expect(source).not.toContain("process.platform");
     expect(source).not.toContain("win32");
@@ -30,9 +31,11 @@ describe("Vitest process supervisor", () => {
 
   it("reuses npm's JavaScript entry point without platform-specific executable extensions", async () => {
     const sourceFiles = await Promise.all(
-      ["scripts/run-ci.mjs", "scripts/audit-ci.mjs"].map((file) =>
-        readFile(path.resolve(file), "utf8"),
-      ),
+      [
+        "scripts/run-ci.mjs",
+        "scripts/audit-ci.mjs",
+        "scripts/run-project-scripts.mjs",
+      ].map((file) => readFile(path.resolve(file), "utf8")),
     );
     const invocationSource = await readFile(
       path.resolve("scripts", "lib", "npm-invocation.mjs"),
@@ -45,6 +48,23 @@ describe("Vitest process supervisor", () => {
       expect(source).toContain("resolveNpmInvocation");
       expect(source).not.toMatch(/npm\.cmd|process\.platform|win32/);
     }
+  });
+
+  it("keeps compound package scripts on the npm entry point that started them", async () => {
+    const packageJson = JSON.parse(
+      await readFile(path.resolve("package.json"), "utf8"),
+    ) as { scripts: Record<string, string> };
+
+    for (const scriptName of [
+      "build",
+      "deploy:package",
+      "typecheck",
+      "check",
+      "ci:validate",
+    ]) {
+      expect(packageJson.scripts[scriptName]).not.toContain("npm run");
+    }
+    expect(packageJson.scripts.check).toContain("run-project-scripts.mjs");
   });
 
   it("serializes managed runs and removes only Vite's disposable config cache", async () => {

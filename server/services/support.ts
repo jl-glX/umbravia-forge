@@ -41,6 +41,10 @@ export class SupportValidationError extends Error {
   readonly statusCode = 400;
 }
 
+class SupportIntegrityError extends Error {
+  readonly statusCode = 500;
+}
+
 const categories = new Set([
   "account",
   "billing",
@@ -452,6 +456,7 @@ export async function getSupportTicket(
     )
     .select([
       "supportAttachments.id",
+      "supportAttachments.uploadedByUserId",
       "supportAttachments.messageId",
       "supportAttachments.fileName",
       "supportAttachments.mimeType",
@@ -1048,10 +1053,81 @@ export async function readSupportAttachment(
   }
   const filePath = path.join(attachmentRoot(), attachment.storageKey);
   const storedBody = await readFile(filePath);
+  const body = revealPrivateBytes(
+    storedBody,
+    `support-attachment:${attachment.id}`,
+  );
+  const checksum = createHash("sha256").update(body).digest("hex");
+  if (checksum !== attachment.checksumSha256) {
+    throw new SupportIntegrityError(
+      "Support attachment integrity verification failed",
+    );
+  }
   return {
     attachment,
-    body: revealPrivateBytes(storedBody, `support-attachment:${attachment.id}`),
+    body,
   };
+}
+
+export async function deleteSupportAttachment(
+  auth: AuthenticatedUser,
+  ticketId: string,
+  attachmentId: string,
+): Promise<void> {
+  const { staff } = await requireTicketAccess(auth, ticketId);
+  const attachment = await db
+    .selectFrom("supportAttachments")
+    .selectAll()
+    .where("id", "=", attachmentId)
+    .where("ticketId", "=", ticketId)
+    .executeTakeFirst();
+  if (!attachment)
+    throw new SupportNotFoundError("Support attachment not found");
+  if (!staff && attachment.uploadedByUserId !== auth.userId)
+    throw new SupportAccessError("Support attachment deletion denied");
+
+  const staged = await stageSupportAttachmentFilesRemoval([
+    attachment.storageKey,
+  ]);
+  try {
+    await db.transaction().execute(async (transaction) => {
+      await transaction
+        .deleteFrom("supportAttachments")
+        .where("id", "=", attachment.id)
+        .execute();
+      await transaction
+        .insertInto("supportEvents")
+        .values({
+          id: `support-event-${randomUUID()}`,
+          ticketId,
+          actorUserId: auth.userId,
+          type: "attachment_removed",
+          metadata: JSON.stringify({ attachmentId }),
+          createdAt: Date.now(),
+        })
+        .execute();
+    });
+  } catch (error) {
+    await staged.rollback();
+    throw error;
+  }
+  // Once the database no longer references the attachment, restoring the
+  // encrypted file would create an unreachable live copy. A failed physical
+  // cleanup therefore remains staged and becomes visible to the coordinator.
+  try {
+    await staged.commit();
+  } catch {
+    try {
+      publishManagerSignal(
+        "support",
+        "warning",
+        "SUPPORT_ATTACHMENT_CLEANUP_DEFERRED",
+        "Encrypted support attachment cleanup remains staged for maintenance.",
+      );
+    } catch {
+      console.error("Support attachment cleanup remains staged.");
+    }
+  }
 }
 
 export async function listKnowledgeArticles(auth: AuthenticatedUser, q = "") {

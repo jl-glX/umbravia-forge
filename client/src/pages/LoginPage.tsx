@@ -7,15 +7,7 @@ import { Label } from "../components/ui/label";
 import { AuthShell } from "../components/AuthShell";
 import { AuthAccessMenu } from "../components/AuthAccessMenu";
 import { PasswordInput } from "../components/PasswordInput";
-import {
-  ArrowRight,
-  ChevronDown,
-  Fingerprint,
-  Info,
-  KeyRound,
-  ShieldCheck,
-  UserRound,
-} from "lucide-react";
+import { ArrowRight, ChevronDown, Fingerprint, KeyRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   browserSupportsWebAuthn,
@@ -49,38 +41,16 @@ export function LoginPage() {
   const [mfaCode, setMfaCode] = useState("");
   const [showAlternativeSignIn, setShowAlternativeSignIn] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState(getSavedAccounts);
+  const [showSavedAccounts, setShowSavedAccounts] = useState(true);
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaResetSignal, setCaptchaResetSignal] = useState(0);
   const { t } = useTranslation();
   const displayedError =
     error === "INVALID_CREDENTIALS" ? t("auth.invalidCredentials") : error;
-  const demoAccount =
-    accessPortal === "member"
-      ? {
-          role: t("roles.member"),
-          description: t("auth.demoMemberDescription"),
-          email: "juan@example.com",
-          password: "UmbraviaForgeMember123",
-          icon: UserRound,
-        }
-      : {
-          role: t("roles.admin"),
-          description: t("auth.demoAdminDescription"),
-          email: "admin@umbravia-forge.com",
-          password: "UmbraviaForgeAdmin123",
-          icon: ShieldCheck,
-        };
-
-  const selectDemoAccount = (demoEmail: string, demoPassword: string) => {
-    setIdentifier(demoEmail);
-    setPassword(demoPassword);
-    setValidationError("");
-    clearError();
-  };
-
   const selectSavedAccount = (account: SavedAccount) => {
     setAccessPortal(account.accessPortal);
     setIdentifier(account.identifier);
+    setShowSavedAccounts(false);
     setPassword("");
     setMfaRequired(false);
     setMfaCode("");
@@ -242,6 +212,7 @@ export function LoginPage() {
           accessPortal={accessPortal}
           onAccessPortalChange={(portal) => {
             setAccessPortal(portal);
+            setShowSavedAccounts(true);
             setIdentifier("");
             setPassword("");
             setMfaRequired(false);
@@ -253,7 +224,7 @@ export function LoginPage() {
         />
       }
     >
-      {!mfaRequired && (
+      {!mfaRequired && showSavedAccounts && (
         <SavedAccountSelector
           accounts={savedAccounts.filter(
             (account) => account.accessPortal === accessPortal,
@@ -261,8 +232,13 @@ export function LoginPage() {
           onSelect={selectSavedAccount}
           onRemove={(accountId) => setSavedAccounts(forgetAccount(accountId))}
           onUseAnother={() => {
+            setShowSavedAccounts(false);
             setIdentifier("");
             setPassword("");
+            setMfaRequired(false);
+            setMfaCode("");
+            setShowAlternativeSignIn(false);
+            setValidationError("");
             clearError();
           }}
         />
@@ -494,54 +470,6 @@ export function LoginPage() {
             </Link>
           </p>
         </div>
-      )}
-
-      {!mfaRequired && import.meta.env.DEV && (
-        <section
-          aria-labelledby="demo-accounts-title"
-          className="mt-6 rounded-xl border border-blue-100 bg-blue-50 p-4"
-        >
-          <div className="flex gap-3">
-            <Info className="mt-0.5 shrink-0 text-blue-600" size={17} />
-            <div>
-              <p
-                id="demo-accounts-title"
-                className="text-xs font-semibold text-blue-900"
-              >
-                {t("auth.demoAccess")}
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-blue-800">
-                {t("auth.demoInstructions")}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-3">
-            {(() => {
-              const Icon = demoAccount.icon;
-              return (
-                <button
-                  type="button"
-                  onClick={() =>
-                    selectDemoAccount(demoAccount.email, demoAccount.password)
-                  }
-                  className="w-full rounded-xl border border-blue-200 bg-white p-3 text-left transition hover:border-blue-400 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                >
-                  <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <Icon size={16} className="text-blue-600" />
-                    {demoAccount.role}
-                  </span>
-                  <span className="mt-1 block text-xs text-slate-600">
-                    {demoAccount.description}
-                  </span>
-                  <span className="mt-2 block text-[11px] font-medium text-blue-700">
-                    {t("auth.useDemoAccount")}
-                  </span>
-                </button>
-              );
-            })()}
-          </div>
-        </section>
       )}
     </AuthShell>
   );

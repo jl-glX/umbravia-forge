@@ -21,7 +21,8 @@ export type UserDeletionBlockerCode =
   | "facility_links"
   | "moderation_cases"
   | "moderation_actions"
-  | "moderation_appeals";
+  | "moderation_appeals"
+  | "commercial_requests";
 
 export interface UserDeletionBlocker {
   code: UserDeletionBlockerCode;
@@ -36,6 +37,101 @@ export class UserDeletionBlockedError extends Error {
     this.name = "UserDeletionBlockedError";
     this.blockers = blockers;
   }
+}
+
+export async function inspectUserDeletionBlockers(
+  transaction: Transaction<Database>,
+  id: string,
+): Promise<UserDeletionBlocker[]> {
+  const blockers: UserDeletionBlocker[] = [];
+  const addBlocker = async (
+    code: UserDeletionBlockerCode,
+    query: Promise<{ count: number | string | bigint }>,
+  ) => {
+    const result = await query;
+    const count = Number(result.count);
+    if (count > 0) blockers.push({ code, count });
+  };
+
+  await addBlocker(
+    "support_tickets",
+    transaction
+      .selectFrom("supportTickets")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("requesterUserId", "=", id)
+      .executeTakeFirstOrThrow(),
+  );
+  await addBlocker(
+    "support_attachments",
+    transaction
+      .selectFrom("supportAttachments")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("uploadedByUserId", "=", id)
+      .executeTakeFirstOrThrow(),
+  );
+  await addBlocker(
+    "support_knowledge",
+    transaction
+      .selectFrom("supportKnowledgeArticles")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("authorUserId", "=", id)
+      .executeTakeFirstOrThrow(),
+  );
+  await addBlocker(
+    "community_channels",
+    transaction
+      .selectFrom("communityChannels")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("createdBy", "=", id)
+      .executeTakeFirstOrThrow(),
+  );
+  await addBlocker(
+    "facility_links",
+    transaction
+      .selectFrom("facilityLinks")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("createdBy", "=", id)
+      .executeTakeFirstOrThrow(),
+  );
+  await addBlocker(
+    "moderation_cases",
+    transaction
+      .selectFrom("moderationCases")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("reporterUserId", "=", id)
+      .executeTakeFirstOrThrow(),
+  );
+  await addBlocker(
+    "moderation_actions",
+    transaction
+      .selectFrom("moderationActions")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("actorUserId", "=", id)
+      .executeTakeFirstOrThrow(),
+  );
+  await addBlocker(
+    "moderation_appeals",
+    transaction
+      .selectFrom("moderationAppeals")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("appellantUserId", "=", id)
+      .executeTakeFirstOrThrow(),
+  );
+  await addBlocker(
+    "commercial_requests",
+    transaction
+      .selectFrom("commercialRequests")
+      .innerJoin(
+        "commercialTrials",
+        "commercialTrials.id",
+        "commercialRequests.trialId",
+      )
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("commercialRequests.requesterUserId", "=", id)
+      .where("commercialTrials.ownerUserId", "!=", id)
+      .executeTakeFirstOrThrow(),
+  );
+  return blockers;
 }
 
 function publicRole(role: FacilityRole): UserWithoutPassword["role"] {
@@ -380,80 +476,7 @@ export async function deleteUserInTransaction(
     throw new Error("User not found");
   }
 
-  const blockers: UserDeletionBlocker[] = [];
-  const addBlocker = async (
-    code: UserDeletionBlockerCode,
-    query: Promise<{ count: number | string | bigint }>,
-  ) => {
-    const result = await query;
-    const count = Number(result.count);
-    if (count > 0) blockers.push({ code, count });
-  };
-
-  await addBlocker(
-    "support_tickets",
-    transaction
-      .selectFrom("supportTickets")
-      .select(({ fn }) => fn.countAll<number>().as("count"))
-      .where("requesterUserId", "=", id)
-      .executeTakeFirstOrThrow(),
-  );
-  await addBlocker(
-    "support_attachments",
-    transaction
-      .selectFrom("supportAttachments")
-      .select(({ fn }) => fn.countAll<number>().as("count"))
-      .where("uploadedByUserId", "=", id)
-      .executeTakeFirstOrThrow(),
-  );
-  await addBlocker(
-    "support_knowledge",
-    transaction
-      .selectFrom("supportKnowledgeArticles")
-      .select(({ fn }) => fn.countAll<number>().as("count"))
-      .where("authorUserId", "=", id)
-      .executeTakeFirstOrThrow(),
-  );
-  await addBlocker(
-    "community_channels",
-    transaction
-      .selectFrom("communityChannels")
-      .select(({ fn }) => fn.countAll<number>().as("count"))
-      .where("createdBy", "=", id)
-      .executeTakeFirstOrThrow(),
-  );
-  await addBlocker(
-    "facility_links",
-    transaction
-      .selectFrom("facilityLinks")
-      .select(({ fn }) => fn.countAll<number>().as("count"))
-      .where("createdBy", "=", id)
-      .executeTakeFirstOrThrow(),
-  );
-  await addBlocker(
-    "moderation_cases",
-    transaction
-      .selectFrom("moderationCases")
-      .select(({ fn }) => fn.countAll<number>().as("count"))
-      .where("reporterUserId", "=", id)
-      .executeTakeFirstOrThrow(),
-  );
-  await addBlocker(
-    "moderation_actions",
-    transaction
-      .selectFrom("moderationActions")
-      .select(({ fn }) => fn.countAll<number>().as("count"))
-      .where("actorUserId", "=", id)
-      .executeTakeFirstOrThrow(),
-  );
-  await addBlocker(
-    "moderation_appeals",
-    transaction
-      .selectFrom("moderationAppeals")
-      .select(({ fn }) => fn.countAll<number>().as("count"))
-      .where("appellantUserId", "=", id)
-      .executeTakeFirstOrThrow(),
-  );
+  const blockers = await inspectUserDeletionBlockers(transaction, id);
 
   if (blockers.length > 0) {
     throw new UserDeletionBlockedError(blockers);

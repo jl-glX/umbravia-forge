@@ -224,6 +224,20 @@ describe("community, identity and moderation APIs", () => {
     expect(contactSearch.body[0].bio).toBe(
       "Visible only to accepted contacts.",
     );
+    const contacts = await request(app)
+      .get("/api/community/contacts")
+      .set("Cookie", memberCookie)
+      .expect(200);
+    expect(contacts.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: created.body.id,
+          otherUserId: "community-peer",
+          otherName: "Peer",
+          otherUsername: "peer.training",
+        }),
+      ]),
+    );
   });
 
   it("supports facility channels, replies and visible messages", async () => {
@@ -247,6 +261,86 @@ describe("community, identity and moderation APIs", () => {
       .set("Cookie", memberCookie)
       .expect(200);
     expect(messages.body).toHaveLength(2);
+  });
+
+  it("allows controlled message editing and removal without bypassing moderation", async () => {
+    const channel = await request(app)
+      .post("/api/community/channels")
+      .set("Cookie", adminCookie)
+      .send({
+        scope: "facility",
+        scopeId: "primary",
+        name: "Message lifecycle",
+      })
+      .expect(201);
+    const ownMessage = await request(app)
+      .post(`/api/community/channels/${channel.body.id}/messages`)
+      .set("Cookie", memberCookie)
+      .send({ body: "Original message" })
+      .expect(201);
+    await request(app)
+      .patch(
+        `/api/community/channels/${channel.body.id}/messages/${ownMessage.body.id}`,
+      )
+      .set("Cookie", secondMemberCookie)
+      .send({ body: "Unauthorized edit" })
+      .expect(404);
+    await request(app)
+      .patch(
+        `/api/community/channels/${channel.body.id}/messages/${ownMessage.body.id}`,
+      )
+      .set("Cookie", memberCookie)
+      .send({ body: "Edited message" })
+      .expect(200);
+    let visible = await request(app)
+      .get(`/api/community/channels/${channel.body.id}/messages`)
+      .set("Cookie", memberCookie)
+      .expect(200);
+    expect(visible.body[0]).toMatchObject({
+      id: ownMessage.body.id,
+      body: "Edited message",
+      status: "active",
+    });
+
+    await request(app)
+      .delete(
+        `/api/community/channels/${channel.body.id}/messages/${ownMessage.body.id}`,
+      )
+      .set("Cookie", secondMemberCookie)
+      .expect(403);
+    await request(app)
+      .delete(
+        `/api/community/channels/${channel.body.id}/messages/${ownMessage.body.id}`,
+      )
+      .set("Cookie", adminCookie)
+      .expect(204);
+    visible = await request(app)
+      .get(`/api/community/channels/${channel.body.id}/messages`)
+      .set("Cookie", memberCookie)
+      .expect(200);
+    expect(visible.body[0]).toMatchObject({
+      id: ownMessage.body.id,
+      body: "[removed]",
+      status: "removed",
+    });
+
+    const reported = await request(app)
+      .post(`/api/community/channels/${channel.body.id}/messages`)
+      .set("Cookie", memberCookie)
+      .send({ body: "Message under review" })
+      .expect(201);
+    await database.db
+      .updateTable("communityMessages")
+      .set({ status: "reported" })
+      .where("id", "=", reported.body.id)
+      .execute();
+    const blocked = await request(app)
+      .delete(
+        `/api/community/channels/${channel.body.id}/messages/${reported.body.id}`,
+      )
+      .set("Cookie", adminCookie)
+      .expect(409);
+    expect(blocked.body.code).toBe("MESSAGE_REMOVAL_REQUIRES_REVIEW");
   });
 
   it("encrypts private class justifications at rest and decrypts authorized responses", async () => {
@@ -356,6 +450,24 @@ describe("community, identity and moderation APIs", () => {
       .set("Cookie", memberCookie)
       .send({ userId: "community-peer" })
       .expect(201);
+    const members = await request(app)
+      .get(`/api/community/channels/${community.body.id}/members`)
+      .set("Cookie", secondMemberCookie)
+      .expect(200);
+    expect(members.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: "community-member",
+          role: "owner",
+          username: "member.training",
+        }),
+        expect.objectContaining({
+          userId: "community-peer",
+          role: "member",
+          username: "peer.training",
+        }),
+      ]),
+    );
     const after = await request(app)
       .get("/api/community/channels")
       .set("Cookie", secondMemberCookie)
@@ -443,12 +555,25 @@ describe("community, identity and moderation APIs", () => {
       "Documento privado de la comunidad",
       "utf8",
     );
+    await request(app)
+      .post(`/api/community/channels/${community.body.id}/attachments`)
+      .set("Cookie", secondMemberCookie)
+      .set("Content-Type", "text/plain")
+      .set("X-File-Name", "ajeno.txt")
+      .set("X-Message-Id", privateMessage.body.id)
+      .send(Buffer.from("No debe vincularse al mensaje ajeno"))
+      .expect(403);
+    const attachmentMessage = await request(app)
+      .post(`/api/community/channels/${community.body.id}/messages`)
+      .set("Cookie", memberCookie)
+      .send({ body: "Mensaje activo con documento privado" })
+      .expect(201);
     const uploaded = await request(app)
       .post(`/api/community/channels/${community.body.id}/attachments`)
       .set("Cookie", memberCookie)
       .set("Content-Type", "text/plain")
       .set("X-File-Name", "plan/privado.txt")
-      .set("X-Message-Id", privateMessage.body.id)
+      .set("X-Message-Id", attachmentMessage.body.id)
       .send(attachmentBody)
       .expect(201);
     expect(uploaded.body).toMatchObject({
@@ -498,6 +623,49 @@ describe("community, identity and moderation APIs", () => {
       .set("Cookie", secondMemberCookie)
       .expect(200);
     expect(downloaded.text).toBe(attachmentBody.toString("utf8"));
+
+    const removableMessage = await request(app)
+      .post(`/api/community/channels/${community.body.id}/messages`)
+      .set("Cookie", memberCookie)
+      .send({ body: "Mensaje y adjunto eliminables conjuntamente" })
+      .expect(201);
+    const removableUpload = await request(app)
+      .post(`/api/community/channels/${community.body.id}/attachments`)
+      .set("Cookie", memberCookie)
+      .set("Content-Type", "text/plain")
+      .set("X-File-Name", "eliminable.txt")
+      .set("X-Message-Id", removableMessage.body.id)
+      .send(Buffer.from("Adjunto eliminable"))
+      .expect(201);
+    const removableStored = await database.db
+      .selectFrom("communityAttachments")
+      .select("storageKey")
+      .where("id", "=", removableUpload.body.id)
+      .executeTakeFirstOrThrow();
+    await request(app)
+      .delete(
+        `/api/community/channels/${community.body.id}/messages/${removableMessage.body.id}`,
+      )
+      .set("Cookie", memberCookie)
+      .expect(204);
+    expect(
+      await database.db
+        .selectFrom("communityAttachments")
+        .select("id")
+        .where("id", "=", removableUpload.body.id)
+        .executeTakeFirst(),
+    ).toBeUndefined();
+    await expect(
+      readFile(
+        join(
+          directory,
+          "private",
+          "community-attachments",
+          removableStored.storageKey,
+        ),
+      ),
+    ).rejects.toThrow();
+
     await request(app)
       .delete(
         `/api/community/channels/${community.body.id}/attachments/${uploaded.body.id}`,
@@ -533,6 +701,22 @@ describe("community, identity and moderation APIs", () => {
         "private_attachment_deleted",
       ]),
     );
+    await request(app)
+      .delete(
+        `/api/community/channels/${community.body.id}/members/community-member`,
+      )
+      .set("Cookie", memberCookie)
+      .expect(409);
+    await request(app)
+      .delete(
+        `/api/community/channels/${community.body.id}/members/community-peer`,
+      )
+      .set("Cookie", secondMemberCookie)
+      .expect(204);
+    await request(app)
+      .get(`/api/community/channels/${community.body.id}/messages`)
+      .set("Cookie", secondMemberCookie)
+      .expect(404);
   });
 
   it("isolates facility channels, messages and search results", async () => {
@@ -769,7 +953,7 @@ describe("community, identity and moderation APIs", () => {
       .set("Cookie", memberCookie)
       .send({ targetFacilityName: "Centro Norte" })
       .expect(403);
-    await request(app)
+    const facilityLink = await request(app)
       .post("/api/community/facility-links")
       .set("Cookie", adminCookie)
       .send({
@@ -778,6 +962,29 @@ describe("community, identity and moderation APIs", () => {
         sharedSpaces: ["announcements", "events"],
       })
       .expect(201);
+    const selfAccepted = await request(app)
+      .patch(`/api/community/facility-links/${facilityLink.body.id}`)
+      .set("Cookie", adminCookie)
+      .send({ status: "facility_link_accepted" })
+      .expect(409);
+    expect(selfAccepted.body.code).toBe(
+      "FACILITY_LINK_TARGET_VERIFICATION_REQUIRED",
+    );
+    await request(app)
+      .patch(`/api/community/facility-links/${facilityLink.body.id}`)
+      .set("Cookie", adminCookie)
+      .send({ status: "facility_link_rejected" })
+      .expect(409);
+    await request(app)
+      .patch(`/api/community/facility-links/${facilityLink.body.id}`)
+      .set("Cookie", adminCookie)
+      .send({ status: "facility_link_suspended" })
+      .expect(409);
+    await request(app)
+      .patch(`/api/community/facility-links/${facilityLink.body.id}`)
+      .set("Cookie", adminCookie)
+      .send({ status: "facility_link_terminated" })
+      .expect(200);
     await request(app)
       .post("/api/community/facility-links")
       .set("Cookie", adminCookie)

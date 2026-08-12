@@ -11,6 +11,7 @@ import {
 import type { AuthenticatedUser } from "../middleware/authorization.js";
 import { recordSecurityEvent } from "./security-events.js";
 import { stageStoredFilesForRemoval } from "../lib/staged-file-removal.js";
+import { publishManagerSignal } from "./manager-coordinator.js";
 
 export class CommunityAttachmentError extends Error {
   constructor(
@@ -163,7 +164,7 @@ export async function storeCommunityAttachment(
   if (messageId) {
     const message = await db
       .selectFrom("communityMessages")
-      .select("id")
+      .select(["id", "authorUserId", "status"])
       .where("id", "=", messageId)
       .where("channelId", "=", channelId)
       .executeTakeFirst();
@@ -172,6 +173,20 @@ export async function storeCommunityAttachment(
         "Attachment message does not belong to the community",
         400,
         "ATTACHMENT_INVALID",
+      );
+    }
+    if (message.authorUserId !== auth.userId) {
+      throw new CommunityAttachmentError(
+        "Attachments cannot be linked to another member's message",
+        403,
+        "ATTACHMENT_MESSAGE_OWNERSHIP_REQUIRED",
+      );
+    }
+    if (message.status !== "active") {
+      throw new CommunityAttachmentError(
+        "Attachments require an active message",
+        409,
+        "ATTACHMENT_MESSAGE_INACTIVE",
       );
     }
   }
@@ -301,27 +316,32 @@ export async function deleteCommunityAttachment(
     );
   }
 
-  const target = path.join(attachmentRoot(), attachment.storageKey);
-  const tombstone = `${target}.delete-${randomUUID()}`;
-  await rename(target, tombstone).catch((error: unknown) => {
-    if (
-      !(error instanceof Error) ||
-      !("code" in error) ||
-      error.code !== "ENOENT"
-    ) {
-      throw error;
-    }
-  });
+  const staged = await stageCommunityAttachmentFilesRemoval([
+    attachment.storageKey,
+  ]);
   try {
     await db
       .deleteFrom("communityAttachments")
       .where("id", "=", attachment.id)
       .execute();
   } catch (error) {
-    await rename(tombstone, target).catch(() => undefined);
+    await staged.rollback();
     throw error;
   }
-  await unlink(tombstone).catch(() => undefined);
+  try {
+    await staged.commit();
+  } catch {
+    try {
+      publishManagerSignal(
+        "resource",
+        "warning",
+        "COMMUNITY_ATTACHMENT_CLEANUP_DEFERRED",
+        "Encrypted community attachment cleanup remains staged for maintenance.",
+      );
+    } catch {
+      console.error("Community attachment cleanup remains staged.");
+    }
+  }
   await recordSecurityEvent("private_attachment_deleted", auth.userId, {
     attachmentId,
     channelId,

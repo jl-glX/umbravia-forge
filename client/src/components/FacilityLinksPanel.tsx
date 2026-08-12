@@ -66,6 +66,25 @@ export function FacilityLinksPanel() {
     }
   };
 
+  const withdrawLink = async (linkId: string) => {
+    try {
+      const response = await authFetch(
+        `${BASE}/api/community/facility-links/${linkId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "facility_link_terminated" }),
+        },
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? "Request failed");
+      setNotice(t("community.facilityLinkWithdrawn"));
+      await load();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   return (
     <Card className="mt-6 overflow-hidden rounded-3xl border-brand-path/20 bg-white/95 p-0 shadow-sm">
       <div className="h-1.5 bg-gradient-to-r from-brand-path via-brand-steel to-brand-ember" />
@@ -112,8 +131,24 @@ export function FacilityLinksPanel() {
                 {link.targetFacilityName}
               </strong>
               <span className="mt-1 block text-brand-steel">
-                {link.mode} · {link.status}
+                {t(`community.facilityLinkModes.${link.mode}`)} ·{" "}
+                {t(`community.facilityLinkStatuses.${link.status}`)}
               </span>
+              {![
+                "facility_link_rejected",
+                "facility_link_expired",
+                "facility_link_terminated",
+              ].includes(link.status) && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => void withdrawLink(link.id)}
+                >
+                  {t("community.withdrawFacilityLink")}
+                </Button>
+              )}
             </div>
           ))}
         </div>

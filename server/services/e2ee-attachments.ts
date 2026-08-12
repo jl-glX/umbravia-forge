@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { db } from "../db/client.js";
 import { recordSecurityEvent } from "./security-events.js";
+import { stageStoredFilesForRemoval } from "../lib/staged-file-removal.js";
 
 export class E2eeAttachmentError extends Error {
   constructor(
@@ -23,6 +24,10 @@ function attachmentRoot(): string {
         "e2ee-attachments",
       ),
   );
+}
+
+export function stageE2eeAttachmentFilesRemoval(storageKeys: string[]) {
+  return stageStoredFilesForRemoval(attachmentRoot(), storageKeys);
 }
 
 export function e2eeAttachmentLimitBytes(): number {

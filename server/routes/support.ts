@@ -9,6 +9,7 @@ import { supportMutationLimiter } from "../middleware/security.js";
 import {
   addSupportMessage,
   createSupportTicket,
+  deleteSupportAttachment,
   getSupportCapabilities,
   getSupportTicket,
   listKnowledgeArticles,
@@ -201,6 +202,23 @@ supportRouter.get(
       );
       res.setHeader("Content-Length", String(result.body.length));
       res.send(result.body);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+supportRouter.delete(
+  "/tickets/:ticketId/attachments/:attachmentId",
+  supportMutationLimiter,
+  async (req, res, next) => {
+    try {
+      await deleteSupportAttachment(
+        getAuthenticatedUser(res),
+        req.params.ticketId,
+        req.params.attachmentId,
+      );
+      res.status(204).end();
     } catch (error) {
       next(error);
     }

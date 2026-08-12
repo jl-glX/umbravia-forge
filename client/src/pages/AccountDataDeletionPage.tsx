@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   CircleAlert,
-  FileCheck2,
   LockKeyhole,
   RotateCcw,
   Trash2,
@@ -13,6 +12,8 @@ import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { authFetch } from "../lib/api";
 import { VerifiedForm } from "../components/VerifiedForm";
+import { PasswordInput } from "../components/PasswordInput";
+import { useAuth } from "../hooks/useAuth";
 
 type DataCategory =
   | "account_profile"
@@ -25,13 +26,15 @@ type DataCategory =
   | "security_events";
 
 interface DeletionReview {
+  accountEmail: string;
+  mfaRequired: boolean;
   gracePeriodDays: number;
   deletionRequest: {
     id: string;
     graceEndsAt: number;
   } | null;
   dataDisposition: {
-    executionEnabled: false;
+    executionEnabled: boolean;
     categories: Array<{
       dataCategory: DataCategory;
       defaultDisposition:
@@ -56,7 +59,7 @@ interface DeletionReview {
     activeSessions: number;
     delegationGrantsAffected: number;
     dataExportStatus: "planned";
-    executionEnabled: false;
+    executionEnabled: boolean;
   };
 }
 
@@ -69,41 +72,54 @@ async function reviewRequest(
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
   const body = (await response.json().catch(() => ({}))) as
-    DeletionReview | { error?: string };
+    DeletionReview | { error?: string; code?: string };
   if (!response.ok) {
-    throw new Error("error" in body ? body.error : "Request failed");
+    throw new Error(
+      "code" in body && body.code
+        ? body.code
+        : "error" in body && body.error
+          ? body.error
+          : "REQUEST_FAILED",
+    );
   }
   return body as DeletionReview;
 }
 
 export function AccountDataDeletionPage() {
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   const [review, setReview] = useState<DeletionReview | null>(null);
-  const [selected, setSelected] = useState<DataCategory[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+
+  const userFacingError = (cause: unknown) => {
+    const code = cause instanceof Error ? cause.message : "REQUEST_FAILED";
+    if (code === "SECURITY_CONFIRMATION_FAILED") {
+      return t("accountDataDeletion.passwordRejected");
+    }
+    if (code === "MFA_CONFIRMATION_FAILED") {
+      return t("accountDataDeletion.totpRejected");
+    }
+    if (code === "FORM_VERIFICATION_REQUIRED") {
+      return t("accountDataDeletion.formVerificationExpired");
+    }
+    return t("accountDataDeletion.requestFailed");
+  };
 
   const load = useCallback(async () => {
     const result = await reviewRequest();
     setReview(result);
-    setSelected(result.deletionDraft?.selectedCategories ?? []);
   }, []);
 
   useEffect(() => {
-    load().catch((cause) =>
-      setError(cause instanceof Error ? cause.message : String(cause)),
-    );
+    load().catch((cause) => setError(userFacingError(cause)));
+    // The error mapper depends on the active language; loading again is already
+    // handled by the page lifecycle and should not be coupled to translations.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
-
-  const toggleCategory = (category: DataCategory) => {
-    setSelected((current) =>
-      current.includes(category)
-        ? current.filter((item) => item !== category)
-        : [...current, category],
-    );
-  };
 
   const saveDraft = async (
     intent: "selected_data" | "account_closure",
@@ -114,24 +130,12 @@ export function AccountDataDeletionPage() {
       body: JSON.stringify({ selectedCategories: categories, intent }),
     });
     setReview(result);
-    setSelected(result.deletionDraft?.selectedCategories ?? categories);
   };
 
-  const prepareSelectedDeletion = async () => {
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      await saveDraft("selected_data", selected);
-      setNotice(t("accountDataDeletion.selectionSaved"));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const scheduleAccountClosure = async () => {
+  const scheduleAccountClosure = async (
+    submittedPassword: string,
+    submittedTotpCode: string,
+  ) => {
     if (!review) return;
     setBusy(true);
     setError("");
@@ -143,13 +147,17 @@ export function AccountDataDeletionPage() {
       await saveDraft("account_closure", allCategories);
       await reviewRequest("/deletion", {
         method: "POST",
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({
+          password: submittedPassword,
+          totpCode: review.mfaRequired ? submittedTotpCode : undefined,
+        }),
       });
       await load();
       setPassword("");
+      setTotpCode("");
       setNotice(t("accountDataDeletion.accountScheduled"));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(userFacingError(cause));
     } finally {
       setBusy(false);
     }
@@ -164,7 +172,7 @@ export function AccountDataDeletionPage() {
       await load();
       setNotice(t("accountDataDeletion.accountCancelled"));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(userFacingError(cause));
     } finally {
       setBusy(false);
     }
@@ -212,35 +220,36 @@ export function AccountDataDeletionPage() {
 
         <VerifiedForm
           className="mt-8 space-y-6"
-          onSubmit={(event) => event.preventDefault()}
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            void scheduleAccountClosure(
+              String(form.get("password") ?? ""),
+              String(form.get("totpCode") ?? ""),
+            );
+          }}
         >
           <Card className="p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-black text-slate-950">
-                  {t("accountDataDeletion.chooseTitle")}
+                  {t("accountDataDeletion.reviewTitle")}
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                  {t("accountDataDeletion.chooseDescription")}
+                  {t("accountDataDeletion.reviewDescription")}
                 </p>
               </div>
-              <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-800">
-                {t("accountDataDeletion.demoMode")}
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                {t("accountDataDeletion.operationalMode")}
               </span>
             </div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {review?.dataDisposition.categories.map((category) => (
-                <label
+                <div
                   key={category.dataCategory}
-                  className="flex cursor-pointer gap-3 rounded-2xl border border-slate-200 bg-white p-4"
+                  className="rounded-2xl border border-slate-200 bg-white p-4"
                 >
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(category.dataCategory)}
-                    onChange={() => toggleCategory(category.dataCategory)}
-                    className="mt-1 size-4 accent-red-600"
-                  />
                   <span>
                     <span className="block font-bold text-slate-900">
                       {t(
@@ -258,20 +267,9 @@ export function AccountDataDeletionPage() {
                       )}
                     </span>
                   </span>
-                </label>
+                </div>
               ))}
             </div>
-
-            <Button
-              type="button"
-              className="mt-5"
-              variant="outline"
-              disabled={busy || selected.length === 0}
-              onClick={() => void prepareSelectedDeletion()}
-            >
-              <FileCheck2 size={17} />
-              {t("accountDataDeletion.deleteSelected")}
-            </Button>
           </Card>
 
           <Card className="mt-6 border-amber-200 bg-amber-50 p-6">
@@ -341,28 +339,53 @@ export function AccountDataDeletionPage() {
               </>
             ) : (
               <div className="mt-5 max-w-xl">
+                <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+                  {t("accountDataDeletion.confirmingAccount", {
+                    email: review?.accountEmail ?? user?.email ?? "",
+                  })}
+                </div>
                 <label className="block text-sm font-semibold text-slate-800">
                   <span className="flex items-center gap-2">
                     <LockKeyhole size={17} />
                     {t("accountDataDeletion.passwordConfirmation")}
                   </span>
-                  <input
-                    type="password"
+                  <PasswordInput
+                    name="password"
                     autoComplete="current-password"
                     value={password}
+                    maxLength={256}
+                    required
                     onChange={(event) => setPassword(event.target.value)}
                     className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5"
                   />
                 </label>
+                {review?.mfaRequired && (
+                  <label className="mt-4 block text-sm font-semibold text-slate-800">
+                    {t("accountDataDeletion.totpConfirmation")}
+                    <input
+                      name="totpCode"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      pattern="[0-9]{6}"
+                      maxLength={6}
+                      required
+                      value={totpCode}
+                      onChange={(event) =>
+                        setTotpCode(event.target.value.replace(/\D/gu, ""))
+                      }
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-mono tracking-[0.25em]"
+                    />
+                  </label>
+                )}
                 <p className="mt-2 text-xs leading-5 text-slate-500">
                   {t("accountDataDeletion.reauthenticationNotice")}
                 </p>
                 <Button
-                  type="button"
+                  type="submit"
                   className="mt-4"
                   variant="destructive"
-                  disabled={busy || !review || password.length === 0}
-                  onClick={() => void scheduleAccountClosure()}
+                  disabled={busy || !review}
                 >
                   <Trash2 size={17} />
                   {t("accountDataDeletion.deleteAccount")}

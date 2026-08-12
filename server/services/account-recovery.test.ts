@@ -216,7 +216,9 @@ describe("account recovery", () => {
       .where("userId", "=", userId)
       .where("revokedAt", "is", null)
       .executeTakeFirstOrThrow();
-    await lifecycle.scheduleAccountDeletion(userId, "manual");
+    await lifecycle.scheduleAccountDeletion(userId, "manual", Date.now(), {
+      keepSessionId: sessionBefore.id,
+    });
     await database.db
       .updateTable("users")
       .set({ accountStatus: "security_review" })

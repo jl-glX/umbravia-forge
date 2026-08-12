@@ -29,9 +29,11 @@ import {
   deleteCommunityAttachment,
   listCommunityAttachments,
   readCommunityAttachment,
+  stageCommunityAttachmentFilesRemoval,
   storeCommunityAttachment,
 } from "../services/community-attachments.js";
 import { recordSecurityEvent } from "../services/security-events.js";
+import { publishManagerSignal } from "../services/manager-coordinator.js";
 
 export const communityRouter = express.Router();
 communityRouter.use(authenticate, selectFacilityContext, requireFacility());
@@ -509,7 +511,44 @@ communityRouter.get("/contacts", async (_req, res, next) => {
       )
       .orderBy("updatedAt", "desc")
       .execute();
-    res.json(rows);
+    const otherUserIds = [
+      ...new Set(
+        rows.map((contact) =>
+          contact.requesterUserId === userId
+            ? contact.recipientUserId
+            : contact.requesterUserId,
+        ),
+      ),
+    ];
+    const identities = otherUserIds.length
+      ? await db
+          .selectFrom("users")
+          .leftJoin("socialProfiles", "socialProfiles.userId", "users.id")
+          .select([
+            "users.id",
+            "users.name",
+            "socialProfiles.username as username",
+          ])
+          .where("users.id", "in", otherUserIds)
+          .execute()
+      : [];
+    const identityByUserId = new Map(
+      identities.map((identity) => [identity.id, identity]),
+    );
+    const contacts = rows.map((contact) => {
+      const otherUserId =
+        contact.requesterUserId === userId
+          ? contact.recipientUserId
+          : contact.requesterUserId;
+      const other = identityByUserId.get(otherUserId);
+      return {
+        ...contact,
+        otherUserId,
+        otherName: other?.name ?? "",
+        otherUsername: other?.username ?? null,
+      };
+    });
+    res.json(contacts);
   } catch (error) {
     next(error);
   }
@@ -952,6 +991,202 @@ communityRouter.post("/channels/:id/messages", async (req, res, next) => {
   }
 });
 
+communityRouter.patch(
+  "/channels/:id/messages/:messageId",
+  async (req, res, next) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      const facility = getFacilityContext(res);
+      const channel = await canAccessChannel(
+        auth.userId,
+        facility.id,
+        facility.role,
+        req.params.id,
+      );
+      if (!channel) return res.status(404).json({ error: "Channel not found" });
+      const message = await db
+        .selectFrom("communityMessages")
+        .selectAll()
+        .where("id", "=", req.params.messageId)
+        .where("channelId", "=", channel.id)
+        .executeTakeFirst();
+      if (!message || message.authorUserId !== auth.userId)
+        return res.status(404).json({ error: "Editable message not found" });
+      if (
+        await isCommunicationRestricted(
+          auth.userId,
+          channel.scope === "community" ? null : facility.id,
+        )
+      )
+        return res.status(403).json({
+          error: "Your current moderation state does not allow message editing",
+          code: "COMMUNICATION_RESTRICTED",
+        });
+      if (channel.status !== "community_active")
+        return res.status(409).json({
+          error: "Channel does not accept message changes",
+          code: "CHANNEL_NOT_ACTIVE",
+        });
+      if (message.status !== "active")
+        return res.status(409).json({
+          error: "Reported or removed messages cannot be edited",
+          code: "MESSAGE_EDIT_REQUIRES_REVIEW",
+        });
+      const body = String(req.body.body ?? "").trim();
+      if (!body || body.length > 4000)
+        return badRequest(res, "Message must contain 1-4000 characters");
+      const context = `community-message:${message.id}`;
+      const protectedBody = message.protectedBody
+        ? protectPrivateText(body, context)
+        : null;
+      const updatedAt = Date.now();
+      await db
+        .updateTable("communityMessages")
+        .set({
+          body: protectedBody ? "[protected]" : body,
+          protectedBody,
+          updatedAt,
+        })
+        .where("id", "=", message.id)
+        .execute();
+      res.json({
+        ...message,
+        body,
+        protectedBody: undefined,
+        updatedAt,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+communityRouter.delete(
+  "/channels/:id/messages/:messageId",
+  async (req, res, next) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      const facility = getFacilityContext(res);
+      const channel = await canAccessChannel(
+        auth.userId,
+        facility.id,
+        facility.role,
+        req.params.id,
+      );
+      if (!channel) return res.status(404).json({ error: "Channel not found" });
+      const message = await db
+        .selectFrom("communityMessages")
+        .selectAll()
+        .where("id", "=", req.params.messageId)
+        .where("channelId", "=", channel.id)
+        .executeTakeFirst();
+      if (!message) return res.status(404).json({ error: "Message not found" });
+      const canManage = await canManageChannel(
+        auth.userId,
+        facility.id,
+        facility.role,
+        channel,
+      );
+      if (message.authorUserId !== auth.userId && !canManage)
+        return res
+          .status(403)
+          .json({ error: "Message removal is not allowed" });
+      if (message.status === "reported")
+        return res.status(409).json({
+          error: "Reported messages must be resolved through moderation",
+          code: "MESSAGE_REMOVAL_REQUIRES_REVIEW",
+        });
+      if (message.status === "removed") return res.status(204).end();
+
+      const attachments = await db
+        .selectFrom("communityAttachments")
+        .select(["id", "uploadedByUserId", "storageKey"])
+        .where("channelId", "=", channel.id)
+        .where("messageId", "=", message.id)
+        .execute();
+      const removableAttachments = attachments.filter(
+        (attachment) =>
+          attachment.uploadedByUserId === auth.userId || canManage,
+      );
+      const retainedAttachments = attachments.filter(
+        (attachment) =>
+          attachment.uploadedByUserId !== auth.userId && !canManage,
+      );
+      const staged = await stageCommunityAttachmentFilesRemoval(
+        removableAttachments.map((attachment) => attachment.storageKey),
+      );
+      try {
+        await db.transaction().execute(async (transaction) => {
+          for (const attachment of removableAttachments) {
+            await transaction
+              .deleteFrom("communityAttachments")
+              .where("id", "=", attachment.id)
+              .execute();
+          }
+          for (const attachment of retainedAttachments) {
+            await transaction
+              .updateTable("communityAttachments")
+              .set({ messageId: null })
+              .where("id", "=", attachment.id)
+              .execute();
+          }
+          await transaction
+            .updateTable("communityMessages")
+            .set({
+              body: "[removed]",
+              protectedBody: null,
+              status: "removed",
+              updatedAt: Date.now(),
+            })
+            .where("id", "=", message.id)
+            .execute();
+        });
+      } catch (error) {
+        await staged.rollback();
+        throw error;
+      }
+      try {
+        await staged.commit();
+      } catch {
+        try {
+          publishManagerSignal(
+            "resource",
+            "warning",
+            "COMMUNITY_MESSAGE_CLEANUP_DEFERRED",
+            "Encrypted message attachment cleanup remains staged for maintenance.",
+          );
+        } catch {
+          console.error("Community message attachment cleanup remains staged.");
+        }
+      }
+      try {
+        await Promise.all(
+          removableAttachments.map((attachment) =>
+            recordSecurityEvent("private_attachment_deleted", auth.userId, {
+              attachmentId: attachment.id,
+              channelId: channel.id,
+            }),
+          ),
+        );
+      } catch {
+        try {
+          publishManagerSignal(
+            "security",
+            "warning",
+            "COMMUNITY_ATTACHMENT_AUDIT_DEFERRED",
+            "A community attachment deletion audit event requires review.",
+          );
+        } catch {
+          console.error("Community attachment deletion audit requires review.");
+        }
+      }
+      res.status(204).end();
+    } catch (error) {
+      handleCommunityAttachmentError(error, res, next);
+    }
+  },
+);
+
 communityRouter.get("/channels/:id/attachments", async (req, res, next) => {
   try {
     const auth = getAuthenticatedUser(res);
@@ -976,6 +1211,25 @@ communityRouter.post(
   async (req, res, next) => {
     try {
       const auth = getAuthenticatedUser(res);
+      const facility = getFacilityContext(res);
+      const channel = await canAccessChannel(
+        auth.userId,
+        facility.id,
+        facility.role,
+        req.params.id,
+      );
+      if (!channel || channel.scope !== "community")
+        return res.status(404).json({ error: "Community not found" });
+      if (await isCommunicationRestricted(auth.userId, null))
+        return res.status(403).json({
+          error: "Your current moderation state does not allow uploads",
+          code: "COMMUNICATION_RESTRICTED",
+        });
+      if (channel.status !== "community_active")
+        return res.status(409).json({
+          error: "Community does not accept new attachments",
+          code: "CHANNEL_NOT_ACTIVE",
+        });
       const attachment = await storeCommunityAttachment(auth, req.params.id, {
         body: Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0),
         fileName: req.get("x-file-name") ?? "",
@@ -1086,6 +1340,89 @@ communityRouter.post("/channels/:id/members", async (req, res, next) => {
   }
 });
 
+communityRouter.get("/channels/:id/members", async (req, res, next) => {
+  try {
+    const auth = getAuthenticatedUser(res);
+    const facility = getFacilityContext(res);
+    const channel = await canAccessChannel(
+      auth.userId,
+      facility.id,
+      facility.role,
+      req.params.id,
+    );
+    if (!channel || channel.scope !== "community")
+      return res.status(404).json({ error: "Community not found" });
+    const members = await db
+      .selectFrom("communityMembers")
+      .innerJoin("users", "users.id", "communityMembers.userId")
+      .leftJoin(
+        "socialProfiles",
+        "socialProfiles.userId",
+        "communityMembers.userId",
+      )
+      .select([
+        "communityMembers.userId",
+        "communityMembers.role",
+        "communityMembers.createdAt",
+        "users.name",
+        "socialProfiles.username",
+      ])
+      .where("communityMembers.channelId", "=", channel.id)
+      .orderBy("communityMembers.createdAt")
+      .execute();
+    res.json(members);
+  } catch (error) {
+    next(error);
+  }
+});
+
+communityRouter.delete(
+  "/channels/:id/members/:userId",
+  async (req, res, next) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      const facility = getFacilityContext(res);
+      const channel = await canAccessChannel(
+        auth.userId,
+        facility.id,
+        facility.role,
+        req.params.id,
+      );
+      if (!channel || channel.scope !== "community")
+        return res.status(404).json({ error: "Community not found" });
+      const actor = await db
+        .selectFrom("communityMembers")
+        .select("role")
+        .where("channelId", "=", channel.id)
+        .where("userId", "=", auth.userId)
+        .executeTakeFirst();
+      const target = await db
+        .selectFrom("communityMembers")
+        .select("role")
+        .where("channelId", "=", channel.id)
+        .where("userId", "=", req.params.userId)
+        .executeTakeFirst();
+      if (!target)
+        return res.status(404).json({ error: "Community member not found" });
+      if (target.role === "owner")
+        return res.status(409).json({
+          error: "The community owner cannot be removed",
+          code: "COMMUNITY_OWNER_REQUIRED",
+        });
+      if (auth.userId !== req.params.userId && actor?.role !== "owner")
+        return res.status(403).json({ error: "Member removal is not allowed" });
+      await db
+        .deleteFrom("communityMembers")
+        .where("channelId", "=", channel.id)
+        .where("userId", "=", req.params.userId)
+        .execute();
+      res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 communityRouter.get("/facility-links", async (_req, res, next) => {
   try {
     const facilityId = getFacilityContext(res).id;
@@ -1173,6 +1510,29 @@ communityRouter.patch("/facility-links/:id", async (req, res, next) => {
     ) as (typeof facilityLinkStatuses)[number];
     if (!facilityLinkStatuses.includes(status))
       return badRequest(res, "Facility link status is invalid");
+    const link = await db
+      .selectFrom("facilityLinks")
+      .selectAll()
+      .where("id", "=", req.params.id)
+      .where("sourceFacilityId", "=", facilityId)
+      .executeTakeFirst();
+    if (!link)
+      return res.status(404).json({ error: "Facility link not found" });
+    const transitions: Record<string, string[]> = {
+      facility_link_requested: ["facility_link_terminated"],
+      facility_link_accepted: ["facility_link_terminated"],
+      facility_link_active: ["facility_link_terminated"],
+      facility_link_suspended: ["facility_link_terminated"],
+      facility_link_rejected: [],
+      facility_link_expired: [],
+      facility_link_terminated: [],
+    };
+    if (!(transitions[link.status] ?? []).includes(status))
+      return res.status(409).json({
+        error:
+          "This connection state requires a verified target facility workflow",
+        code: "FACILITY_LINK_TARGET_VERIFICATION_REQUIRED",
+      });
     const result = await db
       .updateTable("facilityLinks")
       .set({ status, updatedAt: Date.now() })

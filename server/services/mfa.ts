@@ -330,6 +330,36 @@ export async function verifyMfaCode(
   return { valid: true, usedRecoveryCode: true };
 }
 
+export async function verifyTotpCode(
+  userId: string,
+  email: string,
+  code: string,
+): Promise<boolean> {
+  const credential = await db
+    .selectFrom("mfaCredentials")
+    .select(["secretEncrypted", "enabledAt"])
+    .where("userId", "=", userId)
+    .executeTakeFirst();
+  if (!credential?.enabledAt || !/^\d{6}$/u.test(normaliseCode(code))) {
+    return false;
+  }
+  const secret = decryptSecret(credential.secretEncrypted, userId);
+  const valid =
+    totp(secret, email).validate({ token: normaliseCode(code), window: 1 }) !==
+    null;
+  if (valid && credential.secretEncrypted.startsWith("v1:")) {
+    await db
+      .updateTable("mfaCredentials")
+      .set({
+        secretEncrypted: encryptSecret(secret, userId),
+        updatedAt: Date.now(),
+      })
+      .where("userId", "=", userId)
+      .execute();
+  }
+  return valid;
+}
+
 export async function regenerateRecoveryCodes(
   userId: string,
 ): Promise<string[]> {

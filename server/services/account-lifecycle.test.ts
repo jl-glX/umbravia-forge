@@ -10,6 +10,49 @@ describe("account lifecycle", () => {
   let lifecycle: typeof import("./account-lifecycle.js");
   let userId: string;
 
+  async function createInactiveAccount(label: string) {
+    const account = await auth.signup(
+      `${label}@example.com`,
+      `Inactive ${label}`,
+      "StrongPassword123",
+    );
+    const lastActivity = Date.now() - 7 * 31 * 24 * 60 * 60 * 1000;
+    await database.db
+      .updateTable("users")
+      .set({ accountStatus: "active", emailVerifiedAt: Date.now() })
+      .where("id", "=", account.user.id)
+      .execute();
+    await database.db
+      .updateTable("accountDeletionPreferences")
+      .set({
+        inactivityMonths: null,
+        lastMeaningfulActivityAt: lastActivity,
+        updatedAt: lastActivity,
+      })
+      .where("userId", "=", account.user.id)
+      .execute();
+    return { ...account, lastActivity };
+  }
+
+  async function addReviewDelivery(userId: string, createdAt: number) {
+    const deliveryId = `review-${userId}`;
+    await database.db
+      .insertInto("securityEvents")
+      .values({
+        id: `event-${userId}-${createdAt}`,
+        userId,
+        type: "account_inactivity_review_delivered",
+        createdAt,
+        metadata: JSON.stringify({
+          deliveryId,
+          reviewDeliveryId: deliveryId,
+          reminder: false,
+        }),
+      })
+      .execute();
+    return deliveryId;
+  }
+
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-forge-lifecycle-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
@@ -70,8 +113,8 @@ describe("account lifecycle", () => {
       currentState: "suspended_pending_deletion",
       deletionRequest: { trigger: "inactivity", status: "scheduled" },
       deletionJob: {
-        status: "blocked_retention_review",
-        executionEnabled: false,
+        status: "planned",
+        executionEnabled: true,
       },
     });
     await lifecycle.cancelScheduledAccountDeletion(userId);
@@ -99,8 +142,8 @@ describe("account lifecycle", () => {
     expect(scheduled.deletionRequest?.status).toBe("scheduled");
     expect(scheduled.currentState).toBe("closure_requested");
     expect(scheduled.deletionJob).toMatchObject({
-      status: "blocked_retention_review",
-      executionEnabled: false,
+      status: "planned",
+      executionEnabled: true,
     });
     expect(scheduled.supportedStates).toEqual(
       expect.arrayContaining([
@@ -182,7 +225,211 @@ describe("account lifecycle", () => {
     expect(review.closureImpact).toMatchObject({
       activeSessions: 0,
       dataExportStatus: "planned",
-      executionEnabled: false,
+      executionEnabled: true,
     });
+  });
+
+  it("physically deletes an eligible account only after the grace period", async () => {
+    const disposable = await auth.signup(
+      "lifecycle-disposable@example.com",
+      "Disposable Member",
+      "StrongPassword123",
+    );
+    const scheduled = await lifecycle.scheduleAccountDeletion(
+      disposable.user.id,
+      "manual",
+      Date.now() - 31 * 24 * 60 * 60 * 1000,
+    );
+    expect(scheduled.deletionJob).toMatchObject({
+      status: "planned",
+      executionEnabled: true,
+    });
+
+    const result = await lifecycle.executeDueAccountDeletionJobs();
+    expect(result).toMatchObject({ completed: 1, blocked: 0 });
+    expect(
+      await database.db
+        .selectFrom("users")
+        .select("id")
+        .where("id", "=", disposable.user.id)
+        .executeTakeFirst(),
+    ).toBeUndefined();
+  });
+
+  it("does not treat a retention record already scheduled for deletion as a legal hold", async () => {
+    const disposable = await auth.signup(
+      "lifecycle-retention-scheduled@example.com",
+      "Scheduled Retention Member",
+      "StrongPassword123",
+    );
+    const now = Date.now();
+    await database.db
+      .insertInto("dataRetentionPolicies")
+      .values({
+        id: `policy-${disposable.user.id}`,
+        name: "Deletion-ready test policy",
+        jurisdiction: "test",
+        dataCategory: "account_profile",
+        retentionDays: 1,
+        legalBasisReference: "test-only",
+        status: "active",
+        version: 1,
+        reviewedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("dataRetentionRecords")
+      .values({
+        id: `record-${disposable.user.id}`,
+        userId: disposable.user.id,
+        policyId: `policy-${disposable.user.id}`,
+        sourceType: "account_profile",
+        sourceId: disposable.user.id,
+        status: "scheduled_deletion",
+        retainUntil: now - 1,
+        createdAt: now,
+        updatedAt: now,
+        releasedAt: null,
+      })
+      .execute();
+    await lifecycle.scheduleAccountDeletion(
+      disposable.user.id,
+      "manual",
+      now - 31 * 24 * 60 * 60 * 1000,
+    );
+
+    const result = await lifecycle.executeDueAccountDeletionJobs(now);
+    expect(result).toMatchObject({ completed: 1, blocked: 0 });
+    expect(
+      await database.db
+        .selectFrom("dataRetentionRecords")
+        .select("userId")
+        .where("id", "=", `record-${disposable.user.id}`)
+        .executeTakeFirst(),
+    ).toEqual({ userId: null });
+  });
+
+  it("keeps the active sign-in factors during the reversible grace period", async () => {
+    const disposable = await auth.signup(
+      "lifecycle-reversible@example.com",
+      "Reversible Member",
+      "StrongPassword123",
+    );
+    const currentSession = await database.db
+      .selectFrom("sessions")
+      .select("id")
+      .where("userId", "=", disposable.user.id)
+      .executeTakeFirstOrThrow();
+    const now = Date.now();
+    await database.db
+      .insertInto("mfaCredentials")
+      .values({
+        userId: disposable.user.id,
+        secretEncrypted: "encrypted-test-secret",
+        recoveryCodeHashes: "[]",
+        createdAt: now,
+        updatedAt: now,
+        enabledAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("authChallenges")
+      .values({
+        id: `challenge-${disposable.user.id}`,
+        userId: disposable.user.id,
+        createdAt: now,
+        expiresAt: now + 60_000,
+        attempts: 0,
+        consumedAt: null,
+        rememberDevice: 0,
+      })
+      .execute();
+
+    await lifecycle.scheduleAccountDeletion(disposable.user.id, "manual", now, {
+      keepSessionId: currentSession.id,
+    });
+
+    await expect(
+      database.db
+        .selectFrom("mfaCredentials")
+        .select("userId")
+        .where("userId", "=", disposable.user.id)
+        .executeTakeFirst(),
+    ).resolves.toEqual({ userId: disposable.user.id });
+    await expect(
+      database.db
+        .selectFrom("sessions")
+        .select("id")
+        .where("id", "=", currentSession.id)
+        .executeTakeFirst(),
+    ).resolves.toEqual({ id: currentSession.id });
+    await expect(
+      database.db
+        .selectFrom("authChallenges")
+        .select("id")
+        .where("userId", "=", disposable.user.id)
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
+  });
+
+  it("starts the six-month review only after its email is delivered", async () => {
+    const account = await createInactiveAccount("review-queued");
+    const result = await lifecycle.evaluateUnconfiguredInactivityReviews();
+    expect(result.queued).toBeGreaterThanOrEqual(1);
+    expect(
+      (await lifecycle.getAccountLifecycle(account.user.id)).inactivityReview,
+    ).toMatchObject({ status: "none", stage: null });
+
+    await addReviewDelivery(account.user.id, Date.now());
+    expect(
+      (await lifecycle.getAccountLifecycle(account.user.id)).inactivityReview,
+    ).toMatchObject({
+      status: "pending",
+      stage: "awaiting_usage_confirmation",
+    });
+  });
+
+  it("schedules deletion after silence on the delivered usage question", async () => {
+    const account = await createInactiveAccount("review-silent");
+    const deliveredAt =
+      Date.now() - lifecycle.INACTIVITY_REVIEW_RESPONSE_MS - 1;
+    await addReviewDelivery(account.user.id, deliveredAt);
+
+    const result = await lifecycle.evaluateUnconfiguredInactivityReviews();
+    expect(result.scheduled).toBeGreaterThanOrEqual(1);
+    expect(await lifecycle.getAccountLifecycle(account.user.id)).toMatchObject({
+      currentState: "suspended_pending_deletion",
+      deletionRequest: { trigger: "inactivity", status: "scheduled" },
+    });
+  });
+
+  it("does not delete after silence on the second confirmation question", async () => {
+    const account = await createInactiveAccount("review-declined");
+    await addReviewDelivery(account.user.id, Date.now());
+    const secondQuestion = await lifecycle.answerInactivityReview(
+      account.user.id,
+      { stage: "usage", answer: "no" },
+    );
+    expect(secondQuestion.inactivityReview).toMatchObject({
+      status: "pending",
+      stage: "confirm_deletion",
+      responseDueAt: null,
+    });
+
+    await lifecycle.evaluateUnconfiguredInactivityReviews(
+      Date.now() + 365 * 24 * 60 * 60 * 1000,
+    );
+    expect(
+      (await lifecycle.getAccountLifecycle(account.user.id)).deletionRequest,
+    ).toBeNull();
+
+    const kept = await lifecycle.answerInactivityReview(account.user.id, {
+      stage: "deletion",
+      answer: "no",
+    });
+    expect(kept.inactivityReview).toMatchObject({ status: "none" });
+    expect(kept.deletionRequest).toBeNull();
   });
 });

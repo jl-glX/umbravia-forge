@@ -233,17 +233,19 @@ function AppContent() {
   const { t } = useTranslation();
   const { user, isInitializing } = useAuth();
   const { pathname } = useLocation();
-  const isShelllessPage = [
-    "/login",
-    "/signup",
-    "/recover-account",
-    "/verify-email",
-    "/unauthorized",
-    "/commercial",
-    "/legal-notice",
-    "/terms-and-conditions",
-    "/conditions-of-use",
-  ].includes(pathname);
+  const isShelllessPage =
+    (pathname === "/" && !user) ||
+    [
+      "/login",
+      "/signup",
+      "/recover-account",
+      "/verify-email",
+      "/unauthorized",
+      "/commercial",
+      "/legal-notice",
+      "/terms-and-conditions",
+      "/conditions-of-use",
+    ].includes(pathname);
 
   if (isInitializing) {
     return (
@@ -267,9 +269,13 @@ function AppContent() {
           <Route
             path="/"
             element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
+              user ? (
+                <ProtectedRoute>
+                  <HomePage />
+                </ProtectedRoute>
+              ) : (
+                <CommercialPage />
+              )
             }
           />
           <Route

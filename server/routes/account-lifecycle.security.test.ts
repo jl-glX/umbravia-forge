@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
+import * as OTPAuth from "otpauth";
 import {
   afterAll,
   beforeAll,
@@ -194,37 +195,24 @@ describe("account deletion security", () => {
     expect(ownerLifecycle.body.deletionRequest.id).toBe([...requestIds][0]);
   }, 10_000);
 
-  it("keeps data intact after the grace date while execution is disabled", async () => {
-    await request(app)
+  it("exposes the real executor while keeping the grace period reversible", async () => {
+    const response = await request(app)
       .post("/api/account/lifecycle/deletion")
       .set("Cookie", ownerCookie)
       .send({ password: "StrongPassword123" })
       .expect(202);
-    await database.db
-      .updateTable("accountDeletionRequests")
-      .set({ graceEndsAt: Date.now() - 1 })
-      .where("userId", "=", ownerId)
-      .execute();
 
-    const user = await database.db
-      .selectFrom("users")
-      .select("id")
-      .where("id", "=", ownerId)
-      .executeTakeFirst();
-    const session = await request(app)
-      .get("/api/auth/session")
-      .set("Cookie", ownerCookie)
-      .expect(200);
-
-    expect(user?.id).toBe(ownerId);
-    expect(session.body.user.id).toBe(ownerId);
+    expect(response.body.deletionJob).toMatchObject({
+      status: "planned",
+      executionEnabled: true,
+    });
     expect(
-      (
-        await request(app)
-          .get("/api/account/lifecycle")
-          .set("Cookie", ownerCookie)
-      ).body.dataDisposition.executionEnabled,
-    ).toBe(false);
+      await database.db
+        .selectFrom("users")
+        .select("id")
+        .where("id", "=", ownerId)
+        .executeTakeFirst(),
+    ).toMatchObject({ id: ownerId });
   });
 
   it("cancels the request idempotently without deleting the account", async () => {
@@ -250,5 +238,37 @@ describe("account deletion security", () => {
         .where("id", "=", ownerId)
         .executeTakeFirst(),
     ).toMatchObject({ id: ownerId });
+  });
+
+  it("requires a current authenticator code when MFA is enabled", async () => {
+    const mfa = await import("../services/mfa.js");
+    const setup = await mfa.beginMfaSetup(
+      otherId,
+      "deletion-other@example.com",
+    );
+    const code = () =>
+      new OTPAuth.TOTP({
+        issuer: "Umbravia Forge",
+        label: "deletion-other@example.com",
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+        secret: OTPAuth.Secret.fromBase32(setup.secret),
+      }).generate();
+    await mfa.enableMfa(otherId, "deletion-other@example.com", code());
+
+    const rejected = await request(app)
+      .post("/api/account/lifecycle/deletion")
+      .set("Cookie", otherCookie)
+      .send({ password: "StrongPassword123", totpCode: "000000" })
+      .expect(401);
+    expect(rejected.body.code).toBe("MFA_CONFIRMATION_FAILED");
+
+    const scheduled = await request(app)
+      .post("/api/account/lifecycle/deletion")
+      .set("Cookie", otherCookie)
+      .send({ password: "StrongPassword123", totpCode: code() })
+      .expect(202);
+    expect(scheduled.body.deletionRequest.status).toBe("scheduled");
   });
 });

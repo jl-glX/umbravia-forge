@@ -154,6 +154,48 @@
       );
     mask-image: linear-gradient(45deg, black, transparent 78%);
   }
+
+  .auth-shell-enter > section:first-child {
+    animation: auth-shell-panel-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .auth-shell-enter > section:last-child {
+    animation: auth-shell-content-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes auth-shell-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(-1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes auth-shell-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.85rem) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-shell-enter > section {
+    animation: none !important;
+  }
+
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.01ms !important;
+  }
 }
 
 @media print {

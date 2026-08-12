@@ -29,7 +29,7 @@ export default defineConfig({
     // behind when the terminal interrupts the supervised run.
     pool: "threads",
     isolate: true,
-    fileParallelism: true,
+    fileParallelism: false,
     maxWorkers: workerCount,
     maxConcurrency: 1,
     hookTimeout: 30_000,

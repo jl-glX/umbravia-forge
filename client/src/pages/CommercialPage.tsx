@@ -99,7 +99,7 @@ export function CommercialPage() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild size="lg">
-              <Link to={primaryTarget}>
+              <Link to={primaryTarget} viewTransition>
                 {primaryLabel} <ArrowRight />
               </Link>
             </Button>
@@ -110,7 +110,9 @@ export function CommercialPage() {
                 variant="outline"
                 className="bg-white/85"
               >
-                <Link to="/login">{t("commercial.public.signIn")}</Link>
+                <Link to="/login" viewTransition>
+                  {t("commercial.public.signIn")}
+                </Link>
               </Button>
             )}
           </div>

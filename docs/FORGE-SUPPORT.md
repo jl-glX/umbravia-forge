@@ -107,6 +107,7 @@ PATCH  /api/support/tickets/:ticketId
 POST   /api/support/tickets/:ticketId/messages
 POST   /api/support/tickets/:ticketId/attachments
 GET    /api/support/tickets/:ticketId/attachments/:attachmentId
+DELETE /api/support/tickets/:ticketId/attachments/:attachmentId
 GET    /api/support/knowledge
 POST   /api/support/knowledge
 PUT    /api/support/knowledge/:articleId

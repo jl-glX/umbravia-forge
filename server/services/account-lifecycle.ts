@@ -6,14 +6,58 @@ import {
   type AccountDataCategory,
 } from "./data-retention.js";
 import { recordSecurityEvent } from "./security-events.js";
-import { withCoordinatedManagerOperation } from "./manager-coordinator.js";
+import {
+  publishManagerSignal,
+  withCoordinatedManagerOperation,
+} from "./manager-coordinator.js";
 import { getAccountContinuityBridge } from "./account-continuity.js";
+import {
+  queueAccountDeletionPreparationEmail,
+  queueAccountInactivityReviewEmail,
+} from "./email-delivery.js";
+import { hashPassword } from "./auth.js";
+import {
+  deleteUserInTransaction,
+  inspectUserDeletionBlockers,
+} from "./users.js";
+import { stageCommunityAttachmentFilesRemoval } from "./community-attachments.js";
+import { stageE2eeAttachmentFilesRemoval } from "./e2ee-attachments.js";
+import type { Transaction } from "kysely";
+import type { Database } from "../db/types.js";
+import type { StagedFileRemoval } from "../lib/staged-file-removal.js";
+import { mfaStatus } from "./mfa.js";
 
 export const INACTIVITY_DELETION_OPTIONS = [6, 12, 18, 24, 36] as const;
 export type InactivityDeletionMonths =
   (typeof INACTIVITY_DELETION_OPTIONS)[number];
 
 const DELETION_GRACE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
+export const DEFAULT_INACTIVITY_REVIEW_MONTHS = 6;
+export const INACTIVITY_REVIEW_RESPONSE_MS = 14 * 24 * 60 * 60 * 1000;
+export const INACTIVITY_REVIEW_REMINDER_MS = 7 * 24 * 60 * 60 * 1000;
+
+type InactivityReviewStage = "awaiting_usage_confirmation" | "confirm_deletion";
+export type InactivityReviewState =
+  | {
+      status: "none";
+      stage: null;
+      deliveredAt: null;
+      responseDueAt: null;
+    }
+  | {
+      status: "pending";
+      stage: InactivityReviewStage;
+      deliveredAt: number;
+      responseDueAt: number | null;
+    };
+
+type InactivityReviewMetadata = {
+  deliveryId?: string;
+  reviewDeliveryId?: string;
+  answer?: string;
+  stage?: string;
+  reminder?: boolean;
+};
 
 export const MEANINGFUL_ACTIVITY_SOURCES = [
   "login_success",
@@ -65,6 +109,106 @@ function deletionJobId(): string {
   return `deletion-job-${randomBytes(12).toString("hex")}`;
 }
 
+function lifecycleRequestError(
+  message: string,
+  code: string,
+  statusCode = 409,
+): Error & { code: string; statusCode: number } {
+  return Object.assign(new Error(message), { code, statusCode });
+}
+
+function parseEventMetadata(value: string): InactivityReviewMetadata {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object"
+      ? (parsed as InactivityReviewMetadata)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function clientAccountLifecycleUrl(): string {
+  const configured = process.env.CLIENT_ORIGIN?.split(",")[0]?.trim();
+  if (configured) {
+    const origin = new URL(configured);
+    return new URL("/account/lifecycle", origin).toString();
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("CLIENT_ORIGIN is required for inactivity review email");
+  }
+  return "http://127.0.0.1:3000/account/lifecycle";
+}
+
+async function latestInactivityReviewEvents(userId: string) {
+  const rows = await db
+    .selectFrom("securityEvents")
+    .select(["type", "createdAt", "metadata"])
+    .where("userId", "=", userId)
+    .where("type", "in", [
+      "account_inactivity_review_queued",
+      "account_inactivity_review_delivered",
+      "account_inactivity_review_answered",
+      "account_inactivity_review_reminder_queued",
+    ])
+    .orderBy("createdAt", "desc")
+    .limit(30)
+    .execute();
+  return rows.map((row) => ({
+    ...row,
+    parsed: parseEventMetadata(row.metadata),
+  }));
+}
+
+async function getInactivityReviewState(
+  userId: string,
+): Promise<InactivityReviewState> {
+  const events = await latestInactivityReviewEvents(userId);
+  const delivered = events.find(
+    (event) =>
+      event.type === "account_inactivity_review_delivered" &&
+      !event.parsed.reminder,
+  );
+  if (!delivered) {
+    return {
+      status: "none",
+      stage: null,
+      deliveredAt: null,
+      responseDueAt: null,
+    };
+  }
+  const reviewId =
+    delivered.parsed.reviewDeliveryId ?? delivered.parsed.deliveryId;
+  const answer = events.find(
+    (event) =>
+      event.type === "account_inactivity_review_answered" &&
+      event.createdAt >= delivered.createdAt &&
+      event.parsed.reviewDeliveryId === reviewId,
+  );
+  if (answer?.parsed.answer === "not_using") {
+    return {
+      status: "pending",
+      stage: "confirm_deletion",
+      deliveredAt: delivered.createdAt,
+      responseDueAt: null,
+    };
+  }
+  if (answer) {
+    return {
+      status: "none",
+      stage: null,
+      deliveredAt: null,
+      responseDueAt: null,
+    };
+  }
+  return {
+    status: "pending",
+    stage: "awaiting_usage_confirmation",
+    deliveredAt: delivered.createdAt,
+    responseDueAt: delivered.createdAt + INACTIVITY_REVIEW_RESPONSE_MS,
+  };
+}
+
 export async function getAccountLifecycle(userId: string) {
   const [preference, request, deletionJob, dataDisposition, user] =
     await Promise.all([
@@ -100,15 +244,17 @@ export async function getAccountLifecycle(userId: string) {
       : "closure_requested"
     : user.accountStatus;
 
+  const lastMeaningfulActivityAt =
+    preference?.lastMeaningfulActivityAt ?? user.createdAt;
   return {
     currentState,
     supportedStates: ACCOUNT_LIFECYCLE_STATES,
     inactivityMonths: preference?.inactivityMonths ?? null,
-    lastMeaningfulActivityAt:
-      preference?.lastMeaningfulActivityAt ?? user.createdAt,
+    lastMeaningfulActivityAt,
+    inactivityReview: await getInactivityReviewState(userId),
     deletionRequest: request ?? null,
     deletionJob: deletionJob
-      ? { ...deletionJob, executionEnabled: false as const }
+      ? { ...deletionJob, executionEnabled: deletionJob.executionEnabled === 1 }
       : null,
     gracePeriodDays: 30,
     dataDisposition,
@@ -212,10 +358,236 @@ export async function evaluateDueInactivityDeletions(
   return { evaluated: preferences.length, scheduled };
 }
 
+export async function evaluateUnconfiguredInactivityReviews(
+  now = Date.now(),
+): Promise<{
+  evaluated: number;
+  queued: number;
+  reminders: number;
+  scheduled: number;
+}> {
+  const candidates = await db
+    .selectFrom("users")
+    .leftJoin(
+      "accountDeletionPreferences",
+      "accountDeletionPreferences.userId",
+      "users.id",
+    )
+    .select([
+      "users.id as userId",
+      "users.email",
+      "users.name",
+      "users.locale",
+      "users.createdAt",
+      "users.emailVerifiedAt",
+      "accountDeletionPreferences.inactivityMonths",
+      "accountDeletionPreferences.lastMeaningfulActivityAt",
+    ])
+    .where("users.accountStatus", "=", "active")
+    .where("users.emailVerifiedAt", "is not", null)
+    .where("accountDeletionPreferences.inactivityMonths", "is", null)
+    .execute();
+  let queued = 0;
+  let reminders = 0;
+  let scheduled = 0;
+
+  for (const candidate of candidates) {
+    const lastActivity =
+      candidate.lastMeaningfulActivityAt ?? candidate.createdAt;
+    if (addUtcMonths(lastActivity, DEFAULT_INACTIVITY_REVIEW_MONTHS) > now) {
+      continue;
+    }
+    if (await hasScheduledAccountDeletion(candidate.userId)) continue;
+
+    const state = await getInactivityReviewState(candidate.userId);
+    const events = await latestInactivityReviewEvents(candidate.userId);
+    const delivered = events.find(
+      (event) =>
+        event.type === "account_inactivity_review_delivered" &&
+        !event.parsed.reminder &&
+        event.createdAt >= lastActivity,
+    );
+    const reviewDeliveryId =
+      delivered?.parsed.reviewDeliveryId ?? delivered?.parsed.deliveryId;
+
+    if (state.status === "pending") {
+      if (
+        state.stage === "awaiting_usage_confirmation" &&
+        lastActivity > state.deliveredAt &&
+        reviewDeliveryId
+      ) {
+        await recordSecurityEvent(
+          "account_inactivity_review_answered",
+          candidate.userId,
+          {
+            reviewDeliveryId,
+            stage: "usage",
+            answer: "still_using",
+            source: "meaningful_activity_observed",
+          },
+        );
+        continue;
+      }
+      if (
+        state.stage === "awaiting_usage_confirmation" &&
+        state.responseDueAt !== null &&
+        state.responseDueAt <= now
+      ) {
+        await scheduleAccountDeletion(candidate.userId, "inactivity", now);
+        scheduled += 1;
+        continue;
+      }
+      if (
+        state.stage === "awaiting_usage_confirmation" &&
+        reviewDeliveryId &&
+        state.deliveredAt + INACTIVITY_REVIEW_REMINDER_MS <= now
+      ) {
+        const reminderExists = events.some(
+          (event) =>
+            event.type === "account_inactivity_review_reminder_queued" &&
+            event.parsed.reviewDeliveryId === reviewDeliveryId,
+        );
+        if (!reminderExists) {
+          const reminderDeliveryId = await queueAccountInactivityReviewEmail({
+            userId: candidate.userId,
+            email: candidate.email,
+            name: candidate.name,
+            locale: normalizedLocale(candidate.locale),
+            actionUrl: clientAccountLifecycleUrl(),
+            reminder: true,
+            reviewDeliveryId,
+          });
+          await recordSecurityEvent(
+            "account_inactivity_review_reminder_queued",
+            candidate.userId,
+            { reviewDeliveryId, deliveryId: reminderDeliveryId },
+          );
+          reminders += 1;
+        }
+      }
+      continue;
+    }
+
+    const queuedEvent = events.find(
+      (event) =>
+        event.type === "account_inactivity_review_queued" &&
+        event.createdAt >= lastActivity,
+    );
+    if (queuedEvent?.parsed.deliveryId) {
+      const delivery = await db
+        .selectFrom("emailDeliveries")
+        .select("status")
+        .where("id", "=", queuedEvent.parsed.deliveryId)
+        .executeTakeFirst();
+      if (delivery) continue;
+    }
+
+    const deliveryId = await queueAccountInactivityReviewEmail({
+      userId: candidate.userId,
+      email: candidate.email,
+      name: candidate.name,
+      locale: normalizedLocale(candidate.locale),
+      actionUrl: clientAccountLifecycleUrl(),
+    });
+    await recordSecurityEvent(
+      "account_inactivity_review_queued",
+      candidate.userId,
+      { deliveryId },
+    );
+    queued += 1;
+  }
+
+  return { evaluated: candidates.length, queued, reminders, scheduled };
+}
+
+function normalizedLocale(value: string): "es" | "en" | "de" | "de-CH" {
+  return value === "en" || value === "de" || value === "de-CH" ? value : "es";
+}
+
+export async function answerInactivityReview(
+  userId: string,
+  input: {
+    stage: "usage" | "deletion";
+    answer: "yes" | "no";
+    keepSessionId?: string;
+  },
+) {
+  const preference = await db
+    .selectFrom("accountDeletionPreferences")
+    .select(["inactivityMonths", "lastMeaningfulActivityAt"])
+    .where("userId", "=", userId)
+    .executeTakeFirst();
+  const user = await db
+    .selectFrom("users")
+    .select("createdAt")
+    .where("id", "=", userId)
+    .executeTakeFirstOrThrow();
+  const lastActivity = preference?.lastMeaningfulActivityAt ?? user.createdAt;
+  if (preference?.inactivityMonths !== null && preference !== undefined) {
+    throw lifecycleRequestError(
+      "No unconfigured inactivity review is pending",
+      "INACTIVITY_REVIEW_NOT_PENDING",
+    );
+  }
+  const state = await getInactivityReviewState(userId);
+  const expectedStage =
+    input.stage === "usage"
+      ? "awaiting_usage_confirmation"
+      : "confirm_deletion";
+  if (state.status !== "pending" || state.stage !== expectedStage) {
+    throw lifecycleRequestError(
+      "No matching inactivity review is pending",
+      "INACTIVITY_REVIEW_NOT_PENDING",
+    );
+  }
+  const events = await latestInactivityReviewEvents(userId);
+  const delivered = events.find(
+    (event) =>
+      event.type === "account_inactivity_review_delivered" &&
+      !event.parsed.reminder &&
+      event.createdAt >= lastActivity,
+  );
+  const reviewDeliveryId =
+    delivered?.parsed.reviewDeliveryId ?? delivered?.parsed.deliveryId;
+  if (!reviewDeliveryId) {
+    throw lifecycleRequestError(
+      "The inactivity review delivery could not be verified",
+      "INACTIVITY_REVIEW_DELIVERY_UNCONFIRMED",
+    );
+  }
+
+  const answer =
+    input.stage === "usage"
+      ? input.answer === "yes"
+        ? "still_using"
+        : "not_using"
+      : input.answer === "yes"
+        ? "delete_confirmed"
+        : "keep_account";
+  await recordSecurityEvent("account_inactivity_review_answered", userId, {
+    reviewDeliveryId,
+    stage: input.stage,
+    answer,
+  });
+  if (answer === "still_using" || answer === "keep_account") {
+    await markMeaningfulAccountActivity(
+      userId,
+      "personal_account_action",
+      Date.now(),
+    );
+  } else if (answer === "delete_confirmed") {
+    await scheduleAccountDeletion(userId, "inactivity", Date.now(), {
+      keepSessionId: input.keepSessionId,
+    });
+  }
+  return getAccountLifecycle(userId);
+}
+
 export async function scheduleAccountDeletion(
   userId: string,
   trigger: "manual" | "inactivity",
   requestedAt = Date.now(),
+  options: { keepSessionId?: string } = {},
 ) {
   return withCoordinatedManagerOperation(
     "account",
@@ -254,8 +626,8 @@ export async function scheduleAccountDeletion(
               id: deletionJobId(),
               requestId: newRequestId,
               userId,
-              status: "blocked_retention_review",
-              executionEnabled: 0,
+              status: "planned",
+              executionEnabled: 1,
               createdAt: now,
               updatedAt: now,
               completedAt: null,
@@ -268,10 +640,388 @@ export async function scheduleAccountDeletion(
         await recordSecurityEvent("account_deletion_scheduled", userId, {
           trigger,
         });
+        const user = await db
+          .selectFrom("users")
+          .select(["email", "name", "locale"])
+          .where("id", "=", userId)
+          .executeTakeFirstOrThrow();
+        try {
+          const plannedCleanup = await inspectTransientAccountSecrets(
+            userId,
+            options.keepSessionId,
+          );
+          const deliveryId = await queueAccountDeletionPreparationEmail({
+            userId,
+            email: user.email,
+            name: user.name,
+            locale: normalizedLocale(user.locale),
+            graceEndsAt: now + DELETION_GRACE_PERIOD_MS,
+            ...plannedCleanup,
+          });
+          let cleanup;
+          try {
+            cleanup = await revokeTransientAccountSecrets(
+              userId,
+              options.keepSessionId,
+            );
+          } catch (error) {
+            await db
+              .updateTable("emailDeliveries")
+              .set({
+                status: "superseded",
+                payloadEncrypted: "",
+                updatedAt: Date.now(),
+              })
+              .where("id", "=", deliveryId)
+              .where("status", "in", ["queued", "retry", "processing"])
+              .execute();
+            throw error;
+          }
+          await recordSecurityEvent(
+            "account_deletion_preparation_notified",
+            userId,
+            {
+              deliveryId,
+              ...cleanup,
+            },
+          );
+        } catch {
+          publishManagerSignal(
+            "email",
+            "warning",
+            "ACCOUNT_DELETION_PREPARATION_NOTICE_FAILED",
+            "An account closure was scheduled, but its preparation notice could not be queued.",
+          );
+        }
       }
       return getAccountLifecycle(userId);
     },
   );
+}
+
+export async function revokeTransientAccountSecrets(
+  userId: string,
+  keepSessionId?: string,
+): Promise<{
+  revokedOtherSessions: boolean;
+  removedTemporaryChallenges: boolean;
+}> {
+  return db.transaction().execute(async (transaction) => {
+    const emailVerification = await transaction
+      .deleteFrom("emailVerificationChallenges")
+      .where("userId", "=", userId)
+      .executeTakeFirst();
+    const recovery = await transaction
+      .deleteFrom("accountRecoveryChallenges")
+      .where("userId", "=", userId)
+      .executeTakeFirst();
+    const auth = await transaction
+      .deleteFrom("authChallenges")
+      .where("userId", "=", userId)
+      .executeTakeFirst();
+    const webauthn = await transaction
+      .deleteFrom("webauthnChallenges")
+      .where("userId", "=", userId)
+      .executeTakeFirst();
+    let sessions = transaction
+      .deleteFrom("sessions")
+      .where("userId", "=", userId);
+    if (keepSessionId) sessions = sessions.where("id", "!=", keepSessionId);
+    const removedSessions = await sessions.executeTakeFirst();
+    return {
+      revokedOtherSessions: Number(removedSessions.numDeletedRows) > 0,
+      removedTemporaryChallenges:
+        Number(emailVerification.numDeletedRows) +
+          Number(recovery.numDeletedRows) +
+          Number(auth.numDeletedRows) +
+          Number(webauthn.numDeletedRows) >
+        0,
+    };
+  });
+}
+
+async function inspectTransientAccountSecrets(
+  userId: string,
+  keepSessionId?: string,
+): Promise<{
+  revokedOtherSessions: boolean;
+  removedTemporaryChallenges: boolean;
+}> {
+  const [emailVerification, recovery, auth, webauthn, sessionRows] =
+    await Promise.all([
+      db
+        .selectFrom("emailVerificationChallenges")
+        .select(({ fn }) => fn.countAll<number>().as("count"))
+        .where("userId", "=", userId)
+        .executeTakeFirstOrThrow(),
+      db
+        .selectFrom("accountRecoveryChallenges")
+        .select(({ fn }) => fn.countAll<number>().as("count"))
+        .where("userId", "=", userId)
+        .executeTakeFirstOrThrow(),
+      db
+        .selectFrom("authChallenges")
+        .select(({ fn }) => fn.countAll<number>().as("count"))
+        .where("userId", "=", userId)
+        .executeTakeFirstOrThrow(),
+      db
+        .selectFrom("webauthnChallenges")
+        .select(({ fn }) => fn.countAll<number>().as("count"))
+        .where("userId", "=", userId)
+        .executeTakeFirstOrThrow(),
+      db
+        .selectFrom("sessions")
+        .select("id")
+        .where("userId", "=", userId)
+        .execute(),
+    ]);
+  return {
+    revokedOtherSessions: sessionRows.some(
+      (session) => !keepSessionId || session.id !== keepSessionId,
+    ),
+    removedTemporaryChallenges:
+      Number(emailVerification.count) +
+        Number(recovery.count) +
+        Number(auth.count) +
+        Number(webauthn.count) >
+      0,
+  };
+}
+
+async function destroyAccountAccessSecrets(
+  transaction: Transaction<Database>,
+  userId: string,
+  unusablePassword: string,
+): Promise<void> {
+  await transaction
+    .updateTable("users")
+    .set({ accountStatus: "security_review", password: unusablePassword })
+    .where("id", "=", userId)
+    .execute();
+  await transaction
+    .deleteFrom("sessions")
+    .where("userId", "=", userId)
+    .execute();
+  await transaction
+    .deleteFrom("emailVerificationChallenges")
+    .where("userId", "=", userId)
+    .execute();
+  await transaction
+    .deleteFrom("accountRecoveryChallenges")
+    .where("userId", "=", userId)
+    .execute();
+  await transaction
+    .deleteFrom("authChallenges")
+    .where("userId", "=", userId)
+    .execute();
+  await transaction
+    .deleteFrom("webauthnChallenges")
+    .where("userId", "=", userId)
+    .execute();
+  await transaction
+    .deleteFrom("mfaCredentials")
+    .where("userId", "=", userId)
+    .execute();
+  await transaction
+    .deleteFrom("passkeyCredentials")
+    .where("userId", "=", userId)
+    .execute();
+  await transaction
+    .deleteFrom("emailDeliveries")
+    .where("userId", "=", userId)
+    .execute();
+}
+
+async function stageAccountAttachmentRemoval(
+  transaction: Transaction<Database>,
+  userId: string,
+) {
+  const [community, e2ee] = await Promise.all([
+    transaction
+      .selectFrom("communityAttachments")
+      .select("storageKey")
+      .where("uploadedByUserId", "=", userId)
+      .execute(),
+    transaction
+      .selectFrom("e2eeAttachments")
+      .select("storageKey")
+      .where((expression) =>
+        expression.or([
+          expression("senderUserId", "=", userId),
+          expression("recipientUserId", "=", userId),
+        ]),
+      )
+      .execute(),
+  ]);
+  const removals: StagedFileRemoval[] = [];
+  try {
+    removals.push(
+      await stageCommunityAttachmentFilesRemoval(
+        community.map((item) => item.storageKey),
+      ),
+    );
+    removals.push(
+      await stageE2eeAttachmentFilesRemoval(
+        e2ee.map((item) => item.storageKey),
+      ),
+    );
+  } catch (error) {
+    for (const removal of [...removals].reverse()) await removal.rollback();
+    throw error;
+  }
+  return {
+    commit: async () => {
+      for (const removal of removals) await removal.commit();
+    },
+    rollback: async () => {
+      for (const removal of [...removals].reverse()) await removal.rollback();
+    },
+  };
+}
+
+export async function executeDueAccountDeletionJobs(
+  now = Date.now(),
+): Promise<{ evaluated: number; completed: number; blocked: number }> {
+  const due = await db
+    .selectFrom("accountDeletionJobs")
+    .innerJoin(
+      "accountDeletionRequests",
+      "accountDeletionRequests.id",
+      "accountDeletionJobs.requestId",
+    )
+    .select([
+      "accountDeletionJobs.id as jobId",
+      "accountDeletionJobs.userId",
+      "accountDeletionRequests.id as requestId",
+    ])
+    .where("accountDeletionJobs.executionEnabled", "=", 1)
+    .where("accountDeletionJobs.status", "in", [
+      "planned",
+      "blocked_retention_review",
+    ])
+    .where("accountDeletionRequests.status", "=", "scheduled")
+    .where("accountDeletionRequests.graceEndsAt", "<=", now)
+    .execute();
+  let completed = 0;
+  let blocked = 0;
+
+  for (const item of due) {
+    await withCoordinatedManagerOperation(
+      "account",
+      "execute-account-deletion",
+      [`account:${item.userId}`],
+      async () => {
+        const preflight = await db
+          .transaction()
+          .execute(async (transaction) => {
+            const [retained, ownerMembership, blockers] = await Promise.all([
+              transaction
+                .selectFrom("dataRetentionRecords")
+                .select(({ fn }) => fn.countAll<number>().as("count"))
+                .where("userId", "=", item.userId)
+                .where("status", "in", ["retained", "legal_hold"])
+                .executeTakeFirstOrThrow(),
+              transaction
+                .selectFrom("facilityMemberships")
+                .select("id")
+                .where("userId", "=", item.userId)
+                .where("role", "=", "owner")
+                .where("status", "in", ["active", "invited", "suspended"])
+                .executeTakeFirst(),
+              inspectUserDeletionBlockers(transaction, item.userId),
+            ]);
+            return {
+              retained: Number(retained.count),
+              ownerMembership: Boolean(ownerMembership),
+              blockers,
+            };
+          });
+        if (
+          preflight.retained > 0 ||
+          preflight.ownerMembership ||
+          preflight.blockers.length > 0
+        ) {
+          await db
+            .updateTable("accountDeletionJobs")
+            .set({ status: "blocked_retention_review", updatedAt: now })
+            .where("id", "=", item.jobId)
+            .execute();
+          publishManagerSignal(
+            "account",
+            "warning",
+            "ACCOUNT_DELETION_REVIEW_REQUIRED",
+            "An expired account closure requires retention or tenant ownership review.",
+          );
+          blocked += 1;
+          return;
+        }
+
+        const staged = await db
+          .transaction()
+          .execute((transaction) =>
+            stageAccountAttachmentRemoval(transaction, item.userId),
+          );
+        const unusablePassword = await hashPassword(
+          randomBytes(48).toString("base64url"),
+        );
+        try {
+          await db.transaction().execute(async (transaction) => {
+            const [retained, ownerMembership, blockers] = await Promise.all([
+              transaction
+                .selectFrom("dataRetentionRecords")
+                .select(({ fn }) => fn.countAll<number>().as("count"))
+                .where("userId", "=", item.userId)
+                .where("status", "in", ["retained", "legal_hold"])
+                .executeTakeFirstOrThrow(),
+              transaction
+                .selectFrom("facilityMemberships")
+                .select("id")
+                .where("userId", "=", item.userId)
+                .where("role", "=", "owner")
+                .where("status", "in", ["active", "invited", "suspended"])
+                .executeTakeFirst(),
+              inspectUserDeletionBlockers(transaction, item.userId),
+            ]);
+            if (
+              Number(retained.count) > 0 ||
+              ownerMembership ||
+              blockers.length > 0
+            ) {
+              throw new Error("ACCOUNT_DELETION_REVIEW_REQUIRED");
+            }
+            await destroyAccountAccessSecrets(
+              transaction,
+              item.userId,
+              unusablePassword,
+            );
+            await deleteUserInTransaction(transaction, item.userId);
+          });
+          await staged.commit();
+        } catch (error) {
+          await staged.rollback();
+          if (
+            error instanceof Error &&
+            error.message === "ACCOUNT_DELETION_REVIEW_REQUIRED"
+          ) {
+            await db
+              .updateTable("accountDeletionJobs")
+              .set({ status: "blocked_retention_review", updatedAt: now })
+              .where("id", "=", item.jobId)
+              .execute();
+            blocked += 1;
+            return;
+          }
+          throw error;
+        }
+        await recordSecurityEvent("account_deletion_completed", null, {
+          requestId: item.requestId,
+          physicallyDeleted: true,
+        });
+        completed += 1;
+      },
+    );
+  }
+  return { evaluated: due.length, completed, blocked };
 }
 
 export async function cancelScheduledAccountDeletion(
@@ -321,6 +1071,8 @@ export async function getDataDeletionReview(userId: string) {
     activeSessionRows,
     sessionSettings,
     affectedDelegations,
+    user,
+    mfa,
   ] = await Promise.all([
     getAccountLifecycle(userId),
     db
@@ -363,6 +1115,12 @@ export async function getDataDeletionReview(userId: string) {
         ]),
       )
       .executeTakeFirstOrThrow(),
+    db
+      .selectFrom("users")
+      .select("email")
+      .where("id", "=", userId)
+      .executeTakeFirstOrThrow(),
+    mfaStatus(userId),
   ]);
 
   let selectedCategories: AccountDataCategory[] = [];
@@ -383,6 +1141,8 @@ export async function getDataDeletionReview(userId: string) {
 
   return {
     ...lifecycle,
+    accountEmail: user.email,
+    mfaRequired: mfa.enabled,
     deletionDraft: draft
       ? {
           selectedCategories,
@@ -401,7 +1161,7 @@ export async function getDataDeletionReview(userId: string) {
       ).length,
       delegationGrantsAffected: Number(affectedDelegations.count),
       dataExportStatus: "planned" as const,
-      executionEnabled: false as const,
+      executionEnabled: true as const,
     },
   };
 }
@@ -419,7 +1179,11 @@ export async function saveDataDeletionReview(
     ),
   ];
   if (intent === "selected_data" && normalizedCategories.length === 0) {
-    throw new Error("Select at least one data category");
+    throw lifecycleRequestError(
+      "Select at least one data category",
+      "DATA_CATEGORY_REQUIRED",
+      400,
+    );
   }
 
   const now = Date.now();

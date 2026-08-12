@@ -528,11 +528,21 @@ export const emptyAccountDeletionRequestValidation = validateRequest([
 ]);
 
 export const scheduleAccountDeletionValidation = validateRequest([
-  strictBody(["password"]),
+  strictBody(["password", "totpCode"]),
   body("password")
     .isString()
     .isLength({ min: 1, max: 128 })
     .custom(enforcePasswordHashLimit),
+  body("totpCode")
+    .optional({ nullable: true })
+    .isString()
+    .matches(/^\d{6}$/u),
+]);
+
+export const inactivityReviewAnswerValidation = validateRequest([
+  strictBody(["stage", "answer"]),
+  body("stage").isIn(["usage", "deletion"]),
+  body("answer").isIn(["yes", "no"]),
 ]);
 
 export const retentionPolicyValidation = validateRequest([

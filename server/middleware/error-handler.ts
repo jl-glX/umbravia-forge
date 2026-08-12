@@ -4,6 +4,7 @@ interface RequestError extends Error {
   status?: number;
   statusCode?: number;
   type?: string;
+  code?: string;
 }
 
 export function notFoundHandler(_req: Request, res: Response): void {
@@ -46,8 +47,14 @@ export function errorHandler(
   if (safeStatusCode >= 500) {
     console.error("Unhandled request error:", error);
   }
+  const publicCode =
+    safeStatusCode < 500 && /^[A-Z][A-Z0-9_]{2,63}$/u.test(error.code ?? "")
+      ? error.code
+      : safeStatusCode < 500
+        ? "REQUEST_ERROR"
+        : "INTERNAL_ERROR";
   res.status(safeStatusCode).json({
     error: safeStatusCode < 500 ? error.message : "Internal server error",
-    code: safeStatusCode < 500 ? "REQUEST_ERROR" : "INTERNAL_ERROR",
+    code: publicCode,
   });
 }

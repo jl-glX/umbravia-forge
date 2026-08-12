@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
   CheckCircle2,
+  Download,
   FileText,
   LifeBuoy,
   MessageSquareText,
@@ -12,12 +13,15 @@ import {
   Send,
   ShieldCheck,
   UserRoundCog,
+  Trash2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import { useAuth } from "../hooks/useAuth";
 import {
   addSupportMessage,
   createSupportTicket,
+  deleteSupportAttachment,
   fetchSupportCapabilities,
   fetchKnowledgeArticles,
   fetchSupportAgents,
@@ -102,6 +106,10 @@ export function SupportPage() {
   );
   const [agentUserId, setAgentUserId] = useState("");
   const [agentRole, setAgentRole] = useState<"agent" | "manager">("agent");
+  const [attachmentToDelete, setAttachmentToDelete] = useState<{
+    id: string;
+    fileName: string;
+  } | null>(null);
 
   const isStaff = capabilities?.staff === true || selected?.staff === true;
 
@@ -262,6 +270,26 @@ export function SupportPage() {
         currentError instanceof Error
           ? currentError.message
           : t("support.errors.attachment"),
+      );
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const removeAttachment = async () => {
+    if (!selected || !attachmentToDelete) return;
+    setWorking(true);
+    setError("");
+    try {
+      await deleteSupportAttachment(selected.id, attachmentToDelete.id);
+      setSelected(await fetchSupportTicket(selected.id));
+      setNotice(t("support.notices.attachmentRemoved"));
+      setAttachmentToDelete(null);
+    } catch (currentError) {
+      setError(
+        currentError instanceof Error
+          ? currentError.message
+          : t("support.errors.attachmentDelete"),
       );
     } finally {
       setWorking(false);
@@ -714,20 +742,52 @@ export function SupportPage() {
                       <h3 className="mb-3 font-bold text-slate-900">
                         {t("support.attachments")}
                       </h3>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="space-y-2">
                         {selected.attachments.map((attachment) => (
-                          <a
+                          <div
                             key={attachment.id}
-                            href={supportAttachmentUrl(
-                              selected.id,
-                              attachment.id,
-                            )}
-                            className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"
                           >
-                            <FileText size={17} />
-                            {attachment.fileName} (
-                            {formatBytes(attachment.sizeBytes)})
-                          </a>
+                            <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-slate-800">
+                              <FileText className="shrink-0" size={17} />
+                              <span className="truncate">
+                                {attachment.fileName} (
+                                {formatBytes(attachment.sizeBytes)})
+                              </span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <a
+                                href={supportAttachmentUrl(
+                                  selected.id,
+                                  attachment.id,
+                                )}
+                                className="rounded-lg p-2 text-blue-700 hover:bg-blue-50"
+                                aria-label={t("support.downloadAttachment", {
+                                  name: attachment.fileName,
+                                })}
+                              >
+                                <Download size={17} />
+                              </a>
+                              {(isStaff ||
+                                attachment.uploadedByUserId === user?.id) && (
+                                <button
+                                  type="button"
+                                  className="rounded-lg p-2 text-red-700 hover:bg-red-50"
+                                  aria-label={t("support.removeAttachment", {
+                                    name: attachment.fileName,
+                                  })}
+                                  onClick={() =>
+                                    setAttachmentToDelete({
+                                      id: attachment.id,
+                                      fileName: attachment.fileName,
+                                    })
+                                  }
+                                >
+                                  <Trash2 size={17} />
+                                </button>
+                              )}
+                            </span>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -999,6 +1059,19 @@ export function SupportPage() {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={Boolean(attachmentToDelete)}
+        title={t("support.removeAttachmentTitle")}
+        description={t("support.removeAttachmentDescription", {
+          name: attachmentToDelete?.fileName ?? "",
+        })}
+        confirmLabel={t("common.delete")}
+        cancelLabel={t("common.cancel")}
+        destructive
+        busy={working}
+        onConfirm={() => void removeAttachment()}
+        onCancel={() => setAttachmentToDelete(null)}
+      />
     </main>
   );
 }
