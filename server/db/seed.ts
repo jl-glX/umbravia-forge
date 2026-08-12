@@ -2,6 +2,7 @@ import { db } from "./client.js";
 import { hashPassword } from "../services/auth.js";
 import { ensureSupportIdentifier } from "../services/support-identifiers.js";
 import { ensurePrimaryCompatibilityMembership } from "../services/facility-context.js";
+import { recordBookingAnalyticsEvent } from "../services/booking-analytics-events.js";
 
 const DEMO_PASSWORDS = {
   admin: "UmbraviaForgeAdmin123",
@@ -332,17 +333,41 @@ export async function seedDatabase() {
           .executeTakeFirst();
 
         if (!existingBooking) {
-          await db
-            .insertInto("bookings")
-            .values({
-              id: `booking-${classId}-${userId}-${i}-${j}`,
-              classId,
-              userId,
-              status: "confirmed",
-              createdAt: Date.now(),
-              cancelledAt: null,
-            })
-            .execute();
+          await db.transaction().execute(async (transaction) => {
+            const createdAt = Date.now();
+            const bookingId = `booking-${classId}-${userId}-${i}-${j}`;
+            await transaction
+              .insertInto("bookings")
+              .values({
+                id: bookingId,
+                classId,
+                userId,
+                status: "confirmed",
+                createdAt,
+                cancelledAt: null,
+              })
+              .execute();
+            await transaction
+              .insertInto("bookingLifecycles")
+              .values({
+                bookingId,
+                lifecycleStatus: "confirmation_pending",
+                attendanceIntention: "unanswered",
+                intentionUpdatedAt: null,
+                confirmedAt: null,
+                lastReminderAt: null,
+                reminderCount: 0,
+                updatedAt: createdAt,
+              })
+              .execute();
+            await recordBookingAnalyticsEvent(transaction, {
+              bookingId,
+              eventType: "booking_created",
+              fromState: null,
+              toState: "confirmation_pending",
+              occurredAt: createdAt,
+            });
+          });
         }
       }
     }
