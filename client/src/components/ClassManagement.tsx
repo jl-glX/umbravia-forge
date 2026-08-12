@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trash2, Edit2, Plus } from "lucide-react";
+import { CheckSquare2, Trash2, Edit2, Plus, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { useAdminClasses, type AdminClass } from "../hooks/useAdminClasses";
 import { useUsers } from "../hooks/useUsers";
@@ -7,15 +7,30 @@ import { ClassForm } from "./ClassForm";
 import { formatDate } from "../lib/dateUtils";
 import { useTranslation } from "react-i18next";
 import { localizeClass } from "../lib/classLocalization";
+import { ConfirmDialog } from "./ui/confirm-dialog";
 
 export function ClassManagement() {
   const { t } = useTranslation();
-  const { classes, loading, error, deleteClass, refreshClasses } =
-    useAdminClasses();
+  const {
+    classes,
+    loading,
+    error,
+    deleteClass,
+    deleteMultipleClasses,
+    refreshClasses,
+  } = useAdminClasses();
   const { users } = useUsers();
   const [showForm, setShowForm] = useState(false);
   const [editingClass, setEditingClass] = useState<AdminClass | null>(null);
   const [filterTrainer, setFilterTrainer] = useState<string>("all");
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+  const [deleteRequest, setDeleteRequest] = useState<{
+    ids: string[];
+    label?: string;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [actionNotice, setActionNotice] = useState("");
 
   const trainers = users.filter((u) => u.role === "trainer");
   const filteredClasses =
@@ -23,14 +38,51 @@ export function ClassManagement() {
       ? classes
       : classes.filter((c) => c.trainerId === filterTrainer);
 
-  const handleDeleteClass = async (classId: string) => {
-    if (confirm(t("admin.deleteClassConfirm"))) {
-      try {
-        await deleteClass(classId);
-      } catch (err) {
-        console.error("Error deleting class:", err);
+  const confirmDelete = async () => {
+    if (!deleteRequest) return;
+    setDeleting(true);
+    setActionNotice("");
+    try {
+      if (deleteRequest.ids.length === 1) {
+        await deleteClass(deleteRequest.ids[0]);
+        setSelectedClassIds((current) =>
+          current.filter((id) => id !== deleteRequest.ids[0]),
+        );
+        setActionNotice(t("admin.classDeleted"));
+      } else {
+        const result = await deleteMultipleClasses(deleteRequest.ids);
+        setSelectedClassIds(result.failed.map((item) => item.id));
+        setActionNotice(
+          result.failed.length
+            ? t("admin.classesDeletePartial", {
+                deleted: result.deletedIds.length,
+                protected: result.failed.length,
+              })
+            : t("admin.classesDeleted", { count: result.deletedIds.length }),
+        );
       }
+      setDeleteRequest(null);
+    } catch (err) {
+      setActionNotice(
+        err instanceof Error && err.message.includes("related activity exists")
+          ? t("admin.classDeletionProtected")
+          : err instanceof Error
+            ? err.message
+            : t("common.unknownError"),
+      );
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const selectableClasses = filteredClasses.filter(
+    (gymClass) => gymClass.bookedCount === 0 && gymClass.waitlistCount === 0,
+  );
+
+  const toggleSelectionMode = () => {
+    setSelectionMode((current) => !current);
+    setSelectedClassIds([]);
+    setActionNotice("");
   };
 
   const handleFormClose = () => {
@@ -61,6 +113,14 @@ export function ClassManagement() {
 
   return (
     <div className="space-y-4">
+      {actionNotice && (
+        <div
+          role="status"
+          className="rounded-xl border border-brand-path/25 bg-brand-path/10 px-4 py-3 text-sm text-brand-slate"
+        >
+          {actionNotice}
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex gap-2 items-center">
           <label className="text-sm font-medium text-gray-700">
@@ -80,11 +140,57 @@ export function ClassManagement() {
           </select>
         </div>
 
-        <Button size="sm" onClick={() => setShowForm(true)}>
-          <Plus size={16} className="mr-1" />
-          {t("admin.newClass")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {selectionMode && selectedClassIds.length > 0 && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setDeleteRequest({ ids: selectedClassIds })}
+            >
+              <Trash2 aria-hidden="true" />
+              {t("admin.deleteSelectedClasses", {
+                count: selectedClassIds.length,
+              })}
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={toggleSelectionMode}>
+            {selectionMode ? (
+              <X aria-hidden="true" />
+            ) : (
+              <CheckSquare2 aria-hidden="true" />
+            )}
+            {selectionMode
+              ? t("admin.cancelClassSelection")
+              : t("admin.selectClasses")}
+          </Button>
+          <Button size="sm" onClick={() => setShowForm(true)}>
+            <Plus size={16} className="mr-1" />
+            {t("admin.newClass")}
+          </Button>
+        </div>
       </div>
+
+      {selectionMode && selectableClasses.length > 0 && (
+        <label className="flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-brand-slate">
+          <input
+            type="checkbox"
+            checked={
+              selectableClasses.length > 0 &&
+              selectableClasses.every((gymClass) =>
+                selectedClassIds.includes(gymClass.id),
+              )
+            }
+            onChange={(event) =>
+              setSelectedClassIds(
+                event.target.checked
+                  ? selectableClasses.map((gymClass) => gymClass.id)
+                  : [],
+              )
+            }
+          />
+          {t("admin.selectAllDeletableClasses")}
+        </label>
+      )}
 
       {showForm && (
         <ClassForm
@@ -103,9 +209,41 @@ export function ClassManagement() {
           {filteredClasses.map((gymClass) => (
             <div
               key={gymClass.id}
-              className="border border-gray-200 rounded-lg p-4 hover:border-gray-300"
+              className={`rounded-2xl border bg-white p-4 transition ${
+                selectedClassIds.includes(gymClass.id)
+                  ? "border-brand-path ring-2 ring-brand-path/15"
+                  : "border-gray-200 hover:border-brand-steel/50"
+              }`}
             >
               <div className="flex flex-col sm:flex-row justify-between gap-4">
+                {selectionMode && (
+                  <label className="flex items-start gap-2 text-sm text-brand-slate">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={selectedClassIds.includes(gymClass.id)}
+                      disabled={
+                        gymClass.bookedCount > 0 || gymClass.waitlistCount > 0
+                      }
+                      aria-label={t("admin.selectClass", {
+                        name: gymClass.name,
+                      })}
+                      onChange={() =>
+                        setSelectedClassIds((current) =>
+                          current.includes(gymClass.id)
+                            ? current.filter((id) => id !== gymClass.id)
+                            : [...current, gymClass.id],
+                        )
+                      }
+                    />
+                    {(gymClass.bookedCount > 0 ||
+                      gymClass.waitlistCount > 0) && (
+                      <span className="text-xs text-amber-700">
+                        {t("admin.classHasActivity")}
+                      </span>
+                    )}
+                  </label>
+                )}
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900">
                     {localizeClass(gymClass.name, gymClass.description, t).name}
@@ -145,30 +283,68 @@ export function ClassManagement() {
                 </div>
 
                 <div className="flex gap-2 justify-end sm:justify-start">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setEditingClass(gymClass);
-                      setShowForm(true);
-                    }}
-                  >
-                    <Edit2 size={16} />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteClass(gymClass.id)}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    <Trash2 size={16} />
-                  </Button>
+                  {!selectionMode && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditingClass(gymClass);
+                        setShowForm(true);
+                      }}
+                    >
+                      <Edit2 size={16} />
+                    </Button>
+                  )}
+                  {!selectionMode && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setDeleteRequest({
+                          ids: [gymClass.id],
+                          label: localizeClass(
+                            gymClass.name,
+                            gymClass.description,
+                            t,
+                          ).name,
+                        })
+                      }
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(deleteRequest)}
+        title={
+          deleteRequest?.ids.length === 1
+            ? t("admin.deleteClassTitle")
+            : t("admin.deleteClassesTitle", {
+                count: deleteRequest?.ids.length ?? 0,
+              })
+        }
+        description={
+          deleteRequest?.ids.length === 1
+            ? t("admin.deleteClassDescription", {
+                name: deleteRequest.label ?? "",
+              })
+            : t("admin.deleteClassesDescription", {
+                count: deleteRequest?.ids.length ?? 0,
+              })
+        }
+        confirmLabel={deleting ? t("common.loading") : t("common.delete")}
+        cancelLabel={t("common.cancel")}
+        destructive
+        busy={deleting}
+        onCancel={() => setDeleteRequest(null)}
+        onConfirm={() => void confirmDelete()}
+      />
     </div>
   );
 }

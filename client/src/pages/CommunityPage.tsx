@@ -3,6 +3,7 @@ import { MessageCircle, Search, ShieldCheck, UserPlus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { VerifiedForm } from "../components/VerifiedForm";
+import { FacilityLinksPanel } from "../components/FacilityLinksPanel";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -212,7 +213,7 @@ export function CommunityPage() {
     }
   };
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(240,122,58,0.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(42,157,143,0.10),transparent_32%)] bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -458,6 +459,7 @@ export function CommunityPage() {
             </ul>
           </Card>
         )}
+        <FacilityLinksPanel />
       </div>
     </main>
   );

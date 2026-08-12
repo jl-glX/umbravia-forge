@@ -24,6 +24,23 @@ export interface ClassWithAvailability {
   seriesId: string | null;
 }
 
+export interface ClassDeletionBlockers {
+  bookings: number;
+  waitlistEntries: number;
+  sessionContent: number;
+  sessionProgress: number;
+  communityChannels: number;
+}
+
+export class ClassDeletionBlockedError extends Error {
+  readonly code = "CLASS_DELETION_REQUIRES_REVIEW";
+
+  constructor(readonly blockers: ClassDeletionBlockers) {
+    super("Class deletion requires review because related activity exists");
+    this.name = "ClassDeletionBlockedError";
+  }
+}
+
 export async function saveClassBookingConfiguration(
   classId: string,
   input: {
@@ -276,19 +293,60 @@ export async function deleteClass(
     throw new Error("Class not found");
   }
 
-  // Delete associated bookings
-  await db.deleteFrom("bookings").where("classId", "=", classId).execute();
+  const [
+    bookings,
+    waitlistEntries,
+    sessionContent,
+    sessionProgress,
+    communityChannels,
+  ] = await Promise.all([
+    db
+      .selectFrom("bookings")
+      .select((eb) => eb.fn.count("id").as("count"))
+      .where("classId", "=", classId)
+      .executeTakeFirst(),
+    db
+      .selectFrom("waitlistEntries")
+      .select((eb) => eb.fn.count("id").as("count"))
+      .where("classId", "=", classId)
+      .executeTakeFirst(),
+    db
+      .selectFrom("classSessionContents")
+      .select((eb) => eb.fn.count("classId").as("count"))
+      .where("classId", "=", classId)
+      .executeTakeFirst(),
+    db
+      .selectFrom("sessionContentProgress")
+      .select((eb) => eb.fn.count("classId").as("count"))
+      .where("classId", "=", classId)
+      .executeTakeFirst(),
+    db
+      .selectFrom("communityChannels")
+      .select((eb) => eb.fn.count("id").as("count"))
+      .where("scope", "=", "class")
+      .where("scopeId", "=", classId)
+      .executeTakeFirst(),
+  ]);
+  const blockers = {
+    bookings: Number(bookings?.count ?? 0),
+    waitlistEntries: Number(waitlistEntries?.count ?? 0),
+    sessionContent: Number(sessionContent?.count ?? 0),
+    sessionProgress: Number(sessionProgress?.count ?? 0),
+    communityChannels: Number(communityChannels?.count ?? 0),
+  };
+  if (Object.values(blockers).some((count) => count > 0)) {
+    throw new ClassDeletionBlockedError(blockers);
+  }
 
-  // Delete associated waitlist entries
-  await db
-    .deleteFrom("waitlistEntries")
-    .where("classId", "=", classId)
-    .execute();
-
-  // Delete class
-  await db
-    .deleteFrom("gymClasses")
-    .where("id", "=", classId)
-    .where("facilityId", "=", facilityId)
-    .execute();
+  await db.transaction().execute(async (transaction) => {
+    await transaction
+      .deleteFrom("classBookingConfigurations")
+      .where("classId", "=", classId)
+      .execute();
+    await transaction
+      .deleteFrom("gymClasses")
+      .where("id", "=", classId)
+      .where("facilityId", "=", facilityId)
+      .execute();
+  });
 }

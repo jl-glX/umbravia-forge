@@ -29,5 +29,13 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Validate Linux deployment scripts
+        run: bash -n deploy/*.sh
+
       - name: Validate code, builds and dependency security
         run: npm run ci:validate
+
+      - name: Validate the Linux deployment package
+        env:
+          VITE_TURNSTILE_SITE_KEY: ci-only-public-site-key-not-for-deployment
+        run: npm run deploy:package

@@ -18,12 +18,17 @@ interface Case {
   urgency: string;
   status: string;
 }
-interface FacilityLink {
-  id: string;
-  targetFacilityName: string;
-  mode: string;
-  status: string;
-}
+const moderationCategories = [
+  "conduct",
+  "harassment",
+  "threats",
+  "hate",
+  "spam",
+  "privacy",
+  "impersonation",
+  "unsafe_content",
+  "other",
+] as const;
 interface ParentalControl {
   id: string;
   childUserId: string;
@@ -39,11 +44,9 @@ export function ModerationPage() {
   const [category, setCategory] = useState("conduct");
   const [description, setDescription] = useState("");
   const [notice, setNotice] = useState("");
-  const [facilityLinks, setFacilityLinks] = useState<FacilityLink[]>([]);
   const [parentalControls, setParentalControls] = useState<ParentalControl[]>(
     [],
   );
-  const [targetFacility, setTargetFacility] = useState("");
   const [childUserId, setChildUserId] = useState("");
   const [guardianUserId, setGuardianUserId] = useState("");
   const api = async <T,>(path: string, init?: RequestInit) => {
@@ -59,12 +62,9 @@ export function ModerationPage() {
     try {
       setCases(await api<Case[]>("/api/moderation/cases"));
       if (accessRole === "admin") {
-        const [links, controls] = await Promise.all([
-          api<FacilityLink[]>("/api/community/facility-links"),
-          api<ParentalControl[]>("/api/community/parental-controls"),
-        ]);
-        setFacilityLinks(links);
-        setParentalControls(controls);
+        setParentalControls(
+          await api<ParentalControl[]>("/api/community/parental-controls"),
+        );
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
@@ -106,23 +106,6 @@ export function ModerationPage() {
       setNotice(error instanceof Error ? error.message : String(error));
     }
   };
-  const createFacilityLink = async (event: React.FormEvent) => {
-    event.preventDefault();
-    try {
-      await api("/api/community/facility-links", {
-        method: "POST",
-        body: JSON.stringify({
-          targetFacilityName: targetFacility,
-          mode: "temporary",
-          sharedSpaces: ["announcements", "events"],
-        }),
-      });
-      setTargetFacility("");
-      await load();
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
-    }
-  };
   const createParentalControl = async (event: React.FormEvent) => {
     event.preventDefault();
     try {
@@ -146,7 +129,7 @@ export function ModerationPage() {
     }
   };
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(240,122,58,0.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(42,157,143,0.10),transparent_32%)] bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-5xl">
         <p className="text-sm font-semibold uppercase tracking-[.18em] text-blue-600">
           {t("moderation.eyebrow")}
@@ -172,11 +155,18 @@ export function ModerationPage() {
               </div>
               <div>
                 <Label>{t("moderation.category")}</Label>
-                <Input
+                <select
                   required
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                />
+                  className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-brand-night focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-path"
+                >
+                  {moderationCategories.map((value) => (
+                    <option key={value} value={value}>
+                      {t(`moderation.categories.${value}`)}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <div>
@@ -198,7 +188,11 @@ export function ModerationPage() {
             <Card key={item.id} className="rounded-2xl p-5">
               <div className="flex justify-between gap-3">
                 <div>
-                  <h3 className="font-bold">{item.category}</h3>
+                  <h3 className="font-bold">
+                    {t(`moderation.categories.${item.category}`, {
+                      defaultValue: item.category,
+                    })}
+                  </h3>
                   <p className="mt-1 text-sm text-slate-600">
                     {item.description}
                   </p>
@@ -221,37 +215,7 @@ export function ModerationPage() {
           ))}
         </div>
         {accessRole === "admin" && (
-          <div className="mt-6 grid gap-6 lg:grid-cols-2">
-            <Card className="rounded-3xl p-6">
-              <h2 className="font-bold">{t("moderation.facilityLinks")}</h2>
-              <VerifiedForm
-                className="mt-4 flex gap-2"
-                onSubmit={createFacilityLink}
-              >
-                <Input
-                  required
-                  minLength={2}
-                  maxLength={120}
-                  value={targetFacility}
-                  onChange={(event) => setTargetFacility(event.target.value)}
-                  placeholder={t("moderation.facilityName")}
-                />
-                <Button type="submit">{t("moderation.request")}</Button>
-              </VerifiedForm>
-              <div className="mt-3 space-y-2">
-                {facilityLinks.map((link) => (
-                  <div
-                    key={link.id}
-                    className="rounded-xl bg-slate-100 p-3 text-sm"
-                  >
-                    <strong>{link.targetFacilityName}</strong>
-                    <span className="block text-slate-500">
-                      {link.mode} · {link.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Card>
+          <div className="mt-6">
             <Card className="rounded-3xl p-6">
               <h2 className="font-bold">{t("moderation.parentalControls")}</h2>
               <VerifiedForm

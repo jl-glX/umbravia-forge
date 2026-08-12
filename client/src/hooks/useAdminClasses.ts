@@ -14,6 +14,15 @@ export interface AdminClass {
   waitlistCount: number;
 }
 
+export interface ClassBatchDeleteResult {
+  deletedIds: string[];
+  failed: Array<{
+    id: string;
+    code: string;
+    message: string;
+  }>;
+}
+
 export function useAdminClasses() {
   const [classes, setClasses] = useState<AdminClass[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +74,7 @@ export function useAdminClasses() {
       }
 
       const newClass = await response.json();
-      setClasses([...classes, newClass]);
+      setClasses((current) => [...current, newClass]);
       return newClass;
     } catch (err) {
       console.error("Error creating class:", err);
@@ -97,7 +106,9 @@ export function useAdminClasses() {
       }
 
       const updatedClass = await response.json();
-      setClasses(classes.map((c) => (c.id === id ? updatedClass : c)));
+      setClasses((current) =>
+        current.map((c) => (c.id === id ? updatedClass : c)),
+      );
       return updatedClass;
     } catch (err) {
       console.error("Error updating class:", err);
@@ -116,11 +127,30 @@ export function useAdminClasses() {
         throw new Error(error.error || "Failed to delete class");
       }
 
-      setClasses(classes.filter((c) => c.id !== id));
+      setClasses((current) => current.filter((c) => c.id !== id));
     } catch (err) {
       console.error("Error deleting class:", err);
       throw err;
     }
+  };
+
+  const deleteMultipleClasses = async (
+    classIds: string[],
+  ): Promise<ClassBatchDeleteResult> => {
+    const response = await authFetch("/api/admin/classes/batch-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ classIds }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(body?.error || "Failed to delete classes");
+    }
+    const result = body as ClassBatchDeleteResult;
+    setClasses((current) =>
+      current.filter((gymClass) => !result.deletedIds.includes(gymClass.id)),
+    );
+    return result;
   };
 
   const refreshClasses = async () => {
@@ -134,6 +164,7 @@ export function useAdminClasses() {
     createClass,
     updateClass,
     deleteClass,
+    deleteMultipleClasses,
     refreshClasses,
   };
 }

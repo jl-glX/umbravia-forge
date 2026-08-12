@@ -229,6 +229,53 @@ describe("class tenant isolation", () => {
     expect(stored.facilityId).toBe("secondary");
   });
 
+  it("protects class history and reports partial batch deletion", async () => {
+    const now = Date.now();
+    await database.db
+      .insertInto("gymClasses")
+      .values({
+        id: "empty-primary-class",
+        facilityId: "primary",
+        name: "Empty primary class",
+        description: "",
+        trainerId: "tenant-admin",
+        trainerName: "Tenant Admin",
+        maxCapacity: 8,
+        scheduledAt: now + 172_800_000,
+      })
+      .execute();
+
+    const protectedResponse = await request(app)
+      .delete("/api/admin/classes/primary-class")
+      .set("Cookie", adminCookie)
+      .expect(409);
+    expect(protectedResponse.body).toMatchObject({
+      code: "CLASS_DELETION_REQUIRES_REVIEW",
+      blockers: { bookings: 1 },
+    });
+
+    const batch = await request(app)
+      .post("/api/admin/classes/batch-delete")
+      .set("Cookie", adminCookie)
+      .send({ classIds: ["primary-class", "empty-primary-class"] })
+      .expect(200);
+    expect(batch.body.deletedIds).toEqual(["empty-primary-class"]);
+    expect(batch.body.failed).toEqual([
+      expect.objectContaining({
+        id: "primary-class",
+        code: "CLASS_DELETION_REQUIRES_REVIEW",
+      }),
+    ]);
+
+    expect(
+      await database.db
+        .selectFrom("bookings")
+        .select("id")
+        .where("id", "=", "primary-booking")
+        .executeTakeFirst(),
+    ).toBeTruthy();
+  });
+
   it("rejects insecure session media links before storing content", async () => {
     const response = await request(app)
       .put("/api/classes/primary-class/session-content")

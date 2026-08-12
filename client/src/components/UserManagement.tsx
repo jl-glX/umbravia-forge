@@ -11,6 +11,7 @@ import {
 import { UserForm } from "./UserForm";
 import { formatDate } from "../lib/dateUtils";
 import { useTranslation } from "react-i18next";
+import { ConfirmDialog } from "./ui/confirm-dialog";
 
 export function UserManagement() {
   const { t } = useTranslation();
@@ -28,6 +29,11 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [filterRole, setFilterRole] = useState<"all" | UserRole>("all");
   const [actionError, setActionError] = useState("");
+  const [deleteRequest, setDeleteRequest] = useState<{
+    ids: string[];
+    label?: string;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const reportActionError = (error: unknown) => {
     setActionError(
@@ -59,29 +65,25 @@ export function UserManagement() {
     );
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (confirm(t("admin.deleteUserConfirm"))) {
-      setActionError("");
-      try {
-        await deleteUser(userId);
-      } catch (err) {
-        reportActionError(err);
-      }
-    }
-  };
-
-  const handleDeleteSelected = async () => {
-    if (selectedUsers.length === 0) return;
-    if (
-      confirm(t("admin.deleteUsersConfirm", { count: selectedUsers.length }))
-    ) {
-      setActionError("");
-      try {
-        await deleteMultipleUsers(selectedUsers);
+  const confirmDelete = async () => {
+    if (!deleteRequest) return;
+    setActionError("");
+    setDeleting(true);
+    try {
+      if (deleteRequest.ids.length === 1) {
+        await deleteUser(deleteRequest.ids[0]);
+        setSelectedUsers((current) =>
+          current.filter((id) => id !== deleteRequest.ids[0]),
+        );
+      } else {
+        await deleteMultipleUsers(deleteRequest.ids);
         setSelectedUsers([]);
-      } catch (err) {
-        reportActionError(err);
       }
+      setDeleteRequest(null);
+    } catch (err) {
+      reportActionError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -157,7 +159,7 @@ export function UserManagement() {
             <Button
               variant="destructive"
               size="sm"
-              onClick={handleDeleteSelected}
+              onClick={() => setDeleteRequest({ ids: selectedUsers })}
             >
               {t("admin.deleteSelected", { count: selectedUsers.length })}
             </Button>
@@ -259,7 +261,9 @@ export function UserManagement() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDeleteUser(user.id)}
+                      onClick={() =>
+                        setDeleteRequest({ ids: [user.id], label: user.name })
+                      }
                       className="text-red-600 hover:text-red-700"
                     >
                       <Trash2 size={16} />
@@ -271,6 +275,31 @@ export function UserManagement() {
           </table>
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(deleteRequest)}
+        title={
+          deleteRequest?.ids.length === 1
+            ? t("admin.deleteUserTitle")
+            : t("admin.deleteUsersTitle", {
+                count: deleteRequest?.ids.length ?? 0,
+              })
+        }
+        description={
+          deleteRequest?.ids.length === 1
+            ? t("admin.deleteUserDescription", {
+                name: deleteRequest.label ?? "",
+              })
+            : t("admin.deleteUsersDescription", {
+                count: deleteRequest?.ids.length ?? 0,
+              })
+        }
+        confirmLabel={deleting ? t("common.loading") : t("common.delete")}
+        cancelLabel={t("common.cancel")}
+        destructive
+        busy={deleting}
+        onCancel={() => setDeleteRequest(null)}
+        onConfirm={() => void confirmDelete()}
+      />
     </div>
   );
 }

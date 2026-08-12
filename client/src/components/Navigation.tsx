@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
+  ArrowRight,
   Bookmark,
   CreditCard,
   LifeBuoy,
@@ -21,7 +22,9 @@ import { AccountMenu } from "./AccountMenu";
 import { BrandGlyph } from "./BrandGlyph";
 import {
   canNavigateBackInsideArea,
+  canNavigateForwardInsideArea,
   consumeAppBackTarget,
+  consumeAppForwardTarget,
   getSessionStorage,
   recordAppRoute,
 } from "../lib/app-navigation-history";
@@ -35,16 +38,21 @@ export function Navigation() {
   const { t } = useTranslation();
   const { profile } = useFacilityProfile();
   const [canGoBack, setCanGoBack] = useState(false);
+  const [canGoForward, setCanGoForward] = useState(false);
   const accessRole = getAccessRole(user);
 
   useEffect(() => {
     const storage = getSessionStorage();
     if (!storage || !userId) {
       setCanGoBack(false);
+      setCanGoForward(false);
       return;
     }
     recordAppRoute(storage, userId, location.pathname);
     setCanGoBack(canNavigateBackInsideArea(storage, userId, location.pathname));
+    setCanGoForward(
+      canNavigateForwardInsideArea(storage, userId, location.pathname),
+    );
   }, [location.pathname, userId]);
 
   const isActive = (path: string) => location.pathname === path;
@@ -99,6 +107,25 @@ export function Navigation() {
               title={t("navigationControls.back")}
             >
               <ArrowLeft size={18} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={navigationButtonClass}
+              onClick={() => {
+                const storage = getSessionStorage();
+                if (!storage || !user) return;
+                const target = consumeAppForwardTarget(
+                  storage,
+                  user.id,
+                  location.pathname,
+                );
+                if (target) navigate(target, { replace: true });
+              }}
+              disabled={!canGoForward}
+              aria-label={t("navigationControls.forward")}
+              title={t("navigationControls.forward")}
+            >
+              <ArrowRight size={18} aria-hidden="true" />
             </button>
             <button
               type="button"

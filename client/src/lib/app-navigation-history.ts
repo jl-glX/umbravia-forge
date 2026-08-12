@@ -14,6 +14,7 @@ export type AppNavigationArea =
 interface StoredAppNavigationHistory {
   version: 1;
   areas: Partial<Record<AppNavigationArea, string[]>>;
+  forwardAreas?: Partial<Record<AppNavigationArea, string[]>>;
 }
 
 const STORAGE_PREFIX = "umbravia:app-navigation:v1";
@@ -121,15 +122,33 @@ export function recordAppRoute(
 
   const history = readHistory(storage, userId);
   const areaRoutes = history.areas[area] ?? [];
+  const forwardRoutes = history.forwardAreas?.[area] ?? [];
   const areaRoot = getAreaRoot(area, pathname);
 
-  if (pathname === areaRoot) {
+  if (pathname === areaRoot && areaRoutes.at(-1) !== pathname) {
     history.areas[area] = [pathname];
+    history.forwardAreas = { ...history.forwardAreas, [area]: [] };
   } else if (areaRoutes.at(-1) !== pathname) {
     history.areas[area] = [...areaRoutes, pathname].slice(-MAX_ROUTES_PER_AREA);
+    if (forwardRoutes.at(-1) !== pathname) {
+      history.forwardAreas = { ...history.forwardAreas, [area]: [] };
+    }
   }
 
   writeHistory(storage, userId, history);
+}
+
+export function canNavigateForwardInsideArea(
+  storage: Storage,
+  userId: string,
+  pathname: string,
+): boolean {
+  const area = getArea(pathname);
+  if (!area) return false;
+  const history = readHistory(storage, userId);
+  const routes = history.areas[area] ?? [];
+  const forwardRoutes = history.forwardAreas?.[area] ?? [];
+  return routes.at(-1) === pathname && forwardRoutes.length > 0;
 }
 
 export function canNavigateBackInsideArea(
@@ -155,10 +174,39 @@ export function consumeAppBackTarget(
   const routes = history.areas[area] ?? [];
   if (routes.length <= 1 || routes.at(-1) !== pathname) return null;
 
-  routes.pop();
+  const currentRoute = routes.pop();
   history.areas[area] = routes;
+  history.forwardAreas = {
+    ...history.forwardAreas,
+    [area]: currentRoute
+      ? [...(history.forwardAreas?.[area] ?? []), currentRoute].slice(
+          -MAX_ROUTES_PER_AREA,
+        )
+      : (history.forwardAreas?.[area] ?? []),
+  };
   writeHistory(storage, userId, history);
   return routes.at(-1) ?? null;
+}
+
+export function consumeAppForwardTarget(
+  storage: Storage,
+  userId: string,
+  pathname: string,
+): string | null {
+  const area = getArea(pathname);
+  if (!area) return null;
+
+  const history = readHistory(storage, userId);
+  const routes = history.areas[area] ?? [];
+  const forwardRoutes = history.forwardAreas?.[area] ?? [];
+  if (routes.at(-1) !== pathname || forwardRoutes.length === 0) return null;
+
+  const target = forwardRoutes.pop();
+  if (!target) return null;
+  history.areas[area] = [...routes, target].slice(-MAX_ROUTES_PER_AREA);
+  history.forwardAreas = { ...history.forwardAreas, [area]: forwardRoutes };
+  writeHistory(storage, userId, history);
+  return target;
 }
 
 export function clearAppNavigationHistory(

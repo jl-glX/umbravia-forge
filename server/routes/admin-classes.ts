@@ -5,6 +5,7 @@ import {
   createClass,
   updateClass,
   deleteClass,
+  ClassDeletionBlockedError,
   saveClassBookingConfiguration,
 } from "../services/classes.js";
 import {
@@ -140,6 +141,53 @@ adminClassesRouter.put(
   },
 );
 
+adminClassesRouter.post(
+  "/batch-delete",
+  async (req: express.Request, res: express.Response) => {
+    const requestedIds: unknown[] = Array.isArray(req.body.classIds)
+      ? req.body.classIds
+      : [];
+    const classIds = [
+      ...new Set(
+        requestedIds.filter((id): id is string => typeof id === "string"),
+      ),
+    ];
+    if (classIds.length < 1 || classIds.length > 100) {
+      res
+        .status(400)
+        .json({ error: "Between 1 and 100 class IDs are required" });
+      return;
+    }
+
+    const deletedIds: string[] = [];
+    const failed: Array<{
+      id: string;
+      code: string;
+      message: string;
+      blockers?: ClassDeletionBlockedError["blockers"];
+    }> = [];
+    for (const id of classIds) {
+      try {
+        await deleteClass(id, getFacilityContext(res).id);
+        deletedIds.push(id);
+      } catch (error) {
+        const blocked = error instanceof ClassDeletionBlockedError;
+        failed.push({
+          id,
+          code: blocked
+            ? error.code
+            : error instanceof Error && error.message === "Class not found"
+              ? "CLASS_NOT_FOUND"
+              : "CLASS_DELETION_FAILED",
+          message: error instanceof Error ? error.message : "Unknown error",
+          ...(blocked ? { blockers: error.blockers } : {}),
+        });
+      }
+    }
+    res.json({ deletedIds, failed });
+  },
+);
+
 adminClassesRouter.put(
   "/:id/booking-configuration",
   bookingConfigurationValidation,
@@ -176,7 +224,17 @@ adminClassesRouter.delete(
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       console.error("Error deleting class:", error);
-      res.status(400).json({ error: message });
+      if (error instanceof ClassDeletionBlockedError) {
+        res.status(409).json({
+          error: message,
+          code: error.code,
+          blockers: error.blockers,
+        });
+        return;
+      }
+      res
+        .status(message === "Class not found" ? 404 : 400)
+        .json({ error: message });
     }
   },
 );

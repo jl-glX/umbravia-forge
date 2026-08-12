@@ -28,6 +28,7 @@
     "deploy:package": "node scripts/validate-deployment-build.mjs && npm run build && node scripts/prepare-deployment-package.mjs && node scripts/audit-deployment-package.mjs",
     "db:postgres:validate-config": "tsx scripts/validate-postgres-config.ts",
     "mail:dns:check": "tsx server/bin/check-mail-dns.ts",
+    "portability:check": "node scripts/check-portability.mjs",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "lint": "eslint .",
@@ -40,7 +41,7 @@
     "security:probe": "node scripts/security/local-black-box.mjs",
     "security:password-resilience": "node scripts/security/password-resilience.mjs",
     "audit:ci": "node scripts/audit-ci.mjs",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build",
+    "check": "npm run portability:check && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build",
     "ci:validate": "npm run check && npm run audit:ci",
     "ci": "node scripts/run-ci.mjs",
     "CI": "node scripts/run-ci.mjs"

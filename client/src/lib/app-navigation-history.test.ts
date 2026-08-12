@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   canNavigateBackInsideArea,
+  canNavigateForwardInsideArea,
   clearAppNavigationHistory,
   consumeAppBackTarget,
+  consumeAppForwardTarget,
   recordAppRoute,
 } from "./app-navigation-history";
 
@@ -36,6 +38,26 @@ describe("app navigation history", () => {
     expect(
       consumeAppBackTarget(storage, "user-1", "/classes/42/session-content"),
     ).toBe("/classes");
+    expect(canNavigateForwardInsideArea(storage, "user-1", "/classes")).toBe(
+      true,
+    );
+    expect(consumeAppForwardTarget(storage, "user-1", "/classes")).toBe(
+      "/classes/42/session-content",
+    );
+  });
+
+  it("clears forward history after a new route is opened", () => {
+    const storage = createStorage();
+    recordAppRoute(storage, "user-1", "/account");
+    recordAppRoute(storage, "user-1", "/account/security");
+    expect(consumeAppBackTarget(storage, "user-1", "/account/security")).toBe(
+      "/account",
+    );
+
+    recordAppRoute(storage, "user-1", "/account/lifecycle");
+    expect(
+      canNavigateForwardInsideArea(storage, "user-1", "/account/lifecycle"),
+    ).toBe(false);
   });
 
   it("does not mix history from different areas", () => {

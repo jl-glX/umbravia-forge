@@ -54,6 +54,29 @@ export const moderationStatuses = [
   "platform_suspended",
 ] as const;
 
+export const moderationCategories = [
+  "conduct",
+  "harassment",
+  "threats",
+  "hate",
+  "spam",
+  "privacy",
+  "impersonation",
+  "unsafe_content",
+  "other",
+] as const;
+
+export type ModerationCategory = (typeof moderationCategories)[number];
+
+export function isModerationCategory(
+  value: unknown,
+): value is ModerationCategory {
+  return (
+    typeof value === "string" &&
+    moderationCategories.includes(value as ModerationCategory)
+  );
+}
+
 export const institutionalPrinciples = {
   neutrality:
     "La plataforma no condiciona el acceso a adhesiones políticas, religiosas o ideológicas.",

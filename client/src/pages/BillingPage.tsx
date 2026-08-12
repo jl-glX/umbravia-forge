@@ -25,6 +25,7 @@ import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { ConfirmDialog } from "../components/ui/confirm-dialog";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 const CURRENCY_KEY = "umbravia-forge-billing-currency";
@@ -93,6 +94,8 @@ export function BillingPage() {
   const [memberQuery, setMemberQuery] = useState("");
   const [memberResults, setMemberResults] = useState<BillingMemberResult[]>([]);
   const [memberSearching, setMemberSearching] = useState(false);
+  const [deleteRecord, setDeleteRecord] = useState<BillingRecord | null>(null);
+  const [deletingRecord, setDeletingRecord] = useState(false);
   const timeZone = useMemo(getDeviceTimeZone, []);
 
   const request = async <T,>(path: string, init?: RequestInit): Promise<T> => {
@@ -241,7 +244,7 @@ export function BillingPage() {
   };
 
   const remove = async (record: BillingRecord) => {
-    if (!window.confirm(t("billing.deleteConfirm"))) return;
+    setDeletingRecord(true);
     try {
       await request<void>(`/api/billing/${record.id}`, { method: "DELETE" });
       setRecords((current) =>
@@ -249,8 +252,11 @@ export function BillingPage() {
       );
       setExpandedId((current) => (current === record.id ? null : current));
       setError("");
+      setDeleteRecord(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setDeletingRecord(false);
     }
   };
 
@@ -723,7 +729,7 @@ export function BillingPage() {
                               variant="ghost"
                               size="sm"
                               aria-label={t("billing.delete")}
-                              onClick={() => void remove(record)}
+                              onClick={() => setDeleteRecord(record)}
                             >
                               <Trash2 className="text-red-600" />
                             </Button>
@@ -762,6 +768,19 @@ export function BillingPage() {
           </Card>
         </div>
       </main>
+      <ConfirmDialog
+        open={Boolean(deleteRecord)}
+        title={t("billing.deleteTitle")}
+        description={t("billing.deleteConfirm")}
+        confirmLabel={deletingRecord ? t("common.loading") : t("common.delete")}
+        cancelLabel={t("common.cancel")}
+        destructive
+        busy={deletingRecord}
+        onCancel={() => setDeleteRecord(null)}
+        onConfirm={() => {
+          if (deleteRecord) void remove(deleteRecord);
+        }}
+      />
 
       {printRecord && (
         <div className="hidden print:block">

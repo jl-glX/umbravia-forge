@@ -47,6 +47,13 @@ up to ten seconds for its workers to close and only then forces that owned
 process to stop. It does not enumerate or terminate unrelated Node.js, Vite or
 application processes by executable name, port or broad pattern.
 
+The operational portability guard runs through `npm run portability:check`.
+It rejects Windows-only command wrappers and absolute Windows paths in the
+development, validation and deployment tooling. GitHub CI also parses every
+Linux deployment shell script and builds and audits the deployment package on
+Ubuntu. Windows remains a supported development platform, but it is not an
+operational dependency of production.
+
 Only one Vitest session may own the project test resources at a time. Stop the
 watch session with `Ctrl+C` before running the complete `npm run ci:validate`
 gate. If a process is interrupted, the next run detects and replaces its stale

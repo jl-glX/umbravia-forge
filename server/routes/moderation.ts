@@ -8,7 +8,10 @@ import {
   requireFacility,
   selectFacilityContext,
 } from "../middleware/authorization.js";
-import { moderationStatuses } from "../lib/community-policy.js";
+import {
+  isModerationCategory,
+  moderationStatuses,
+} from "../lib/community-policy.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
 import { PRIMARY_FACILITY_ID } from "../services/facility-context.js";
 import { canAccessChannel } from "./community.js";
@@ -90,8 +93,7 @@ moderationRouter.post("/cases", async (req, res, next) => {
     const category = String(req.body.category ?? "").trim();
     const description = String(req.body.description ?? "").trim();
     if (
-      category.length < 2 ||
-      category.length > 80 ||
+      !isModerationCategory(category) ||
       description.length < 10 ||
       description.length > 4000
     )

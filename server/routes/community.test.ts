@@ -600,6 +600,15 @@ describe("community, identity and moderation APIs", () => {
       .post("/api/moderation/cases")
       .set("Cookie", adminCookie)
       .send({
+        category: "free-form-category",
+        description:
+          "Arbitrary categories must not enter the moderation workflow.",
+      })
+      .expect(400);
+    await request(app)
+      .post("/api/moderation/cases")
+      .set("Cookie", adminCookie)
+      .send({
         subjectUserId: "community-peer",
         messageId: reportableMessage.id,
         category: "conduct",
