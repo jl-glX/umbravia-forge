@@ -5,6 +5,7 @@ import {
   ActivityPerformanceTable,
   AnalyticsDataQuality,
   AnalyticsDecisionPanel,
+  BookingHistoryPanel,
   MemberEngagementTable,
 } from "../components/AnalyticsOverviewPanels";
 import { MetricCard } from "../components/MetricCard";
@@ -108,6 +109,7 @@ export function TrainerAnalyticsDashboardPage() {
             </div>
 
             <AnalyticsDataQuality quality={data.dataQuality} />
+            <BookingHistoryPanel history={data.history} />
 
             <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
               <ActivityPerformanceTable activities={data.activities} />

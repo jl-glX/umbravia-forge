@@ -1279,6 +1279,18 @@
     "noAttendanceCoverage": "Es gibt noch keine vergangenen Kurse mit Buchungen, um die Erfassung zu messen.",
     "attendanceCoverage": "Für {{value}} % der Buchungen abgeschlossener Kurse wurde die Anwesenheit erfasst.",
     "surveyCausalityHint": "Diese Kennzahlen zeigen, was geschieht. Das Warum muss später mit monatlichen Umfragen abgeglichen werden.",
+    "historyTitle": "Historischer Buchungstrichter",
+    "historyDescription": "Vergleicht den Nachfrageverlauf anhand betrieblicher Momentaufnahmen mit dem vorherigen Zeitraum.",
+    "historySources": "{{baseline}} Ausgangswerte · {{live}} echte Ereignisse",
+    "vsPrevious": "{{delta}} gegenüber dem vorherigen Zeitraum",
+    "history": {
+      "observedBookings": "Beobachtete Buchungen",
+      "waitlistEntries": "Wartelisteneinträge",
+      "promotions": "Nachrücker",
+      "cancellations": "Stornierungen",
+      "attended": "Teilnahmen",
+      "absent": "Abwesenheiten"
+    },
     "period": {
       "day": "Heute",
       "week": "Diese Woche",

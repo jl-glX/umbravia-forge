@@ -149,6 +149,40 @@ describe("user management tenant isolation", () => {
         },
       ])
       .execute();
+    await database.db
+      .insertInto("gymClasses")
+      .values({
+        id: "users-secondary-history-class",
+        facilityId: "users-secondary",
+        name: "Historical class",
+        description: "",
+        trainerId: "users-admin",
+        trainerName: "Users Admin",
+        maxCapacity: 10,
+        scheduledAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("bookingAnalyticsEvents")
+      .values({
+        id: "users-shared-history",
+        deduplicationKey: "test:users-shared-history",
+        facilityId: "users-secondary",
+        bookingId: null,
+        classId: "users-secondary-history-class",
+        memberUserId: "users-shared",
+        trainerUserId: "users-admin",
+        eventType: "baseline_import",
+        source: "baseline",
+        fromState: null,
+        toState: "attended",
+        activityName: "Historical class",
+        scheduledAt: now,
+        capacitySnapshot: 10,
+        occurredAt: now,
+        recordedAt: now,
+      })
+      .execute();
 
     app = (await import("../index.js")).app;
     adminCookie = (
@@ -237,6 +271,17 @@ describe("user management tenant isolation", () => {
         .where("userId", "=", "users-shared")
         .execute(),
     ).resolves.toEqual([{ facilityId: "primary" }]);
+    await expect(
+      database.db
+        .selectFrom("bookingAnalyticsEvents")
+        .select(["memberUserId", "trainerUserId", "activityName"])
+        .where("id", "=", "users-shared-history")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      memberUserId: null,
+      trainerUserId: "users-admin",
+      activityName: "Historical class",
+    });
   });
 
   it("rolls back a bulk removal when one account requires retention review", async () => {

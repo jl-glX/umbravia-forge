@@ -67,6 +67,66 @@ export function AnalyticsDecisionPanel({
   );
 }
 
+function signedDelta(current: number, previous: number): string {
+  const delta = current - previous;
+  return delta > 0 ? `+${delta}` : String(delta);
+}
+
+export function BookingHistoryPanel({
+  history,
+}: {
+  history: AnalyticsOverview["history"];
+}) {
+  const { t } = useTranslation();
+  const metrics = [
+    ["observedBookings", history.current.observedBookings],
+    ["waitlistEntries", history.current.waitlistEntries],
+    ["promotions", history.current.promotions],
+    ["cancellations", history.current.cancellations],
+    ["attended", history.current.attended],
+    ["absent", history.current.absent],
+  ] as const;
+
+  return (
+    <Card className="p-6">
+      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-950">
+            {t("analytics.historyTitle")}
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            {t("analytics.historyDescription")}
+          </p>
+        </div>
+        <p className="text-xs text-slate-500">
+          {t("analytics.historySources", {
+            baseline: history.baselineEvents,
+            live: history.liveEvents,
+          })}
+        </p>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        {metrics.map(([key, value]) => {
+          const previous = history.previous[key];
+          return (
+            <div key={key} className="rounded-xl border border-slate-200 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t(`analytics.history.${key}`)}
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-950">{value}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {t("analytics.vsPrevious", {
+                  delta: signedDelta(value, previous),
+                })}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 export function ActivityPerformanceTable({
   activities,
 }: {

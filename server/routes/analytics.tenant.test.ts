@@ -260,6 +260,92 @@ describe("analytics tenant isolation", () => {
         updatedAt: now - 3_600_000,
       })
       .execute();
+    await database.db
+      .insertInto("bookingAnalyticsEvents")
+      .values([
+        {
+          id: "analytics-primary-event",
+          deduplicationKey: "test:analytics-primary-event",
+          facilityId: "primary",
+          bookingId: "analytics-primary-booking",
+          classId: "analytics-primary-class",
+          memberUserId: "analytics-primary-member",
+          trainerUserId: "analytics-admin",
+          eventType: "baseline_import",
+          source: "baseline",
+          fromState: null,
+          toState: "confirmation_pending",
+          activityName: "Primary analytics class",
+          scheduledAt: now + 3_600_000,
+          capacitySnapshot: 10,
+          occurredAt: now,
+          recordedAt: now,
+        },
+        ...[
+          [
+            "analytics-secondary-event",
+            "analytics-secondary-booking",
+            "analytics-secondary-class",
+            "analytics-secondary-member",
+            "analytics-admin",
+            "Secondary analytics class",
+            now + 7_200_000,
+            5,
+          ],
+          [
+            "analytics-trainer-event",
+            "analytics-trainer-booking",
+            "analytics-trainer-class",
+            "analytics-secondary-member",
+            "analytics-trainer",
+            "Trainer analytics class",
+            now + 10_800_000,
+            4,
+          ],
+          [
+            "analytics-trainer-past-event",
+            "analytics-trainer-past-booking",
+            "analytics-trainer-past-class",
+            "analytics-secondary-member",
+            "analytics-trainer",
+            "Trainer analytics class",
+            now - 3_600_000,
+            4,
+          ],
+        ].map(
+          ([
+            id,
+            bookingId,
+            classId,
+            memberUserId,
+            trainerUserId,
+            activityName,
+            scheduledAt,
+            capacitySnapshot,
+          ]) => ({
+            id: id as string,
+            deduplicationKey: `test:${id}`,
+            facilityId: "analytics-secondary",
+            bookingId: bookingId as string,
+            classId: classId as string,
+            memberUserId: memberUserId as string,
+            trainerUserId: trainerUserId as string,
+            eventType: "baseline_import" as const,
+            source: "baseline" as const,
+            fromState: null,
+            toState:
+              id === "analytics-trainer-past-event"
+                ? "attended"
+                : "confirmation_pending",
+            activityName: activityName as string,
+            scheduledAt: scheduledAt as number,
+            capacitySnapshot: capacitySnapshot as number,
+            occurredAt: now,
+            recordedAt: now,
+          }),
+        ),
+      ])
+      .execute();
 
     app = (await import("../index.js")).app;
     adminCookie = (
@@ -385,6 +471,14 @@ describe("analytics tenant isolation", () => {
         causalExplanation: "survey_required",
         currentWaitlistOnly: true,
       },
+      history: {
+        current: {
+          observedBookings: 3,
+          attended: 1,
+        },
+        baselineEvents: 3,
+        liveEvents: 0,
+      },
     });
     expect(response.body.members).toEqual([
       expect.objectContaining({
@@ -418,6 +512,14 @@ describe("analytics tenant isolation", () => {
         uniqueMembers: 1,
         occupancyRate: 25,
         attendanceRate: 100,
+      },
+      history: {
+        current: {
+          observedBookings: 2,
+          attended: 1,
+        },
+        baselineEvents: 2,
+        liveEvents: 0,
       },
     });
     expect(response.body.activities).toEqual([

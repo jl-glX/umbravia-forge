@@ -126,7 +126,25 @@ export interface AnalyticsOverview {
     attendanceCoverageRate: number | null;
     causalExplanation: "survey_required";
     currentWaitlistOnly: true;
+    historyCoverage: "baseline_and_live";
   };
+  history: {
+    current: BookingEventFunnel;
+    previous: BookingEventFunnel;
+    baselineEvents: number;
+    liveEvents: number;
+    previousPeriod: { from: number; to: number };
+  };
+}
+
+export interface BookingEventFunnel {
+  observedBookings: number;
+  waitlistEntries: number;
+  promotions: number;
+  cancellations: number;
+  attended: number;
+  absent: number;
+  excused: number;
 }
 
 export function analyticsPeriodBounds(

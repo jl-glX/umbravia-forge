@@ -13,6 +13,7 @@ import {
 } from "./booking-reputation.js";
 import { parseBookingConfiguration } from "../lib/booking-configuration.js";
 import { PRIMARY_FACILITY_ID } from "./facility-context.js";
+import { recordBookingAnalyticsEvent } from "./booking-analytics-events.js";
 
 const DEFAULT_PROMOTION_CONFIRMATION_MINUTES = 15;
 
@@ -115,6 +116,13 @@ async function releaseExpiredPromotions(
         .set({ lifecycleStatus: "promotion_expired", updatedAt: now })
         .where("bookingId", "=", booking.id)
         .execute();
+      await recordBookingAnalyticsEvent(transaction, {
+        bookingId: booking.id,
+        eventType: "promotion_expired",
+        fromState: "promoted",
+        toState: "promotion_expired",
+        occurredAt: now,
+      });
     }
     await transaction
       .deleteFrom("waitlistEntries")
@@ -248,6 +256,13 @@ async function promoteFromWaitlist(
       })
       .where("bookingId", "=", promotedBooking.id)
       .execute();
+    await recordBookingAnalyticsEvent(transaction, {
+      bookingId: promotedBooking.id,
+      eventType: "waitlist_promoted",
+      fromState: "waitlisted",
+      toState: "promoted",
+      occurredAt: now,
+    });
     await normalizeWaitlistPositions(transaction, classId);
     return { bookingId: promotedBooking.id, promotionExpiresAt };
   }
@@ -333,12 +348,14 @@ async function cancelBookingInTransaction(
   const booking = await transaction
     .selectFrom("bookings")
     .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
+    .leftJoin("bookingLifecycles", "bookingLifecycles.bookingId", "bookings.id")
     .select([
       "bookings.id",
       "bookings.classId",
       "bookings.status",
       "gymClasses.facilityId",
       "gymClasses.scheduledAt",
+      "bookingLifecycles.lifecycleStatus",
     ])
     .where("bookings.id", "=", bookingId)
     .where("bookings.userId", "=", userId)
@@ -375,6 +392,13 @@ async function cancelBookingInTransaction(
     })
     .where("bookingId", "=", bookingId)
     .execute();
+  await recordBookingAnalyticsEvent(transaction, {
+    bookingId,
+    eventType: "booking_cancelled",
+    fromState: booking.lifecycleStatus ?? booking.status,
+    toState: lifecycleStatus,
+    occurredAt: now,
+  });
 
   if (booking.status === "waitlist") {
     await transaction
@@ -538,6 +562,15 @@ export async function bookClass(
           : "confirmed",
         now,
       );
+      await recordBookingAnalyticsEvent(transaction, {
+        bookingId,
+        eventType: "booking_created",
+        fromState: null,
+        toState: configuration.confirmationRequired
+          ? "confirmation_pending"
+          : "confirmed",
+        occurredAt: now,
+      });
       return { bookingId, status: "confirmed" as const };
     }
     if (!configuration.waitlistEnabled)
@@ -574,6 +607,13 @@ export async function bookClass(
       })
       .execute();
     await createLifecycle(transaction, bookingId, "waitlisted", now);
+    await recordBookingAnalyticsEvent(transaction, {
+      bookingId,
+      eventType: "booking_created",
+      fromState: null,
+      toState: "waitlisted",
+      occurredAt: now,
+    });
     return { bookingId, status: "waitlist" as const, position };
   });
 }
@@ -659,6 +699,13 @@ export async function setAttendanceIntention(
       })
       .where("bookingId", "=", bookingId)
       .execute();
+    await recordBookingAnalyticsEvent(transaction, {
+      bookingId,
+      eventType: "attendance_intention_changed",
+      fromState: booking.lifecycleStatus ?? booking.status,
+      toState: lifecycleStatus,
+      occurredAt: now,
+    });
     if (intention === "yes" && booking.lifecycleStatus === "promoted") {
       await transaction
         .deleteFrom("waitlistEntries")
@@ -808,6 +855,15 @@ export async function markBookingAttendance(
       .set({ lifecycleStatus: status, updatedAt: now })
       .where("bookingId", "=", bookingId)
       .execute();
+    await recordBookingAnalyticsEvent(transaction, {
+      bookingId,
+      eventType: correctingAcceptedJustification
+        ? "attendance_corrected"
+        : "attendance_recorded",
+      fromState: booking.lifecycleStatus ?? booking.status,
+      toState: status,
+      occurredAt: now,
+    });
     await recordBookingReputationEvent(transaction, {
       userId: booking.userId,
       facilityId: booking.facilityId,

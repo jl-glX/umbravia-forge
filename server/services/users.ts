@@ -443,6 +443,18 @@ async function removeUserFromFacilityInTransaction(
       .execute();
   }
   await transaction
+    .updateTable("bookingAnalyticsEvents")
+    .set({ memberUserId: null })
+    .where("facilityId", "=", facilityId)
+    .where("memberUserId", "=", id)
+    .execute();
+  await transaction
+    .updateTable("bookingAnalyticsEvents")
+    .set({ trainerUserId: null })
+    .where("facilityId", "=", facilityId)
+    .where("trainerUserId", "=", id)
+    .execute();
+  await transaction
     .deleteFrom("facilityMemberships")
     .where("id", "=", membership.id)
     .execute();

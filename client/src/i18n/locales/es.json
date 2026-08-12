@@ -1283,6 +1283,18 @@
     "noAttendanceCoverage": "Todavía no hay clases pasadas con reservas para medir la cobertura de asistencia.",
     "attendanceCoverage": "El {{value}} % de las reservas de clases ya celebradas tiene una asistencia registrada.",
     "surveyCausalityHint": "Estas métricas muestran qué ocurre. Para explicar por qué ocurre, habrá que contrastarlas con las futuras encuestas mensuales.",
+    "historyTitle": "Embudo histórico de reservas",
+    "historyDescription": "Compara el recorrido de la demanda con el periodo anterior usando instantáneas operativas.",
+    "historySources": "{{baseline}} iniciales · {{live}} eventos reales",
+    "vsPrevious": "{{delta}} frente al periodo anterior",
+    "history": {
+      "observedBookings": "Reservas observadas",
+      "waitlistEntries": "Entradas en espera",
+      "promotions": "Promociones",
+      "cancellations": "Cancelaciones",
+      "attended": "Asistencias",
+      "absent": "Ausencias"
+    },
     "period": { "day": "Hoy", "week": "Esta semana", "month": "Este mes" },
     "recommendations": {
       "COLLECT_MORE_DATA": {
