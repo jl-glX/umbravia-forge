@@ -291,3 +291,26 @@ future review must cover at least:
 
 Do not copy the illustrative durations from the demo into legal documents
 without a separate legal and operational review.
+
+## Historical email-record sanitation
+
+Transactional email delivery keeps operational status and attempt counters so
+that delivery problems can be diagnosed without retaining message content
+indefinitely. A managed sanitation task now applies the following boundary:
+
+- the resource manager owns the schedule and conflict prevention;
+- the email manager performs the sanitation and confirms the result;
+- the first deployment runs one review when no prior execution marker exists;
+- later reviews are due 30 days after the last completed review, including
+  across application restarts;
+- only terminal `sent`, `failed` and `superseded` records are stripped;
+- queued, retrying and processing messages remain untouched;
+- recipient addresses and encrypted payloads are removed, while delivery kind,
+  outcome, attempt count, timestamps and safe failure codes remain available;
+- the persistent audit marker stores only the sanitized count and interval, not
+  message identifiers, recipients or content.
+
+The schedule is implemented inside the existing resource manager rather than
+as an operating-system script or an additional system timer. Long waits are
+split internally to avoid the runtime timer limit while preserving one exact
+30-day due date.

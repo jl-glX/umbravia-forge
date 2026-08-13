@@ -221,6 +221,8 @@ describe("email delivery configuration", () => {
       revokedOtherSessions: true,
       removedTemporaryChallenges: true,
       accountUrl: "https://www.umbraviaforge.com/account/lifecycle",
+      loginUrl: "https://www.umbraviaforge.com/login",
+      recoveryUrl: "https://www.umbraviaforge.com/recover-account",
       feedbackUrl:
         "https://www.umbraviaforge.com/feedback?context=account-closure&safe=true",
     });
@@ -235,11 +237,21 @@ describe("email delivery configuration", () => {
     expect(message.text).toContain("passkeys");
     expect(message.text).toContain("encuesta es opcional");
     expect(message.text).toContain("/account/lifecycle");
+    expect(message.text).toContain("Iniciar sesión");
+    expect(message.text).toContain("/login");
+    expect(message.text).toContain("¿No puedes acceder a tu cuenta?");
+    expect(message.text).toContain("/recover-account");
     expect(message.text).toContain("context=account-closure");
     expect(message.html).toContain("&lt;script&gt;");
     expect(message.html).not.toContain("<script>");
     expect(message.html).toContain("safe=true");
     expect(message.html).toContain("&amp;safe=true");
+    expect(message.html).toContain(
+      'href="https://www.umbraviaforge.com/login"',
+    );
+    expect(message.html).toContain(
+      'href="https://www.umbraviaforge.com/recover-account"',
+    );
     expect(message.html).toContain('width="600"');
     expect(message.html).toContain("mso-table-lspace:0pt");
   });

@@ -8,7 +8,12 @@ import {
 import { cleanupStaleRuntimeRecords } from "../lib/runtime-registry.js";
 import { auditSourceHygiene } from "./source-hygiene.js";
 import { runEnvironmentReadinessAudit } from "./environment-manager.js";
-import { maintainManagedEmailQueue } from "./email-manager.js";
+import {
+  EMAIL_HISTORY_SANITIZATION_INTERVAL_MS,
+  getEmailHistorySanitizationDelayMs,
+  maintainManagedEmailQueue,
+  sanitizeManagedEmailHistory,
+} from "./email-manager.js";
 import { auditSupportSla } from "./support.js";
 import { purgeExpiredOpaqueE2eeAttachments } from "./e2ee-attachments.js";
 import { runEncryptionManagerAudit } from "./encryption-manager.js";
@@ -29,6 +34,7 @@ interface ManagedTaskDefinition {
   intervalMs: number;
   priority: TaskPriority;
   enabledByDefault: boolean;
+  initialDelayMs?: () => Promise<number>;
   run: () => Promise<ManagedTaskResult | number | void>;
 }
 
@@ -85,6 +91,7 @@ export interface ManagedTaskStatus {
 }
 
 const tasks = new Map<string, ManagedTaskRuntime>();
+const MAX_TIMER_DELAY_MS = 2_147_000_000;
 let started = false;
 let startInProgress: Promise<void> | null = null;
 let runtimeCheckCount = 0;
@@ -101,6 +108,7 @@ const taskCoordinationScopes: Record<string, string[]> = {
   "sqlite-query-planner": ["database-maintenance"],
   "environment-readiness-audit": ["database-maintenance"],
   "email-delivery-maintenance": ["notification-delivery"],
+  "email-history-sanitization": ["notification-delivery"],
   "support-sla-audit": ["support-records", "notification-delivery"],
   "encryption-readiness-audit": ["encryption-readiness-schedule"],
 };
@@ -153,21 +161,38 @@ function serializeTask(task: ManagedTaskRuntime): ManagedTaskStatus {
   };
 }
 
-function schedule(task: ManagedTaskRuntime): void {
+function schedule(
+  task: ManagedTaskRuntime,
+  delayMs = task.definition.intervalMs,
+): void {
   if (!started || !task.enabled || task.state === "running") return;
 
   if (task.timer) clearTimeout(task.timer);
-  task.nextRunAt = Date.now() + task.definition.intervalMs;
-  task.timer = setTimeout(() => {
-    task.timer = null;
-    void runManagedTask(task.definition.id).catch((error: unknown) => {
-      console.error(
-        `Managed task ${task.definition.id} failed:`,
-        error instanceof Error ? error.message : "Unknown error",
-      );
-    });
-  }, task.definition.intervalMs);
-  task.timer.unref();
+  const safeDelayMs = Math.max(0, delayMs);
+  const dueAt = Date.now() + safeDelayMs;
+  task.nextRunAt = dueAt;
+
+  const armTimer = () => {
+    if (!started || !task.enabled || task.state === "running") return;
+    const remainingMs = Math.max(0, dueAt - Date.now());
+    const timerDelayMs = Math.min(remainingMs, MAX_TIMER_DELAY_MS);
+    task.timer = setTimeout(() => {
+      task.timer = null;
+      if (dueAt > Date.now()) {
+        armTimer();
+        return;
+      }
+      void runManagedTask(task.definition.id).catch((error: unknown) => {
+        console.error(
+          `Managed task ${task.definition.id} failed:`,
+          error instanceof Error ? error.message : "Unknown error",
+        );
+      });
+    }, timerDelayMs);
+    task.timer.unref();
+  };
+
+  armTimer();
 }
 
 function registerTask(definition: ManagedTaskDefinition): void {
@@ -275,6 +300,18 @@ registerTask({
   priority: "critical",
   enabledByDefault: true,
   run: maintainManagedEmailQueue,
+});
+
+registerTask({
+  id: "email-history-sanitization",
+  name: "Terminal email history sanitization",
+  description:
+    "Removes recipients and encrypted message content from terminal delivery records while retaining a minimal audit result.",
+  intervalMs: EMAIL_HISTORY_SANITIZATION_INTERVAL_MS,
+  initialDelayMs: getEmailHistorySanitizationDelayMs,
+  priority: "normal",
+  enabledByDefault: true,
+  run: sanitizeManagedEmailHistory,
 });
 
 registerTask({
@@ -428,9 +465,16 @@ export async function startResourceManager(): Promise<void> {
   if (startInProgress) return startInProgress;
   started = true;
   const start = checkResidualBackgroundProcesses("manager-start")
-    .then(() => {
+    .then(async () => {
       if (!started) return;
-      for (const task of tasks.values()) schedule(task);
+      await Promise.all(
+        [...tasks.values()].map(async (task) => {
+          const delayMs = task.definition.initialDelayMs
+            ? await task.definition.initialDelayMs()
+            : task.definition.intervalMs;
+          schedule(task, delayMs);
+        }),
+      );
     })
     .catch((error: unknown) => {
       started = false;

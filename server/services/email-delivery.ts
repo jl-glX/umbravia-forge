@@ -851,6 +851,8 @@ export function buildAccountDeletionPreparationMessage(input: {
   revokedOtherSessions: boolean;
   removedTemporaryChallenges: boolean;
   accountUrl: string;
+  loginUrl: string;
+  recoveryUrl: string;
   feedbackUrl: string;
 }): VerificationMessage {
   const date = new Intl.DateTimeFormat(input.locale, {
@@ -868,6 +870,9 @@ export function buildAccountDeletionPreparationMessage(input: {
       kept: string;
       cancel: string;
       cancelAction: string;
+      signInAction: string;
+      recoveryPrompt: string;
+      recoveryAction: string;
       feedback: string;
       feedbackAction: string;
       closing: string;
@@ -882,6 +887,9 @@ export function buildAccountDeletionPreparationMessage(input: {
       cancel:
         "Si cambias de opinión, inicia sesión y cancela el cierre antes de que termine el periodo de gracia.",
       cancelAction: "Revisar o cancelar el cierre",
+      signInAction: "Iniciar sesión",
+      recoveryPrompt: "¿No puedes acceder a tu cuenta?",
+      recoveryAction: "Recuperar mi cuenta",
       feedback:
         "Si quieres, cuéntanos qué podríamos mejorar. La encuesta es opcional y no afecta al cierre de tu cuenta.",
       feedbackAction: "Contarnos cómo mejorar",
@@ -896,6 +904,9 @@ export function buildAccountDeletionPreparationMessage(input: {
       cancel:
         "If you change your mind, sign in and cancel the closure before the grace period ends.",
       cancelAction: "Review or cancel closure",
+      signInAction: "Sign in",
+      recoveryPrompt: "Cannot access your account?",
+      recoveryAction: "Recover my account",
       feedback:
         "If you would like, tell us what we could improve. The survey is optional and does not affect your account closure.",
       feedbackAction: "Tell us how to improve",
@@ -910,6 +921,9 @@ export function buildAccountDeletionPreparationMessage(input: {
       cancel:
         "Wenn Sie Ihre Meinung ändern, melden Sie sich an und brechen Sie die Schliessung vor Ablauf der Nachfrist ab.",
       cancelAction: "Schliessung prüfen oder abbrechen",
+      signInAction: "Anmelden",
+      recoveryPrompt: "Sie können nicht auf Ihr Konto zugreifen?",
+      recoveryAction: "Konto wiederherstellen",
       feedback:
         "Wenn Sie möchten, teilen Sie uns mit, was wir verbessern können. Die Umfrage ist freiwillig und hat keinen Einfluss auf die Kontoschliessung.",
       feedbackAction: "Verbesserungsvorschläge senden",
@@ -924,6 +938,9 @@ export function buildAccountDeletionPreparationMessage(input: {
       cancel:
         "Wenn Sie Ihre Meinung ändern, melden Sie sich an und brechen Sie die Schliessung vor Ablauf der Nachfrist ab.",
       cancelAction: "Schliessung prüfen oder abbrechen",
+      signInAction: "Anmelden",
+      recoveryPrompt: "Sie können nicht auf Ihr Konto zugreifen?",
+      recoveryAction: "Konto wiederherstellen",
       feedback:
         "Wenn Sie möchten, teilen Sie uns mit, was wir verbessern können. Die Umfrage ist freiwillig und hat keinen Einfluss auf die Kontoschliessung.",
       feedbackAction: "Verbesserungsvorschläge senden",
@@ -952,11 +969,13 @@ export function buildAccountDeletionPreparationMessage(input: {
     .map((change) => `<li style="margin:0 0 8px">${escapeHtml(change)}</li>`)
     .join("");
   const safeAccountUrl = escapeHtml(input.accountUrl);
+  const safeLoginUrl = escapeHtml(input.loginUrl);
+  const safeRecoveryUrl = escapeHtml(input.recoveryUrl);
   const safeFeedbackUrl = escapeHtml(input.feedbackUrl);
   return {
     subject: message.subject,
-    text: `${input.name}\n\n${message.title}\n\n${message.intro}\n\n${message.securityHeading}\n${changesText ? `${changesText}\n` : ""}${message.kept}\n\n${message.cancel}\n${input.accountUrl}\n\n${message.feedback}\n${input.feedbackUrl}\n\n${message.closing}`,
-    html: `<!doctype html><html lang="${escapeHtml(input.locale)}"><body style="margin:0;padding:0;background:#f4f5f6;color:#0f1720;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f5f6;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;border-collapse:separate;mso-table-lspace:0pt;mso-table-rspace:0pt"><tr><td style="padding:32px"><p style="margin:0 0 18px;font-size:16px;line-height:1.6">${escapeHtml(input.name)}</p><h1 style="margin:0 0 18px;font-size:26px;line-height:1.25">${escapeHtml(message.title)}</h1><p style="margin:0 0 24px;font-size:16px;line-height:1.6">${escapeHtml(message.intro)}</p><h2 style="margin:0 0 12px;font-size:18px;line-height:1.4">${escapeHtml(message.securityHeading)}</h2>${changesHtml ? `<ul style="margin:0 0 16px;padding-left:22px;line-height:1.5">${changesHtml}</ul>` : ""}<p style="margin:0 0 24px;font-size:16px;line-height:1.6">${escapeHtml(message.kept)}</p><p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:#475569">${escapeHtml(message.cancel)}</p><table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate"><tr><td bgcolor="#f07a3a" style="border-radius:10px"><a href="${safeAccountUrl}" style="display:inline-block;padding:13px 20px;color:#ffffff;text-decoration:none;font-weight:700">${escapeHtml(message.cancelAction)}</a></td></tr></table><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:28px;border-top:1px solid #e5e7eb"><tr><td style="padding-top:24px"><p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#475569">${escapeHtml(message.feedback)}</p><table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate"><tr><td style="border:1px solid #334155;border-radius:10px"><a href="${safeFeedbackUrl}" style="display:inline-block;padding:12px 18px;color:#334155;text-decoration:none;font-weight:700">${escapeHtml(message.feedbackAction)}</a></td></tr></table><p style="margin:24px 0 0;font-size:16px;line-height:1.6">${escapeHtml(message.closing)}</p></td></tr></table></td></tr></table></td></tr></table></body></html>`,
+    text: `${input.name}\n\n${message.title}\n\n${message.intro}\n\n${message.securityHeading}\n${changesText ? `${changesText}\n` : ""}${message.kept}\n\n${message.cancel}\n${input.accountUrl}\n\n${message.signInAction}: ${input.loginUrl}\n${message.recoveryPrompt} ${message.recoveryAction}: ${input.recoveryUrl}\n\n${message.feedback}\n${input.feedbackUrl}\n\n${message.closing}`,
+    html: `<!doctype html><html lang="${escapeHtml(input.locale)}"><body style="margin:0;padding:0;background:#f4f5f6;color:#0f1720;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f5f6;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;border-collapse:separate;mso-table-lspace:0pt;mso-table-rspace:0pt"><tr><td style="padding:32px"><p style="margin:0 0 18px;font-size:16px;line-height:1.6">${escapeHtml(input.name)}</p><h1 style="margin:0 0 18px;font-size:26px;line-height:1.25">${escapeHtml(message.title)}</h1><p style="margin:0 0 24px;font-size:16px;line-height:1.6">${escapeHtml(message.intro)}</p><h2 style="margin:0 0 12px;font-size:18px;line-height:1.4">${escapeHtml(message.securityHeading)}</h2>${changesHtml ? `<ul style="margin:0 0 16px;padding-left:22px;line-height:1.5">${changesHtml}</ul>` : ""}<p style="margin:0 0 24px;font-size:16px;line-height:1.6">${escapeHtml(message.kept)}</p><p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:#475569">${escapeHtml(message.cancel)}</p><table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate"><tr><td bgcolor="#f07a3a" style="border-radius:10px"><a href="${safeAccountUrl}" style="display:inline-block;padding:13px 20px;color:#ffffff;text-decoration:none;font-weight:700">${escapeHtml(message.cancelAction)}</a></td></tr></table><p style="margin:18px 0 8px;font-size:15px;line-height:1.6"><a href="${safeLoginUrl}" style="color:#334155;font-weight:700">${escapeHtml(message.signInAction)}</a></p><p style="margin:0;font-size:15px;line-height:1.6;color:#475569">${escapeHtml(message.recoveryPrompt)} <a href="${safeRecoveryUrl}" style="color:#334155;font-weight:700">${escapeHtml(message.recoveryAction)}</a></p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:28px;border-top:1px solid #e5e7eb"><tr><td style="padding-top:24px"><p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#475569">${escapeHtml(message.feedback)}</p><table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate"><tr><td style="border:1px solid #334155;border-radius:10px"><a href="${safeFeedbackUrl}" style="display:inline-block;padding:12px 18px;color:#334155;text-decoration:none;font-weight:700">${escapeHtml(message.feedbackAction)}</a></td></tr></table><p style="margin:24px 0 0;font-size:16px;line-height:1.6">${escapeHtml(message.closing)}</p></td></tr></table></td></tr></table></td></tr></table></body></html>`,
   };
 }
 
@@ -969,6 +988,8 @@ export async function queueAccountDeletionPreparationEmail(input: {
   revokedOtherSessions: boolean;
   removedTemporaryChallenges: boolean;
   accountUrl: string;
+  loginUrl: string;
+  recoveryUrl: string;
   feedbackUrl: string;
 }): Promise<string> {
   const message = buildAccountDeletionPreparationMessage(input);
