@@ -665,6 +665,8 @@ export async function scheduleAccountDeletion(
             locale: normalizedLocale(user.locale),
             graceEndsAt: now + DELETION_GRACE_PERIOD_MS,
             accountUrl: clientUrl("/account/lifecycle"),
+            loginUrl: clientUrl("/login"),
+            recoveryUrl: clientUrl("/recover-account"),
             feedbackUrl: clientUrl("/feedback", {
               context: "account-closure",
             }),

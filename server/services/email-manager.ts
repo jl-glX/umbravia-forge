@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { sql } from "kysely";
 import { db } from "../db/client.js";
 import {
@@ -22,6 +23,9 @@ import {
 } from "./manager-coordinator.js";
 
 type ReadinessState = "configured" | "disabled" | "missing" | "invalid";
+
+export const EMAIL_HISTORY_SANITIZATION_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000;
+const EMAIL_HISTORY_SANITIZATION_EVENT = "email_delivery_history_sanitized";
 
 interface EmailManagerReadiness {
   healthy: boolean;
@@ -310,4 +314,75 @@ export async function runEmailManagerMaintenance() {
       return { completedAt: Date.now(), ...result };
     },
   );
+}
+
+export async function getEmailHistorySanitizationDelayMs(
+  now = Date.now(),
+): Promise<number> {
+  const lastRun = await db
+    .selectFrom("securityEvents")
+    .select("createdAt")
+    .where("type", "=", EMAIL_HISTORY_SANITIZATION_EVENT)
+    .orderBy("createdAt", "desc")
+    .executeTakeFirst();
+  if (!lastRun) return 0;
+  return Math.max(
+    0,
+    lastRun.createdAt + EMAIL_HISTORY_SANITIZATION_INTERVAL_MS - now,
+  );
+}
+
+export async function sanitizeManagedEmailHistory(now = Date.now()): Promise<{
+  count: number;
+  summary: string;
+}> {
+  const command = transferManagerConnectionPayload(
+    "resource",
+    "email",
+    "scheduled-maintenance",
+    { operation: "sanitize-terminal-email-history" as const },
+  );
+  if (command.operation !== "sanitize-terminal-email-history") {
+    throw new Error("The coordinated email sanitization command is invalid");
+  }
+
+  const result = await db.transaction().execute(async (transaction) => {
+    const sanitized = await transaction
+      .updateTable("emailDeliveries")
+      .set({ recipient: "", payloadEncrypted: "" })
+      .where("status", "in", ["sent", "failed", "superseded"])
+      .where((expression) =>
+        expression.or([
+          expression("recipient", "!=", ""),
+          expression("payloadEncrypted", "!=", ""),
+        ]),
+      )
+      .executeTakeFirst();
+    const count = Number(sanitized.numUpdatedRows);
+    await transaction
+      .insertInto("securityEvents")
+      .values({
+        id: `email-history-sanitization-${randomUUID()}`,
+        userId: null,
+        type: EMAIL_HISTORY_SANITIZATION_EVENT,
+        createdAt: now,
+        metadata: JSON.stringify({
+          sanitizedRecords: count,
+          intervalDays: 30,
+        }),
+      })
+      .execute();
+    return count;
+  });
+
+  publishManagerSignal(
+    "email",
+    "info",
+    "EMAIL_HISTORY_SANITIZATION_CONFIRMED",
+    `${result} terminal email record(s) were stripped of recipient and encrypted content.`,
+  );
+  return {
+    count: result,
+    summary: `${result} terminal email record(s) sanitized; the next review is due in 30 days.`,
+  };
 }

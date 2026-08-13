@@ -119,6 +119,11 @@ describe("resource manager API", () => {
           id: "encryption-readiness-audit",
           enabled: true,
         }),
+        expect.objectContaining({
+          id: "email-history-sanitization",
+          enabled: true,
+          intervalMs: 30 * 24 * 60 * 60 * 1000,
+        }),
       ]),
     );
     expect(

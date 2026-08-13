@@ -9,6 +9,7 @@ describe("email delivery queue security", () => {
   let database: typeof import("../db/client.js");
   let auth: typeof import("./auth.js");
   let emailDelivery: typeof import("./email-delivery.js");
+  let emailManager: typeof import("./email-manager.js");
   let userId: string;
   let encryptionKey: string;
 
@@ -24,6 +25,7 @@ describe("email delivery queue security", () => {
     database = await import("../db/client.js");
     auth = await import("./auth.js");
     emailDelivery = await import("./email-delivery.js");
+    emailManager = await import("./email-manager.js");
     await database.initializeDatabase();
     const account = await auth.signup(
       "email-queue-security@example.com",
@@ -268,5 +270,65 @@ describe("email delivery queue security", () => {
       attempts: 1,
       lastError: "smtp_unavailable",
     });
+  });
+
+  it("sanitizes only terminal history and records the next 30-day review", async () => {
+    const now = Date.now();
+    await expect(
+      emailManager.getEmailHistorySanitizationDelayMs(now),
+    ).resolves.toBe(0);
+
+    const terminalId = await queueRecovery("901234", now + 60_000);
+    await database.db
+      .updateTable("emailDeliveries")
+      .set({ status: "sent" })
+      .where("id", "=", terminalId)
+      .execute();
+    const waitingId = await queueRecovery("905678", now + 60_000);
+    const waitingBefore = await database.db
+      .selectFrom("emailDeliveries")
+      .select(["recipient", "payloadEncrypted"])
+      .where("id", "=", waitingId)
+      .executeTakeFirstOrThrow();
+
+    await expect(
+      emailManager.sanitizeManagedEmailHistory(now),
+    ).resolves.toEqual({
+      count: 1,
+      summary:
+        "1 terminal email record(s) sanitized; the next review is due in 30 days.",
+    });
+    await expect(
+      database.db
+        .selectFrom("emailDeliveries")
+        .select(["status", "recipient", "payloadEncrypted"])
+        .where("id", "=", terminalId)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      status: "sent",
+      recipient: "",
+      payloadEncrypted: "",
+    });
+    await expect(
+      database.db
+        .selectFrom("emailDeliveries")
+        .select(["status", "recipient", "payloadEncrypted"])
+        .where("id", "=", waitingId)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ status: "queued", ...waitingBefore });
+    await expect(
+      database.db
+        .selectFrom("securityEvents")
+        .select(["type", "createdAt", "metadata"])
+        .where("type", "=", "email_delivery_history_sanitized")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      type: "email_delivery_history_sanitized",
+      createdAt: now,
+      metadata: JSON.stringify({ sanitizedRecords: 1, intervalDays: 30 }),
+    });
+    await expect(
+      emailManager.getEmailHistorySanitizationDelayMs(now),
+    ).resolves.toBe(emailManager.EMAIL_HISTORY_SANITIZATION_INTERVAL_MS);
   });
 });
