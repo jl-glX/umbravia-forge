@@ -33,7 +33,11 @@ The current implementation can demonstrate:
 - Cloudflare Turnstile challenges for signup, password login and passkey login,
   with every token validated by the server;
 - queued transactional verification email with encrypted pending payloads,
-  bounded retries and delivery tracing.
+  bounded retries and delivery tracing;
+- a five-attempt delivery ceiling: once exhausted (or after expiry), retries
+  stop and both recipient and message content are erased immediately. A
+  minimal terminal result remains for 30 days so failures are not reported as
+  successful deliveries and can still be audited.
 
 The demo deliberately does not:
 

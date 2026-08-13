@@ -59,11 +59,21 @@ describe("email delivery queue security", () => {
     const deliveryId = await queueRecovery(code, Date.now() + 60_000);
     const stored = await database.db
       .selectFrom("emailDeliveries")
-      .select(["recipient", "payloadEncrypted", "status", "attempts"])
+      .select([
+        "recipient",
+        "payloadEncrypted",
+        "status",
+        "attempts",
+        "maxAttempts",
+      ])
       .where("id", "=", deliveryId)
       .executeTakeFirstOrThrow();
 
-    expect(stored).toMatchObject({ status: "queued", attempts: 0 });
+    expect(stored).toMatchObject({
+      status: "queued",
+      attempts: 0,
+      maxAttempts: emailDelivery.MAX_EMAIL_DELIVERY_ATTEMPTS,
+    });
     expect(stored.payloadEncrypted).toMatch(/^v2\./);
     expect(stored.payloadEncrypted).not.toContain(code);
     expect(stored.payloadEncrypted).not.toContain("Synthetic Recipient");
@@ -101,12 +111,19 @@ describe("email delivery queue security", () => {
     await expect(
       database.db
         .selectFrom("emailDeliveries")
-        .select(["status", "attempts", "payloadEncrypted", "lastError"])
+        .select([
+          "status",
+          "attempts",
+          "recipient",
+          "payloadEncrypted",
+          "lastError",
+        ])
         .where("id", "=", deliveryId)
         .executeTakeFirstOrThrow(),
     ).resolves.toEqual({
       status: "failed",
       attempts: 1,
+      recipient: "",
       payloadEncrypted: "",
       lastError: "payload_authentication_failed",
     });
@@ -133,10 +150,14 @@ describe("email delivery queue security", () => {
     await expect(
       database.db
         .selectFrom("emailDeliveries")
-        .select(["status", "payloadEncrypted"])
+        .select(["status", "recipient", "payloadEncrypted"])
         .where("id", "=", first)
         .executeTakeFirstOrThrow(),
-    ).resolves.toEqual({ status: "superseded", payloadEncrypted: "" });
+    ).resolves.toEqual({
+      status: "superseded",
+      recipient: "",
+      payloadEncrypted: "",
+    });
     await expect(
       database.db
         .selectFrom("emailDeliveries")
@@ -183,11 +204,12 @@ describe("email delivery queue security", () => {
     await expect(
       database.db
         .selectFrom("emailDeliveries")
-        .select(["status", "payloadEncrypted", "lastError"])
+        .select(["status", "recipient", "payloadEncrypted", "lastError"])
         .where("id", "=", deliveryId)
         .executeTakeFirstOrThrow(),
     ).resolves.toEqual({
       status: "failed",
+      recipient: "",
       payloadEncrypted: "",
       lastError: "expired_before_delivery",
     });
@@ -207,12 +229,19 @@ describe("email delivery queue security", () => {
     await expect(
       database.db
         .selectFrom("emailDeliveries")
-        .select(["status", "attempts", "payloadEncrypted", "lastError"])
+        .select([
+          "status",
+          "attempts",
+          "recipient",
+          "payloadEncrypted",
+          "lastError",
+        ])
         .where("id", "=", deliveryId)
         .executeTakeFirstOrThrow(),
     ).resolves.toEqual({
       status: "failed",
       attempts: 5,
+      recipient: "",
       payloadEncrypted: "",
       lastError: "smtp_unavailable",
     });

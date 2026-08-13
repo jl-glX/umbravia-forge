@@ -1590,7 +1590,13 @@
     "sending": "Sending...",
     "sent": "Thank you. We received your feedback.",
     "error": "We could not send it. Please try again.",
-    "returnToLogin": "Back to sign in"
+    "returnToLogin": "Back to sign in",
+    "accountClosure": {
+      "title": "Help us understand why you are leaving",
+      "description": "This survey is optional and does not change or interrupt your scheduled account closure. Tell us what we could improve.",
+      "placeholder": "What led you to leave, and what could we do better?",
+      "returnToAccount": "Back to account status"
+    }
   },
   "errors": {
     "fetchClasses": "Failed to fetch classes",

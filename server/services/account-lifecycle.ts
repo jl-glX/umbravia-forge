@@ -128,16 +128,24 @@ function parseEventMetadata(value: string): InactivityReviewMetadata {
   }
 }
 
-function clientAccountLifecycleUrl(): string {
+function clientUrl(pathname: string, search?: Record<string, string>): string {
   const configured = process.env.CLIENT_ORIGIN?.split(",")[0]?.trim();
   if (configured) {
     const origin = new URL(configured);
-    return new URL("/account/lifecycle", origin).toString();
+    const url = new URL(pathname, origin);
+    for (const [key, value] of Object.entries(search ?? {})) {
+      url.searchParams.set(key, value);
+    }
+    return url.toString();
   }
   if (process.env.NODE_ENV === "production") {
-    throw new Error("CLIENT_ORIGIN is required for inactivity review email");
+    throw new Error("CLIENT_ORIGIN is required for account lifecycle email");
   }
-  return "http://127.0.0.1:3000/account/lifecycle";
+  const url = new URL(pathname, "http://127.0.0.1:3000");
+  for (const [key, value] of Object.entries(search ?? {})) {
+    url.searchParams.set(key, value);
+  }
+  return url.toString();
 }
 
 async function latestInactivityReviewEvents(userId: string) {
@@ -453,7 +461,7 @@ export async function evaluateUnconfiguredInactivityReviews(
             email: candidate.email,
             name: candidate.name,
             locale: normalizedLocale(candidate.locale),
-            actionUrl: clientAccountLifecycleUrl(),
+            actionUrl: clientUrl("/account/lifecycle"),
             reminder: true,
             reviewDeliveryId,
           });
@@ -487,7 +495,7 @@ export async function evaluateUnconfiguredInactivityReviews(
       email: candidate.email,
       name: candidate.name,
       locale: normalizedLocale(candidate.locale),
-      actionUrl: clientAccountLifecycleUrl(),
+      actionUrl: clientUrl("/account/lifecycle"),
     });
     await recordSecurityEvent(
       "account_inactivity_review_queued",
@@ -656,6 +664,10 @@ export async function scheduleAccountDeletion(
             name: user.name,
             locale: normalizedLocale(user.locale),
             graceEndsAt: now + DELETION_GRACE_PERIOD_MS,
+            accountUrl: clientUrl("/account/lifecycle"),
+            feedbackUrl: clientUrl("/feedback", {
+              context: "account-closure",
+            }),
             ...plannedCleanup,
           });
           let cleanup;
@@ -669,6 +681,7 @@ export async function scheduleAccountDeletion(
               .updateTable("emailDeliveries")
               .set({
                 status: "superseded",
+                recipient: "",
                 payloadEncrypted: "",
                 updatedAt: Date.now(),
               })

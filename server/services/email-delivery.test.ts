@@ -2,6 +2,7 @@ import { createServer } from "node:net";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  buildAccountDeletionPreparationMessage,
   buildEmailVerificationMessage,
   buildAccountRecoveryMessage,
   resetEmailTransportForTests,
@@ -210,5 +211,36 @@ describe("email delivery configuration", () => {
     expect(message.text).toContain("654321");
     expect(message.html).toContain("&lt;img");
     expect(message.html).not.toContain("<img");
+  });
+
+  it("preserves technical account-closure details while adding the optional survey", () => {
+    const message = buildAccountDeletionPreparationMessage({
+      name: "<script>alert(1)</script>",
+      locale: "es",
+      graceEndsAt: Date.UTC(2026, 8, 12, 10, 30),
+      revokedOtherSessions: true,
+      removedTemporaryChallenges: true,
+      accountUrl: "https://www.umbraviaforge.com/account/lifecycle",
+      feedbackUrl:
+        "https://www.umbraviaforge.com/feedback?context=account-closure&safe=true",
+    });
+
+    expect(message.subject).toContain("cierre");
+    expect(message.text).toContain("Lamentamos que te marches");
+    expect(message.text).toContain("12 de septiembre de 2026");
+    expect(message.text).toContain("Información técnica y de seguridad");
+    expect(message.text).toContain("demás sesiones activas");
+    expect(message.text).toContain("códigos y solicitudes temporales");
+    expect(message.text).toContain("verificación en dos pasos");
+    expect(message.text).toContain("passkeys");
+    expect(message.text).toContain("encuesta es opcional");
+    expect(message.text).toContain("/account/lifecycle");
+    expect(message.text).toContain("context=account-closure");
+    expect(message.html).toContain("&lt;script&gt;");
+    expect(message.html).not.toContain("<script>");
+    expect(message.html).toContain("safe=true");
+    expect(message.html).toContain("&amp;safe=true");
+    expect(message.html).toContain('width="600"');
+    expect(message.html).toContain("mso-table-lspace:0pt");
   });
 });
