@@ -1604,7 +1604,13 @@
     "sending": "Enviando...",
     "sent": "Gracias. Hemos recibido tu comentario.",
     "error": "No se ha podido enviar. Inténtalo de nuevo.",
-    "returnToLogin": "Volver al inicio de sesión"
+    "returnToLogin": "Volver al inicio de sesión",
+    "accountClosure": {
+      "title": "Ayúdanos a entender tu marcha",
+      "description": "Esta encuesta es opcional y no modifica ni interrumpe el cierre programado de tu cuenta. Cuéntanos qué podríamos mejorar.",
+      "placeholder": "¿Qué te ha llevado a marcharte y qué podríamos hacer mejor?",
+      "returnToAccount": "Volver al estado de la cuenta"
+    }
   },
   "errors": {
     "fetchClasses": "No se han podido cargar las clases",

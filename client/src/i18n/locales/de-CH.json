@@ -1692,7 +1692,13 @@
     "description": "Sagen Sie uns, was funktioniert, was schwierig zu verwenden ist oder was wir verbessern könnten. Ihre Nachricht ist mit Ihrem Konto verknüpft, sodass sie untersucht werden kann.",
     "placeholder": "Beschreiben Sie Ihre Erfahrung so detailliert wie möglich ...",
     "error": "Wir konnten es nicht versenden. Bitte versuchen Sie es erneut.",
-    "returnToLogin": "Zurück zur Anmeldung"
+    "returnToLogin": "Zurück zur Anmeldung",
+    "accountClosure": {
+      "title": "Helfen Sie uns zu verstehen, warum Sie gehen",
+      "description": "Diese Umfrage ist freiwillig und ändert oder unterbricht die geplante Kontoschliessung nicht. Teilen Sie uns mit, was wir verbessern können.",
+      "placeholder": "Warum möchten Sie gehen und was könnten wir besser machen?",
+      "returnToAccount": "Zurück zum Kontostatus"
+    }
   },
   "errors": {
     "fetchAttendees": "Teilnehmer konnten nicht abgerufen werden",

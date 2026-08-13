@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, MessageSquareHeart, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { authFetch } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
@@ -13,6 +13,9 @@ const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export function FeedbackPage() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const isAccountClosureSurvey =
+    searchParams.get("context") === "account-closure";
   const [category, setCategory] = useState("suggestion");
   const [message, setMessage] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
@@ -50,9 +53,19 @@ export function FeedbackPage() {
             <MessageSquareHeart size={28} />
           </span>
           <h1 className="mt-5 text-3xl font-bold tracking-tight text-slate-950">
-            {t("feedback.title")}
+            {t(
+              isAccountClosureSurvey
+                ? "feedback.accountClosure.title"
+                : "feedback.title",
+            )}
           </h1>
-          <p className="mt-2 text-slate-600">{t("feedback.description")}</p>
+          <p className="mt-2 text-slate-600">
+            {t(
+              isAccountClosureSurvey
+                ? "feedback.accountClosure.description"
+                : "feedback.description",
+            )}
+          </p>
           {!captchaToken && (
             <div className="mt-8 rounded-2xl border border-blue-200 bg-blue-50 p-5">
               <p className="mb-4 text-sm font-medium text-blue-950">
@@ -99,7 +112,11 @@ export function FeedbackPage() {
                   value={message}
                   onChange={(event) => setMessage(event.target.value)}
                   className="w-full resize-y rounded-xl border border-slate-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder={t("feedback.placeholder")}
+                  placeholder={t(
+                    isAccountClosureSurvey
+                      ? "feedback.accountClosure.placeholder"
+                      : "feedback.placeholder",
+                  )}
                 />
                 <p className="text-right text-xs text-slate-500">
                   {message.length}/2000
@@ -134,9 +151,15 @@ export function FeedbackPage() {
           )}
           <div className="mt-6 border-t border-slate-200 pt-6">
             <Button asChild variant="outline" className="w-full sm:w-auto">
-              <Link to="/login">
+              <Link
+                to={isAccountClosureSurvey ? "/account/lifecycle" : "/login"}
+              >
                 <ArrowLeft />
-                {t("feedback.returnToLogin")}
+                {t(
+                  isAccountClosureSurvey
+                    ? "feedback.accountClosure.returnToAccount"
+                    : "feedback.returnToLogin",
+                )}
               </Link>
             </Button>
           </div>
