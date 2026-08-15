@@ -24,6 +24,7 @@ export const migrationTableGroups = {
     "users",
     "administratorSignupProvisioning",
     "facilityMemberships",
+    "corporateRoleAssignments",
     "accountSupportIdentifiers",
     "accountDeletionPreferences",
     "accountDeletionRequests",
@@ -60,6 +61,7 @@ export const migrationTableGroups = {
     "passkeyCredentials",
     "webauthnChallenges",
     "securityEvents",
+    "managerTerminalAccess",
   ],
   support: [
     "supportTickets",

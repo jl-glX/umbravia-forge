@@ -1566,6 +1566,58 @@ LEFT JOIN "bookingLifecycles" AS lifecycles
 ON CONFLICT ("deduplicationKey") DO NOTHING;
 `,
   },
+  {
+    version: 26,
+    name: "corporate-manager-console-roles",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "corporateRoleAssignments" (
+  "id" TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "profileId" TEXT NOT NULL CHECK ("profileId" IN (
+    'manager-core',
+    'manager-coordinator',
+    'manager-flow-administrator',
+    'manager-account',
+    'manager-security',
+    'manager-resource',
+    'manager-encryption',
+    'manager-environment',
+    'manager-email',
+    'manager-notification',
+    'manager-support'
+  )),
+  "assignedByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "status" TEXT NOT NULL DEFAULT 'active' CHECK ("status" IN ('active', 'revoked')),
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  "revokedAt" BIGINT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_corporateRoleAssignments_active"
+  ON "corporateRoleAssignments" ("userId", "profileId")
+  WHERE "status" = 'active';
+CREATE INDEX IF NOT EXISTS "idx_corporateRoleAssignments_user"
+  ON "corporateRoleAssignments" ("userId", "status");
+
+CREATE TABLE IF NOT EXISTS "managerTerminalAccess" (
+  "id" TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "accessMode" TEXT NOT NULL CHECK ("accessMode" IN ('internal', 'external')),
+  "credentialHash" TEXT NOT NULL UNIQUE,
+  "terminalSessionHash" TEXT UNIQUE,
+  "createdAt" BIGINT NOT NULL,
+  "expiresAt" BIGINT,
+  "lastActivityAt" BIGINT NOT NULL,
+  "lastHeartbeatAt" BIGINT NOT NULL,
+  "consumedAt" BIGINT,
+  "terminalSessionExpiresAt" BIGINT,
+  "revokedAt" BIGINT
+);
+CREATE INDEX IF NOT EXISTS "idx_managerTerminalAccess_user"
+  ON "managerTerminalAccess" ("userId", "expiresAt");
+CREATE INDEX IF NOT EXISTS "idx_managerTerminalAccess_session"
+  ON "managerTerminalAccess" ("terminalSessionHash", "terminalSessionExpiresAt");
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

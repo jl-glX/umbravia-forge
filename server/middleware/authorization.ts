@@ -8,6 +8,7 @@ import {
   FacilityAccessDeniedError,
   resolveFacilityContext,
 } from "../services/facility-context.js";
+import type { CorporateConsoleAccess } from "../services/manager-console.js";
 
 export type UserRole = "member" | "trainer" | "admin";
 
@@ -26,6 +27,7 @@ export interface AuthenticatedUser {
     role: FacilityRole;
   } | null;
   platformOperator?: boolean;
+  corporateConsole: CorporateConsoleAccess;
 }
 
 function unauthorized(res: Response, message = "Authentication required") {

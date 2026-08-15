@@ -767,6 +767,45 @@ interface FacilityMembership {
   updatedAt: number;
 }
 
+export type CorporateManagerProfileId =
+  | "manager-core"
+  | "manager-coordinator"
+  | "manager-flow-administrator"
+  | "manager-account"
+  | "manager-security"
+  | "manager-resource"
+  | "manager-encryption"
+  | "manager-environment"
+  | "manager-email"
+  | "manager-notification"
+  | "manager-support";
+
+interface CorporateRoleAssignment {
+  id: string;
+  userId: string;
+  profileId: CorporateManagerProfileId;
+  assignedByUserId: string;
+  status: "active" | "revoked";
+  createdAt: number;
+  updatedAt: number;
+  revokedAt: number | null;
+}
+
+interface ManagerTerminalAccess {
+  id: string;
+  userId: string;
+  accessMode: "internal" | "external";
+  credentialHash: string;
+  terminalSessionHash: string | null;
+  createdAt: number;
+  expiresAt: number | null;
+  lastActivityAt: number;
+  lastHeartbeatAt: number;
+  consumedAt: number | null;
+  terminalSessionExpiresAt: number | null;
+  revokedAt: number | null;
+}
+
 export type CommercialFacilityType =
   | "traditional_gym"
   | "crossfit"
@@ -938,6 +977,8 @@ export interface Database {
   moderationAppeals: ModerationAppeal;
   facilityProfiles: FacilityProfile;
   facilityMemberships: FacilityMembership;
+  corporateRoleAssignments: CorporateRoleAssignment;
+  managerTerminalAccess: ManagerTerminalAccess;
   commercialTrials: CommercialTrial;
   commercialTrialEvents: CommercialTrialEvent;
   administratorSignupProvisioning: AdministratorSignupProvisioning;

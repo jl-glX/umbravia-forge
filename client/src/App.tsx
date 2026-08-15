@@ -164,12 +164,17 @@ const SupportPage = lazyPage(
   () => import("./pages/SupportPage"),
   "SupportPage",
 );
+const ManagerConsolePage = lazyPage(
+  () => import("./pages/ManagerConsolePage"),
+  "ManagerConsolePage",
+);
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: UserRole | UserRole[];
   allowPending?: boolean;
   platformOperatorOnly?: boolean;
+  corporateConsoleOnly?: boolean;
 }
 
 function ProtectedRoute({
@@ -177,6 +182,7 @@ function ProtectedRoute({
   requiredRole,
   allowPending = false,
   platformOperatorOnly = false,
+  corporateConsoleOnly = false,
 }: ProtectedRouteProps) {
   const { t } = useTranslation();
   const { user, isInitializing } = useAuth();
@@ -207,6 +213,10 @@ function ProtectedRoute({
   }
 
   if (platformOperatorOnly && user.platformOperator !== true) {
+    return <UnauthorizedPage />;
+  }
+
+  if (corporateConsoleOnly && user.corporateConsole?.enabled !== true) {
     return <UnauthorizedPage />;
   }
 
@@ -387,6 +397,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <DownloadsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/manager-console"
+            element={
+              <ProtectedRoute corporateConsoleOnly>
+                <ManagerConsolePage />
               </ProtectedRoute>
             }
           />

@@ -17,6 +17,12 @@ export interface AuthUser {
     role: FacilityRole;
   } | null;
   platformOperator?: boolean;
+  corporateConsole?: {
+    enabled: boolean;
+    authorityProfileId: string | null;
+    profileIds: string[];
+    priority: number | null;
+  };
 }
 
 export function getAccessRole(user: AuthUser | null): UserRole | null {

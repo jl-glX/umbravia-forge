@@ -1787,6 +1787,72 @@ async function initializeSqliteSchema(
     );
   `);
 
+  sqliteDb.exec(`
+    CREATE TABLE IF NOT EXISTS corporateRoleAssignments (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      profileId TEXT NOT NULL CHECK(profileId IN (
+        'manager-core',
+        'manager-coordinator',
+        'manager-flow-administrator',
+        'manager-account',
+        'manager-security',
+        'manager-resource',
+        'manager-encryption',
+        'manager-environment',
+        'manager-email',
+        'manager-notification',
+        'manager-support'
+      )),
+      assignedByUserId TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      revokedAt INTEGER,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(assignedByUserId) REFERENCES users(id) ON DELETE RESTRICT
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_corporateRoleAssignments_active
+      ON corporateRoleAssignments(userId, profileId)
+      WHERE status = 'active';
+    CREATE INDEX IF NOT EXISTS idx_corporateRoleAssignments_user
+      ON corporateRoleAssignments(userId, status);
+
+    CREATE TABLE IF NOT EXISTS managerTerminalAccess (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      accessMode TEXT NOT NULL CHECK(accessMode IN ('internal', 'external')),
+      credentialHash TEXT NOT NULL UNIQUE,
+      terminalSessionHash TEXT UNIQUE,
+      createdAt INTEGER NOT NULL,
+      expiresAt INTEGER,
+      lastActivityAt INTEGER NOT NULL,
+      lastHeartbeatAt INTEGER NOT NULL,
+      consumedAt INTEGER,
+      terminalSessionExpiresAt INTEGER,
+      revokedAt INTEGER,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_managerTerminalAccess_user
+      ON managerTerminalAccess(userId, expiresAt);
+    CREATE INDEX IF NOT EXISTS idx_managerTerminalAccess_session
+      ON managerTerminalAccess(terminalSessionHash, terminalSessionExpiresAt);
+  `);
+
+  const managerTerminalColumns = sqliteDb
+    .prepare("PRAGMA table_info(managerTerminalAccess)")
+    .all() as Array<{ name: string }>;
+  if (
+    !managerTerminalColumns.some((column) => column.name === "lastHeartbeatAt")
+  ) {
+    sqliteDb.exec(
+      "ALTER TABLE managerTerminalAccess ADD COLUMN lastHeartbeatAt INTEGER NOT NULL DEFAULT 0",
+    );
+    sqliteDb.exec(
+      "UPDATE managerTerminalAccess SET lastHeartbeatAt = lastActivityAt WHERE lastHeartbeatAt = 0",
+    );
+  }
+
   if (!tableNames.includes("commercialRequests")) {
     sqliteDb.exec(`
       CREATE TABLE commercialRequests (
