@@ -183,6 +183,7 @@
     "credentialsRequired": "Kennung und Passwort sind erforderlich",
     "verificationRequired": "Die Verifizierung ist erforderlich",
     "invalidCredentials": "E-Mail-Adresse, Telefonnummer oder Passwort ist falsch",
+    "scheduledDeletionLoginNotice": "Wenn für dieses Konto eine Löschung geplant ist, wird sie durch eine erfolgreiche Anmeldung abgebrochen. Die Eingabe der E-Mail-Adresse oder ein falsches Passwort ändert das Konto nicht.",
     "rememberDevice": "Dieses Gerät 30 Tage speichern",
     "rememberDeviceHelp": "Nur auf einem persönlichen Gerät verwenden. Du kannst die Sitzung unter Sicherheit widerrufen.",
     "signInWithPasskey": "Mit Fingerabdruck oder Passkey anmelden",
@@ -1657,6 +1658,7 @@
       "verificationRequired": "Schliessen Sie die Überprüfung ab, bevor Sie fortfahren.",
       "requestFailed": "Die Wiederherstellung konnte nicht vorbereitet werden. Führen Sie die Überprüfung erneut durch und versuchen Sie es später noch einmal.",
       "passwordMismatch": "Die Passwörter stimmen nicht überein.",
+      "passwordReused": "Das neue Passwort muss sich vom aktuellen Passwort unterscheiden.",
       "resetFailed": "Der Code ist ungültig oder abgelaufen, oder das Passwort erfüllt die Anforderungen nicht."
     },
     "available": "Verfügbar",

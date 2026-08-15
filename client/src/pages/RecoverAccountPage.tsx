@@ -144,7 +144,16 @@ export function RecoverAccountPage() {
           }),
         },
       );
-      if (!response.ok) throw new Error("reset_failed");
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          code?: string;
+        } | null;
+        if (payload?.code === "ACCOUNT_RECOVERY_PASSWORD_REUSED") {
+          setError(t("recovery.errors.passwordReused"));
+          return;
+        }
+        throw new Error("reset_failed");
+      }
       setCode("");
       setNewPassword("");
       setConfirmPassword("");

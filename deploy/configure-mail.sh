@@ -213,6 +213,8 @@ configure_postfix() {
   postconf -e "mydomain = $DOMAIN"
   postconf -e 'myorigin = $mydomain'
   postconf -e 'inet_interfaces = loopback-only'
+  postconf -e 'inet_protocols = ipv4'
+  postconf -e 'smtp_address_preference = ipv4'
   postconf -e 'mynetworks = 127.0.0.0/8 [::1]/128'
   postconf -e 'smtpd_relay_restrictions = permit_mynetworks,reject_unauth_destination'
   postconf -e 'smtpd_recipient_restrictions = permit_mynetworks,reject_unauth_destination'
@@ -264,6 +266,10 @@ check_infrastructure() {
     fail "Postfix no esta limitado a loopback-only"
   [ "$(postconf -h myhostname)" = "$MAIL_HOST" ] ||
     fail "myhostname no coincide con $MAIL_HOST"
+  [ "$(postconf -h inet_protocols)" = "ipv4" ] ||
+    fail "Postfix debe usar IPv4 mientras IPv6 no tenga identidad SMTP completa"
+  [ "$(postconf -h smtp_address_preference)" = "ipv4" ] ||
+    fail "Postfix no prioriza IPv4 para la entrega saliente"
   postconf -h smtpd_milters | grep -F '127.0.0.1:8891' >/dev/null ||
     fail "Postfix no esta conectado al firmador DKIM"
   [ "$(postconf -h maximal_queue_lifetime)" = "1d" ] ||

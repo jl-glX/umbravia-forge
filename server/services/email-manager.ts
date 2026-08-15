@@ -26,6 +26,7 @@ type ReadinessState = "configured" | "disabled" | "missing" | "invalid";
 
 export const EMAIL_HISTORY_SANITIZATION_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000;
 const EMAIL_HISTORY_SANITIZATION_EVENT = "email_delivery_history_sanitized";
+const EMAIL_HISTORY_SANITIZATION_VERSION = 2;
 
 interface EmailManagerReadiness {
   healthy: boolean;
@@ -321,11 +322,23 @@ export async function getEmailHistorySanitizationDelayMs(
 ): Promise<number> {
   const lastRun = await db
     .selectFrom("securityEvents")
-    .select("createdAt")
+    .select(["createdAt", "metadata"])
     .where("type", "=", EMAIL_HISTORY_SANITIZATION_EVENT)
     .orderBy("createdAt", "desc")
     .executeTakeFirst();
   if (!lastRun) return 0;
+
+  try {
+    const metadata = JSON.parse(lastRun.metadata) as {
+      sanitizationVersion?: number;
+    };
+    if (metadata.sanitizationVersion !== EMAIL_HISTORY_SANITIZATION_VERSION) {
+      return 0;
+    }
+  } catch {
+    return 0;
+  }
+
   return Math.max(
     0,
     lastRun.createdAt + EMAIL_HISTORY_SANITIZATION_INTERVAL_MS - now,
@@ -349,12 +362,25 @@ export async function sanitizeManagedEmailHistory(now = Date.now()): Promise<{
   const result = await db.transaction().execute(async (transaction) => {
     const sanitized = await transaction
       .updateTable("emailDeliveries")
-      .set({ recipient: "", payloadEncrypted: "" })
+      .set({
+        userId: null,
+        recipient: "",
+        locale: "",
+        payloadEncrypted: "",
+        nextAttemptAt: 0,
+        messageId: null,
+        expiresAt: 0,
+      })
       .where("status", "in", ["sent", "failed", "superseded"])
       .where((expression) =>
         expression.or([
+          expression("userId", "is not", null),
           expression("recipient", "!=", ""),
+          expression("locale", "!=", ""),
           expression("payloadEncrypted", "!=", ""),
+          expression("nextAttemptAt", "!=", 0),
+          expression("messageId", "is not", null),
+          expression("expiresAt", "!=", 0),
         ]),
       )
       .executeTakeFirst();
@@ -369,6 +395,7 @@ export async function sanitizeManagedEmailHistory(now = Date.now()): Promise<{
         metadata: JSON.stringify({
           sanitizedRecords: count,
           intervalDays: 30,
+          sanitizationVersion: EMAIL_HISTORY_SANITIZATION_VERSION,
         }),
       })
       .execute();
@@ -379,7 +406,7 @@ export async function sanitizeManagedEmailHistory(now = Date.now()): Promise<{
     "email",
     "info",
     "EMAIL_HISTORY_SANITIZATION_CONFIRMED",
-    `${result} terminal email record(s) were stripped of recipient and encrypted content.`,
+    `${result} terminal email record(s) were stripped of recipient, encrypted content and identifying delivery metadata.`,
   );
   return {
     count: result,

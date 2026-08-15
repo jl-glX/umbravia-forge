@@ -274,6 +274,7 @@ describe("email delivery queue security", () => {
 
   it("sanitizes only terminal history and records the next 30-day review", async () => {
     const now = Date.now();
+    await database.db.deleteFrom("emailDeliveries").execute();
     await expect(
       emailManager.getEmailHistorySanitizationDelayMs(now),
     ).resolves.toBe(0);
@@ -281,7 +282,11 @@ describe("email delivery queue security", () => {
     const terminalId = await queueRecovery("901234", now + 60_000);
     await database.db
       .updateTable("emailDeliveries")
-      .set({ status: "sent" })
+      .set({
+        status: "sent",
+        messageId: "smtp-message-id@example.com",
+        sentAt: now,
+      })
       .where("id", "=", terminalId)
       .execute();
     const waitingId = await queueRecovery("905678", now + 60_000);
@@ -301,13 +306,31 @@ describe("email delivery queue security", () => {
     await expect(
       database.db
         .selectFrom("emailDeliveries")
-        .select(["status", "recipient", "payloadEncrypted"])
+        .select([
+          "status",
+          "userId",
+          "recipient",
+          "locale",
+          "payloadEncrypted",
+          "nextAttemptAt",
+          "messageId",
+          "lastError",
+          "sentAt",
+          "expiresAt",
+        ])
         .where("id", "=", terminalId)
         .executeTakeFirstOrThrow(),
     ).resolves.toEqual({
       status: "sent",
+      userId: null,
       recipient: "",
+      locale: "",
       payloadEncrypted: "",
+      nextAttemptAt: 0,
+      messageId: null,
+      lastError: null,
+      sentAt: now,
+      expiresAt: 0,
     });
     await expect(
       database.db
@@ -325,7 +348,11 @@ describe("email delivery queue security", () => {
     ).resolves.toEqual({
       type: "email_delivery_history_sanitized",
       createdAt: now,
-      metadata: JSON.stringify({ sanitizedRecords: 1, intervalDays: 30 }),
+      metadata: JSON.stringify({
+        sanitizedRecords: 1,
+        intervalDays: 30,
+        sanitizationVersion: 2,
+      }),
     });
     await expect(
       emailManager.getEmailHistorySanitizationDelayMs(now),

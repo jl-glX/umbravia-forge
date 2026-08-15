@@ -59,6 +59,7 @@ import {
 import { requireCaptcha } from "../middleware/captcha.js";
 import { captchaIsConfigured } from "../services/captcha.js";
 import {
+  AccountRecoveryPasswordReusedError,
   getRecoveryCapabilities,
   getRecoveryLookupMethods,
   requestPasswordRecovery,
@@ -171,6 +172,13 @@ authRouter.post(
       clearPasskeyChallengeCookie(res);
       res.json({ recovered: true });
     } catch (error) {
+      if (error instanceof AccountRecoveryPasswordReusedError) {
+        res.status(409).json({
+          code: error.code,
+          error: error.message,
+        });
+        return;
+      }
       if (error instanceof ManagerCoordinationConflictError) {
         res.status(409).json({
           code: "ACCOUNT_RECOVERY_BUSY",

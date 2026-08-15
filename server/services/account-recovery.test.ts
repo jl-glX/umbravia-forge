@@ -158,6 +158,29 @@ describe("account recovery", () => {
     ).resolves.toBe(true);
   });
 
+  it("rejects the current password without consuming the recovery challenge", async () => {
+    const challenge = await recovery.createAccountRecoveryChallenge(userId);
+
+    await expect(
+      recovery.resetPasswordWithRecoveryCode({
+        method: "email",
+        identifier: email,
+        code: challenge.code,
+        newPassword: originalPassword,
+      }),
+    ).rejects.toBeInstanceOf(recovery.AccountRecoveryPasswordReusedError);
+    await expect(
+      database.db
+        .selectFrom("accountRecoveryChallenges")
+        .select("consumedAt")
+        .where("userId", "=", userId)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ consumedAt: null });
+    await expect(
+      auth.verifyUserPassword(userId, originalPassword),
+    ).resolves.toBe(true);
+  });
+
   it("keeps a single active challenge under concurrent requests", async () => {
     await Promise.all([
       recovery.createAccountRecoveryChallenge(userId),

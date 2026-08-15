@@ -5,7 +5,10 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import { db } from "../db/client.js";
-import { hashPasswordWithArgon2id } from "../lib/password-hashing.js";
+import {
+  hashPasswordWithArgon2id,
+  verifyPasswordHash,
+} from "../lib/password-hashing.js";
 import {
   isPasswordWithinHashLimit,
   isStrongPassword,
@@ -47,6 +50,15 @@ export const RECOVERY_COMPLETION_EVENTS = [
 ] as const;
 export type RecoveryCompletionEvent =
   (typeof RECOVERY_COMPLETION_EVENTS)[number];
+
+export class AccountRecoveryPasswordReusedError extends Error {
+  readonly code = "ACCOUNT_RECOVERY_PASSWORD_REUSED";
+
+  constructor() {
+    super("The new password must be different from the current password");
+    this.name = "AccountRecoveryPasswordReusedError";
+  }
+}
 
 export interface RecoveryCapability {
   id: RecoveryMethodId;
@@ -284,6 +296,21 @@ async function performPasswordResetWithRecoveryCode(input: {
       reason: "invalid_code",
     });
     return false;
+  }
+
+  const currentCredentials = await db
+    .selectFrom("users")
+    .select("password")
+    .where("id", "=", challenge.userId)
+    .executeTakeFirst();
+  if (
+    currentCredentials &&
+    (await verifyPasswordHash(input.newPassword, currentCredentials.password))
+  ) {
+    await recordSecurityEvent("account_recovery_failed", challenge.userId, {
+      reason: "password_reused",
+    });
+    throw new AccountRecoveryPasswordReusedError();
   }
 
   const passwordHash = await hashPasswordWithArgon2id(input.newPassword);

@@ -45,14 +45,19 @@ function normalizedHostname(value: string): string {
   return value.trim().toLowerCase().replace(/\.$/, "");
 }
 
-async function optionalLookup<T>(
+interface DnsLookupResult<T> {
+  value: T;
+  error: unknown | null;
+}
+
+async function inspectedLookup<T>(
   lookup: () => Promise<T>,
   fallback: T,
-): Promise<T> {
+): Promise<DnsLookupResult<T>> {
   try {
-    return await lookup();
-  } catch {
-    return fallback;
+    return { value: await lookup(), error: null };
+  } catch (error) {
+    return { value: fallback, error };
   }
 }
 
@@ -87,10 +92,19 @@ export async function assessMailDnsReadiness(
     ? normalizedHostname(input.expectedMailHost)
     : undefined;
   if (input.inboundEnabled) {
-    const mxRecords = await optionalLookup(
+    const mxLookup = await inspectedLookup(
       () => resolver.resolveMx(senderDomain),
       [],
     );
+    if (mxLookup.error) {
+      findings.push({
+        code: "MX_LOOKUP_FAILED",
+        level: "error",
+        message: `No se pudo consultar el MX de ${senderDomain}; no se declara ausente sin una respuesta DNS concluyente.`,
+      });
+      return findings;
+    }
+    const mxRecords = mxLookup.value;
     if (mxRecords.length === 0) {
       findings.push({
         code: "MX_MISSING",
@@ -164,16 +178,24 @@ export async function assessMailDnsReadiness(
     return findings;
   }
 
-  const [ipv4, ipv6] = await Promise.all([
-    optionalLookup(() => resolver.resolve4(expectedMailHost), []),
-    optionalLookup(() => resolver.resolve6(expectedMailHost), []),
+  const [ipv4Lookup, ipv6Lookup] = await Promise.all([
+    inspectedLookup(() => resolver.resolve4(expectedMailHost), []),
+    inspectedLookup(() => resolver.resolve6(expectedMailHost), []),
   ]);
+  const ipv4 = ipv4Lookup.value;
+  const ipv6 = ipv6Lookup.value;
   const addresses = [...ipv4, ...ipv6];
   if (addresses.length === 0) {
     findings.push({
-      code: "MAIL_HOST_ADDRESS_MISSING",
+      code:
+        ipv4Lookup.error || ipv6Lookup.error
+          ? "MAIL_HOST_LOOKUP_FAILED"
+          : "MAIL_HOST_ADDRESS_MISSING",
       level: "error",
-      message: `${expectedMailHost} no resuelve a ninguna direccion publica.`,
+      message:
+        ipv4Lookup.error || ipv6Lookup.error
+          ? `No se pudo completar la consulta de direcciones de ${expectedMailHost}.`
+          : `${expectedMailHost} no resuelve a ninguna direccion publica.`,
     });
   } else {
     findings.push({
@@ -183,16 +205,22 @@ export async function assessMailDnsReadiness(
     });
   }
 
-  const reverseNames = (
-    await Promise.all(
-      addresses.map((address) =>
-        optionalLookup(() => resolver.reverse(address), []),
-      ),
-    )
-  )
+  const reverseLookups = await Promise.all(
+    addresses.map((address) =>
+      inspectedLookup(() => resolver.reverse(address), []),
+    ),
+  );
+  const reverseNames = reverseLookups
+    .map((lookup) => lookup.value)
     .flat()
     .map(normalizedHostname);
-  if (!reverseNames.includes(expectedMailHost)) {
+  if (addresses.length > 0 && reverseLookups.every((lookup) => lookup.error)) {
+    findings.push({
+      code: "PTR_LOOKUP_FAILED",
+      level: authenticationLevel(Boolean(input.strictAuthentication)),
+      message: `No se pudo consultar el PTR/rDNS de ${expectedMailHost}.`,
+    });
+  } else if (!reverseNames.includes(expectedMailHost)) {
     findings.push({
       code: "PTR_MISMATCH",
       level: authenticationLevel(Boolean(input.strictAuthentication)),
@@ -206,41 +234,54 @@ export async function assessMailDnsReadiness(
     });
   }
 
-  const senderTxt = (
-    await optionalLookup(() => resolver.resolveTxt(senderDomain), [])
-  ).map((segments) => segments.join(""));
-  const dmarcTxt = (
-    await optionalLookup(
-      () => resolver.resolveTxt(`_dmarc.${senderDomain}`),
-      [],
-    )
-  ).map((segments) => segments.join(""));
+  const senderTxtLookup = await inspectedLookup(
+    () => resolver.resolveTxt(senderDomain),
+    [],
+  );
+  const dmarcTxtLookup = await inspectedLookup(
+    () => resolver.resolveTxt(`_dmarc.${senderDomain}`),
+    [],
+  );
+  const senderTxt = senderTxtLookup.value.map((segments) => segments.join(""));
+  const dmarcTxt = dmarcTxtLookup.value.map((segments) => segments.join(""));
   const authLevel = authenticationLevel(Boolean(input.strictAuthentication));
   findings.push(
-    senderTxt.some((record) => /^v=spf1\b/i.test(record))
+    senderTxtLookup.error
       ? {
-          code: "SPF_READY",
-          level: "pass",
-          message: `SPF publicado para ${senderDomain}.`,
-        }
-      : {
-          code: "SPF_MISSING",
+          code: "SPF_LOOKUP_FAILED",
           level: authLevel,
-          message: `Falta un registro SPF para ${senderDomain}.`,
-        },
+          message: `No se pudo consultar el SPF de ${senderDomain}.`,
+        }
+      : senderTxt.some((record) => /^v=spf1\b/i.test(record))
+        ? {
+            code: "SPF_READY",
+            level: "pass",
+            message: `SPF publicado para ${senderDomain}.`,
+          }
+        : {
+            code: "SPF_MISSING",
+            level: authLevel,
+            message: `Falta un registro SPF para ${senderDomain}.`,
+          },
   );
   findings.push(
-    dmarcTxt.some((record) => /^v=DMARC1\b/i.test(record))
+    dmarcTxtLookup.error
       ? {
-          code: "DMARC_READY",
-          level: "pass",
-          message: `DMARC publicado para ${senderDomain}.`,
-        }
-      : {
-          code: "DMARC_MISSING",
+          code: "DMARC_LOOKUP_FAILED",
           level: authLevel,
-          message: `Falta un registro DMARC para ${senderDomain}.`,
-        },
+          message: `No se pudo consultar DMARC para ${senderDomain}.`,
+        }
+      : dmarcTxt.some((record) => /^v=DMARC1\b/i.test(record))
+        ? {
+            code: "DMARC_READY",
+            level: "pass",
+            message: `DMARC publicado para ${senderDomain}.`,
+          }
+        : {
+            code: "DMARC_MISSING",
+            level: authLevel,
+            message: `Falta un registro DMARC para ${senderDomain}.`,
+          },
   );
 
   if (!input.dkimSelector?.trim()) {
@@ -252,22 +293,30 @@ export async function assessMailDnsReadiness(
     });
   } else {
     const selector = input.dkimSelector.trim().toLowerCase();
-    const dkimTxt = await optionalLookup(
+    const dkimTxtLookup = await inspectedLookup(
       () => resolver.resolveTxt(`${selector}._domainkey.${senderDomain}`),
       [],
     );
     findings.push(
-      dkimTxt.some((segments) => /\bv=DKIM1\b/i.test(segments.join("")))
+      dkimTxtLookup.error
         ? {
-            code: "DKIM_READY",
-            level: "pass",
-            message: `DKIM publicado con el selector ${selector}.`,
-          }
-        : {
-            code: "DKIM_MISSING",
+            code: "DKIM_LOOKUP_FAILED",
             level: authLevel,
-            message: `No se encontro DKIM para el selector ${selector}.`,
-          },
+            message: `No se pudo consultar DKIM con el selector ${selector}.`,
+          }
+        : dkimTxtLookup.value.some((segments) =>
+              /\bv=DKIM1\b/i.test(segments.join("")),
+            )
+          ? {
+              code: "DKIM_READY",
+              level: "pass",
+              message: `DKIM publicado con el selector ${selector}.`,
+            }
+          : {
+              code: "DKIM_MISSING",
+              level: authLevel,
+              message: `No se encontro DKIM para el selector ${selector}.`,
+            },
     );
   }
 

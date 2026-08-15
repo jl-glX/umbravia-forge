@@ -145,6 +145,32 @@ describe("account recovery API", () => {
     expect(unknown.body).toEqual(known.body);
   });
 
+  it("rejects the current password and keeps the verified challenge reusable", async () => {
+    const challenge = await recovery.createAccountRecoveryChallenge(userId);
+    await request(app)
+      .post("/api/auth/recovery/reset-password")
+      .send({
+        method: "email",
+        identifier: email,
+        code: challenge.code,
+        newPassword: "RecoveryRoutePassword123",
+      })
+      .expect(409, {
+        code: "ACCOUNT_RECOVERY_PASSWORD_REUSED",
+        error: "The new password must be different from the current password",
+      });
+
+    await request(app)
+      .post("/api/auth/recovery/reset-password")
+      .send({
+        method: "email",
+        identifier: email,
+        code: challenge.code,
+        newPassword: "RecoveryRouteChanged456",
+      })
+      .expect(200, { recovered: true });
+  });
+
   it("completes recovery through email, username and the current public ID", async () => {
     const cases = [
       { method: "email", identifier: email, password: "RecoveredEmail456" },

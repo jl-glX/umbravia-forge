@@ -341,6 +341,14 @@ export function LoginPage() {
                   disabled={isLoading}
                   className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 focus-visible:bg-white"
                 />
+                {identifier.trim() && (
+                  <p
+                    className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900"
+                    aria-live="polite"
+                  >
+                    {t("auth.scheduledDeletionLoginNotice")}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

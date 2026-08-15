@@ -566,6 +566,7 @@
     "credentialsRequired": "El identificador y la contraseña son obligatorios",
     "verificationRequired": "La verificación es obligatoria",
     "invalidCredentials": "El correo, teléfono o contraseña no son correctos",
+    "scheduledDeletionLoginNotice": "Si esta cuenta tiene un borrado programado, un inicio de sesión correcto lo cancelará. Escribir el correo o fallar la contraseña no modifica la cuenta.",
     "rememberDevice": "Recordar este dispositivo durante 30 días",
     "rememberDeviceHelp": "Úsalo solo en un dispositivo personal. Podrás revocar la sesión desde Seguridad.",
     "signInWithPasskey": "Entrar con huella o clave de acceso",
@@ -1686,6 +1687,7 @@
       "verificationRequired": "Completa la verificación antes de continuar.",
       "requestFailed": "No se ha podido preparar la recuperación. Completa de nuevo la verificación e inténtalo más tarde.",
       "passwordMismatch": "Las contraseñas no coinciden.",
+      "passwordReused": "La contraseña nueva debe ser distinta de la contraseña actual.",
       "resetFailed": "El código no es válido, ha caducado o la contraseña no cumple los requisitos."
     },
     "available": "Disponible",

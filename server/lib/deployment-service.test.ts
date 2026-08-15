@@ -332,6 +332,8 @@ describe("systemd deployment service", () => {
 
     expect(installer).toContain("ACTION=${1:-plan}");
     expect(installer).toContain("inet_interfaces = loopback-only");
+    expect(installer).toContain("inet_protocols = ipv4");
+    expect(installer).toContain("smtp_address_preference = ipv4");
     expect(installer).toContain("maximal_queue_lifetime = 1d");
     expect(installer).toContain("bounce_queue_lifetime = 1d");
     expect(installer).toContain("minimal_backoff_time = 5m");

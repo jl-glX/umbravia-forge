@@ -558,6 +558,7 @@
     "credentialsRequired": "Identifier and password are required",
     "verificationRequired": "Verification is required",
     "invalidCredentials": "The email, phone number or password is incorrect",
+    "scheduledDeletionLoginNotice": "If this account has a scheduled deletion, a successful sign-in will cancel it. Entering the email or failing the password does not change the account.",
     "rememberDevice": "Remember this device for 30 days",
     "rememberDeviceHelp": "Use only on a personal device. You can revoke the session from Security.",
     "signInWithPasskey": "Sign in with fingerprint or passkey",
@@ -1672,6 +1673,7 @@
       "verificationRequired": "Complete the verification before continuing.",
       "requestFailed": "Recovery could not be prepared. Complete verification again and try later.",
       "passwordMismatch": "The passwords do not match.",
+      "passwordReused": "The new password must be different from the current password.",
       "resetFailed": "The code is invalid or expired, or the password does not meet the requirements."
     },
     "available": "Available",

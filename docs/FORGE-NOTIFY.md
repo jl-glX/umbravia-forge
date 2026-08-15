@@ -141,6 +141,13 @@ mensajes que lleven un día en cola. Postfix controla esta segunda frontera por
 antigüedad, no por un contador exacto, evitando colas permanentes sin convertir
 una interrupción breve del destinatario en una pérdida inmediata.
 
+La configuración reproducible usa IPv4 para la entrega saliente mientras el
+IPv6 del servidor no publique y valide su propia identidad SMTP completa
+(AAAA, PTR/rDNS, autorización SPF y pruebas de recepción). Esta decisión no
+afecta al proxy web de Cloudflare ni a Email Routing. Evita que una entrega
+salga ocasionalmente por una dirección que no comparte la reputación y la
+autenticación verificadas de IPv4.
+
 Ejemplo de preparación del servidor, indicando la IP pública sin convertirla
 en una constante del repositorio:
 
@@ -199,6 +206,34 @@ coordinador. Deben vigilarse como mínimo:
 
 Los logs no deben contener códigos de verificación, contraseñas, cuerpos de
 mensajes ni destinatarios completos.
+
+Cada 30 días, el saneador conserva únicamente el resultado técnico mínimo de
+las entregas terminadas y elimina su vínculo con la cuenta, destinatario,
+idioma, carga cifrada, identificador SMTP, caducidad y próxima ejecución. Se
+mantienen el tipo, estado, contador de intentos, código de error normalizado y
+fechas necesarias para métricas agregadas y diagnóstico. Las entregas todavía
+pendientes o en reintento no se alteran. La versión 2 del saneador fuerza una
+ejecución única al desplegarse para retirar también los metadatos que la versión
+anterior conservaba; después vuelve al intervalo normal de 30 días.
+
+### Verificación con Outlook
+
+La aceptación SMTP (`status=sent`) solo acredita que Microsoft recibió el
+mensaje. Para verificar su clasificación hay que revisar el origen del mensaje
+recibido y confirmar:
+
+- `spf=pass`, `dkim=pass`, `dmarc=pass` y alineación del dominio;
+- que la IP y el saludo SMTP corresponden al host de correo esperado;
+- `BCL:0` para correo transaccional no masivo;
+- el valor `X-MS-Exchange-Organization-SCL`: 5 o 6 significa que Microsoft lo
+  clasificó como spam aunque la autenticación sea correcta.
+
+Cuando la autenticación pasa y el SCL continúa alto, no se deben rotar claves
+ni alterar DNS a ciegas. La causa restante es reputación o clasificación del
+destinatario. El operador debe solicitar acceso a Microsoft SNDS para la IP
+saliente, activar el programa de informes de correo no deseado y remitir a
+Microsoft una muestra legítima clasificada por error. Esta gestión es manual y
+no requiere guardar credenciales de Microsoft en el servidor ni en Git.
 
 ## Trabajo futuro delimitado
 

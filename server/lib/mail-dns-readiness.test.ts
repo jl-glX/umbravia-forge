@@ -58,6 +58,48 @@ describe("mail DNS readiness", () => {
     ]);
   });
 
+  it("distinguishes an MX lookup failure from an absent MX", async () => {
+    const findings = await assessMailDnsReadiness(
+      { emailFrom: "notify@example.com", inboundEnabled: true },
+      resolver({
+        resolveMx: async () => {
+          throw Object.assign(new Error("query timed out"), {
+            code: "ETIMEOUT",
+          });
+        },
+      }),
+    );
+
+    expect(findings).toEqual([
+      expect.objectContaining({ code: "MX_LOOKUP_FAILED", level: "error" }),
+    ]);
+    expect(findings).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "MX_MISSING" })]),
+    );
+  });
+
+  it("distinguishes an address lookup failure from absent address records", async () => {
+    const lookupFailure = async (): Promise<string[]> => {
+      throw Object.assign(new Error("query timed out"), { code: "ETIMEOUT" });
+    };
+    const findings = await assessMailDnsReadiness(
+      {
+        emailFrom: "notify@example.com",
+        expectedMailHost: "mail.example.com",
+      },
+      resolver({ resolve4: lookupFailure, resolve6: lookupFailure }),
+    );
+
+    expect(findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "MAIL_HOST_LOOKUP_FAILED",
+          level: "error",
+        }),
+      ]),
+    );
+  });
+
   it("rejects a Null MX instead of treating it as a mail host", async () => {
     const findings = await assessMailDnsReadiness(
       { emailFrom: "notify@example.com", inboundEnabled: true },
