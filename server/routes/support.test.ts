@@ -246,6 +246,19 @@ describe("Forge Support API", () => {
       .expect(200);
     expect(own.body.ticket.messages).toHaveLength(1);
     expect(own.body.ticket.context.route).toBe("/my-bookings");
+
+    const storedTicket = await database.db
+      .selectFrom("supportTickets")
+      .select("context")
+      .where("id", "=", ticketId)
+      .executeTakeFirstOrThrow();
+    const storedMessage = await database.db
+      .selectFrom("supportMessages")
+      .select("body")
+      .where("ticketId", "=", ticketId)
+      .executeTakeFirstOrThrow();
+    expect(storedTicket.context).toMatch(/^agc3\./);
+    expect(storedMessage.body).toMatch(/^agc3\./);
   });
 
   it("isolates tickets, agents and knowledge by facility", async () => {
@@ -411,7 +424,7 @@ describe("Forge Support API", () => {
     const storedBytes = await readFile(
       join(directory, "support-attachments", storedAttachment.storageKey),
     );
-    expect(storedBytes.toString("utf8")).toMatch(/^xcp1\./);
+    expect(storedBytes.toString("utf8")).toMatch(/^agc3\./);
     expect(storedBytes.toString("utf8")).not.toContain("support diagnostic");
 
     const integrityUpload = await request(app)
@@ -556,6 +569,74 @@ describe("Forge Support API", () => {
       .expect(400);
   });
 
+  it("keeps commercial application data outside the corporate support bridge", async () => {
+    const now = Date.now();
+    await database.db
+      .insertInto("supportTickets")
+      .values({
+        id: "commercial-application-ticket",
+        publicId: "UFS-COMMERCIAL",
+        applicationTenantId: "commercial",
+        facilityId: "primary",
+        requesterUserId: "support-member",
+        assigneeUserId: null,
+        subject: "Commercial application internal record",
+        category: "technical",
+        priority: "normal",
+        status: "open",
+        source: "system",
+        relatedType: null,
+        relatedId: null,
+        context: "{}",
+        firstResponseDueAt: now + 60_000,
+        resolutionDueAt: now + 120_000,
+        firstRespondedAt: null,
+        resolvedAt: null,
+        closedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("supportKnowledgeArticles")
+      .values({
+        id: "commercial-application-article",
+        applicationTenantId: "commercial",
+        facilityId: "primary",
+        slug: "commercial-internal-record",
+        title: "Commercial application internal record",
+        summary: "Must not cross the corporate support boundary.",
+        body: "Commercial-only content.",
+        category: "internal",
+        status: "published",
+        authorUserId: "support-admin",
+        createdAt: now,
+        updatedAt: now,
+        publishedAt: now,
+      })
+      .execute();
+
+    const tickets = await request(app)
+      .get("/api/support/tickets")
+      .set("Cookie", memberCookie)
+      .expect(200);
+    expect(
+      tickets.body.tickets.map((item: { publicId: string }) => item.publicId),
+    ).not.toContain("UFS-COMMERCIAL");
+    await request(app)
+      .get("/api/support/tickets/commercial-application-ticket")
+      .set("Cookie", memberCookie)
+      .expect(404);
+
+    const knowledge = await request(app)
+      .get("/api/support/search?q=Commercial")
+      .set("Cookie", memberCookie)
+      .expect(200);
+    expect(
+      knowledge.body.articles.map((item: { id: string }) => item.id),
+    ).not.toContain("commercial-application-article");
+  });
+
   it("creates and replies to a ticket through an authenticated email webhook", async () => {
     const configuration = resolveSupportEmailInboundConfiguration();
     expect(configuration).not.toBeNull();
@@ -657,15 +738,26 @@ describe("Forge Support API", () => {
       .where("ticketId", "=", ticket.id)
       .orderBy("createdAt", "asc")
       .execute();
-    expect(messages).toEqual([
-      expect.objectContaining({
-        body: "Necesito ayuda desde mi cuenta verificada.",
-        authorUserId: "support-member",
-      }),
-      expect.objectContaining({
-        body: "Añado un detalle.",
-        authorUserId: "support-member",
-      }),
+    expect(messages).toHaveLength(2);
+    expect(messages.every((message) => message.body.startsWith("agc3."))).toBe(
+      true,
+    );
+    expect(
+      messages.every((message) => message.authorUserId === "support-member"),
+    ).toBe(true);
+
+    const visibleTicket = await request(app)
+      .get(`/api/support/tickets/${ticket.id}`)
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "secondary")
+      .expect(200);
+    expect(
+      visibleTicket.body.ticket.messages.map(
+        (message: { body: string }) => message.body,
+      ),
+    ).toEqual([
+      "Necesito ayuda desde mi cuenta verificada.",
+      "Añado un detalle.",
     ]);
   });
 });

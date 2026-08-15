@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { CorporateManagerProfileId } from "../db/types.js";
 
 describe("corporate manager terminal security", () => {
   let directory: string;
@@ -25,10 +26,7 @@ describe("corporate manager terminal security", () => {
 
   async function createManager(
     suffix: string,
-    profileId:
-      | "manager-core"
-      | "manager-coordinator"
-      | "manager-encryption" = "manager-core",
+    profileId: CorporateManagerProfileId = "manager-core",
   ) {
     const userId = `manager-console-${suffix}`;
     const now = Date.now();
@@ -60,6 +58,21 @@ describe("corporate manager terminal security", () => {
       })
       .execute();
     return userId;
+  }
+
+  async function createExternalIdentity(userId: string) {
+    const issued = await managerConsole.issueManagerTerminalCredential({
+      userId,
+      accessMode: "external",
+    });
+    const connected = await managerConsole.exchangeManagerTerminalCredential(
+      issued.credential,
+      "external",
+    );
+    return await managerConsole.authenticateManagerTerminalSession(
+      connected.terminalSessionToken,
+      "external",
+    );
   }
 
   it("exposes the fixed hierarchy and nests the cryptographic replacement manager", () => {
@@ -96,27 +109,38 @@ describe("corporate manager terminal security", () => {
     });
   });
 
-  it("provides only the virtual Linux-like command set", async () => {
+  it("exposes an isolated Linux workspace without host or secret access", async () => {
     const userId = await createManager("safe-commands");
-    const overview = await managerConsole.getManagerConsoleOverview(userId);
+    const identity = await createExternalIdentity(userId);
+    const overview = await managerConsole.getManagerConsoleOverview(identity);
     expect(overview).toMatchObject({
-      shell: "umbravia-sh",
-      mode: "virtual-linux-command-set",
-      operatingSystemAccess: false,
+      shell: "bash",
+      mode: "isolated-linux-workspace",
+      operatingSystemAccess: "isolated-container-only",
+      execution: {
+        hostNetwork: false,
+        hostFilesystemMounted: false,
+        readOnlyRootFilesystem: true,
+      },
     });
     expect(overview.allowedCommands).toContain("exit");
     await expect(
       managerConsole.executeManagerConsoleCommand({
         actorUserId: userId,
+        terminalIdentity: identity,
         command: "cat /etc/passwd",
       }),
-    ).rejects.toThrow("real system paths");
+    ).rejects.toThrow("not enabled");
+  });
+
+  it("keeps internal credentials closed without store-app attestation", async () => {
+    const userId = await createManager("internal-gate");
     await expect(
-      managerConsole.executeManagerConsoleCommand({
-        actorUserId: userId,
-        command: "whoami | more",
+      managerConsole.issueManagerTerminalCredential({
+        userId,
+        accessMode: "internal",
       }),
-    ).rejects.toThrow("Pipes");
+    ).rejects.toThrow("attested corporate desktop app");
   });
 
   it("keeps an internal credential only while activity and trust remain valid", async () => {
@@ -124,6 +148,10 @@ describe("corporate manager terminal security", () => {
     const issued = await managerConsole.issueManagerTerminalCredential({
       userId,
       accessMode: "internal",
+      trustedInternalClient: {
+        distribution: "microsoft-store",
+        attestationVerified: true,
+      },
     });
     expect(issued).toMatchObject({
       accessMode: "internal",
@@ -175,6 +203,10 @@ describe("corporate manager terminal security", () => {
     const issued = await managerConsole.issueManagerTerminalCredential({
       userId,
       accessMode: "internal",
+      trustedInternalClient: {
+        distribution: "mac-app-store",
+        attestationVerified: true,
+      },
     });
     await database.db
       .updateTable("managerTerminalAccess")
@@ -239,11 +271,94 @@ describe("corporate manager terminal security", () => {
     ).rejects.toThrow("invalid or expired");
   });
 
+  it("limits an external credential to its explicitly selected manager branch", async () => {
+    const userId = await createManager("scoped-credential");
+    const issued = await managerConsole.issueManagerTerminalCredential({
+      userId,
+      accessMode: "external",
+      scopeProfileId: "manager-email",
+    });
+    const connected = await managerConsole.exchangeManagerTerminalCredential(
+      issued.credential,
+      "external",
+    );
+    const identity = await managerConsole.authenticateManagerTerminalSession(
+      connected.terminalSessionToken,
+      "external",
+    );
+    const overview = await managerConsole.getManagerConsoleOverview(identity);
+
+    expect(overview.access).toMatchObject({
+      authorityProfileId: "manager-email",
+      priority: 4,
+    });
+    expect(overview.profiles.map((profile) => profile.id)).toEqual([
+      "umbravia-forge",
+      "manager-email",
+    ]);
+  });
+
+  it("creates organizational workspaces and applies temporary access only by consent", async () => {
+    const actorUserId = await createManager("dynamic-actor");
+    const targetUserId = await createManager(
+      "dynamic-target",
+      "manager-support",
+    );
+    const actorIdentity = await createExternalIdentity(actorUserId);
+
+    await managerConsole.executeManagerConsoleCommand({
+      actorUserId,
+      terminalIdentity: actorIdentity,
+      command: "ufctl unit create workgroup mail-audit Mail audit",
+    });
+    await managerConsole.executeManagerConsoleCommand({
+      actorUserId,
+      terminalIdentity: actorIdentity,
+      command: `ufctl unit add mail-audit ${targetUserId} member`,
+    });
+    await managerConsole.executeManagerConsoleCommand({
+      actorUserId,
+      terminalIdentity: actorIdentity,
+      command: `ufctl permission grant manager-email ${targetUserId} 30 external unit:mail-audit`,
+    });
+
+    await expect(
+      database.db
+        .selectFrom("managerOrganizationalUnits")
+        .select(["slug", "kind"])
+        .where("slug", "=", "mail-audit")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ slug: "mail-audit", kind: "workgroup" });
+    await expect(
+      managerConsole.issueManagerTerminalCredential({
+        userId: targetUserId,
+        accessMode: "external",
+        scopeProfileId: "manager-email",
+        allowTemporaryPermissions: false,
+      }),
+    ).rejects.toThrow("exceeds the currently effective authority");
+    await expect(
+      managerConsole.issueManagerTerminalCredential({
+        userId: targetUserId,
+        accessMode: "external",
+        scopeProfileId: "manager-email",
+        allowTemporaryPermissions: true,
+      }),
+    ).resolves.toMatchObject({
+      scopeProfileId: "manager-email",
+      allowTemporaryPermissions: true,
+    });
+  });
+
   it("revokes access immediately after role or account trust is lost", async () => {
     const roleUserId = await createManager("role-loss", "manager-coordinator");
     const roleCredential = await managerConsole.issueManagerTerminalCredential({
       userId: roleUserId,
       accessMode: "internal",
+      trustedInternalClient: {
+        distribution: "microsoft-store",
+        attestationVerified: true,
+      },
     });
     await database.db
       .updateTable("corporateRoleAssignments")
@@ -262,6 +377,10 @@ describe("corporate manager terminal security", () => {
       await managerConsole.issueManagerTerminalCredential({
         userId: accountUserId,
         accessMode: "internal",
+        trustedInternalClient: {
+          distribution: "mac-app-store",
+          attestationVerified: true,
+        },
       });
     await database.db
       .updateTable("users")

@@ -184,7 +184,7 @@ if [ -f "$ENV_FILE" ]; then
   esac
 
   if node "$PROJECT_ROOT/deploy/check-private-content-key.mjs" "$ENV_FILE" >/dev/null 2>&1; then
-    pass "cifrado XChaCha20-Poly1305 de contenido privado activo y valido"
+    pass "cifrado AES-256-GCM de contenido privado activo y valido"
   else
     PRIVATE_CRYPTO_STATUS=$?
     if [ "$PRIVATE_CRYPTO_STATUS" -eq 2 ]; then
@@ -195,7 +195,7 @@ if [ -f "$ENV_FILE" ]; then
   fi
 
   if node "$PROJECT_ROOT/deploy/check-manager-connection-key.mjs" "$ENV_FILE" >/dev/null 2>&1; then
-    pass "cifrado XChaCha20-Poly1305 de interconexiones de gestores activo y valido"
+    pass "cifrado AES-256-GCM de interconexiones de gestores activo y valido"
   else
     fail "configuracion invalida del cifrado de interconexiones de gestores"
   fi

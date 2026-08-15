@@ -16,16 +16,25 @@ type AccessMode = "internal" | "external";
 
 interface AccessBootstrap {
   access: { authorityProfileId: string; priority: number };
+  scopeProfiles: Array<{ id: string; label: string; priority: number }>;
+  hasTemporaryPermissions: boolean;
   webConsoleAvailable: false;
   clientCommand: string;
   compatibility: string[];
   accessModes: {
     internal: {
+      availableFrom: string[];
+      webIssuance: false;
+      requiresCorporateRole: true;
+      requiresStoreAttestation: true;
       credentialDurationMs: null;
       idleTimeoutMs: number;
       singleUse: false;
     };
     external: {
+      availableFrom: string[];
+      webIssuance: true;
+      requiresCorporateRole: true;
       credentialDurationMs: number;
       terminalSessionDurationMs: number;
       singleUse: true;
@@ -39,6 +48,8 @@ interface IssuedCredential {
   expiresAt: number | null;
   idleTimeoutMs: number | null;
   singleUse: boolean;
+  scopeProfileId: string;
+  allowTemporaryPermissions: boolean;
 }
 
 export function ManagerConsolePage() {
@@ -46,6 +57,9 @@ export function ManagerConsolePage() {
   const [bootstrap, setBootstrap] = useState<AccessBootstrap | null>(null);
   const [issued, setIssued] = useState<IssuedCredential | null>(null);
   const [busy, setBusy] = useState<AccessMode | null>(null);
+  const [scopeProfileId, setScopeProfileId] = useState("");
+  const [allowTemporaryPermissions, setAllowTemporaryPermissions] =
+    useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
@@ -54,7 +68,9 @@ export function ManagerConsolePage() {
       try {
         const response = await authFetch("/api/admin/manager-console");
         if (!response.ok) throw new Error(t("managerConsole.loadError"));
-        setBootstrap((await response.json()) as AccessBootstrap);
+        const result = (await response.json()) as AccessBootstrap;
+        setBootstrap(result);
+        setScopeProfileId(result.access.authorityProfileId);
       } catch (loadError) {
         setError(
           loadError instanceof Error
@@ -76,7 +92,11 @@ export function ManagerConsolePage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accessMode }),
+          body: JSON.stringify({
+            accessMode,
+            scopeProfileId,
+            allowTemporaryPermissions,
+          }),
         },
       );
       const result = (await response.json()) as IssuedCredential & {
@@ -157,16 +177,18 @@ export function ManagerConsolePage() {
                     ),
                   })}
                 </p>
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => void issue("internal")}
-                  className="mt-6 w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {busy === "internal"
-                    ? t("managerConsole.issuing")
-                    : t("managerConsole.issueInternal")}
-                </button>
+                <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
+                  <p className="font-bold">
+                    {t("managerConsole.internalAppsOnly")}
+                  </p>
+                  <p className="mt-1">
+                    {t("managerConsole.internalApps", {
+                      apps: bootstrap.accessModes.internal.availableFrom.join(
+                        " · ",
+                      ),
+                    })}
+                  </p>
+                </div>
               </article>
 
               <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -195,6 +217,35 @@ export function ManagerConsolePage() {
                     ),
                   })}
                 </p>
+                <label className="mt-5 block text-sm font-semibold text-slate-700">
+                  {t("managerConsole.credentialScope")}
+                  <select
+                    value={scopeProfileId}
+                    onChange={(event) => setScopeProfileId(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-slate-950"
+                  >
+                    {bootstrap.scopeProfiles.map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.label} · P{profile.priority}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {bootstrap.hasTemporaryPermissions && (
+                  <label className="mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                    <input
+                      type="checkbox"
+                      checked={allowTemporaryPermissions}
+                      onChange={(event) =>
+                        setAllowTemporaryPermissions(event.target.checked)
+                      }
+                      className="mt-1"
+                    />
+                    <span>
+                      {t("managerConsole.includeTemporaryPermissions")}
+                    </span>
+                  </label>
+                )}
                 <button
                   type="button"
                   disabled={busy !== null}
@@ -217,9 +268,7 @@ export function ManagerConsolePage() {
                       {t("managerConsole.credentialReady")}
                     </h2>
                     <p className="text-sm text-slate-500">
-                      {issued.accessMode === "internal"
-                        ? t("managerConsole.internalCredentialNotice")
-                        : t("managerConsole.externalCredentialNotice")}
+                      {t("managerConsole.externalCredentialNotice")}
                     </p>
                   </div>
                 </div>
@@ -238,11 +287,7 @@ export function ManagerConsolePage() {
                 </div>
                 <div className="mt-4 flex items-start gap-2 text-sm leading-6 text-slate-600">
                   <Clock3 className="mt-0.5 shrink-0" size={18} />
-                  <p>
-                    {issued.accessMode === "internal"
-                      ? t("managerConsole.internalRevocationNotice")
-                      : t("managerConsole.externalExpiryNotice")}
-                  </p>
+                  <p>{t("managerConsole.externalExpiryNotice")}</p>
                 </div>
                 <div className="mt-5 rounded-2xl bg-slate-100 p-4">
                   <p className="text-sm font-semibold text-slate-700">
@@ -252,6 +297,14 @@ export function ManagerConsolePage() {
                     {bootstrap.clientCommand} -- --url {window.location.origin}{" "}
                     --channel {issued.accessMode}
                   </code>
+                  <p className="mt-2 text-xs text-slate-600">
+                    {t("managerConsole.issuedScope", {
+                      scope: issued.scopeProfileId,
+                      temporary: issued.allowTemporaryPermissions
+                        ? t("managerConsole.temporaryYes")
+                        : t("managerConsole.temporaryNo"),
+                    })}
+                  </p>
                 </div>
               </section>
             )}

@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { db } from "../db/client.js";
 import type {
@@ -14,8 +14,13 @@ import {
 } from "./email-delivery.js";
 import { publishManagerSignal } from "./manager-coordinator.js";
 import {
+  privateContentNeedsRewrap,
   protectPrivateBytes,
+  protectPrivateText,
+  rewrapPrivateBytes,
+  rewrapPrivateText,
   revealPrivateBytes,
+  revealPrivateText,
 } from "../lib/private-content-crypto.js";
 import {
   buildSupportReplyAddress,
@@ -28,6 +33,7 @@ import {
 } from "../lib/support-email-inbound.js";
 import { getManagedEmailChannelCapabilities } from "./email-manager.js";
 import { stageStoredFilesForRemoval } from "../lib/staged-file-removal.js";
+import { SUPPORT_DATA_APPLICATION_TENANT_ID } from "../lib/application-tenancy.js";
 
 export class SupportAccessError extends Error {
   readonly statusCode = 403;
@@ -134,6 +140,32 @@ function publicTicketId(): string {
   return `UFS-${randomBytes(5).toString("hex").toUpperCase()}`;
 }
 
+type ProtectedSupportField =
+  "ticket-context" | "message-body" | "knowledge-body";
+
+function supportFieldContext(
+  field: ProtectedSupportField,
+  recordId: string,
+): string {
+  return `application-tenant:${SUPPORT_DATA_APPLICATION_TENANT_ID}:support:${field}:${recordId}`;
+}
+
+function protectSupportText(
+  value: string,
+  field: ProtectedSupportField,
+  recordId: string,
+): string {
+  return protectPrivateText(value, supportFieldContext(field, recordId));
+}
+
+function revealSupportText(
+  value: string,
+  field: ProtectedSupportField,
+  recordId: string,
+): string {
+  return revealPrivateText(value, supportFieldContext(field, recordId));
+}
+
 async function supportAgentRole(
   userId: string,
   facilityId: string,
@@ -141,6 +173,7 @@ async function supportAgentRole(
   const row = await db
     .selectFrom("supportAgents")
     .select("role")
+    .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
     .where("userId", "=", userId)
     .where("facilityId", "=", facilityId)
     .where("active", "=", 1)
@@ -195,6 +228,7 @@ async function requireTicketAccess(auth: AuthenticatedUser, ticketId: string) {
   const ticket = await db
     .selectFrom("supportTickets")
     .selectAll()
+    .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
     .where("id", "=", ticketId)
     .executeTakeFirst();
   if (!ticket) throw new SupportNotFoundError("Support ticket not found");
@@ -292,6 +326,7 @@ export async function createSupportTicket(
   const ticket = {
     id,
     publicId: publicTicketId(),
+    applicationTenantId: SUPPORT_DATA_APPLICATION_TENANT_ID,
     facilityId,
     requesterUserId: auth.userId,
     assigneeUserId: null,
@@ -320,7 +355,13 @@ export async function createSupportTicket(
     updatedAt: now,
   };
   await db.transaction().execute(async (transaction) => {
-    await transaction.insertInto("supportTickets").values(ticket).execute();
+    await transaction
+      .insertInto("supportTickets")
+      .values({
+        ...ticket,
+        context: protectSupportText(ticket.context, "ticket-context", id),
+      })
+      .execute();
     await transaction
       .insertInto("supportMessages")
       .values({
@@ -328,7 +369,7 @@ export async function createSupportTicket(
         ticketId: id,
         authorUserId: auth.userId,
         visibility: "requester",
-        body: message,
+        body: protectSupportText(message, "message-body", messageId),
         createdAt: now,
       })
       .execute();
@@ -395,7 +436,12 @@ export async function listSupportTickets(
       "supportTickets.updatedAt",
       "requester.name as requesterName",
       "assignee.name as assigneeName",
-    ]);
+    ])
+    .where(
+      "supportTickets.applicationTenantId",
+      "=",
+      SUPPORT_DATA_APPLICATION_TENANT_ID,
+    );
   query = staff
     ? query.where((expression) =>
         expression.or([
@@ -485,10 +531,49 @@ export async function getSupportTicket(
           .execute()
       : Promise.resolve([]),
   ]);
+  const context = revealSupportText(
+    ticket.context,
+    "ticket-context",
+    ticket.id,
+  );
+  const decodedMessages = messages.map((message) => ({
+    ...message,
+    body: revealSupportText(message.body, "message-body", message.id),
+  }));
+  await db.transaction().execute(async (transaction) => {
+    if (privateContentNeedsRewrap(ticket.context)) {
+      await transaction
+        .updateTable("supportTickets")
+        .set({
+          context: rewrapPrivateText(
+            ticket.context,
+            supportFieldContext("ticket-context", ticket.id),
+          ),
+        })
+        .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
+        .where("id", "=", ticket.id)
+        .where("context", "=", ticket.context)
+        .execute();
+    }
+    for (const message of messages) {
+      if (!privateContentNeedsRewrap(message.body)) continue;
+      await transaction
+        .updateTable("supportMessages")
+        .set({
+          body: rewrapPrivateText(
+            message.body,
+            supportFieldContext("message-body", message.id),
+          ),
+        })
+        .where("id", "=", message.id)
+        .where("body", "=", message.body)
+        .execute();
+    }
+  });
   return {
     ...ticket,
-    context: JSON.parse(ticket.context),
-    messages,
+    context: JSON.parse(context),
+    messages: decodedMessages,
     attachments,
     events,
     staff,
@@ -522,7 +607,13 @@ export async function addSupportMessage(
       : ticket.status
     : "open";
   await db.transaction().execute(async (transaction) => {
-    await transaction.insertInto("supportMessages").values(message).execute();
+    await transaction
+      .insertInto("supportMessages")
+      .values({
+        ...message,
+        body: protectSupportText(body, "message-body", message.id),
+      })
+      .execute();
     await transaction
       .updateTable("supportTickets")
       .set({
@@ -535,6 +626,7 @@ export async function addSupportMessage(
             : ticket.firstRespondedAt,
         updatedAt: now,
       })
+      .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
       .where("id", "=", ticketId)
       .execute();
     await transaction
@@ -666,6 +758,7 @@ export async function ingestSupportInboundEmail(
     const ticket = {
       id: `support-ticket-email-${inboundIdentity}`,
       publicId: publicTicketId(),
+      applicationTenantId: SUPPORT_DATA_APPLICATION_TENANT_ID,
       facilityId: "primary",
       requesterUserId: requester.id,
       assigneeUserId: null,
@@ -692,7 +785,14 @@ export async function ingestSupportInboundEmail(
     const inserted = await db.transaction().execute(async (transaction) => {
       const created = await transaction
         .insertInto("supportTickets")
-        .values(ticket)
+        .values({
+          ...ticket,
+          context: protectSupportText(
+            ticket.context,
+            "ticket-context",
+            ticket.id,
+          ),
+        })
         .onConflict((conflict) => conflict.column("id").doNothing())
         .returning("id")
         .executeTakeFirst();
@@ -704,7 +804,11 @@ export async function ingestSupportInboundEmail(
           ticketId: ticket.id,
           authorUserId: requester.id,
           visibility: "requester",
-          body,
+          body: protectSupportText(
+            body,
+            "message-body",
+            `support-email-${inboundIdentity}`,
+          ),
           createdAt: now,
         })
         .execute();
@@ -742,6 +846,7 @@ export async function ingestSupportInboundEmail(
       const existing = await db
         .selectFrom("supportTickets")
         .select("publicId")
+        .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
         .where("id", "=", ticket.id)
         .executeTakeFirstOrThrow();
       return { duplicate: true, ticketPublicId: existing.publicId };
@@ -773,6 +878,11 @@ export async function ingestSupportInboundEmail(
       "requester.accountStatus as requesterAccountStatus",
       "requester.emailVerifiedAt as requesterEmailVerifiedAt",
     ])
+    .where(
+      "supportTickets.applicationTenantId",
+      "=",
+      SUPPORT_DATA_APPLICATION_TENANT_ID,
+    )
     .where("supportTickets.publicId", "=", recipient.publicId)
     .executeTakeFirst();
   if (!ticket) throw new SupportNotFoundError("Support ticket not found");
@@ -803,7 +913,7 @@ export async function ingestSupportInboundEmail(
         ticketId: ticket.ticketId,
         authorUserId: ticket.requesterUserId,
         visibility: "requester",
-        body,
+        body: protectSupportText(body, "message-body", deterministicMessageId),
         createdAt: now,
       })
       .onConflict((conflict) => conflict.column("id").doNothing())
@@ -813,6 +923,7 @@ export async function ingestSupportInboundEmail(
     await transaction
       .updateTable("supportTickets")
       .set({ status: "open", updatedAt: now })
+      .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
       .where("id", "=", ticket.ticketId)
       .execute();
     await transaction
@@ -873,6 +984,7 @@ export async function updateSupportTicket(
     const agent = await db
       .selectFrom("supportAgents")
       .select("id")
+      .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
       .where("userId", "=", assigneeUserId)
       .where("facilityId", "=", ticket.facilityId)
       .where("active", "=", 1)
@@ -914,6 +1026,7 @@ export async function updateSupportTicket(
       closedAt: status === "closed" ? (ticket.closedAt ?? now) : null,
       updatedAt: now,
     })
+    .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
     .where("id", "=", ticketId)
     .execute();
   await recordSupportEvent(ticketId, auth.userId, "ticket_updated", {
@@ -1063,6 +1176,20 @@ export async function readSupportAttachment(
       "Support attachment integrity verification failed",
     );
   }
+  if (privateContentNeedsRewrap(storedBody)) {
+    const temporary = `${filePath}.rewrap-${randomUUID()}`;
+    await writeFile(
+      temporary,
+      rewrapPrivateBytes(storedBody, `support-attachment:${attachment.id}`),
+      { flag: "wx", mode: 0o600 },
+    );
+    try {
+      await rename(temporary, filePath);
+    } catch (error) {
+      await unlink(temporary).catch(() => undefined);
+      throw error;
+    }
+  }
   return {
     attachment,
     body,
@@ -1136,6 +1263,7 @@ export async function listKnowledgeArticles(auth: AuthenticatedUser, q = "") {
   let query = db
     .selectFrom("supportKnowledgeArticles")
     .selectAll()
+    .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
     .where("facilityId", "=", facilityId);
   if (!staff) query = query.where("status", "=", "published");
   const search = normalizedSearch(q);
@@ -1144,11 +1272,37 @@ export async function listKnowledgeArticles(auth: AuthenticatedUser, q = "") {
       expression.or([
         expression("title", "like", `%${search}%`),
         expression("summary", "like", `%${search}%`),
-        expression("body", "like", `%${search}%`),
       ]),
     );
   }
-  return query.orderBy("updatedAt", "desc").limit(100).execute();
+  const articles = await query
+    .orderBy("updatedAt", "desc")
+    .limit(100)
+    .execute();
+  return Promise.all(
+    articles.map(async (article) => {
+      const body = revealSupportText(
+        article.body,
+        "knowledge-body",
+        article.id,
+      );
+      if (privateContentNeedsRewrap(article.body)) {
+        await db
+          .updateTable("supportKnowledgeArticles")
+          .set({
+            body: rewrapPrivateText(
+              article.body,
+              supportFieldContext("knowledge-body", article.id),
+            ),
+          })
+          .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
+          .where("id", "=", article.id)
+          .where("body", "=", article.body)
+          .execute();
+      }
+      return { ...article, body };
+    }),
+  );
 }
 
 export async function saveKnowledgeArticle(
@@ -1184,6 +1338,7 @@ export async function saveKnowledgeArticle(
     const existing = await db
       .selectFrom("supportKnowledgeArticles")
       .select(["id", "publishedAt"])
+      .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
       .where("id", "=", articleId)
       .where("facilityId", "=", facilityId)
       .executeTakeFirst();
@@ -1194,7 +1349,7 @@ export async function saveKnowledgeArticle(
       .set({
         title,
         summary,
-        body,
+        body: protectSupportText(body, "knowledge-body", articleId),
         category,
         slug,
         status,
@@ -1202,6 +1357,7 @@ export async function saveKnowledgeArticle(
         publishedAt:
           status === "published" ? (existing.publishedAt ?? now) : null,
       })
+      .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
       .where("id", "=", articleId)
       .where("facilityId", "=", facilityId)
       .execute();
@@ -1210,10 +1366,11 @@ export async function saveKnowledgeArticle(
       .insertInto("supportKnowledgeArticles")
       .values({
         id,
+        applicationTenantId: SUPPORT_DATA_APPLICATION_TENANT_ID,
         facilityId,
         title,
         summary,
-        body,
+        body: protectSupportText(body, "knowledge-body", id),
         category,
         slug,
         status,
@@ -1224,12 +1381,17 @@ export async function saveKnowledgeArticle(
       })
       .execute();
   }
-  return db
+  const article = await db
     .selectFrom("supportKnowledgeArticles")
     .selectAll()
+    .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
     .where("id", "=", id)
     .where("facilityId", "=", facilityId)
     .executeTakeFirstOrThrow();
+  return {
+    ...article,
+    body: revealSupportText(article.body, "knowledge-body", article.id),
+  };
 }
 
 export async function listSupportAgents(auth: AuthenticatedUser) {
@@ -1249,6 +1411,11 @@ export async function listSupportAgents(auth: AuthenticatedUser) {
       "users.name",
       "users.email",
     ])
+    .where(
+      "supportAgents.applicationTenantId",
+      "=",
+      SUPPORT_DATA_APPLICATION_TENANT_ID,
+    )
     .where("supportAgents.facilityId", "=", facilityId)
     .orderBy("users.name")
     .execute();
@@ -1281,6 +1448,7 @@ export async function saveSupportAgent(
   const existing = await db
     .selectFrom("supportAgents")
     .select("id")
+    .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
     .where("facilityId", "=", facilityId)
     .where("userId", "=", userId)
     .executeTakeFirst();
@@ -1288,6 +1456,7 @@ export async function saveSupportAgent(
     await db
       .updateTable("supportAgents")
       .set({ role, active: input.active === false ? 0 : 1, updatedAt: now })
+      .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
       .where("id", "=", existing.id)
       .execute();
     return existing.id;
@@ -1297,6 +1466,7 @@ export async function saveSupportAgent(
     .insertInto("supportAgents")
     .values({
       id,
+      applicationTenantId: SUPPORT_DATA_APPLICATION_TENANT_ID,
       facilityId,
       userId,
       role,
@@ -1323,6 +1493,7 @@ export async function auditSupportSla(): Promise<{
       "firstResponseDueAt",
       "resolutionDueAt",
     ])
+    .where("applicationTenantId", "=", SUPPORT_DATA_APPLICATION_TENANT_ID)
     .where("status", "not in", ["resolved", "closed"])
     .where((expression) =>
       expression.or([

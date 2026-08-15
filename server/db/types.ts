@@ -415,10 +415,21 @@ interface Feedback {
 export type SupportTicketStatus =
   "open" | "in_progress" | "waiting_on_user" | "resolved" | "closed";
 export type SupportTicketPriority = "low" | "normal" | "high" | "urgent";
+export type ApplicationTenantId = "commercial" | "corporate-support";
+
+interface ApplicationTenant {
+  id: ApplicationTenantId;
+  name: string;
+  kind: "commercial" | "corporate_support";
+  status: "active" | "suspended";
+  createdAt: number;
+  updatedAt: number;
+}
 
 interface SupportTicket {
   id: string;
   publicId: string;
+  applicationTenantId: Generated<ApplicationTenantId>;
   facilityId: string;
   requesterUserId: string;
   assigneeUserId: string | null;
@@ -442,6 +453,7 @@ interface SupportTicket {
 
 interface SupportAgent {
   id: string;
+  applicationTenantId: Generated<ApplicationTenantId>;
   facilityId: string;
   userId: string;
   role: "agent" | "manager";
@@ -483,6 +495,7 @@ interface SupportEvent {
 
 interface SupportKnowledgeArticle {
   id: string;
+  applicationTenantId: Generated<ApplicationTenantId>;
   facilityId: string;
   slug: string;
   title: string;
@@ -791,10 +804,53 @@ interface CorporateRoleAssignment {
   revokedAt: number | null;
 }
 
+export type ManagerOrganizationalUnitKind = "department" | "workgroup";
+
+interface ManagerOrganizationalUnit {
+  id: string;
+  slug: string;
+  name: string;
+  kind: ManagerOrganizationalUnitKind;
+  parentUnitId: string | null;
+  status: "active" | "archived";
+  createdByUserId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface ManagerOrganizationalMembership {
+  id: string;
+  unitId: string;
+  userId: string;
+  membershipRole: "lead" | "member";
+  assignedByUserId: string;
+  status: "active" | "revoked";
+  createdAt: number;
+  updatedAt: number;
+  revokedAt: number | null;
+}
+
+interface ManagerTemporaryPermission {
+  id: string;
+  userId: string;
+  profileId: CorporateManagerProfileId;
+  unitId: string | null;
+  accessMode: "internal" | "external" | "any";
+  grantedByUserId: string;
+  status: "active" | "revoked";
+  startsAt: number;
+  expiresAt: number;
+  createdAt: number;
+  updatedAt: number;
+  revokedAt: number | null;
+}
+
 interface ManagerTerminalAccess {
   id: string;
   userId: string;
   accessMode: "internal" | "external";
+  scopeProfileId: CorporateConsoleStoredProfileId | null;
+  allowTemporaryPermissions: number;
   credentialHash: string;
   terminalSessionHash: string | null;
   createdAt: number;
@@ -805,6 +861,11 @@ interface ManagerTerminalAccess {
   terminalSessionExpiresAt: number | null;
   revokedAt: number | null;
 }
+
+type CorporateConsoleStoredProfileId =
+  | "umbravia-forge"
+  | CorporateManagerProfileId
+  | "manager-cryptographic-material-replacement";
 
 export type CommercialFacilityType =
   | "traditional_gym"
@@ -952,6 +1013,7 @@ export interface Database {
   webauthnChallenges: WebauthnChallenge;
   securityEvents: SecurityEvent;
   feedback: Feedback;
+  applicationTenants: ApplicationTenant;
   supportTickets: SupportTicket;
   supportAgents: SupportAgent;
   supportMessages: SupportMessage;
@@ -978,6 +1040,9 @@ export interface Database {
   facilityProfiles: FacilityProfile;
   facilityMemberships: FacilityMembership;
   corporateRoleAssignments: CorporateRoleAssignment;
+  managerOrganizationalUnits: ManagerOrganizationalUnit;
+  managerOrganizationalMemberships: ManagerOrganizationalMembership;
+  managerTemporaryPermissions: ManagerTemporaryPermission;
   managerTerminalAccess: ManagerTerminalAccess;
   commercialTrials: CommercialTrial;
   commercialTrialEvents: CommercialTrialEvent;

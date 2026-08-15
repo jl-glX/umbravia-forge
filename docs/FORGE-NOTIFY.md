@@ -62,9 +62,9 @@ enlace, impide operaciones simultáneas sobre el mismo ámbito y distribuye sus
 señales. Ninguna de estas conexiones autoriza leer o modificar archivos de
 seguridad, material criptográfico o valores de secretos.
 
-Los datos que atraviesan una conexión aprobada se encapsulan con
-XChaCha20-Poly1305 y datos autenticados que fijan consumidor, proveedor y
-capacidad. Los mensajes que el coordinador conserva para distribuir avisos
+Los datos que atraviesan una conexión aprobada se encapsulan con AES-256-GCM y
+datos autenticados que fijan consumidor, proveedor y capacidad. Los mensajes
+que el coordinador conserva para distribuir avisos
 permanecen cifrados mientras están almacenados en memoria. La capacidad y el
 estado de la clave pertenecen al gestor de cifrado; el coordinador aplica el
 control sin obtener ni publicar el valor de la clave.

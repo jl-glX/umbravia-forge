@@ -2,18 +2,18 @@
 
 ## Frontera implementada
 
-Umbravia Forge cifra en reposo con XChaCha20-Poly1305:
+Umbravia Forge cifra las nuevas cargas privadas en reposo con AES-256-GCM:
 
 - el texto de las justificaciones privadas de la comunidad;
 - los mensajes de los grupos personales gestionados por el servidor;
 - los adjuntos privados de Forge Support.
 
-Los formatos `xcp1` y `xcp2` están versionados. Ambos usan una clave de 256
-bits, un nonce aleatorio de 192 bits y datos asociados que vinculan cada carga
-a su contexto. `xcp1` conserva compatibilidad con la clave única original.
-`xcp2` incorpora un identificador de clave y permite leer con varias versiones
-mientras las escrituras usan una clave activa. Una clave equivocada, un cambio
-de contexto o una carga manipulada fallan de forma cerrada.
+El formato de escritura `agc3` usa una clave de 256 bits, un nonce aleatorio de
+96 bits, una etiqueta de autenticación de 128 bits y datos asociados que
+vinculan cada carga a su versión, clave y contexto. Los formatos históricos
+`xcp1` y `xcp2`, basados en XChaCha20-Poly1305, siguen siendo legibles durante
+la migración. Una clave equivocada, un cambio de contexto o una carga
+manipulada fallan de forma cerrada.
 
 La biblioteca seleccionada es JavaScript portable y no necesita compilación
 nativa. El comprobador de Linux importa el mismo módulo y realiza una prueba
@@ -59,11 +59,11 @@ PRIVATE_CONTENT_ENCRYPTION_ACTIVE_KEY_ID=clave-2027
 El identificador `legacy` esta reservado internamente para
 `PRIVATE_CONTENT_ENCRYPTION_KEY` y no debe usarse dentro del llavero versionado.
 
-Desde ese momento las escrituras nuevas usan `xcp2` y `clave-2027`, mientras
-las cargas `xcp1` y las cargas creadas con `clave-2026` siguen siendo legibles.
+Desde ese momento las escrituras nuevas usan `agc3` y `clave-2027`, mientras
+las cargas `xcp1`, `xcp2` y las creadas con `clave-2026` siguen siendo legibles.
 La comprobación de preparación de Linux verifica longitud, identificadores,
-duplicidades, clave activa y una operación real de cifrado y descifrado antes
-de aceptar la release.
+duplicidades, clave activa y una operación real AES-256-GCM de cifrado y
+descifrado antes de aceptar la release.
 
 La biblioteca ofrece operaciones de recifrado, pero la retirada de una clave
 no es automática. Antes de eliminarla se necesita un inventario y un trabajo de

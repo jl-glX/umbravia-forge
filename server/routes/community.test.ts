@@ -389,7 +389,7 @@ describe("community, identity and moderation APIs", () => {
       .where("id", "=", created.body.id)
       .executeTakeFirstOrThrow();
     expect(stored.body).toBe("[protected]");
-    expect(stored.protectedBody).toMatch(/^xcp1\./);
+    expect(stored.protectedBody).toMatch(/^agc3\./);
     expect(stored.protectedBody).not.toContain("Justificación");
 
     const messages = await request(app)
@@ -489,7 +489,7 @@ describe("community, identity and moderation APIs", () => {
       .where("id", "=", privateMessage.body.id)
       .executeTakeFirstOrThrow();
     expect(stored).toMatchObject({ body: "[protected]", kind: "public" });
-    expect(stored.protectedBody).toMatch(/^xcp1\./);
+    expect(stored.protectedBody).toMatch(/^agc3\./);
     expect(stored.protectedBody).not.toContain("Mensaje personal");
 
     const visible = await request(app)
@@ -598,7 +598,7 @@ describe("community, identity and moderation APIs", () => {
       ),
       "utf8",
     );
-    expect(encryptedAttachment).toMatch(/^xcp1\./);
+    expect(encryptedAttachment).toMatch(/^agc3\./);
     expect(encryptedAttachment).not.toContain("Documento privado");
 
     await request(app)

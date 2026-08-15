@@ -1062,12 +1062,30 @@ async function initializeSqliteSchema(
     `);
   }
 
+  sqliteDb.exec(`
+    CREATE TABLE IF NOT EXISTS applicationTenants (
+      id TEXT PRIMARY KEY CHECK(id IN ('commercial', 'corporate-support')),
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK(kind IN ('commercial', 'corporate_support')),
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'suspended')),
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
+    );
+    INSERT OR IGNORE INTO applicationTenants
+      (id, name, kind, status, createdAt, updatedAt)
+    VALUES
+      ('commercial', 'Umbravia Forge Commercial', 'commercial', 'active', 0, 0),
+      ('corporate-support', 'Umbravia Forge Corporate Support', 'corporate_support', 'active', 0, 0);
+  `);
+
   if (!tableNames.includes("supportTickets")) {
     console.log("Creating Forge Support tables...");
     sqliteDb.exec(`
       CREATE TABLE supportTickets (
         id TEXT PRIMARY KEY,
         publicId TEXT NOT NULL UNIQUE,
+        applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
+          CHECK(applicationTenantId IN ('commercial', 'corporate-support')),
         facilityId TEXT NOT NULL DEFAULT 'primary',
         requesterUserId TEXT NOT NULL,
         assigneeUserId TEXT,
@@ -1086,6 +1104,7 @@ async function initializeSqliteSchema(
         closedAt INTEGER,
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL,
+        FOREIGN KEY(applicationTenantId) REFERENCES applicationTenants(id) ON DELETE RESTRICT,
         FOREIGN KEY(requesterUserId) REFERENCES users(id) ON DELETE RESTRICT,
         FOREIGN KEY(assigneeUserId) REFERENCES users(id) ON DELETE SET NULL
       );
@@ -1095,12 +1114,15 @@ async function initializeSqliteSchema(
 
       CREATE TABLE supportAgents (
         id TEXT PRIMARY KEY,
+        applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
+          CHECK(applicationTenantId IN ('commercial', 'corporate-support')),
         facilityId TEXT NOT NULL DEFAULT 'primary',
         userId TEXT NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('agent', 'manager')),
         active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL,
+        FOREIGN KEY(applicationTenantId) REFERENCES applicationTenants(id) ON DELETE RESTRICT,
         FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
         UNIQUE(facilityId, userId)
       );
@@ -1149,6 +1171,8 @@ async function initializeSqliteSchema(
 
       CREATE TABLE supportKnowledgeArticles (
         id TEXT PRIMARY KEY,
+        applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
+          CHECK(applicationTenantId IN ('commercial', 'corporate-support')),
         facilityId TEXT NOT NULL DEFAULT 'primary',
         slug TEXT NOT NULL,
         title TEXT NOT NULL,
@@ -1160,10 +1184,39 @@ async function initializeSqliteSchema(
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL,
         publishedAt INTEGER,
+        FOREIGN KEY(applicationTenantId) REFERENCES applicationTenants(id) ON DELETE RESTRICT,
         FOREIGN KEY(authorUserId) REFERENCES users(id) ON DELETE RESTRICT,
         UNIQUE(facilityId, slug)
       );
       CREATE INDEX idx_supportKnowledge_status ON supportKnowledgeArticles(facilityId, status, category, updatedAt DESC);
+    `);
+  }
+
+  const supportTicketColumns = sqliteDb
+    .prepare("PRAGMA table_info(supportTickets)")
+    .all() as Array<{ name: string }>;
+  if (
+    !supportTicketColumns.some(
+      (column) => column.name === "applicationTenantId",
+    )
+  ) {
+    sqliteDb.exec(`
+      ALTER TABLE supportTickets
+        ADD COLUMN applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
+        CHECK(applicationTenantId IN ('commercial', 'corporate-support'));
+    `);
+  }
+
+  const supportAgentColumns = sqliteDb
+    .prepare("PRAGMA table_info(supportAgents)")
+    .all() as Array<{ name: string }>;
+  if (
+    !supportAgentColumns.some((column) => column.name === "applicationTenantId")
+  ) {
+    sqliteDb.exec(`
+      ALTER TABLE supportAgents
+        ADD COLUMN applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
+        CHECK(applicationTenantId IN ('commercial', 'corporate-support'));
     `);
   }
 
@@ -1432,6 +1485,8 @@ async function initializeSqliteSchema(
   sqliteDb.exec(`
     CREATE TABLE IF NOT EXISTS supportKnowledgeArticles (
       id TEXT PRIMARY KEY,
+      applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
+        CHECK(applicationTenantId IN ('commercial', 'corporate-support')),
       facilityId TEXT NOT NULL DEFAULT 'primary',
       slug TEXT NOT NULL,
       title TEXT NOT NULL,
@@ -1443,11 +1498,27 @@ async function initializeSqliteSchema(
       createdAt INTEGER NOT NULL,
       updatedAt INTEGER NOT NULL,
       publishedAt INTEGER,
+      FOREIGN KEY(applicationTenantId) REFERENCES applicationTenants(id) ON DELETE RESTRICT,
       FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
       FOREIGN KEY(authorUserId) REFERENCES users(id) ON DELETE RESTRICT,
       UNIQUE(facilityId, slug)
     );
   `);
+
+  const supportKnowledgeTenantColumns = sqliteDb
+    .prepare("PRAGMA table_info(supportKnowledgeArticles)")
+    .all() as Array<{ name: string }>;
+  if (
+    !supportKnowledgeTenantColumns.some(
+      (column) => column.name === "applicationTenantId",
+    )
+  ) {
+    sqliteDb.exec(`
+      ALTER TABLE supportKnowledgeArticles
+        ADD COLUMN applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
+        CHECK(applicationTenantId IN ('commercial', 'corporate-support'));
+    `);
+  }
 
   const supportKnowledgeColumns = sqliteDb
     .prepare("PRAGMA table_info(supportKnowledgeArticles)")
@@ -1458,6 +1529,8 @@ async function initializeSqliteSchema(
         RENAME TO supportKnowledgeArticlesLegacy;
       CREATE TABLE supportKnowledgeArticles (
         id TEXT PRIMARY KEY,
+        applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
+          CHECK(applicationTenantId IN ('commercial', 'corporate-support')),
         facilityId TEXT NOT NULL DEFAULT 'primary',
         slug TEXT NOT NULL,
         title TEXT NOT NULL,
@@ -1469,15 +1542,16 @@ async function initializeSqliteSchema(
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL,
         publishedAt INTEGER,
+        FOREIGN KEY(applicationTenantId) REFERENCES applicationTenants(id) ON DELETE RESTRICT,
         FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
         FOREIGN KEY(authorUserId) REFERENCES users(id) ON DELETE RESTRICT,
         UNIQUE(facilityId, slug)
       );
       INSERT INTO supportKnowledgeArticles (
-        id, facilityId, slug, title, summary, body, category, status,
+        id, applicationTenantId, facilityId, slug, title, summary, body, category, status,
         authorUserId, createdAt, updatedAt, publishedAt
       )
-      SELECT id, 'primary', slug, title, summary, body, category, status,
+      SELECT id, applicationTenantId, 'primary', slug, title, summary, body, category, status,
              authorUserId, createdAt, updatedAt, publishedAt
       FROM supportKnowledgeArticlesLegacy;
       DROP TABLE supportKnowledgeArticlesLegacy;
@@ -1488,6 +1562,60 @@ async function initializeSqliteSchema(
     DROP INDEX IF EXISTS idx_supportKnowledge_status;
     CREATE INDEX IF NOT EXISTS idx_supportKnowledge_status
       ON supportKnowledgeArticles(facilityId, status, category, updatedAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_supportTickets_application_queue
+      ON supportTickets(applicationTenantId, facilityId, status, priority, updatedAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_supportAgents_application_active
+      ON supportAgents(applicationTenantId, facilityId, active, role);
+    CREATE INDEX IF NOT EXISTS idx_supportKnowledge_application_status
+      ON supportKnowledgeArticles(applicationTenantId, facilityId, status, category, updatedAt DESC);
+    CREATE TRIGGER IF NOT EXISTS trg_supportTickets_application_tenant_insert
+    BEFORE INSERT ON supportTickets
+    WHEN NOT EXISTS (
+      SELECT 1 FROM applicationTenants WHERE id = NEW.applicationTenantId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown application tenant');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportTickets_application_tenant_update
+    BEFORE UPDATE OF applicationTenantId ON supportTickets
+    WHEN NOT EXISTS (
+      SELECT 1 FROM applicationTenants WHERE id = NEW.applicationTenantId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown application tenant');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportAgents_application_tenant_insert
+    BEFORE INSERT ON supportAgents
+    WHEN NOT EXISTS (
+      SELECT 1 FROM applicationTenants WHERE id = NEW.applicationTenantId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown application tenant');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportAgents_application_tenant_update
+    BEFORE UPDATE OF applicationTenantId ON supportAgents
+    WHEN NOT EXISTS (
+      SELECT 1 FROM applicationTenants WHERE id = NEW.applicationTenantId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown application tenant');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportKnowledge_application_tenant_insert
+    BEFORE INSERT ON supportKnowledgeArticles
+    WHEN NOT EXISTS (
+      SELECT 1 FROM applicationTenants WHERE id = NEW.applicationTenantId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown application tenant');
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_supportKnowledge_application_tenant_update
+    BEFORE UPDATE OF applicationTenantId ON supportKnowledgeArticles
+    WHEN NOT EXISTS (
+      SELECT 1 FROM applicationTenants WHERE id = NEW.applicationTenantId
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Unknown application tenant');
+    END;
     CREATE TRIGGER IF NOT EXISTS trg_supportTickets_facility_insert
     BEFORE INSERT ON supportTickets
     WHEN NOT EXISTS (
@@ -1837,6 +1965,76 @@ async function initializeSqliteSchema(
       ON managerTerminalAccess(userId, expiresAt);
     CREATE INDEX IF NOT EXISTS idx_managerTerminalAccess_session
       ON managerTerminalAccess(terminalSessionHash, terminalSessionExpiresAt);
+
+    CREATE TABLE IF NOT EXISTS managerOrganizationalUnits (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK(kind IN ('department', 'workgroup')),
+      parentUnitId TEXT,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'archived')),
+      createdByUserId TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      FOREIGN KEY(parentUnitId) REFERENCES managerOrganizationalUnits(id) ON DELETE SET NULL,
+      FOREIGN KEY(createdByUserId) REFERENCES users(id) ON DELETE RESTRICT
+    );
+    CREATE INDEX IF NOT EXISTS idx_managerOrganizationalUnits_parent
+      ON managerOrganizationalUnits(parentUnitId, status);
+
+    CREATE TABLE IF NOT EXISTS managerOrganizationalMemberships (
+      id TEXT PRIMARY KEY,
+      unitId TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      membershipRole TEXT NOT NULL DEFAULT 'member' CHECK(membershipRole IN ('lead', 'member')),
+      assignedByUserId TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      revokedAt INTEGER,
+      FOREIGN KEY(unitId) REFERENCES managerOrganizationalUnits(id) ON DELETE CASCADE,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(assignedByUserId) REFERENCES users(id) ON DELETE RESTRICT
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_managerOrganizationalMemberships_active
+      ON managerOrganizationalMemberships(unitId, userId)
+      WHERE status = 'active';
+    CREATE INDEX IF NOT EXISTS idx_managerOrganizationalMemberships_user
+      ON managerOrganizationalMemberships(userId, status);
+
+    CREATE TABLE IF NOT EXISTS managerTemporaryPermissions (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      profileId TEXT NOT NULL CHECK(profileId IN (
+        'manager-core',
+        'manager-coordinator',
+        'manager-flow-administrator',
+        'manager-account',
+        'manager-security',
+        'manager-resource',
+        'manager-encryption',
+        'manager-environment',
+        'manager-email',
+        'manager-notification',
+        'manager-support'
+      )),
+      unitId TEXT,
+      accessMode TEXT NOT NULL DEFAULT 'any' CHECK(accessMode IN ('internal', 'external', 'any')),
+      grantedByUserId TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
+      startsAt INTEGER NOT NULL,
+      expiresAt INTEGER NOT NULL CHECK(expiresAt > startsAt),
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      revokedAt INTEGER,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(unitId) REFERENCES managerOrganizationalUnits(id) ON DELETE CASCADE,
+      FOREIGN KEY(grantedByUserId) REFERENCES users(id) ON DELETE RESTRICT
+    );
+    CREATE INDEX IF NOT EXISTS idx_managerTemporaryPermissions_user
+      ON managerTemporaryPermissions(userId, status, expiresAt);
+    CREATE INDEX IF NOT EXISTS idx_managerTemporaryPermissions_unit
+      ON managerTemporaryPermissions(unitId, status, expiresAt);
   `);
 
   const managerTerminalColumns = sqliteDb
@@ -1850,6 +2048,22 @@ async function initializeSqliteSchema(
     );
     sqliteDb.exec(
       "UPDATE managerTerminalAccess SET lastHeartbeatAt = lastActivityAt WHERE lastHeartbeatAt = 0",
+    );
+  }
+  if (
+    !managerTerminalColumns.some((column) => column.name === "scopeProfileId")
+  ) {
+    sqliteDb.exec(
+      "ALTER TABLE managerTerminalAccess ADD COLUMN scopeProfileId TEXT",
+    );
+  }
+  if (
+    !managerTerminalColumns.some(
+      (column) => column.name === "allowTemporaryPermissions",
+    )
+  ) {
+    sqliteDb.exec(
+      "ALTER TABLE managerTerminalAccess ADD COLUMN allowTemporaryPermissions INTEGER NOT NULL DEFAULT 0 CHECK(allowTemporaryPermissions IN (0, 1))",
     );
   }
 

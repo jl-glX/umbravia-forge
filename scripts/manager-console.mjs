@@ -13,18 +13,33 @@ function readArguments(argv) {
       result.channel = argv[++index];
     } else if (argv[index] === "--help" || argv[index] === "-h") {
       process.stdout.write(
-        "Uso: npm run manager:console -- --url <https://...> --channel <internal|external>\n",
+        "Uso: npm run manager:console -- --url <https://...> --channel external\n",
       );
       process.exit(0);
     } else {
       throw new Error(`Argumento no reconocido: ${argv[index]}`);
     }
   }
-  if (!/^https?:\/\//i.test(result.url)) {
-    throw new Error("La URL debe comenzar por https:// o http://");
+  const parsedUrl = new URL(result.url);
+  const localDevelopmentHost =
+    parsedUrl.hostname === "localhost" ||
+    parsedUrl.hostname === "127.0.0.1" ||
+    parsedUrl.hostname === "[::1]";
+  if (
+    parsedUrl.protocol !== "https:" &&
+    !(parsedUrl.protocol === "http:" && localDevelopmentHost)
+  ) {
+    throw new Error(
+      "La terminal externa exige HTTPS; HTTP solo se admite en localhost para desarrollo",
+    );
   }
-  if (result.channel !== "internal" && result.channel !== "external") {
-    throw new Error("El canal debe ser internal o external");
+  if (parsedUrl.username || parsedUrl.password || parsedUrl.hash) {
+    throw new Error("La URL no puede contener credenciales ni fragmentos");
+  }
+  if (result.channel !== "external") {
+    throw new Error(
+      "El cliente de terminal solo abre sesiones externas temporales; el canal interno pertenece a la app corporativa verificada",
+    );
   }
   return result;
 }
@@ -140,11 +155,17 @@ async function main() {
     `Umbravia Forge · ${overview.shell} · canal ${options.channel}\n`,
   );
   process.stdout.write(
-    "Conjunto de comandos virtuales: no concede acceso al sistema operativo.\n",
+    `${new URL(baseUrl).protocol === "https:" ? "TLS autenticado" : "HTTP local de desarrollo"}: las credenciales y órdenes viajan cifradas en producción.\n`,
   );
-  process.stdout.write("Escribe help para ver las órdenes disponibles.\n\n");
+  process.stdout.write(
+    "Entorno Linux aislado: sin secretos, archivos del anfitrión ni socket de contenedores.\n",
+  );
+  process.stdout.write(
+    "Admite comandos Linux, alias portables de Windows y clientes Samba. ufctl help muestra las órdenes corporativas.\n\n",
+  );
 
   let contextProfileId = overview.access.authorityProfileId;
+  let contextUnitId = null;
   const terminal = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -189,8 +210,14 @@ async function main() {
     while (!interrupted) {
       let command;
       try {
+        const unit = overview.units?.find(
+          (candidate) => candidate.id === contextUnitId,
+        );
+        const promptContext = unit
+          ? `${contextProfileId}:${unit.slug}`
+          : contextProfileId;
         command = (
-          await terminal.question(`${contextProfileId}@umbravia-forge:$ `)
+          await terminal.question(`${promptContext}@umbravia-forge:$ `)
         ).trim();
       } catch {
         break;
@@ -201,23 +228,12 @@ async function main() {
         process.stdout.write("\u001Bc");
         continue;
       }
-      if (command.startsWith("use ")) {
-        const requested = command.slice(4).trim();
-        if (overview.profiles.some((profile) => profile.id === requested)) {
-          contextProfileId = requested;
-        } else {
-          process.stderr.write(
-            "Rama de gestor no disponible para este perfil.\n",
-          );
-        }
-        continue;
-      }
       const response = await fetch(
         `${baseUrl}/api/admin/manager-console/terminal/execute`,
         {
           method: "POST",
           headers,
-          body: JSON.stringify({ command, contextProfileId }),
+          body: JSON.stringify({ command, contextProfileId, contextUnitId }),
         },
       );
       const result = await readJson(response);
@@ -232,6 +248,15 @@ async function main() {
         continue;
       }
       for (const line of result.lines || []) process.stdout.write(`${line}\n`);
+      for (const line of result.errorLines || []) {
+        if (line) process.stderr.write(`${line}\n`);
+      }
+      if (Object.hasOwn(result, "nextContextProfileId")) {
+        contextProfileId = result.nextContextProfileId;
+      }
+      if (Object.hasOwn(result, "nextContextUnitId")) {
+        contextUnitId = result.nextContextUnitId;
+      }
     }
   } finally {
     clearInterval(heartbeatTimer);

@@ -1,4 +1,5 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getPrivateContentEncryptionStatus,
@@ -23,11 +24,35 @@ describe("private content encryption", () => {
     );
   }
 
+  function legacyXcp1Envelope(
+    plaintext: string,
+    context: string,
+    encodedKey: string,
+  ): string {
+    const key = Buffer.from(encodedKey, "base64url");
+    const nonce = randomBytes(24);
+    const fingerprint = createHash("sha256")
+      .update(key)
+      .digest("hex")
+      .slice(0, 16);
+    const aad = Buffer.from(`xcp1:${context}`, "utf8");
+    const ciphertext = xchacha20poly1305(key, nonce, aad).encrypt(
+      Buffer.from(plaintext, "utf8"),
+    );
+    return [
+      "xcp1",
+      fingerprint,
+      nonce.toString("base64url"),
+      Buffer.from(ciphertext).toString("base64url"),
+    ].join(".");
+  }
+
   it("round-trips text with a random nonce and authenticated context", () => {
     enableEncryption();
     const first = protectPrivateText("contenido privado", "message:one");
     const second = protectPrivateText("contenido privado", "message:one");
 
+    expect(first).toMatch(/^agc3\.legacy\./);
     expect(first).not.toBe(second);
     expect(isProtectedPrivateContent(first)).toBe(true);
     expect(revealPrivateText(first, "message:one")).toBe("contenido privado");
@@ -67,12 +92,16 @@ describe("private content encryption", () => {
     );
   });
 
-  it("keeps xcp1 data readable while a versioned keyring writes xcp2", () => {
+  it("keeps xcp1 data readable while new writes use AES-256-GCM", () => {
     const previousKey = randomBytes(32).toString("base64url");
     const activeKey = randomBytes(32).toString("base64url");
     vi.stubEnv("PRIVATE_CONTENT_ENCRYPTION_ENABLED", "true");
     vi.stubEnv("PRIVATE_CONTENT_ENCRYPTION_KEY", previousKey);
-    const legacy = protectPrivateText("mensaje anterior", "message:rotation");
+    const legacy = legacyXcp1Envelope(
+      "mensaje anterior",
+      "message:rotation",
+      previousKey,
+    );
     expect(legacy).toMatch(/^xcp1\./);
 
     vi.stubEnv(
@@ -86,14 +115,14 @@ describe("private content encryption", () => {
     );
     expect(privateContentNeedsRewrap(legacy)).toBe(true);
     const rewrapped = rewrapPrivateText(legacy, "message:rotation");
-    expect(rewrapped).toMatch(/^xcp2\.current\./);
+    expect(rewrapped).toMatch(/^agc3\.current\./);
     expect(revealPrivateText(rewrapped, "message:rotation")).toBe(
       "mensaje anterior",
     );
     expect(privateContentNeedsRewrap(rewrapped)).toBe(false);
     expect(getPrivateContentEncryptionStatus()).toMatchObject({
       enabled: true,
-      writeVersion: "xcp2",
+      writeVersion: "agc3",
       activeKeyId: "current",
       readableKeyIds: ["previous", "current"],
       legacyKeyConfigured: true,

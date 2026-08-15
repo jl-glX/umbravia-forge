@@ -112,7 +112,7 @@ export function auditEncryptionConfiguration(
     capabilities.push(
       capability(
         "private_content",
-        "XChaCha20-Poly1305",
+        "AES-256-GCM",
         status.enabled ? "active" : "disabled",
         "encryption",
       ),
@@ -121,7 +121,7 @@ export function auditEncryptionConfiguration(
     capabilities.push(
       capability(
         "private_content",
-        "XChaCha20-Poly1305",
+        "AES-256-GCM",
         "invalid",
         "encryption",
         "PRIVATE_CONTENT_CONFIGURATION_INVALID",
@@ -134,7 +134,7 @@ export function auditEncryptionConfiguration(
     capabilities.push(
       capability(
         "manager_connections",
-        "XChaCha20-Poly1305 authenticated envelopes",
+        "AES-256-GCM authenticated envelopes",
         "active",
         "encryption",
       ),
@@ -143,7 +143,7 @@ export function auditEncryptionConfiguration(
     capabilities.push(
       capability(
         "manager_connections",
-        "XChaCha20-Poly1305 authenticated envelopes",
+        "AES-256-GCM authenticated envelopes",
         "invalid",
         "encryption",
         "MANAGER_CONNECTION_KEY_INVALID",

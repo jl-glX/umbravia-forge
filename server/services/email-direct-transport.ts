@@ -9,6 +9,10 @@ import { resolve4, resolveMx } from "node:dns/promises";
 import { domainToASCII } from "node:url";
 import nodemailer from "nodemailer";
 import type { SendMailOptions } from "nodemailer";
+import {
+  authenticatedModernTlsOptions,
+  type AuthenticatedModernTlsOptions,
+} from "../lib/transport-security.js";
 
 export type DirectEmailTransportConfiguration = {
   mode: "direct_mx";
@@ -34,7 +38,7 @@ type DirectTransportDependencies = {
     name: string;
     localAddress?: string;
     requireTLS: true;
-    tls: { servername: string; rejectUnauthorized: true };
+    tls: AuthenticatedModernTlsOptions & { servername: string };
   }) => {
     sendMail: (message: SendMailOptions) => Promise<{ messageId?: string }>;
   };
@@ -241,8 +245,8 @@ export async function sendDirectEmail(
           localAddress: configuration.localAddress,
           requireTLS: true,
           tls: {
+            ...authenticatedModernTlsOptions(),
             servername: record.exchange,
-            rejectUnauthorized: true,
           },
         }).sendMail({
           ...message,

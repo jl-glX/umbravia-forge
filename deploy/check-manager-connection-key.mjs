@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import process from "node:process";
 
@@ -33,14 +33,38 @@ function decodeKey(encoded, label) {
   return key;
 }
 
+function verifyCipher(key, label) {
+  const nonce = Buffer.alloc(12, 0);
+  const plaintext = Buffer.from(
+    `manager-connection-readiness:${label}`,
+    "utf8",
+  );
+  const aad = Buffer.from(`mcg3:${label}:readiness`, "utf8");
+  const cipher = createCipheriv("aes-256-gcm", key, nonce, {
+    authTagLength: 16,
+  });
+  cipher.setAAD(aad);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const decipher = createDecipheriv("aes-256-gcm", key, nonce, {
+    authTagLength: 16,
+  });
+  decipher.setAAD(aad);
+  decipher.setAuthTag(cipher.getAuthTag());
+  const recovered = Buffer.concat([
+    decipher.update(ciphertext),
+    decipher.final(),
+  ]);
+  if (!recovered.equals(plaintext)) {
+    throw new Error(`AES-256-GCM no supera la prueba local: ${label}`);
+  }
+}
+
 const fingerprints = new Set();
 const legacyEncoded = values.get("MANAGER_CONNECTION_ENCRYPTION_KEY");
 if (legacyEncoded) {
-  fingerprints.add(
-    createHash("sha256")
-      .update(decodeKey(legacyEncoded, "MANAGER_CONNECTION_ENCRYPTION_KEY"))
-      .digest("hex"),
-  );
+  const key = decodeKey(legacyEncoded, "MANAGER_CONNECTION_ENCRYPTION_KEY");
+  verifyCipher(key, "legacy");
+  fingerprints.add(createHash("sha256").update(key).digest("hex"));
 }
 
 const encodedKeyring = values.get("MANAGER_CONNECTION_ENCRYPTION_KEYRING");
@@ -61,9 +85,9 @@ if (encodedKeyring) {
         "MANAGER_CONNECTION_ENCRYPTION_KEYRING contiene un identificador reservado o duplicado",
       );
     }
-    const fingerprint = createHash("sha256")
-      .update(decodeKey(encoded, `clave ${id}`))
-      .digest("hex");
+    const key = decodeKey(encoded, `clave ${id}`);
+    verifyCipher(key, id);
+    const fingerprint = createHash("sha256").update(key).digest("hex");
     if (fingerprints.has(fingerprint)) {
       throw new Error(
         "MANAGER_CONNECTION_ENCRYPTION_KEYRING repite material de clave",

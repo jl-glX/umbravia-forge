@@ -12,17 +12,17 @@ infraestructura separada.
 
 ## Tránsito
 
-| Trayecto                    | Control actual     | Regla                                  |
-| --------------------------- | ------------------ | -------------------------------------- |
-| Navegador a Cloudflare      | HTTPS              | TLS obligatorio y modo Full (strict)   |
-| Cloudflare a Caddy          | TLS 1.3            | certificado válido en el origen        |
-| Caddy a Node.js             | loopback           | Node solo escucha en `127.0.0.1`       |
-| Node.js a PostgreSQL local  | loopback           | puede usar `DATABASE_SSL=false`        |
-| Node.js a PostgreSQL remoto | TLS                | certificado obligatorio y verificado   |
-| Node.js a Postfix local     | loopback           | Postfix no acepta relay externo        |
-| Node.js a SMTP remoto       | TLS                | no se permite degradar el transporte   |
-| Gestor a gestor             | XChaCha20-Poly1305 | identidad y capacidad ligadas al sobre |
-| Gestor a gestor             | XChaCha20-Poly1305 | identidad y capacidad ligadas al sobre |
+| Trayecto                        | Control actual | Regla                                                  |
+| ------------------------------- | -------------- | ------------------------------------------------------ |
+| Navegador a Cloudflare          | HTTPS          | TLS obligatorio y modo Full (strict)                   |
+| Cloudflare a Caddy              | TLS 1.3        | certificado válido en el origen                        |
+| Caddy a Node.js                 | loopback       | Node solo escucha en `127.0.0.1`                       |
+| Node.js a PostgreSQL local      | loopback       | puede usar `DATABASE_SSL=false`                        |
+| Node.js a PostgreSQL remoto     | TLS            | TLS 1.3 preferido, TLS 1.2 mínimo y certificado válido |
+| Node.js a transporte SMTP local | loopback       | el servicio local no acepta relay externo              |
+| Node.js a SMTP remoto           | STARTTLS/TLS   | TLS 1.3 preferido, TLS 1.2 mínimo y certificado válido |
+| Cliente de terminal externo     | HTTPS          | las credenciales temporales no viajan por HTTP         |
+| Gestor a gestor                 | AES-256-GCM    | identidad y capacidad ligadas al sobre                 |
 
 La validación de producción rechaza una base PostgreSQL remota si
 `DATABASE_SSL=false` o si `DATABASE_SSL_REJECT_UNAUTHORIZED=false`. Un servicio
@@ -30,18 +30,23 @@ local puede usar loopback sin TLS porque el tráfico no abandona el host; su
 protección depende además del aislamiento del proceso y del sistema.
 
 El coordinador no entrega objetos internos directamente entre gestores. Valida
-primero la conexión registrada y encapsula el contenido con
-XChaCha20-Poly1305. El contexto autenticado contiene el consumidor, el proveedor
-y la capacidad autorizada, de modo que un sobre no puede reutilizarse en otra
-interconexión sin fallar la autenticación. Este control complementa TLS cuando
-un gestor se separe en otro proceso; no lo sustituye.
+primero la conexión registrada y encapsula el contenido con AES-256-GCM. El
+contexto autenticado contiene el consumidor, el proveedor y la capacidad
+autorizada, de modo que un sobre no puede reutilizarse en otra interconexión sin
+fallar la autenticación. Este control complementa TLS cuando un gestor se
+separe en otro proceso; no lo sustituye.
 
-El coordinador no entrega objetos internos directamente entre gestores. Valida
-primero la conexión registrada y encapsula el contenido con
-XChaCha20-Poly1305. El contexto autenticado contiene el consumidor, el proveedor
-y la capacidad autorizada, de modo que un sobre no puede reutilizarse en otra
-interconexión sin fallar la autenticación. Este control complementa TLS cuando
-un gestor se separe en otro proceso; no lo sustituye.
+Las conexiones salientes a servidores PostgreSQL y SMTP aplican una política
+común. AES-GCM aparece primero en la negociación; ChaCha20-Poly1305 se conserva
+como alternativa AEAD para equipos sin aceleración AES. No se habilitan suites
+CBC, RC4, 3DES, cifrado nulo ni certificados sin verificar. TLS 1.3 elige de
+forma segura entre sus suites AEAD estándar y TLS 1.2 queda únicamente como
+compatibilidad con servidores que todavía no admiten TLS 1.3.
+
+No se añade una segunda capa AES-GCM privada sobre SMTP, PostgreSQL o HTTPS:
+rompería la interoperabilidad con otros servidores y exigiría distribuir claves
+nuevas. La autenticación propia se reserva para mensajes internos entre
+gestores, donde ambos extremos pertenecen a Umbravia Forge.
 
 ## Reposo
 
@@ -49,14 +54,13 @@ un gestor se separe en otro proceso; no lo sustituye.
 - secretos MFA y cuerpos pendientes de Forge Notify: AES-256-GCM autenticado;
   los nuevos sobres MFA quedan ligados al identificador interno de la cuenta y
   los sobres anteriores siguen siendo legibles durante la migracion;
-- justificaciones privadas y adjuntos de soporte: XChaCha20-Poly1305
+- justificaciones privadas, mensajes y adjuntos de soporte: AES-256-GCM
   autenticado, con envoltorio versionado y contexto asociado;
-- mensajes conservados por el coordinador: XChaCha20-Poly1305 con clave
-  exclusiva y sobres versionados; el estado público solo descifra mensajes
-  saneados y nunca devuelve el sobre;
-- mensajes conservados por el coordinador: XChaCha20-Poly1305 con clave
-  exclusiva y sobres versionados; el estado público solo descifra mensajes
-  saneados y nunca devuelve el sobre;
+- mensajes conservados por el coordinador: AES-256-GCM con clave exclusiva y
+  sobres versionados; el estado público solo descifra mensajes saneados y nunca
+  devuelve el sobre;
+- espacios persistentes de la terminal corporativa: instantánea autenticada con
+  AES-256-GCM; el espacio activo vive en memoria temporal del contenedor;
 - copias PostgreSQL: `pg_dump` transmite directamente a `age`;
 - clave privada de recuperación: fuera del servidor de producción;
 - archivos de entorno: permisos `600` o `640` y nunca incluidos en Git.
@@ -76,13 +80,7 @@ una rotación controlada. Producción no arranca sin una configuración válida 
 el gestor de cifrado la incluye en su auditoría. La plataforma no genera, rota
 ni elimina estas claves automáticamente.
 
-Las interconexiones usan una clave independiente. La versión con keyring permite
-incorporar una clave nueva y mantener las anteriores solo para lectura durante
-una rotación controlada. Producción no arranca sin una configuración válida y
-el gestor de cifrado la incluye en su auditoría. La plataforma no genera, rota
-ni elimina estas claves automáticamente.
-
-La activación de XChaCha20-Poly1305 y el límite de Signal Protocol están
+La compatibilidad de los sobres antiguos y el límite de Signal Protocol están
 documentados en
 [`PRIVATE-COMMUNICATION-SECURITY.md`](./PRIVATE-COMMUNICATION-SECURITY.md).
 
@@ -161,14 +159,16 @@ restauración no constituye una estrategia de recuperación completa.
 
 El cifrado de archivos de aplicación no sustituye el cifrado del disco. Para
 proteger PostgreSQL, logs, temporales y el sistema ante acceso físico al disco,
-la ruta recomendada es desplegar una nueva instancia o volumen con LUKS (o una
-capacidad equivalente del proveedor), restaurar una copia verificada y cambiar
-el servicio durante una ventana controlada.
+la ruta recomendada es desplegar una nueva instancia o volumen con LUKS2,
+`aes-xts-plain64` y 512 bits totales de clave XTS (dos claves AES de 256 bits),
+restaurar una copia verificada y cambiar el servicio durante una ventana
+controlada. La política y el comprobador no destructivo se detallan en
+[`STORAGE-ENCRYPTION-POLICY.md`](./STORAGE-ENCRYPTION-POLICY.md).
 
 No se intenta convertir en caliente el disco raíz del servidor actual: puede
 exigir desbloqueo en el arranque, provocar indisponibilidad y dejar el sistema
-sin acceso remoto. `check-encryption-readiness.sh` informa de esta frontera como
-aviso, pero no toca particiones.
+sin acceso remoto. `check-storage-encryption.sh` inspecciona el estado sin tocar
+particiones y `check-encryption-readiness.sh` mantiene esta frontera como aviso.
 
 ## Límites pendientes
 

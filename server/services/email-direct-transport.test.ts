@@ -90,6 +90,8 @@ describe("direct MX email transport", () => {
       name: "mail.umbraviaforge.com",
       requireTLS: true,
       tls: {
+        minVersion: "TLSv1.2",
+        ciphers: expect.stringMatching(/AES256-GCM/),
         servername: "mx1.example.net",
         rejectUnauthorized: true,
       },

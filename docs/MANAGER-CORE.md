@@ -57,7 +57,7 @@ Gestor de seguridad
         -> solicita diagnóstico de endurecimiento
 Coordinador
         -> valida conexión y ámbito encryption-readiness
-        -> encapsula el resumen con XChaCha20-Poly1305
+        -> encapsula el resumen con AES-256-GCM
 Gestor de cifrado
         -> devuelve capacidades, estado y códigos públicos saneados
 ```

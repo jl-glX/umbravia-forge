@@ -2,6 +2,7 @@ import {
   isProductionLike,
   resolveDeploymentProfile,
 } from "../lib/deployment-profile.js";
+import { authenticatedModernTlsOptions } from "../lib/transport-security.js";
 
 export type DatabaseProvider = "sqlite" | "postgresql";
 
@@ -70,7 +71,13 @@ export function postgresPoolSettings(environment = process.env) {
       10_000,
       60_000,
     ),
-    ssl: environment.DATABASE_SSL === "false" ? false : { rejectUnauthorized },
+    ssl:
+      environment.DATABASE_SSL === "false"
+        ? false
+        : {
+            ...authenticatedModernTlsOptions(),
+            rejectUnauthorized,
+          },
     application_name: "umbravia-forge",
   } as const;
 }

@@ -1,8 +1,7 @@
 import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import process from "node:process";
-import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 
 const envFile = process.argv[2];
 if (!envFile) throw new Error("Falta la ruta del archivo de entorno");
@@ -53,12 +52,25 @@ function decodeKey(encoded, label) {
 }
 
 function verifyCipher(key, label) {
-  const nonce = Buffer.alloc(24, 0);
+  const nonce = Buffer.alloc(12, 0);
   const plaintext = Buffer.from(`umbravia-linux-readiness:${label}`, "utf8");
-  const cipher = xchacha20poly1305(key, nonce);
-  const recovered = cipher.decrypt(cipher.encrypt(plaintext));
-  if (!Buffer.from(recovered).equals(plaintext)) {
-    throw new Error(`XChaCha20-Poly1305 no supera la prueba local: ${label}`);
+  const aad = Buffer.from(`agc3:${label}:readiness`, "utf8");
+  const cipher = createCipheriv("aes-256-gcm", key, nonce, {
+    authTagLength: 16,
+  });
+  cipher.setAAD(aad);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const decipher = createDecipheriv("aes-256-gcm", key, nonce, {
+    authTagLength: 16,
+  });
+  decipher.setAAD(aad);
+  decipher.setAuthTag(cipher.getAuthTag());
+  const recovered = Buffer.concat([
+    decipher.update(ciphertext),
+    decipher.final(),
+  ]);
+  if (!recovered.equals(plaintext)) {
+    throw new Error(`AES-256-GCM no supera la prueba local: ${label}`);
   }
 }
 

@@ -110,7 +110,7 @@ describe("systemd deployment service", () => {
     );
   });
 
-  it("keeps the portable private-content cipher in the production package", async () => {
+  it("keeps portable authenticated private-content encryption in the production package", async () => {
     const [packageSource, checker] = await Promise.all([
       readFile(path.resolve("package.json"), "utf8"),
       readFile(path.resolve("deploy", "check-private-content-key.mjs"), "utf8"),
@@ -120,9 +120,9 @@ describe("systemd deployment service", () => {
     };
 
     expect(packageJson.dependencies?.["@noble/ciphers"]).toBe("2.3.0");
-    expect(checker).toContain(
-      'import { xchacha20poly1305 } from "@noble/ciphers/chacha.js"',
-    );
+    expect(checker).toContain("createCipheriv");
+    expect(checker).toContain('createCipheriv("aes-256-gcm"');
+    expect(checker).toContain("authTagLength: 16");
     expect(checker).toContain("key.length !== 32");
     expect(checker).not.toMatch(/console\.log\([^)]*(?:encoded|key)/u);
   });

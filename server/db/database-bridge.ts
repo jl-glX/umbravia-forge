@@ -3,6 +3,7 @@ import Database from "better-sqlite3";
 
 export const migrationTableGroups = {
   configuration: [
+    "applicationTenants",
     "facilityProfiles",
     "gymClasses",
     "classBookingConfigurations",
@@ -25,6 +26,8 @@ export const migrationTableGroups = {
     "administratorSignupProvisioning",
     "facilityMemberships",
     "corporateRoleAssignments",
+    "managerOrganizationalUnits",
+    "managerOrganizationalMemberships",
     "accountSupportIdentifiers",
     "accountDeletionPreferences",
     "accountDeletionRequests",
@@ -62,6 +65,7 @@ export const migrationTableGroups = {
     "webauthnChallenges",
     "securityEvents",
     "managerTerminalAccess",
+    "managerTemporaryPermissions",
   ],
   support: [
     "supportTickets",

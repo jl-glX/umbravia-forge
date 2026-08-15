@@ -59,8 +59,8 @@ protegida y validación previa.
    haya construido en Windows, porque las dependencias nativas deben instalarse
    para Linux y desde el `package-lock.json` validado. A continuación se ejecuta
    `npm rebuild argon2 --foreground-scripts`, limitado al módulo nativo revisado.
-   La preparación prueba Argon2id y XChaCha20-Poly1305 con operaciones reales
-   antes de activar la release.
+   La preparación prueba Argon2id, AES-256-GCM y la lectura compatible de
+   XChaCha20-Poly1305 con operaciones reales antes de activar la release.
 3. Copiar `deploy/umbravia-forge.env.template` a
    `/etc/umbravia-forge/umbravia-forge.env`, sustituir todos los marcadores y
    aplicar permisos `0640` con grupo `umbravia`.
@@ -200,5 +200,8 @@ siguen recibiendo la superficie genérica `404`.
 - Las copias PostgreSQL cifradas y los perfiles opcionales de volumen se
   describen en
   [`docs/ENCRYPTION-IN-TRANSIT-AND-AT-REST.md`](../docs/ENCRYPTION-IN-TRANSIT-AND-AT-REST.md).
+- La política XTS-AES-256 para volúmenes y el comprobador no destructivo se
+  describen en
+  [`docs/STORAGE-ENCRYPTION-POLICY.md`](../docs/STORAGE-ENCRYPTION-POLICY.md).
 - Antes de datos reales deben probarse copia, restauración y reversión de una
   versión completa.

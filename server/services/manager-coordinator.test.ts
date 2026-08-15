@@ -115,7 +115,7 @@ describe("manager coordinator", () => {
 
     const status = getManagerCoordinationStatus();
     expect(status.connectionProtection).toMatchObject({
-      primitive: "XChaCha20-Poly1305",
+      primitive: "AES-256-GCM",
       payloadsEncryptedInTransit: true,
       signalMessagesEncryptedAtRest: true,
       keyMaterialExposed: false,

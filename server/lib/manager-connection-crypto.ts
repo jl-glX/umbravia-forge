@@ -1,4 +1,9 @@
-import { createHash, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from "node:crypto";
 import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 import {
   isProductionLike,
@@ -7,7 +12,10 @@ import {
 
 const LEGACY_VERSION = "mcx1";
 const KEYRING_VERSION = "mcx2";
-const NONCE_BYTES = 24;
+const AES_GCM_VERSION = "mcg3";
+const XCHACHA_NONCE_BYTES = 24;
+const AES_GCM_NONCE_BYTES = 12;
+const AES_GCM_TAG_BYTES = 16;
 const KEY_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const CONTEXT_PATTERN = /^[A-Za-z0-9:_-]{1,240}$/;
 
@@ -20,7 +28,7 @@ interface ConnectionKey {
 interface ConnectionKeyring {
   active: ConnectionKey;
   keys: ConnectionKey[];
-  version: typeof LEGACY_VERSION | typeof KEYRING_VERSION;
+  version: typeof AES_GCM_VERSION;
   developmentFallback: boolean;
 }
 
@@ -120,7 +128,7 @@ function resolveKeyring(
     return {
       active,
       keys,
-      version: KEYRING_VERSION,
+      version: AES_GCM_VERSION,
       developmentFallback: false,
     };
   }
@@ -135,7 +143,7 @@ function resolveKeyring(
     return {
       active,
       keys,
-      version: LEGACY_VERSION,
+      version: AES_GCM_VERSION,
       developmentFallback: false,
     };
   }
@@ -159,7 +167,7 @@ function resolveKeyring(
   return {
     active,
     keys: [active],
-    version: KEYRING_VERSION,
+    version: AES_GCM_VERSION,
     developmentFallback: true,
   };
 }
@@ -193,22 +201,29 @@ export function protectManagerConnectionPayload(
 ): string {
   validateContext(context);
   const keyring = resolveKeyring();
-  const nonce = randomBytes(NONCE_BYTES);
-  const reference =
-    keyring.version === LEGACY_VERSION
-      ? keyring.active.fingerprint
-      : keyring.active.id;
+  const nonce = randomBytes(AES_GCM_NONCE_BYTES);
+  const reference = keyring.active.id;
   const aad = Buffer.from(`${keyring.version}:${reference}:${context}`, "utf8");
-  const ciphertext = xchacha20poly1305(
-    keyring.active.value,
+  const cipher = createCipheriv(
+    "aes-256-gcm",
+    Buffer.from(keyring.active.value),
     nonce,
-    aad,
-  ).encrypt(value);
+    { authTagLength: AES_GCM_TAG_BYTES },
+  );
+  cipher.setAAD(aad);
+  const ciphertext = Buffer.concat([
+    cipher.update(Buffer.from(value)),
+    cipher.final(),
+  ]);
+  const authenticatedCiphertext = Buffer.concat([
+    ciphertext,
+    cipher.getAuthTag(),
+  ]);
   return [
     keyring.version,
     reference,
     nonce.toString("base64url"),
-    Buffer.from(ciphertext).toString("base64url"),
+    authenticatedCiphertext.toString("base64url"),
   ].join(".");
 }
 
@@ -220,7 +235,9 @@ export function revealManagerConnectionPayload(
   const [version, reference, nonceValue, ciphertextValue, extra] =
     envelope.split(".");
   if (
-    (version !== LEGACY_VERSION && version !== KEYRING_VERSION) ||
+    (version !== LEGACY_VERSION &&
+      version !== KEYRING_VERSION &&
+      version !== AES_GCM_VERSION) ||
     !reference ||
     !nonceValue ||
     !ciphertextValue ||
@@ -242,13 +259,36 @@ export function revealManagerConnectionPayload(
   }
   const nonce = decodeSegment(nonceValue);
   const ciphertext = decodeSegment(ciphertextValue);
-  if (nonce.length !== NONCE_BYTES || ciphertext.length < 16) {
-    throw new ManagerConnectionCryptoError(
-      "Manager connection envelope is invalid",
-    );
-  }
   try {
     const aad = Buffer.from(`${version}:${reference}:${context}`, "utf8");
+    if (version === AES_GCM_VERSION) {
+      if (
+        nonce.length !== AES_GCM_NONCE_BYTES ||
+        ciphertext.length < AES_GCM_TAG_BYTES
+      ) {
+        throw new ManagerConnectionCryptoError(
+          "Manager connection envelope is invalid",
+        );
+      }
+      const tagOffset = ciphertext.length - AES_GCM_TAG_BYTES;
+      const decipher = createDecipheriv(
+        "aes-256-gcm",
+        Buffer.from(selected.value),
+        nonce,
+        { authTagLength: AES_GCM_TAG_BYTES },
+      );
+      decipher.setAAD(aad);
+      decipher.setAuthTag(ciphertext.subarray(tagOffset));
+      return Buffer.concat([
+        decipher.update(ciphertext.subarray(0, tagOffset)),
+        decipher.final(),
+      ]);
+    }
+    if (nonce.length !== XCHACHA_NONCE_BYTES || ciphertext.length < 16) {
+      throw new ManagerConnectionCryptoError(
+        "Manager connection envelope is invalid",
+      );
+    }
     return Buffer.from(
       xchacha20poly1305(selected.value, nonce, aad).decrypt(ciphertext),
     );
@@ -265,7 +305,7 @@ export function getManagerConnectionCryptoStatus(
   const keyring = resolveKeyring(environment);
   return {
     enabled: true as const,
-    primitive: "XChaCha20-Poly1305" as const,
+    primitive: "AES-256-GCM" as const,
     writeVersion: keyring.version,
     readableKeyCount: keyring.keys.length,
     developmentFallback: keyring.developmentFallback,

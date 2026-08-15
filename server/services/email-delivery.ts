@@ -9,6 +9,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import nodemailer from "nodemailer";
 import { db } from "../db/client.js";
+import { authenticatedModernTlsOptions } from "../lib/transport-security.js";
 import {
   DirectEmailTransportError,
   sendDirectEmail,
@@ -412,6 +413,9 @@ function configuredTransport(configuration: SmtpEmailDeliveryConfiguration) {
     secure: configuration.secure,
     requireTLS: configuration.requireTls,
     ignoreTLS: !configuration.secure && !configuration.requireTls,
+    tls: isLoopbackHost(configuration.host)
+      ? undefined
+      : authenticatedModernTlsOptions(),
     auth:
       configuration.user && configuration.password
         ? { user: configuration.user, pass: configuration.password }

@@ -64,7 +64,11 @@ describe("database runtime selection", () => {
       }),
     ).toMatchObject({
       max: 50,
-      ssl: { rejectUnauthorized: true },
+      ssl: {
+        minVersion: "TLSv1.2",
+        ciphers: expect.stringMatching(/AES256-GCM/),
+        rejectUnauthorized: true,
+      },
       application_name: "umbravia-forge",
     });
   });

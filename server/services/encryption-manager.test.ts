@@ -46,12 +46,12 @@ describe("encryption manager", () => {
         }),
         expect.objectContaining({
           id: "private_content",
-          primitive: "XChaCha20-Poly1305",
+          primitive: "AES-256-GCM",
           state: "active",
         }),
         expect.objectContaining({
           id: "manager_connections",
-          primitive: "XChaCha20-Poly1305 authenticated envelopes",
+          primitive: "AES-256-GCM authenticated envelopes",
           state: "active",
           keyMaterialExposed: false,
         }),

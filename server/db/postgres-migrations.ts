@@ -1618,6 +1618,151 @@ CREATE INDEX IF NOT EXISTS "idx_managerTerminalAccess_session"
   ON "managerTerminalAccess" ("terminalSessionHash", "terminalSessionExpiresAt");
 `,
   },
+  {
+    version: 27,
+    name: "dynamic-manager-organizational-access",
+    sql: String.raw`
+ALTER TABLE "managerTerminalAccess"
+  ADD COLUMN IF NOT EXISTS "scopeProfileId" TEXT,
+  ADD COLUMN IF NOT EXISTS "allowTemporaryPermissions" INTEGER NOT NULL DEFAULT 0
+    CHECK ("allowTemporaryPermissions" IN (0, 1));
+
+CREATE TABLE IF NOT EXISTS "managerOrganizationalUnits" (
+  "id" TEXT PRIMARY KEY,
+  "slug" TEXT NOT NULL UNIQUE,
+  "name" TEXT NOT NULL,
+  "kind" TEXT NOT NULL CHECK ("kind" IN ('department', 'workgroup')),
+  "parentUnitId" TEXT REFERENCES "managerOrganizationalUnits" ("id") ON DELETE SET NULL,
+  "status" TEXT NOT NULL DEFAULT 'active' CHECK ("status" IN ('active', 'archived')),
+  "createdByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_managerOrganizationalUnits_parent"
+  ON "managerOrganizationalUnits" ("parentUnitId", "status");
+
+CREATE TABLE IF NOT EXISTS "managerOrganizationalMemberships" (
+  "id" TEXT PRIMARY KEY,
+  "unitId" TEXT NOT NULL REFERENCES "managerOrganizationalUnits" ("id") ON DELETE CASCADE,
+  "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "membershipRole" TEXT NOT NULL DEFAULT 'member' CHECK ("membershipRole" IN ('lead', 'member')),
+  "assignedByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "status" TEXT NOT NULL DEFAULT 'active' CHECK ("status" IN ('active', 'revoked')),
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  "revokedAt" BIGINT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_managerOrganizationalMemberships_active"
+  ON "managerOrganizationalMemberships" ("unitId", "userId")
+  WHERE "status" = 'active';
+CREATE INDEX IF NOT EXISTS "idx_managerOrganizationalMemberships_user"
+  ON "managerOrganizationalMemberships" ("userId", "status");
+
+CREATE TABLE IF NOT EXISTS "managerTemporaryPermissions" (
+  "id" TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "profileId" TEXT NOT NULL CHECK ("profileId" IN (
+    'manager-core',
+    'manager-coordinator',
+    'manager-flow-administrator',
+    'manager-account',
+    'manager-security',
+    'manager-resource',
+    'manager-encryption',
+    'manager-environment',
+    'manager-email',
+    'manager-notification',
+    'manager-support'
+  )),
+  "unitId" TEXT REFERENCES "managerOrganizationalUnits" ("id") ON DELETE CASCADE,
+  "accessMode" TEXT NOT NULL DEFAULT 'any' CHECK ("accessMode" IN ('internal', 'external', 'any')),
+  "grantedByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "status" TEXT NOT NULL DEFAULT 'active' CHECK ("status" IN ('active', 'revoked')),
+  "startsAt" BIGINT NOT NULL,
+  "expiresAt" BIGINT NOT NULL,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  "revokedAt" BIGINT,
+  CHECK ("expiresAt" > "startsAt")
+);
+CREATE INDEX IF NOT EXISTS "idx_managerTemporaryPermissions_user"
+  ON "managerTemporaryPermissions" ("userId", "status", "expiresAt");
+CREATE INDEX IF NOT EXISTS "idx_managerTemporaryPermissions_unit"
+  ON "managerTemporaryPermissions" ("unitId", "status", "expiresAt");
+`,
+  },
+  {
+    version: 28,
+    name: "commercial-corporate-support-application-tenancy",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "applicationTenants" (
+  "id" TEXT PRIMARY KEY CHECK ("id" IN ('commercial', 'corporate-support')),
+  "name" TEXT NOT NULL,
+  "kind" TEXT NOT NULL CHECK ("kind" IN ('commercial', 'corporate_support')),
+  "status" TEXT NOT NULL DEFAULT 'active' CHECK ("status" IN ('active', 'suspended')),
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL
+);
+
+INSERT INTO "applicationTenants"
+  ("id", "name", "kind", "status", "createdAt", "updatedAt")
+VALUES
+  ('commercial', 'Umbravia Forge Commercial', 'commercial', 'active', 0, 0),
+  ('corporate-support', 'Umbravia Forge Corporate Support', 'corporate_support', 'active', 0, 0)
+ON CONFLICT ("id") DO NOTHING;
+
+ALTER TABLE "supportTickets"
+  ADD COLUMN IF NOT EXISTS "applicationTenantId" TEXT NOT NULL DEFAULT 'corporate-support'
+    CHECK ("applicationTenantId" IN ('commercial', 'corporate-support'));
+ALTER TABLE "supportAgents"
+  ADD COLUMN IF NOT EXISTS "applicationTenantId" TEXT NOT NULL DEFAULT 'corporate-support'
+    CHECK ("applicationTenantId" IN ('commercial', 'corporate-support'));
+ALTER TABLE "supportKnowledgeArticles"
+  ADD COLUMN IF NOT EXISTS "applicationTenantId" TEXT NOT NULL DEFAULT 'corporate-support'
+    CHECK ("applicationTenantId" IN ('commercial', 'corporate-support'));
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'supportTickets_applicationTenantId_fkey'
+  ) THEN
+    ALTER TABLE "supportTickets"
+      ADD CONSTRAINT "supportTickets_applicationTenantId_fkey"
+      FOREIGN KEY ("applicationTenantId") REFERENCES "applicationTenants" ("id")
+      ON DELETE RESTRICT;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'supportAgents_applicationTenantId_fkey'
+  ) THEN
+    ALTER TABLE "supportAgents"
+      ADD CONSTRAINT "supportAgents_applicationTenantId_fkey"
+      FOREIGN KEY ("applicationTenantId") REFERENCES "applicationTenants" ("id")
+      ON DELETE RESTRICT;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'supportKnowledge_applicationTenantId_fkey'
+  ) THEN
+    ALTER TABLE "supportKnowledgeArticles"
+      ADD CONSTRAINT "supportKnowledge_applicationTenantId_fkey"
+      FOREIGN KEY ("applicationTenantId") REFERENCES "applicationTenants" ("id")
+      ON DELETE RESTRICT;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS "idx_supportTickets_application_queue"
+  ON "supportTickets"
+  ("applicationTenantId", "facilityId", "status", "priority", "updatedAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_supportAgents_application_active"
+  ON "supportAgents"
+  ("applicationTenantId", "facilityId", "active", "role");
+CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_application_status"
+  ON "supportKnowledgeArticles"
+  ("applicationTenantId", "facilityId", "status", "category", "updatedAt" DESC);
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

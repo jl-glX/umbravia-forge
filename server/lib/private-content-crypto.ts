@@ -1,9 +1,17 @@
-import { createHash, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from "node:crypto";
 import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 
 const LEGACY_ENVELOPE_VERSION = "xcp1";
 const KEYRING_ENVELOPE_VERSION = "xcp2";
-const NONCE_BYTES = 24;
+const AES_GCM_ENVELOPE_VERSION = "agc3";
+const XCHACHA_NONCE_BYTES = 24;
+const AES_GCM_NONCE_BYTES = 12;
+const AES_GCM_TAG_BYTES = 16;
 const KEY_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 interface PrivateContentKey {
@@ -15,13 +23,12 @@ interface PrivateContentKey {
 interface PrivateContentKeyring {
   active: PrivateContentKey;
   keys: PrivateContentKey[];
-  writeVersion:
-    typeof LEGACY_ENVELOPE_VERSION | typeof KEYRING_ENVELOPE_VERSION;
+  writeVersion: typeof AES_GCM_ENVELOPE_VERSION;
 }
 
 export interface PrivateContentEncryptionStatus {
   enabled: boolean;
-  writeVersion: "plaintext" | "xcp1" | "xcp2";
+  writeVersion: "plaintext" | "xcp1" | "xcp2" | "agc3";
   activeKeyId: string | null;
   readableKeyIds: string[];
   legacyKeyConfigured: boolean;
@@ -168,7 +175,7 @@ function resolveKeyring(
         "PRIVATE_CONTENT_ENCRYPTION_ACTIVE_KEY_ID does not exist in PRIVATE_CONTENT_ENCRYPTION_KEYRING",
       );
     }
-    return { active, keys, writeVersion: KEYRING_ENVELOPE_VERSION };
+    return { active, keys, writeVersion: AES_GCM_ENVELOPE_VERSION };
   }
 
   if (environment.PRIVATE_CONTENT_ENCRYPTION_ACTIVE_KEY_ID?.trim()) {
@@ -184,7 +191,7 @@ function resolveKeyring(
   return {
     active: { id: "legacy", key: legacyKey, fingerprint: legacyFingerprint },
     keys,
-    writeVersion: LEGACY_ENVELOPE_VERSION,
+    writeVersion: AES_GCM_ENVELOPE_VERSION,
   };
 }
 
@@ -223,34 +230,31 @@ export function getPrivateContentEncryptionStatus(
 
 function encodeEnvelope(plaintext: Uint8Array, context: string): string {
   const keyring = resolveKeyring();
-  const nonce = randomBytes(NONCE_BYTES);
-  if (keyring.writeVersion === LEGACY_ENVELOPE_VERSION) {
-    const aad = Buffer.from(`${LEGACY_ENVELOPE_VERSION}:${context}`, "utf8");
-    const ciphertext = xchacha20poly1305(
-      keyring.active.key,
-      nonce,
-      aad,
-    ).encrypt(plaintext);
-    return [
-      LEGACY_ENVELOPE_VERSION,
-      keyring.active.fingerprint,
-      nonce.toString("base64url"),
-      Buffer.from(ciphertext).toString("base64url"),
-    ].join(".");
-  }
-
+  const nonce = randomBytes(AES_GCM_NONCE_BYTES);
   const aad = Buffer.from(
-    `${KEYRING_ENVELOPE_VERSION}:${keyring.active.id}:${context}`,
+    `${AES_GCM_ENVELOPE_VERSION}:${keyring.active.id}:${context}`,
     "utf8",
   );
-  const ciphertext = xchacha20poly1305(keyring.active.key, nonce, aad).encrypt(
-    plaintext,
+  const cipher = createCipheriv(
+    "aes-256-gcm",
+    Buffer.from(keyring.active.key),
+    nonce,
+    { authTagLength: AES_GCM_TAG_BYTES },
   );
+  cipher.setAAD(aad);
+  const ciphertext = Buffer.concat([
+    cipher.update(Buffer.from(plaintext)),
+    cipher.final(),
+  ]);
+  const authenticatedCiphertext = Buffer.concat([
+    ciphertext,
+    cipher.getAuthTag(),
+  ]);
   return [
-    KEYRING_ENVELOPE_VERSION,
+    AES_GCM_ENVELOPE_VERSION,
     keyring.active.id,
     nonce.toString("base64url"),
-    Buffer.from(ciphertext).toString("base64url"),
+    authenticatedCiphertext.toString("base64url"),
   ].join(".");
 }
 
@@ -259,7 +263,8 @@ function decodeEnvelope(envelope: string, context: string): Buffer {
     envelope.split(".");
   if (
     (version !== LEGACY_ENVELOPE_VERSION &&
-      version !== KEYRING_ENVELOPE_VERSION) ||
+      version !== KEYRING_ENVELOPE_VERSION &&
+      version !== AES_GCM_ENVELOPE_VERSION) ||
     !keyReference ||
     !nonceValue ||
     !ciphertextValue ||
@@ -279,10 +284,39 @@ function decodeEnvelope(envelope: string, context: string): Buffer {
   }
   const nonce = decodeBase64UrlSegment(nonceValue);
   const ciphertext = decodeBase64UrlSegment(ciphertextValue);
-  if (nonce.length !== NONCE_BYTES || ciphertext.length < 16) {
-    throw new PrivateContentCryptoError("Private content envelope is invalid");
-  }
   try {
+    if (version === AES_GCM_ENVELOPE_VERSION) {
+      if (
+        nonce.length !== AES_GCM_NONCE_BYTES ||
+        ciphertext.length < AES_GCM_TAG_BYTES
+      ) {
+        throw new PrivateContentCryptoError(
+          "Private content envelope is invalid",
+        );
+      }
+      const aad = Buffer.from(
+        `${AES_GCM_ENVELOPE_VERSION}:${keyReference}:${context}`,
+        "utf8",
+      );
+      const tagOffset = ciphertext.length - AES_GCM_TAG_BYTES;
+      const decipher = createDecipheriv(
+        "aes-256-gcm",
+        Buffer.from(selected.key),
+        nonce,
+        { authTagLength: AES_GCM_TAG_BYTES },
+      );
+      decipher.setAAD(aad);
+      decipher.setAuthTag(ciphertext.subarray(tagOffset));
+      return Buffer.concat([
+        decipher.update(ciphertext.subarray(0, tagOffset)),
+        decipher.final(),
+      ]);
+    }
+    if (nonce.length !== XCHACHA_NONCE_BYTES || ciphertext.length < 16) {
+      throw new PrivateContentCryptoError(
+        "Private content envelope is invalid",
+      );
+    }
     const aad = Buffer.from(
       version === LEGACY_ENVELOPE_VERSION
         ? `${LEGACY_ENVELOPE_VERSION}:${context}`
@@ -301,7 +335,11 @@ function decodeEnvelope(envelope: string, context: string): Buffer {
 
 function detectEnvelopeVersion(
   value: string | Uint8Array,
-): typeof LEGACY_ENVELOPE_VERSION | typeof KEYRING_ENVELOPE_VERSION | null {
+):
+  | typeof LEGACY_ENVELOPE_VERSION
+  | typeof KEYRING_ENVELOPE_VERSION
+  | typeof AES_GCM_ENVELOPE_VERSION
+  | null {
   const prefix =
     typeof value === "string"
       ? value.slice(0, 5)
@@ -311,6 +349,9 @@ function detectEnvelopeVersion(
   }
   if (prefix === `${KEYRING_ENVELOPE_VERSION}.`) {
     return KEYRING_ENVELOPE_VERSION;
+  }
+  if (prefix === `${AES_GCM_ENVELOPE_VERSION}.`) {
+    return AES_GCM_ENVELOPE_VERSION;
   }
   return null;
 }
@@ -332,10 +373,7 @@ export function privateContentNeedsRewrap(
   const [version, keyReference] = text.split(".");
   return (
     version !== keyring.writeVersion ||
-    (version === KEYRING_ENVELOPE_VERSION &&
-      keyReference !== keyring.active.id) ||
-    (version === LEGACY_ENVELOPE_VERSION &&
-      keyReference !== keyring.active.fingerprint)
+    (version === AES_GCM_ENVELOPE_VERSION && keyReference !== keyring.active.id)
   );
 }
 
