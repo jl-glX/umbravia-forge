@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityPerformanceTable,
+  ActivityTimeSlotTable,
   AnalyticsDataQuality,
   AnalyticsDecisionPanel,
   BookingHistoryPanel,
@@ -115,6 +116,8 @@ export function TrainerAnalyticsDashboardPage() {
               <ActivityPerformanceTable activities={data.activities} />
               <AnalyticsDecisionPanel recommendations={data.recommendations} />
             </div>
+
+            <ActivityTimeSlotTable timeSlots={data.timeSlots} />
 
             <div className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
               <PeakHoursChart

@@ -490,6 +490,18 @@ describe("analytics tenant isolation", () => {
     expect(JSON.stringify(response.body.members)).not.toContain(
       "analytics-secondary@example.com",
     );
+    expect(
+      response.body.timeSlots.reduce(
+        (total: number, timeSlot: { sessions: number }) =>
+          total + timeSlot.sessions,
+        0,
+      ),
+    ).toBe(3);
+    expect(response.body.timeSlots).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ activityName: "Primary analytics class" }),
+      ]),
+    );
   });
 
   it("limits trainer analytics to that trainer's sessions and participants", async () => {
@@ -525,6 +537,22 @@ describe("analytics tenant isolation", () => {
     expect(response.body.activities).toEqual([
       expect.objectContaining({ activityName: "Trainer analytics class" }),
     ]);
+    expect(
+      response.body.timeSlots.reduce(
+        (total: number, timeSlot: { sessions: number }) =>
+          total + timeSlot.sessions,
+        0,
+      ),
+    ).toBe(2);
+    expect(response.body.timeSlots).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          activityName: "Trainer analytics class",
+          weekday: expect.any(Number),
+          hour: expect.any(Number),
+        }),
+      ]),
+    );
   });
 
   it("rejects invalid or excessively broad analytics periods", async () => {

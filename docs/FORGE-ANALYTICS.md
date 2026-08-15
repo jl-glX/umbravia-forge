@@ -16,6 +16,9 @@ segunda fuente de verdad.
   presente como una certeza.
 - Agrupa sesiones por nombre de actividad y permite comparar ocupación,
   asistencia, cancelación y demanda todavía presente en lista de espera.
+- Compara cada actividad por día de la semana y hora local para identificar
+  qué franjas concentran ocupación, asistencia o cancelaciones. Esta lectura
+  respeta el centro seleccionado y, para entrenadores, solo incluye sus clases.
 - Genera señales operativas mediante reglas transparentes. Las señales no
   aplican cambios ni se presentan como causalidad demostrada.
 
@@ -78,6 +81,10 @@ Las métricas responden **qué** ha ocurrido. Afirmar **por qué** una actividad
 tiene más o menos demanda requiere contrastar el comportamiento con encuestas
 mensuales versionadas. Hasta entonces, las recomendaciones deben hablar de
 revisar o contrastar, no de una causa confirmada.
+
+La comparación por franja reutiliza las sesiones y reservas actuales: no crea
+otra tabla ni exige una migración. Una correlación entre una hora y mejores
+resultados sigue sin demostrar por sí sola la causa del comportamiento.
 
 ## Frontera comercial
 

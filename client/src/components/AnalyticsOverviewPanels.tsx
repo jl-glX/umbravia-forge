@@ -197,6 +197,79 @@ export function ActivityPerformanceTable({
   );
 }
 
+export function ActivityTimeSlotTable({
+  timeSlots,
+}: {
+  timeSlots: AnalyticsOverview["timeSlots"];
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="border-b border-slate-200 p-6">
+        <h2 className="text-lg font-semibold text-slate-950">
+          {t("analytics.timeSlotPerformance")}
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          {t("analytics.timeSlotPerformanceDescription")}
+        </p>
+      </div>
+      {timeSlots.length === 0 ? (
+        <p className="p-6 text-sm text-slate-500">{t("common.noData")}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[840px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-6 py-3">{t("analytics.activity")}</th>
+                <th className="px-4 py-3">{t("analytics.schedule")}</th>
+                <th className="px-4 py-3">{t("analytics.sessions")}</th>
+                <th className="px-4 py-3">{t("analytics.bookings")}</th>
+                <th className="px-4 py-3">{t("analytics.occupancyLabel")}</th>
+                <th className="px-4 py-3">{t("analytics.attendanceLabel")}</th>
+                <th className="px-4 py-3">{t("analytics.cancellations")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {timeSlots.map((timeSlot) => (
+                <tr
+                  key={`${timeSlot.activityName}-${timeSlot.weekday}-${timeSlot.hour}`}
+                  className="bg-white"
+                >
+                  <td className="px-6 py-4 font-semibold text-slate-950">
+                    {localizeClass(timeSlot.activityName, undefined, t).name}
+                  </td>
+                  <td className="px-4 py-4 text-slate-700">
+                    {t(`analytics.weekdays.${timeSlot.weekday}`)} ·{" "}
+                    {String(timeSlot.hour).padStart(2, "0")}:00
+                  </td>
+                  <td className="px-4 py-4 text-slate-700">
+                    {timeSlot.sessions}
+                  </td>
+                  <td className="px-4 py-4 text-slate-700">
+                    {timeSlot.confirmedBookings}
+                  </td>
+                  <td className="px-4 py-4 font-semibold text-slate-900">
+                    {timeSlot.occupancyRate}%
+                  </td>
+                  <td className="px-4 py-4 text-slate-700">
+                    {timeSlot.attendanceRate === null
+                      ? t("analytics.notMeasured")
+                      : `${timeSlot.attendanceRate}%`}
+                  </td>
+                  <td className="px-4 py-4 text-slate-700">
+                    {timeSlot.cancellations}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function MemberEngagementTable({
   members,
 }: {

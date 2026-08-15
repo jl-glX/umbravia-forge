@@ -101,6 +101,19 @@ export interface AnalyticsOverview {
     occupancyRate: number;
     attendanceRate: number | null;
   }>;
+  timeSlots: Array<{
+    activityName: string;
+    weekday: number;
+    hour: number;
+    sessions: number;
+    availablePlaces: number;
+    confirmedBookings: number;
+    cancellations: number;
+    attended: number;
+    absent: number;
+    occupancyRate: number;
+    attendanceRate: number | null;
+  }>;
   peakHours: PeakHourMetric[];
   members: Array<{
     userId: string;

@@ -77,6 +77,20 @@ export interface ActivityPerformance {
   attendanceRate: number | null;
 }
 
+export interface ActivityTimeSlotPerformance {
+  activityName: string;
+  weekday: number;
+  hour: number;
+  sessions: number;
+  availablePlaces: number;
+  confirmedBookings: number;
+  cancellations: number;
+  attended: number;
+  absent: number;
+  occupancyRate: number;
+  attendanceRate: number | null;
+}
+
 export interface MemberEngagement {
   userId: string;
   userName: string;
@@ -129,6 +143,7 @@ export interface AnalyticsOverview {
   period: AnalyticsPeriod;
   summary: AnalyticsSummary;
   activities: ActivityPerformance[];
+  timeSlots: ActivityTimeSlotPerformance[];
   peakHours: PeakHours[];
   members: MemberEngagement[];
   recommendations: AnalyticsRecommendation[];
@@ -154,6 +169,18 @@ interface ActivityAccumulator {
   absent: number;
 }
 
+interface ActivityTimeSlotAccumulator {
+  activityName: string;
+  weekday: number;
+  hour: number;
+  sessions: number;
+  availablePlaces: number;
+  confirmedBookings: number;
+  cancellations: number;
+  attended: number;
+  absent: number;
+}
+
 interface MemberAccumulator {
   userId: string;
   userName: string;
@@ -173,6 +200,19 @@ function percentage(numerator: number, denominator: number): number | null {
 function localHour(timestamp: number, utcOffsetMinutes: number): number {
   const shifted = timestamp + utcOffsetMinutes * 60_000;
   return new Date(shifted).getUTCHours();
+}
+
+function localWeekday(timestamp: number, utcOffsetMinutes: number): number {
+  const shifted = timestamp + utcOffsetMinutes * 60_000;
+  return new Date(shifted).getUTCDay();
+}
+
+function activityTimeSlotKey(
+  activityName: string,
+  weekday: number,
+  hour: number,
+): string {
+  return JSON.stringify([activityName, weekday, hour]);
 }
 
 function bestActivity(activityCounts: Map<string, number>): string | null {
@@ -382,6 +422,7 @@ export async function getAnalyticsOverview(
           .execute();
 
   const activities = new Map<string, ActivityAccumulator>();
+  const timeSlots = new Map<string, ActivityTimeSlotAccumulator>();
   const hourMap = new Map<
     number,
     { bookingCount: number; classCount: number }
@@ -406,6 +447,23 @@ export async function getAnalyticsOverview(
     activities.set(gymClass.name, existing);
 
     const hour = localHour(gymClass.scheduledAt, input.utcOffsetMinutes);
+    const weekday = localWeekday(gymClass.scheduledAt, input.utcOffsetMinutes);
+    const timeSlotKey = activityTimeSlotKey(gymClass.name, weekday, hour);
+    const timeSlot = timeSlots.get(timeSlotKey) ?? {
+      activityName: gymClass.name,
+      weekday,
+      hour,
+      sessions: 0,
+      availablePlaces: 0,
+      confirmedBookings: 0,
+      cancellations: 0,
+      attended: 0,
+      absent: 0,
+    };
+    timeSlot.sessions += 1;
+    timeSlot.availablePlaces += gymClass.maxCapacity;
+    timeSlots.set(timeSlotKey, timeSlot);
+
     const hourData = hourMap.get(hour) ?? { bookingCount: 0, classCount: 0 };
     hourData.classCount += 1;
     hourMap.set(hour, hourData);
@@ -425,17 +483,24 @@ export async function getAnalyticsOverview(
     if (!gymClass) continue;
     const activity = activities.get(gymClass.name);
     if (!activity) continue;
+    const hour = localHour(gymClass.scheduledAt, input.utcOffsetMinutes);
+    const weekday = localWeekday(gymClass.scheduledAt, input.utcOffsetMinutes);
+    const timeSlot = timeSlots.get(
+      activityTimeSlotKey(gymClass.name, weekday, hour),
+    );
+    if (!timeSlot) continue;
 
     if (booking.status === "confirmed") {
       confirmedBookings += 1;
       activity.confirmedBookings += 1;
+      timeSlot.confirmedBookings += 1;
       if (gymClass.scheduledAt <= now) attendanceEligibleBookings += 1;
-      const hour = localHour(gymClass.scheduledAt, input.utcOffsetMinutes);
       const hourData = hourMap.get(hour);
       if (hourData) hourData.bookingCount += 1;
     } else if (booking.status === "cancelled") {
       cancellations += 1;
       activity.cancellations += 1;
+      timeSlot.cancellations += 1;
     } else if (booking.status === "waitlist") {
       currentWaitlistDemand += 1;
       activity.currentWaitlistDemand += 1;
@@ -444,9 +509,11 @@ export async function getAnalyticsOverview(
     if (booking.lifecycleStatus === "attended") {
       attended += 1;
       activity.attended += 1;
+      timeSlot.attended += 1;
     } else if (booking.lifecycleStatus === "absent") {
       absent += 1;
       activity.absent += 1;
+      timeSlot.absent += 1;
     } else if (booking.lifecycleStatus === "excused") {
       excused += 1;
     }
@@ -530,6 +597,25 @@ export async function getAnalyticsOverview(
         left.userName.localeCompare(right.userName),
     );
 
+  const activityTimeSlotPerformance = Array.from(timeSlots.values())
+    .map<ActivityTimeSlotPerformance>((timeSlot) => ({
+      ...timeSlot,
+      occupancyRate:
+        percentage(timeSlot.confirmedBookings, timeSlot.availablePlaces) ?? 0,
+      attendanceRate: percentage(
+        timeSlot.attended,
+        timeSlot.attended + timeSlot.absent,
+      ),
+    }))
+    .sort(
+      (left, right) =>
+        right.occupancyRate - left.occupancyRate ||
+        right.confirmedBookings - left.confirmedBookings ||
+        left.weekday - right.weekday ||
+        left.hour - right.hour ||
+        left.activityName.localeCompare(right.activityName),
+    );
+
   const summary: AnalyticsSummary = {
     sessions: classes.length,
     availablePlaces: classes.reduce(
@@ -561,6 +647,7 @@ export async function getAnalyticsOverview(
     },
     summary,
     activities: activityPerformance,
+    timeSlots: activityTimeSlotPerformance,
     peakHours: Array.from(hourMap.entries())
       .map(([hour, values]) => ({ hour, ...values }))
       .sort((left, right) => left.hour - right.hour),
