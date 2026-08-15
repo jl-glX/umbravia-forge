@@ -45,6 +45,9 @@ Development uses a single launcher for Vite and Express. Production builds the c
 - A manager core administrator that regulates concurrency, bounded queues,
   traffic classes and priorities without executing domain work or changing
   manager configuration. See [Manager core](./MANAGER-CORE.md).
+- An encrypted high-priority control channel from the manager coordinator to
+  the core administrator for `high` and `critical` orders or instructions, with
+  protected acknowledgements and no bypass of conflicts or capacity limits.
 - A one-way, read-only Security to Encryption hardening channel that shares a
   sanitized cryptographic readiness view without key material or mutation
   authority.

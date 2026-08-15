@@ -11,6 +11,8 @@ export type ManagerId =
   | "support";
 
 export type ManagerTaskPriority = "critical" | "high" | "normal" | "low";
+export type ManagerControlPriority = "critical" | "high";
+export type ManagerControlDirectiveKind = "order" | "instruction";
 export type ManagerTrafficClass =
   "control" | "interactive" | "transactional" | "maintenance" | "observation";
 
@@ -68,6 +70,19 @@ export class ManagerQueueTimeoutError extends Error {
   }
 }
 
+export class ManagerControlChannelPolicyError extends Error {
+  readonly status = 403;
+  readonly statusCode = 403;
+  readonly code = "MANAGER_CONTROL_CHANNEL_DENIED";
+
+  constructor() {
+    super(
+      "The manager control channel accepts only high-priority coordinator directives",
+    );
+    this.name = "ManagerControlChannelPolicyError";
+  }
+}
+
 interface ManagerAdministratorOptions {
   globalConcurrency?: number;
   perManagerConcurrency?: number;
@@ -109,6 +124,9 @@ export class ManagerAdministrator {
     queueTimeouts: 0,
     deduplicatedSignals: 0,
     rateLimitedSignals: 0,
+    admittedControlDirectives: 0,
+    completedControlDirectives: 0,
+    failedControlDirectives: 0,
   };
 
   constructor(options: ManagerAdministratorOptions = {}) {
@@ -262,6 +280,40 @@ export class ManagerAdministrator {
     });
   }
 
+  async enqueueControlDirective<T>(
+    endpoint: "manager-coordinator",
+    manager: ManagerId,
+    kind: ManagerControlDirectiveKind,
+    operation: string,
+    scopes: string[],
+    priority: ManagerControlPriority,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    if (
+      endpoint !== "manager-coordinator" ||
+      !(["critical", "high"] as const).includes(priority) ||
+      !(["order", "instruction"] as const).includes(kind)
+    ) {
+      throw new ManagerControlChannelPolicyError();
+    }
+    this.counters.admittedControlDirectives += 1;
+    try {
+      const result = await this.enqueue(
+        manager,
+        `control-${kind}:${operation}`,
+        scopes,
+        run,
+        priority,
+        "control",
+      );
+      this.counters.completedControlDirectives += 1;
+      return result;
+    } catch (error) {
+      this.counters.failedControlDirectives += 1;
+      throw error;
+    }
+  }
+
   private drainQueue(): void {
     const now = this.now();
     const ordered = [...this.queue].sort((left, right) => {
@@ -350,6 +402,22 @@ export class ManagerAdministrator {
         priorityAgingMs: this.priorityAgingMs,
         conflictModel: "exclusive-scope" as const,
         criticalSignalsAreNeverRateLimited: true as const,
+      },
+      highPriorityChannel: {
+        endpoints: [
+          "manager-coordinator",
+          "manager-core-administrator",
+        ] as const,
+        requestDirection: "manager-coordinator-to-core" as const,
+        acknowledgementDirection: "manager-core-to-coordinator" as const,
+        allowedPriorities: ["critical", "high"] as const,
+        allowedDirectiveKinds: ["order", "instruction"] as const,
+        trafficClass: "control" as const,
+        requestEncryptedInTransit: true as const,
+        acknowledgementEncryptedInTransit: true as const,
+        bypassesConflictChecks: false as const,
+        bypassesCapacityLimits: false as const,
+        carriesSecretMaterial: false as const,
       },
       activeOperations: [...this.active.values()].map((item) => ({
         ...item,

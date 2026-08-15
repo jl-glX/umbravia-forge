@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   getManagerCoordinationStatus,
   ManagerAccessPolicyError,
+  ManagerControlChannelPolicyError,
   ManagerConnectionPolicyError,
   ManagerCoordinationConflictError,
   publishManagerSignal,
   requireManagerConnection,
   transferManagerConnectionPayload,
   withCoordinatedManagerOperation,
+  withHighPriorityManagerDirective,
 } from "./manager-coordinator.js";
 
 describe("manager coordinator", () => {
@@ -255,5 +257,62 @@ describe("manager coordinator", () => {
       changesManagerConfiguration: false,
       mutatesSecrets: false,
     });
+  });
+
+  it("protects and acknowledges high-priority coordinator directives", async () => {
+    const response = await withHighPriorityManagerDirective(
+      "resource",
+      "order",
+      "run-priority-maintenance",
+      ["resource-maintenance"],
+      "critical",
+      async () => "completed-by-resource-manager",
+    );
+
+    expect(response.result).toBe("completed-by-resource-manager");
+    expect(response.receipt).toMatchObject({
+      requestDirection: "manager-coordinator-to-core",
+      acknowledgementDirection: "manager-core-to-coordinator",
+      kind: "order",
+      priority: "critical",
+      status: "completed",
+    });
+    expect(response.receipt.directiveId).toMatch(/^manager-directive-/);
+    expect(
+      getManagerCoordinationStatus().managerCore.highPriorityChannel,
+    ).toEqual(
+      expect.objectContaining({
+        allowedPriorities: ["critical", "high"],
+        trafficClass: "control",
+        requestEncryptedInTransit: true,
+        acknowledgementEncryptedInTransit: true,
+        bypassesConflictChecks: false,
+        bypassesCapacityLimits: false,
+        carriesSecretMaterial: false,
+      }),
+    );
+  });
+
+  it("rejects unsafe metadata on the high-priority channel", async () => {
+    await expect(
+      withHighPriorityManagerDirective(
+        "security",
+        "instruction",
+        "token=must-not-travel",
+        ["security-events"],
+        "high",
+        async () => undefined,
+      ),
+    ).rejects.toBeInstanceOf(ManagerControlChannelPolicyError);
+    await expect(
+      withHighPriorityManagerDirective(
+        "security",
+        "instruction",
+        "review-security-events",
+        ["file:/etc/private"],
+        "high",
+        async () => undefined,
+      ),
+    ).rejects.toBeInstanceOf(ManagerControlChannelPolicyError);
   });
 });
