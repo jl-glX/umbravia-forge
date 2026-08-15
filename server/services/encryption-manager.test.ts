@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   auditEncryptionConfiguration,
   getAccountDataProtectionOverview,
+  getSecurityEncryptionHardeningOverview,
 } from "./encryption-manager.js";
 
 const key = Buffer.alloc(32, 7).toString("base64");
@@ -132,5 +133,27 @@ describe("encryption manager", () => {
     ]);
     expect(JSON.stringify(overview)).not.toContain("issueCode");
     expect(JSON.stringify(overview)).not.toContain("keyMaterial");
+  });
+
+  it("shares only a sanitized read-only hardening view with security", () => {
+    const environment = productionEnvironment();
+    const overview = getSecurityEncryptionHardeningOverview(environment);
+    const serialized = JSON.stringify(overview);
+
+    expect(overview.policy).toEqual({
+      purpose: "security-hardening",
+      connectionMode: "read-only",
+      rawKeyMaterialExposed: false,
+      keyIdentifiersExposed: false,
+      automaticKeyRotationEnabled: false,
+      keyChangesRequireExplicitOperatorAction: true,
+      configurationMutationAllowed: false,
+      rotationAllowed: false,
+      replacementActivationAllowed: false,
+    });
+    expect(serialized).not.toContain(key);
+    expect(serialized).not.toContain("MFA_ENCRYPTION_KEY");
+    expect(serialized).not.toContain("EMAIL_QUEUE_ENCRYPTION_KEY");
+    expect(serialized).not.toContain("materialReplacement");
   });
 });

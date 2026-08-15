@@ -52,6 +52,11 @@ El coordinador conserva un registro cerrado de conexiones compatibles:
 - Recursos puede programar el mantenimiento de la cola en el ámbito compartido
   `notification-delivery`.
 
+El núcleo central admite estas tareas con colas acotadas y prioridades. El
+correo sigue siendo ejecutado exclusivamente por el gestor de correo; el
+administrador central solo decide cuándo puede ocupar un ámbito sin entrar en
+conflicto con otro gestor.
+
 El gestor de correo gestiona, confirma y avisa. El coordinador valida cada
 enlace, impide operaciones simultáneas sobre el mismo ámbito y distribuye sus
 señales. Ninguna de estas conexiones autoriza leer o modificar archivos de

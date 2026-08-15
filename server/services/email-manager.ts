@@ -18,7 +18,7 @@ import {
   getManagerCoordinationStatus,
   publishManagerSignal,
   transferManagerConnectionPayload,
-  withCoordinatedManagerOperation,
+  withPrioritizedManagerOperation,
   type ManagerId,
 } from "./manager-coordinator.js";
 
@@ -33,8 +33,13 @@ interface EmailManagerReadiness {
   productionLike: boolean;
   outbound: {
     state: ReadinessState;
-    mode: "local_mta" | "remote_relay" | "unconfigured";
-    tls: "local_transport" | "implicit" | "starttls" | "unconfigured";
+    mode: "direct_mx" | "local_mta" | "remote_relay" | "unconfigured";
+    tls:
+      | "local_transport"
+      | "implicit"
+      | "starttls"
+      | "required_starttls"
+      | "unconfigured";
     authenticated: boolean;
   };
   queueProtection: {
@@ -77,17 +82,27 @@ export function getEmailManagerReadiness(
   try {
     const configuration = resolveEmailDeliveryConfiguration(environment);
     if (configuration) {
-      const local = isLoopbackHost(configuration.host);
-      outbound = {
-        state: "configured",
-        mode: local ? "local_mta" : "remote_relay",
-        tls: local
-          ? "local_transport"
-          : configuration.secure
-            ? "implicit"
-            : "starttls",
-        authenticated: Boolean(configuration.user),
-      };
+      if (configuration.mode === "direct_mx") {
+        outbound = {
+          state: "configured",
+          mode: "direct_mx",
+          tls: "required_starttls",
+          authenticated: false,
+        };
+        confirmations.push("direct_mx_transport_configured");
+      } else {
+        const local = isLoopbackHost(configuration.host);
+        outbound = {
+          state: "configured",
+          mode: local ? "local_mta" : "remote_relay",
+          tls: local
+            ? "local_transport"
+            : configuration.secure
+              ? "implicit"
+              : "starttls",
+          authenticated: Boolean(configuration.user),
+        };
+      }
       confirmations.push("outbound_transport_configured");
     } else if (productionLike) {
       alerts.push("outbound_transport_missing");
@@ -263,10 +278,12 @@ export async function getEmailManagerOverview() {
 }
 
 export async function runEmailManagerAudit() {
-  return withCoordinatedManagerOperation(
+  return withPrioritizedManagerOperation(
     "email",
     "email-readiness-audit",
     ["notification-delivery", "support-email-ingress"],
+    "normal",
+    "observation",
     async () => {
       const readiness = getEmailManagerReadiness();
       publishManagerSignal(
@@ -300,10 +317,12 @@ export async function maintainManagedEmailQueue() {
 }
 
 export async function runEmailManagerMaintenance() {
-  return withCoordinatedManagerOperation(
+  return withPrioritizedManagerOperation(
     "email",
     "email-queue-maintenance",
     ["notification-delivery"],
+    "high",
+    "transactional",
     async () => {
       const result = await maintainEmailDeliveryQueue();
       publishManagerSignal(

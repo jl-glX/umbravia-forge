@@ -70,8 +70,28 @@ describe("manager coordinator", () => {
           capability: "scheduled-maintenance",
           compatible: true,
         }),
+        expect.objectContaining({
+          consumer: "security",
+          provider: "encryption",
+          capability: "security-hardening",
+          mode: "read-only",
+          scopes: ["encryption-readiness"],
+          compatible: true,
+        }),
       ]),
     );
+  });
+
+  it("allows only the registered read-only security hardening connection", () => {
+    expect(
+      requireManagerConnection("security", "encryption", "security-hardening"),
+    ).toMatchObject({
+      mode: "read-only",
+      scopes: ["encryption-readiness"],
+    });
+    expect(() =>
+      requireManagerConnection("encryption", "security", "security-hardening"),
+    ).toThrow(ManagerConnectionPolicyError);
   });
 
   it("rejects unregistered or reversed manager connections", () => {
@@ -225,6 +245,15 @@ describe("manager coordinator", () => {
         "encryption-files": "encryption",
       },
       keyChangesRequireExplicitOperatorAction: true,
+    });
+  });
+
+  it("publishes the traffic administrator contract without domain authority", () => {
+    expect(getManagerCoordinationStatus().managerCore.administrator).toEqual({
+      role: "traffic-priority-conflict-administrator",
+      executesDomainWork: false,
+      changesManagerConfiguration: false,
+      mutatesSecrets: false,
     });
   });
 });

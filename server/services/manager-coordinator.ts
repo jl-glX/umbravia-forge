@@ -1,31 +1,26 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   getManagerConnectionCryptoStatus,
   protectManagerConnectionPayload,
   revealManagerConnectionPayload,
 } from "../lib/manager-connection-crypto.js";
+import {
+  managerAdministrator,
+  ManagerCoordinationConflictError,
+  type ManagerId,
+  type ManagerTaskPriority,
+  type ManagerTrafficClass,
+} from "./manager-core.js";
 
-export type ManagerId =
-  | "account"
-  | "security"
-  | "resource"
-  | "encryption"
-  | "environment"
-  | "email"
-  | "notification"
-  | "support";
+export { ManagerCoordinationConflictError };
+export type { ManagerId, ManagerTaskPriority, ManagerTrafficClass };
 export type ManagerSignalSeverity = "info" | "warning" | "critical";
 export type ProtectedManagerScope = "security-files" | "encryption-files";
 export type ManagerConnectionCapability =
-  "channel-readiness" | "deployment-readiness" | "scheduled-maintenance";
-
-interface ActiveManagerOperation {
-  id: string;
-  manager: ManagerId;
-  operation: string;
-  scopes: string[];
-  startedAt: number;
-}
+  | "channel-readiness"
+  | "deployment-readiness"
+  | "scheduled-maintenance"
+  | "security-hardening";
 
 interface ManagerSignal {
   id: string;
@@ -36,7 +31,6 @@ interface ManagerSignal {
   createdAt: number;
 }
 
-const activeOperations = new Map<string, ActiveManagerOperation>();
 const signals: ManagerSignal[] = [];
 const MAX_SIGNALS = 50;
 const MAX_SIGNAL_MESSAGE_LENGTH = 500;
@@ -80,6 +74,13 @@ const managedConnections = [
     mode: "delegated-run",
     scopes: ["notification-delivery"],
   },
+  {
+    consumer: "security",
+    provider: "encryption",
+    capability: "security-hardening",
+    mode: "read-only",
+    scopes: ["encryption-readiness"],
+  },
 ] as const satisfies readonly {
   consumer: ManagerId;
   provider: ManagerId;
@@ -87,16 +88,6 @@ const managedConnections = [
   mode: "read-only" | "delegated-run";
   scopes: readonly string[];
 }[];
-
-export class ManagerCoordinationConflictError extends Error {
-  readonly status = 409;
-  readonly statusCode = 409;
-
-  constructor(public readonly conflictingOperation: ActiveManagerOperation) {
-    super("A coordinated manager operation is already using this scope");
-    this.name = "ManagerCoordinationConflictError";
-  }
-}
 
 export class ManagerAccessPolicyError extends Error {
   readonly status = 403;
@@ -217,6 +208,12 @@ export function publishManagerSignal(
   }
   const id = `manager-signal-${randomBytes(8).toString("hex")}`;
   const sanitizedMessage = sanitizeManagerSignalMessage(message);
+  const fingerprint = createHash("sha256")
+    .update(sanitizedMessage)
+    .digest("hex");
+  if (!managerAdministrator.admitSignal(source, severity, code, fingerprint)) {
+    return;
+  }
   signals.unshift({
     id,
     source,
@@ -237,40 +234,42 @@ export async function withCoordinatedManagerOperation<T>(
   scopes: string[],
   run: () => Promise<T>,
 ): Promise<T> {
-  const normalizedOperation = operation.trim();
   const normalizedScopes = [
     ...new Set(scopes.map((scope) => scope.trim()).filter(Boolean)),
   ];
-  if (!normalizedOperation) {
-    throw new Error("A coordinated manager operation requires a name");
-  }
-  if (normalizedScopes.length === 0) {
-    throw new Error(
-      "A coordinated manager operation requires at least one scope",
-    );
-  }
   assertManagerScopeAccess(manager, normalizedScopes);
-  const conflict = [...activeOperations.values()].find((active) =>
-    active.scopes.some((scope) => normalizedScopes.includes(scope)),
-  );
-  if (conflict) throw new ManagerCoordinationConflictError(conflict);
-
-  const active: ActiveManagerOperation = {
-    id: `manager-operation-${randomBytes(8).toString("hex")}`,
+  return managerAdministrator.runImmediate(
     manager,
-    operation: normalizedOperation,
-    scopes: normalizedScopes,
-    startedAt: Date.now(),
-  };
-  activeOperations.set(active.id, active);
-  try {
-    return await run();
-  } finally {
-    activeOperations.delete(active.id);
-  }
+    operation,
+    normalizedScopes,
+    run,
+  );
+}
+
+export async function withPrioritizedManagerOperation<T>(
+  manager: ManagerId,
+  operation: string,
+  scopes: string[],
+  priority: ManagerTaskPriority,
+  trafficClass: ManagerTrafficClass,
+  run: () => Promise<T>,
+): Promise<T> {
+  const normalizedScopes = [
+    ...new Set(scopes.map((scope) => scope.trim()).filter(Boolean)),
+  ];
+  assertManagerScopeAccess(manager, normalizedScopes);
+  return managerAdministrator.enqueue(
+    manager,
+    operation,
+    normalizedScopes,
+    run,
+    priority,
+    trafficClass,
+  );
 }
 
 export function getManagerCoordinationStatus() {
+  const core = managerAdministrator.getStatus();
   return {
     mode: "shared-runtime" as const,
     managers: [
@@ -283,10 +282,8 @@ export function getManagerCoordinationStatus() {
       "notification",
       "support",
     ] as const,
-    activeOperations: [...activeOperations.values()].map((operation) => ({
-      ...operation,
-      scopes: [...operation.scopes],
-    })),
+    activeOperations: core.activeOperations,
+    managerCore: core,
     recentSignals: signals.slice(0, 20).map((signal) => {
       let message = "Encrypted manager signal unavailable.";
       try {

@@ -162,6 +162,36 @@ describe("email manager API", () => {
     });
   });
 
+  it("reports direct MX delivery as a distinct TLS-enforced transport", async () => {
+    const { getEmailManagerReadiness } =
+      await import("../services/email-manager.js");
+    const readiness = getEmailManagerReadiness({
+      NODE_ENV: "production",
+      EMAIL_TRANSPORT_MODE: "direct_mx",
+      EMAIL_FROM: "Umbravia Forge <no-reply@example.test>",
+      EMAIL_DIRECT_HELO_NAME: "mail.example.test",
+      EMAIL_DKIM_DOMAIN: "example.test",
+      EMAIL_DKIM_SELECTOR: "mail",
+      EMAIL_DKIM_PRIVATE_KEY_PATH: "/run/credentials/mail-dkim.pem",
+      EMAIL_QUEUE_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString("base64"),
+      SUPPORT_EMAIL_INBOUND_ENABLED: "false",
+    });
+
+    expect(readiness).toMatchObject({
+      healthy: true,
+      outbound: {
+        state: "configured",
+        mode: "direct_mx",
+        tls: "required_starttls",
+        authenticated: false,
+      },
+      confirmations: expect.arrayContaining([
+        "direct_mx_transport_configured",
+        "outbound_transport_configured",
+      ]),
+    });
+  });
+
   it("keeps manager controls restricted to administrators", async () => {
     await request(app)
       .get("/api/admin/email-manager")

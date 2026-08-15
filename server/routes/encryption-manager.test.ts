@@ -102,6 +102,11 @@ describe("encryption manager API", () => {
         automaticKeyRotationEnabled: false,
         keyChangesRequireExplicitOperatorAction: true,
       },
+      materialReplacement: {
+        role: "encryption_manager_auxiliary",
+        mode: "prepare_only",
+        authority: "encryption_manager",
+      },
       coordination: {
         mode: "shared-runtime",
         managers: expect.arrayContaining([
