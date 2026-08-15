@@ -127,6 +127,28 @@ describe("production configuration", () => {
     ).toThrow(/configured together/i);
   });
 
+  it("accepts the direct MX transport without SMTP relay credentials", () => {
+    const directEnvironment = {
+      ...validEnvironment,
+      EMAIL_TRANSPORT_MODE: "direct_mx",
+      SMTP_HOST: "",
+      SMTP_PORT: "",
+      SMTP_SECURE: "",
+      SMTP_REQUIRE_TLS: "",
+      SMTP_USER: "",
+      SMTP_PASSWORD: "",
+      EMAIL_FROM: "Umbravia Forge <no-reply@example.invalid>",
+      EMAIL_DIRECT_HELO_NAME: "mail.example.invalid",
+      EMAIL_DKIM_DOMAIN: "example.invalid",
+      EMAIL_DKIM_SELECTOR: "mail",
+      EMAIL_DKIM_PRIVATE_KEY_PATH: "/run/credentials/mail-dkim.pem",
+    };
+
+    expect(
+      validateProductionConfiguration(directEnvironment, "postgresql"),
+    ).toMatchObject({ deploymentProfile: "production" });
+  });
+
   it("requires independent secrets for Cloudflare support email inbound", () => {
     const inboundEnvironment = {
       ...validEnvironment,
