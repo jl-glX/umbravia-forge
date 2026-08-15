@@ -21,7 +21,7 @@ import {
   getManagerCoordinationStatus,
   ManagerCoordinationConflictError,
   publishManagerSignal,
-  withCoordinatedManagerOperation,
+  withPrioritizedManagerOperation,
 } from "./manager-coordinator.js";
 
 type TaskPriority = "critical" | "normal" | "low";
@@ -528,10 +528,14 @@ export async function runManagedTask(
   const execution = (async () => {
     try {
       await checkResidualBackgroundProcesses("task-start", taskId);
-      const result = await withCoordinatedManagerOperation(
+      const result = await withPrioritizedManagerOperation(
         "resource",
         taskId,
         taskCoordinationScopes[taskId] ?? [`resource-task:${taskId}`],
+        task.definition.priority,
+        task.definition.priority === "critical"
+          ? "transactional"
+          : "maintenance",
         task.definition.run,
       );
       task.lastResultCount =

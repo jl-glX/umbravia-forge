@@ -115,7 +115,7 @@ export function validateProductionConfiguration(
   }
   if (!emailDelivery) {
     throw new Error(
-      "SMTP_HOST, SMTP_PORT and EMAIL_FROM are required for email verification in production",
+      "A valid email transport and EMAIL_FROM are required for email verification in production",
     );
   }
 

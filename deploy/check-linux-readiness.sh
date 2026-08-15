@@ -137,13 +137,51 @@ if [ -f "$ENV_FILE" ]; then
     fail "EMAIL_VERIFICATION_ENABLED debe ser true en produccion"
   fi
 
-  for REQUIRED_ENV in SMTP_HOST SMTP_PORT EMAIL_FROM EMAIL_QUEUE_ENCRYPTION_KEY; do
+  EMAIL_TRANSPORT_MODE_VALUE=$(sed -n 's/^EMAIL_TRANSPORT_MODE=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
+  EMAIL_TRANSPORT_MODE_VALUE=${EMAIL_TRANSPORT_MODE_VALUE:-smtp}
+
+  for REQUIRED_ENV in EMAIL_FROM EMAIL_QUEUE_ENCRYPTION_KEY; do
     if grep -Eq "^${REQUIRED_ENV}=.+" "$ENV_FILE"; then
       pass "$REQUIRED_ENV configurado"
     else
       fail "$REQUIRED_ENV ausente para la verificacion de correo"
     fi
   done
+
+  case "$EMAIL_TRANSPORT_MODE_VALUE" in
+    smtp)
+      for REQUIRED_ENV in SMTP_HOST SMTP_PORT; do
+        if grep -Eq "^${REQUIRED_ENV}=.+" "$ENV_FILE"; then
+          pass "$REQUIRED_ENV configurado"
+        else
+          fail "$REQUIRED_ENV ausente para el transporte SMTP"
+        fi
+      done
+      ;;
+    direct_mx)
+      for REQUIRED_ENV in EMAIL_DIRECT_HELO_NAME EMAIL_DKIM_DOMAIN EMAIL_DKIM_SELECTOR EMAIL_DKIM_PRIVATE_KEY_PATH; do
+        if grep -Eq "^${REQUIRED_ENV}=.+" "$ENV_FILE"; then
+          pass "$REQUIRED_ENV configurado"
+        else
+          fail "$REQUIRED_ENV ausente para el transporte directo MX"
+        fi
+      done
+
+      DKIM_PRIVATE_KEY_PATH=$(sed -n 's/^EMAIL_DKIM_PRIVATE_KEY_PATH=//p' "$ENV_FILE" | tail -n 1)
+      if [ -n "$DKIM_PRIVATE_KEY_PATH" ] && [ -f "$DKIM_PRIVATE_KEY_PATH" ] && [ ! -L "$DKIM_PRIVATE_KEY_PATH" ]; then
+        DKIM_KEY_MODE=$(stat -c '%a' "$DKIM_PRIVATE_KEY_PATH")
+        case "$DKIM_KEY_MODE" in
+          600|640) pass "archivo DKIM disponible con permisos restrictivos ($DKIM_KEY_MODE)" ;;
+          *) fail "permisos inseguros en el archivo DKIM ($DKIM_KEY_MODE); use 600 o 640" ;;
+        esac
+      else
+        fail "EMAIL_DKIM_PRIVATE_KEY_PATH no apunta a un archivo regular disponible"
+      fi
+      ;;
+    *)
+      fail "EMAIL_TRANSPORT_MODE debe ser smtp o direct_mx"
+      ;;
+  esac
 
   if node "$PROJECT_ROOT/deploy/check-private-content-key.mjs" "$ENV_FILE" >/dev/null 2>&1; then
     pass "cifrado XChaCha20-Poly1305 de contenido privado activo y valido"
@@ -175,19 +213,23 @@ if [ -f "$ENV_FILE" ]; then
     warn "copias PostgreSQL cifradas aun no activadas; configure el destinatario publico age y ejecute check-encryption-readiness.sh"
   fi
 
-  SMTP_USER_PRESENT=0
-  SMTP_PASSWORD_PRESENT=0
-  if grep -Eq '^SMTP_USER=.+' "$ENV_FILE"; then SMTP_USER_PRESENT=1; fi
-  if grep -Eq '^SMTP_PASSWORD=.+' "$ENV_FILE"; then SMTP_PASSWORD_PRESENT=1; fi
-  if [ "$SMTP_USER_PRESENT" -eq "$SMTP_PASSWORD_PRESENT" ]; then
-    pass "credenciales SMTP coherentes"
+  if [ "$EMAIL_TRANSPORT_MODE_VALUE" = "smtp" ]; then
+    SMTP_USER_PRESENT=0
+    SMTP_PASSWORD_PRESENT=0
+    if grep -Eq '^SMTP_USER=.+' "$ENV_FILE"; then SMTP_USER_PRESENT=1; fi
+    if grep -Eq '^SMTP_PASSWORD=.+' "$ENV_FILE"; then SMTP_PASSWORD_PRESENT=1; fi
+    if [ "$SMTP_USER_PRESENT" -eq "$SMTP_PASSWORD_PRESENT" ]; then
+      pass "credenciales SMTP coherentes"
+    else
+      fail "SMTP_USER y SMTP_PASSWORD deben configurarse juntos"
+    fi
   else
-    fail "SMTP_USER y SMTP_PASSWORD deben configurarse juntos"
+    pass "transporte directo MX sin credenciales de relay"
   fi
 
   SMTP_HOST_VALUE=$(sed -n 's/^SMTP_HOST=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
-  case "$SMTP_HOST_VALUE" in
-    127.0.0.1|::1|localhost)
+  case "$EMAIL_TRANSPORT_MODE_VALUE:$SMTP_HOST_VALUE" in
+    smtp:127.0.0.1|smtp:::1|smtp:localhost|direct_mx:*)
       if ! grep -Eq '^EMAIL_PUBLIC_MAIL_HOST=.+' "$ENV_FILE"; then
         if grep -Eiq '^EMAIL_PUBLIC_DNS_CHECK=strict$' "$ENV_FILE"; then
           fail "EMAIL_PUBLIC_MAIL_HOST es obligatorio en el modo DNS estricto"

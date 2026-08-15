@@ -1,7 +1,7 @@
 import { db } from "../db/client.js";
 import { captchaIsConfigured } from "./captcha.js";
 import { getManagerCoordinationStatus } from "./manager-coordinator.js";
-import { getEncryptionManagerOverview } from "./encryption-manager.js";
+import { getSecurityEncryptionHardeningOverview } from "./encryption-manager.js";
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const RECENT_EVENT_LIMIT = 50;
@@ -91,7 +91,7 @@ export async function getSecurityManagerOverview() {
       ).length,
       sampleTruncated,
     },
-    encryption: getEncryptionManagerOverview(),
+    encryption: getSecurityEncryptionHardeningOverview(),
     coordination: getManagerCoordinationStatus(),
     recentEvents: events.slice(0, RECENT_EVENT_LIMIT),
   };

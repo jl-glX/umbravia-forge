@@ -9,6 +9,11 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import nodemailer from "nodemailer";
 import { db } from "../db/client.js";
+import {
+  DirectEmailTransportError,
+  sendDirectEmail,
+  type DirectEmailTransportConfiguration,
+} from "./email-direct-transport.js";
 import { publishManagerSignal } from "./manager-coordinator.js";
 import { recordSecurityEvent } from "./security-events.js";
 
@@ -32,7 +37,8 @@ type EmailDeliveryKind =
   | "support_update"
   | "security_notice";
 
-export type EmailDeliveryConfiguration = {
+type SmtpEmailDeliveryConfiguration = {
+  mode: "smtp";
   host: string;
   port: number;
   secure: boolean;
@@ -41,6 +47,9 @@ export type EmailDeliveryConfiguration = {
   password?: string;
   from: string;
 };
+
+export type EmailDeliveryConfiguration =
+  SmtpEmailDeliveryConfiguration | DirectEmailTransportConfiguration;
 
 type VerificationMessage = {
   subject: string;
@@ -62,11 +71,13 @@ const VERIFICATION_HEADER_CID = "umbravia-forge-email-header";
 
 export class EmailDeliveryUnavailableError extends Error {
   readonly cause?: Error;
+  readonly retryable: boolean;
 
-  constructor(cause?: Error) {
+  constructor(cause?: Error, retryable = true) {
     super("Email delivery is unavailable");
     this.name = "EmailDeliveryUnavailableError";
     this.cause = cause;
+    this.retryable = retryable;
   }
 }
 
@@ -113,6 +124,7 @@ function isLoopbackHost(host: string): boolean {
 export function resolveEmailDeliveryConfiguration(
   environment: NodeJS.ProcessEnv = process.env,
 ): EmailDeliveryConfiguration | null {
+  const mode = environment.EMAIL_TRANSPORT_MODE?.trim() || "smtp";
   const host = environment.SMTP_HOST?.trim();
   const from = environment.EMAIL_FROM?.trim();
   const user = environment.SMTP_USER?.trim();
@@ -124,14 +136,49 @@ export function resolveEmailDeliveryConfiguration(
     environment.SMTP_SECURE ||
     environment.SMTP_REQUIRE_TLS ||
     user ||
-    password,
+    password ||
+    environment.EMAIL_TRANSPORT_MODE ||
+    environment.EMAIL_DIRECT_HELO_NAME ||
+    environment.EMAIL_DIRECT_LOCAL_ADDRESS ||
+    environment.EMAIL_DKIM_DOMAIN ||
+    environment.EMAIL_DKIM_SELECTOR ||
+    environment.EMAIL_DKIM_PRIVATE_KEY_PATH,
   );
 
   if (!hasAnyConfiguration) return null;
-  if (!host)
-    throw new Error("SMTP_HOST is required when email delivery is configured");
+  if (!new Set(["smtp", "direct_mx"]).has(mode)) {
+    throw new Error("EMAIL_TRANSPORT_MODE must be smtp or direct_mx");
+  }
   if (!from)
     throw new Error("EMAIL_FROM is required when email delivery is configured");
+
+  if (mode === "direct_mx") {
+    const heloName = environment.EMAIL_DIRECT_HELO_NAME?.trim();
+    const domainName = environment.EMAIL_DKIM_DOMAIN?.trim();
+    const keySelector = environment.EMAIL_DKIM_SELECTOR?.trim();
+    const privateKeyPath = environment.EMAIL_DKIM_PRIVATE_KEY_PATH?.trim();
+    if (!heloName) {
+      throw new Error(
+        "EMAIL_DIRECT_HELO_NAME is required for direct MX delivery",
+      );
+    }
+    if (!domainName || !keySelector || !privateKeyPath) {
+      throw new Error(
+        "EMAIL_DKIM_DOMAIN, EMAIL_DKIM_SELECTOR and EMAIL_DKIM_PRIVATE_KEY_PATH are required for direct MX delivery",
+      );
+    }
+    return {
+      mode: "direct_mx",
+      from,
+      heloName,
+      localAddress: environment.EMAIL_DIRECT_LOCAL_ADDRESS?.trim() || undefined,
+      requireTls: true,
+      dkim: { domainName, keySelector, privateKeyPath },
+    };
+  }
+
+  if (!host)
+    throw new Error("SMTP_HOST is required when email delivery is configured");
   if (Boolean(user) !== Boolean(password)) {
     throw new Error("SMTP_USER and SMTP_PASSWORD must be configured together");
   }
@@ -153,6 +200,7 @@ export function resolveEmailDeliveryConfiguration(
     );
   }
   return {
+    mode: "smtp",
     host,
     port,
     secure,
@@ -354,7 +402,7 @@ export function buildAccountRecoveryMessage(
   };
 }
 
-function configuredTransport(configuration: EmailDeliveryConfiguration) {
+function configuredTransport(configuration: SmtpEmailDeliveryConfiguration) {
   const fingerprint = JSON.stringify(configuration);
   if (transporter && fingerprint === transporterFingerprint) return transporter;
   transporterFingerprint = fingerprint;
@@ -414,7 +462,7 @@ export async function sendTransactionalEmail(input: {
   }
 
   try {
-    const result = await configuredTransport(configuration).sendMail({
+    const message = {
       from: configuration.from,
       to: input.email,
       subject: input.subject,
@@ -427,11 +475,16 @@ export async function sendTransactionalEmail(input: {
         "Auto-Submitted": "auto-generated",
         "X-Auto-Response-Suppress": "All",
       },
-    });
+    };
+    const result =
+      configuration.mode === "direct_mx"
+        ? await sendDirectEmail(configuration, message)
+        : await configuredTransport(configuration).sendMail(message);
     return { delivered: true, messageId: result.messageId };
   } catch (cause) {
     throw new EmailDeliveryUnavailableError(
       cause instanceof Error ? cause : undefined,
+      cause instanceof DirectEmailTransportError ? cause.retryable : true,
     );
   }
 }
@@ -1130,8 +1183,11 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
     const attempts = keyUnavailable ? row.attempts : row.attempts + 1;
     const nextAttemptAt = Date.now() + retryDelay(attempts);
     const payloadRejected = error instanceof EmailQueuePayloadError;
+    const permanentlyRejected =
+      error instanceof EmailDeliveryUnavailableError && !error.retryable;
     const terminal =
       payloadRejected ||
+      permanentlyRejected ||
       (!keyUnavailable &&
         (attempts >= row.maxAttempts || nextAttemptAt >= row.expiresAt));
     await db
@@ -1148,7 +1204,9 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
           : payloadRejected
             ? "payload_authentication_failed"
             : error instanceof EmailDeliveryUnavailableError
-              ? "smtp_unavailable"
+              ? error.retryable
+                ? "smtp_unavailable"
+                : "smtp_permanently_rejected"
               : "delivery_processing_failed",
         updatedAt: Date.now(),
       })

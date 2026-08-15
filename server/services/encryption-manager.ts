@@ -11,8 +11,10 @@ import {
 import {
   getManagerCoordinationStatus,
   publishManagerSignal,
-  withCoordinatedManagerOperation,
+  transferManagerConnectionPayload,
+  withPrioritizedManagerOperation,
 } from "./manager-coordinator.js";
+import { getCryptographicMaterialReplacementOverview } from "./cryptographic-material-replacement-manager.js";
 
 export type EncryptionCapabilityState =
   "active" | "client_managed" | "external" | "disabled" | "invalid";
@@ -235,8 +237,47 @@ export function getEncryptionManagerOverview() {
       automaticKeyRotationEnabled: false as const,
       keyChangesRequireExplicitOperatorAction: true as const,
     },
+    materialReplacement: getCryptographicMaterialReplacementOverview(),
     coordination: getManagerCoordinationStatus(),
   };
+}
+
+export function getSecurityEncryptionHardeningOverview(
+  environment: NodeJS.ProcessEnv = process.env,
+) {
+  const audit = auditEncryptionConfiguration(environment);
+  const safeOverview = {
+    generatedAt: audit.generatedAt,
+    healthy: audit.healthy,
+    findings: [...audit.findings],
+    capabilities: audit.capabilities.map(
+      ({ id, primitive, state, owner, issueCode, keyMaterialExposed }) => ({
+        id,
+        primitive,
+        state,
+        owner,
+        issueCode,
+        keyMaterialExposed,
+      }),
+    ),
+    policy: {
+      purpose: "security-hardening" as const,
+      connectionMode: "read-only" as const,
+      rawKeyMaterialExposed: false as const,
+      keyIdentifiersExposed: false as const,
+      automaticKeyRotationEnabled: false as const,
+      keyChangesRequireExplicitOperatorAction: true as const,
+      configurationMutationAllowed: false as const,
+      rotationAllowed: false as const,
+      replacementActivationAllowed: false as const,
+    },
+  };
+  return transferManagerConnectionPayload(
+    "security",
+    "encryption",
+    "security-hardening",
+    safeOverview,
+  );
 }
 
 export function getAccountDataProtectionOverview(
@@ -259,10 +300,12 @@ export function getAccountDataProtectionOverview(
 }
 
 export async function runEncryptionManagerAudit() {
-  return withCoordinatedManagerOperation(
+  return withPrioritizedManagerOperation(
     "encryption",
     "configuration-audit",
     ["encryption-files"],
+    "critical",
+    "control",
     async () => {
       const audit = auditEncryptionConfiguration();
       publishManagerSignal(

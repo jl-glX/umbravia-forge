@@ -42,6 +42,12 @@ Development uses a single launcher for Vite and Express. Production builds the c
 - A manager coordinator that owns the connection registry, rejects overlapping
   scopes and distributes sanitized confirmations and alerts; domain managers
   retain responsibility for operating their own area.
+- A manager core administrator that regulates concurrency, bounded queues,
+  traffic classes and priorities without executing domain work or changing
+  manager configuration. See [Manager core](./MANAGER-CORE.md).
+- A one-way, read-only Security to Encryption hardening channel that shares a
+  sanitized cryptographic readiness view without key material or mutation
+  authority.
 - Isolated SQLite environment provisioning and reviewed PostgreSQL promotion
   planning.
 

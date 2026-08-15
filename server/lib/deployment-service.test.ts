@@ -80,7 +80,13 @@ describe("systemd deployment service", () => {
       "EMAIL_VERIFICATION_ENABLED debe ser true en produccion",
     );
     expect(readiness).toContain(
-      "for REQUIRED_ENV in SMTP_HOST SMTP_PORT EMAIL_FROM",
+      "for REQUIRED_ENV in EMAIL_FROM EMAIL_QUEUE_ENCRYPTION_KEY",
+    );
+    expect(readiness).toContain(
+      "EMAIL_DIRECT_HELO_NAME EMAIL_DKIM_DOMAIN EMAIL_DKIM_SELECTOR EMAIL_DKIM_PRIVATE_KEY_PATH",
+    );
+    expect(readiness).toContain(
+      "EMAIL_DKIM_PRIVATE_KEY_PATH no apunta a un archivo regular disponible",
     );
     expect(readiness).toContain("EMAIL_VERIFICATION_ENABLED=true");
     expect(readiness).toContain("ausente para la verificacion de correo");

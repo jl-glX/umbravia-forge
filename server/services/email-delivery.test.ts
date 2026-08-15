@@ -67,6 +67,33 @@ describe("email delivery configuration", () => {
     });
   });
 
+  it("supports direct MX delivery only with explicit DKIM identity", () => {
+    expect(
+      resolveEmailDeliveryConfiguration({
+        EMAIL_TRANSPORT_MODE: "direct_mx",
+        EMAIL_FROM: "Umbravia Forge <no-reply@umbraviaforge.com>",
+        EMAIL_DIRECT_HELO_NAME: "mail.umbraviaforge.com",
+        EMAIL_DKIM_DOMAIN: "umbraviaforge.com",
+        EMAIL_DKIM_SELECTOR: "mail",
+        EMAIL_DKIM_PRIVATE_KEY_PATH: "/run/credentials/forge-mail-dkim-key",
+      }),
+    ).toMatchObject({
+      mode: "direct_mx",
+      heloName: "mail.umbraviaforge.com",
+      requireTls: true,
+      dkim: {
+        domainName: "umbraviaforge.com",
+        keySelector: "mail",
+      },
+    });
+    expect(() =>
+      resolveEmailDeliveryConfiguration({
+        EMAIL_TRANSPORT_MODE: "direct_mx",
+        EMAIL_FROM: "no-reply@umbraviaforge.com",
+      }),
+    ).toThrow(/EMAIL_DIRECT_HELO_NAME/);
+  });
+
   it("delivers a verification message through a local SMTP server", async () => {
     const receivedMessages: string[] = [];
     const server = createServer((socket) => {
