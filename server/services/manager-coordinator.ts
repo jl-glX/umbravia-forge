@@ -6,14 +6,24 @@ import {
 } from "../lib/manager-connection-crypto.js";
 import {
   managerAdministrator,
+  ManagerControlChannelPolicyError,
   ManagerCoordinationConflictError,
+  type ManagerControlDirectiveKind,
+  type ManagerControlPriority,
   type ManagerId,
   type ManagerTaskPriority,
   type ManagerTrafficClass,
 } from "./manager-core.js";
 
 export { ManagerCoordinationConflictError };
-export type { ManagerId, ManagerTaskPriority, ManagerTrafficClass };
+export { ManagerControlChannelPolicyError };
+export type {
+  ManagerControlDirectiveKind,
+  ManagerControlPriority,
+  ManagerId,
+  ManagerTaskPriority,
+  ManagerTrafficClass,
+};
 export type ManagerSignalSeverity = "info" | "warning" | "critical";
 export type ProtectedManagerScope = "security-files" | "encryption-files";
 export type ManagerConnectionCapability =
@@ -34,6 +44,8 @@ interface ManagerSignal {
 const signals: ManagerSignal[] = [];
 const MAX_SIGNALS = 50;
 const MAX_SIGNAL_MESSAGE_LENGTH = 500;
+const MANAGER_CONTROL_IDENTIFIER = /^[a-z][a-z0-9-]{2,80}$/;
+const MANAGER_CONTROL_SCOPE = /^[a-z][a-z0-9:-]{1,100}$/;
 const protectedScopeOwners: Readonly<Record<ProtectedManagerScope, ManagerId>> =
   {
     "security-files": "security",
@@ -266,6 +278,108 @@ export async function withPrioritizedManagerOperation<T>(
     priority,
     trafficClass,
   );
+}
+
+export async function withHighPriorityManagerDirective<T>(
+  manager: ManagerId,
+  kind: ManagerControlDirectiveKind,
+  operation: string,
+  scopes: string[],
+  priority: ManagerControlPriority,
+  run: () => Promise<T>,
+): Promise<{
+  result: T;
+  receipt: {
+    directiveId: string;
+    requestDirection: "manager-coordinator-to-core";
+    acknowledgementDirection: "manager-core-to-coordinator";
+    kind: ManagerControlDirectiveKind;
+    priority: ManagerControlPriority;
+    status: "completed";
+  };
+}> {
+  const normalizedOperation = operation.trim();
+  const normalizedScopes = [
+    ...new Set(scopes.map((scope) => scope.trim()).filter(Boolean)),
+  ];
+  if (!MANAGER_CONTROL_IDENTIFIER.test(normalizedOperation)) {
+    throw new ManagerControlChannelPolicyError();
+  }
+  if (
+    normalizedScopes.length === 0 ||
+    normalizedScopes.some((scope) => !MANAGER_CONTROL_SCOPE.test(scope))
+  ) {
+    throw new ManagerControlChannelPolicyError();
+  }
+  assertManagerScopeAccess(manager, normalizedScopes);
+
+  const directiveId = `manager-directive-${randomBytes(8).toString("hex")}`;
+  const requestContext = `manager-control:coordinator-to-core:${directiveId}`;
+  const protectedRequest = protectManagerConnectionPayload(
+    Buffer.from(
+      JSON.stringify({
+        directiveId,
+        manager,
+        kind,
+        operation: normalizedOperation,
+        scopes: normalizedScopes,
+        priority,
+      }),
+      "utf8",
+    ),
+    requestContext,
+  );
+  const request = JSON.parse(
+    revealManagerConnectionPayload(protectedRequest, requestContext).toString(
+      "utf8",
+    ),
+  ) as {
+    directiveId: string;
+    manager: ManagerId;
+    kind: ManagerControlDirectiveKind;
+    operation: string;
+    scopes: string[];
+    priority: ManagerControlPriority;
+  };
+
+  const result = await managerAdministrator.enqueueControlDirective(
+    "manager-coordinator",
+    request.manager,
+    request.kind,
+    request.operation,
+    request.scopes,
+    request.priority,
+    run,
+  );
+
+  const receiptContext = `manager-control:core-to-coordinator:${directiveId}`;
+  const protectedReceipt = protectManagerConnectionPayload(
+    Buffer.from(
+      JSON.stringify({
+        directiveId,
+        requestDirection: "manager-coordinator-to-core",
+        acknowledgementDirection: "manager-core-to-coordinator",
+        kind,
+        priority,
+        status: "completed",
+      }),
+      "utf8",
+    ),
+    receiptContext,
+  );
+  const receipt = JSON.parse(
+    revealManagerConnectionPayload(protectedReceipt, receiptContext).toString(
+      "utf8",
+    ),
+  ) as {
+    directiveId: string;
+    requestDirection: "manager-coordinator-to-core";
+    acknowledgementDirection: "manager-core-to-coordinator";
+    kind: ManagerControlDirectiveKind;
+    priority: ManagerControlPriority;
+    status: "completed";
+  };
+  return { result, receipt };
 }
 
 export function getManagerCoordinationStatus() {
