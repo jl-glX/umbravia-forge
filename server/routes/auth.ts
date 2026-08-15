@@ -486,6 +486,7 @@ authRouter.get(
         accountStatus: session.accountStatus,
         facility: session.facility,
         platformOperator: session.platformOperator,
+        corporateConsole: session.corporateConsole,
       },
     });
   },

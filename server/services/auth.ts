@@ -27,6 +27,10 @@ import {
 } from "./facility-context.js";
 import { commercialFacilityTypes } from "../lib/commercial-trial.js";
 import type { CommercialFacilityType } from "../db/types.js";
+import {
+  getCorporateConsoleAccess,
+  type CorporateConsoleAccess,
+} from "./manager-console.js";
 
 export { isStrongPassword } from "../lib/password-policy.js";
 
@@ -48,6 +52,7 @@ export interface SessionData {
   expiresAt: number;
   facility: FacilityContext | null;
   platformOperator: boolean;
+  corporateConsole: CorporateConsoleAccess;
 }
 
 export interface AuthResult {
@@ -62,6 +67,7 @@ export interface AuthResult {
     accountStatus: "pending_verification" | "active" | "security_review";
     facility?: FacilityContext | null;
     platformOperator?: boolean;
+    corporateConsole?: CorporateConsoleAccess;
   };
 }
 
@@ -148,6 +154,7 @@ export async function createSession(
     .execute();
 
   await markMeaningfulAccountActivity(user.id, "login_success", now);
+  const platformOperator = await isPlatformOperator(user.id);
   const publicUser: AuthResult["user"] = {
     id: user.id,
     email: user.email,
@@ -156,7 +163,11 @@ export async function createSession(
     role: user.role,
     accountStatus: user.accountStatus,
     facility: await resolveFacilityContext(user.id),
-    platformOperator: await isPlatformOperator(user.id),
+    platformOperator,
+    corporateConsole: await getCorporateConsoleAccess(
+      user.id,
+      platformOperator,
+    ),
   };
   return { sessionToken: token, user: publicUser, rememberDevice };
 }
@@ -506,6 +517,7 @@ export async function verifyToken(token: string): Promise<SessionData | null> {
       .execute();
   }
 
+  const platformOperator = await isPlatformOperator(record.userId);
   return {
     userId: record.userId,
     email: record.email,
@@ -517,7 +529,11 @@ export async function verifyToken(token: string): Promise<SessionData | null> {
     expiresAt: record.expiresAt,
     sessionId: sessionId(token),
     facility: await resolveFacilityContext(record.userId),
-    platformOperator: await isPlatformOperator(record.userId),
+    platformOperator,
+    corporateConsole: await getCorporateConsoleAccess(
+      record.userId,
+      platformOperator,
+    ),
   };
 }
 
