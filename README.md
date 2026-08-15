@@ -1,107 +1,168 @@
-# Umbravia Forge
+<p align="center">
+  <img src="./client/public/brand/umbravia-forge-wordmark-v2.png" alt="Umbravia Forge" width="720">
+</p>
 
-Umbravia Forge is a modular gym-management application for classes, bookings, waitlists, users, trainers and activity analytics. The responsive interface supports Spanish, English, German and Swiss Standard German.
+<h1 align="center">Umbravia Forge</h1>
 
-> Project status: active development. Umbravia Forge is not yet ready for commercial production or real payments.
+<p align="center">
+  <strong>Plataforma modular y multi-tenant para gestionar centros deportivos, comunidad, soporte y analítica operativa.</strong>
+</p>
 
-## Current capabilities
+<p align="center">
+  <a href="https://github.com/jl-glX/umbravia-forge/actions/workflows/ci.yml"><img src="https://github.com/jl-glX/umbravia-forge/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/Node.js-24_LTS-334155?logo=nodedotjs&logoColor=white" alt="Node.js 24 LTS">
+  <img src="https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white" alt="TypeScript 6">
+  <img src="https://img.shields.io/badge/licencia-propietaria-F07A3A" alt="Licencia propietaria">
+</p>
 
-- Account registration and persistent, revocable sessions.
-- Versioned legal acknowledgements and six-digit email verification with a
-  provider-neutral SMTP transport.
-- Member, trainer and administrator permissions enforced by the API.
-- Class calendar, capacity, bookings and FIFO waitlist promotion.
-- Member, trainer and administrator dashboards.
-- User and class administration.
-- Attendance export to CSV.
-- Spanish, English, German and Swiss Standard German interface with persisted language selection.
-- Public legal notice, terms and conditions, and conditions of use drafts.
-- Security headers, restricted CORS, request limits, rate limiting and input validation.
-- Public support IDs, reversible account-closure scheduling and draft-only
-  retention policies for demonstration.
-- Product-first commercial foundation with an editable 31-day trial and a
-  non-destructive data-classification draft.
-- Forge Support tickets with private conversations, staff-only notes, SLA
-  targets, protected attachments, a knowledge base and auditable triage.
-- A first-party transactional queue with encrypted payloads, bounded retries,
-  delivery tracing and coordinated maintenance.
+<p align="center">
+  <a href="https://www.umbraviaforge.com/">Sitio web</a>
+  ·
+  <a href="./docs/ARCHITECTURE.md">Arquitectura</a>
+  ·
+  <a href="./DEVELOPMENT.md">Desarrollo</a>
+  ·
+  <a href="./docs/SECURITY.md">Seguridad</a>
+</p>
 
-## Technology
+> [!IMPORTANT]
+> Umbravia Forge está en desarrollo activo. La instancia pública permite validar el producto, pero el proyecto todavía no se considera listo para operar pagos reales ni para un lanzamiento comercial general.
 
-- React 19, TypeScript 6, Vite 8 and Tailwind CSS 4.
-- Node.js 24 LTS, Express 5 and Kysely.
-- PostgreSQL as the primary engine for staging and production, with SQLite
-  reserved for local development, automated tests and isolated commercial demos.
-- Vitest, ESLint and Prettier.
+## Una plataforma, cada centro con su propio espacio
 
-## Start locally
+Umbravia Forge reúne en una misma base técnica la actividad diaria de un centro, la experiencia de sus socios y las herramientas internas necesarias para mantener el servicio. La arquitectura separa los datos por centro y conserva las credenciales, la recuperación y la seguridad de la cuenta como responsabilidades globales del usuario.
+
+### Producto y operaciones
+
+- **Centros y equipos:** alta de administradores, perfiles de centro, membresías y permisos por tenant.
+- **Clases y reservas:** calendario, aforo, reservas, listas de espera FIFO, promociones y control de asistencia.
+- **Personas:** experiencias diferenciadas para socios, entrenadores y administradores.
+- **Comunidad:** perfiles sociales, contactos, canales de centro o clase, mensajería y moderación con límites de acceso explícitos.
+- **Forge Analytics:** ocupación, asistencia, cancelaciones, demanda y comparativas por actividad, franja horaria y centro.
+- **Forge Support:** tickets, conversaciones privadas, notas internas, adjuntos protegidos, SLA y base de conocimiento.
+- **Cuentas y continuidad:** verificación de correo, recuperación de acceso, MFA, passkeys, sesiones revocables y cierre reversible de cuenta.
+- **Forge Notify:** cola transaccional cifrada, reintentos acotados, trazabilidad, saneamiento periódico y transporte de correo desacoplado.
+- **Plano de gestión interno:** coordinación de gestores, prioridades, control de conflictos y consola corporativa aislada.
+
+### Principios de diseño
+
+| Principio              | Aplicación práctica                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------------------- |
+| Aislamiento por centro | El servidor resuelve el tenant y comprueba la membresía antes de acceder a datos operativos.              |
+| Seguridad por defecto  | Validación, autorización, límites, sesiones revocables y cifrado independiente por dominio sensible.      |
+| Portabilidad           | Desarrollo compatible con Windows, Linux y WSL; producción sin dependencia operativa de Windows.          |
+| Cambios verificables   | Migraciones versionadas, pruebas de aislamiento, paquetes auditados y despliegues con rollback.           |
+| Modularidad            | Los gestores operan su área; el coordinador y el núcleo regulan conexiones, conflictos y prioridades.     |
+| Datos con propósito    | La analítica evita inventar causalidad y mantiene separadas identidad, soporte, facturación y telemetría. |
+
+## Arquitectura
+
+```mermaid
+flowchart LR
+    UI["React · experiencia web"] --> API["Express · API y autorización"]
+    API --> DOMAIN["Servicios de dominio y gestores"]
+    DOMAIN --> DATA["Kysely · capa de datos"]
+    DATA --> PG["PostgreSQL · staging y producción"]
+    DATA --> SQLITE["SQLite · desarrollo, pruebas y demos aisladas"]
+    DOMAIN --> NOTIFY["Forge Notify · cola cifrada"]
+    NOTIFY --> MAIL["Transporte de correo"]
+```
+
+Las decisiones y fronteras completas están documentadas en [Arquitectura](./docs/ARCHITECTURE.md), [migración multi-tenant](./docs/MULTI-TENANT-MIGRATION.md) y [núcleo de gestores](./docs/MANAGER-CORE.md).
+
+## Tecnologías
+
+| Capa      | Tecnologías principales                                                              |
+| --------- | ------------------------------------------------------------------------------------ |
+| Interfaz  | React 19, TypeScript 6, Vite 8, Tailwind CSS 4, i18next                              |
+| API       | Node.js 24 LTS, Express 5, validación y middleware de autorización                   |
+| Datos     | Kysely, PostgreSQL, SQLite para entornos aislados                                    |
+| Seguridad | Argon2id, WebAuthn/passkeys, TOTP, AES-256-GCM y XChaCha20-Poly1305 según el dominio |
+| Calidad   | Vitest, ESLint, Prettier, auditoría de dependencias y GitHub Actions                 |
+| Edge      | Cloudflare Turnstile y Worker de entrada de correo de soporte                        |
+
+La interfaz está disponible en español, inglés, alemán y alemán suizo, con formatos regionales mediante `Intl`.
+
+## Desarrollo local
+
+### Requisitos
+
+- Node.js `>=24.15.0 <25`
+- npm `>=11.18.0 <12`
+
+### Puesta en marcha
 
 ```bash
 npm ci
 npm run dev
 ```
 
-One command starts both the frontend and API. By default:
+El lanzador inicia ambos servicios:
 
-- Frontend: <http://127.0.0.1:3000>
+- interfaz: <http://127.0.0.1:3000>
 - API: <http://127.0.0.1:3001>
 
-Copy `.env.example` to `.env` only when local overrides are needed.
+Los valores predeterminados sirven para el entorno local. Copia `.env.example` a `.env` únicamente si necesitas ajustes propios y no incorpores secretos, bases de datos ni datos reales al repositorio.
 
-## Quality checks
+## Calidad y validación
+
+El control local completo es:
 
 ```bash
-npm run format       # apply Prettier
-npm run format:check # verify formatting without changing files
-npm run lint
-npm run typecheck
-npm run test
-npm run test:watch # persistent cross-platform test session for development
-npm run build
-npm run check        # run the complete validation sequence
-npm run security:probe # local-only black-box probe; requires a running API
-npm run security:password-resilience # synthetic Argon2id laboratory check
+npm run ci:validate
 ```
 
-## Documentation
+Este comando comprueba portabilidad, formato, lint, tipos, pruebas, compilaciones y dependencias. GitHub Actions repite la validación sobre Linux y audita además el paquete de despliegue.
 
-- [Operational handoff](./docs/OPERATIONAL-HANDOFF.md)
-- [Development guide](./DEVELOPMENT.md)
-- [Architecture](./docs/ARCHITECTURE.md)
-- [Security](./docs/SECURITY.md)
-- [Integral security audit standard](./docs/SECURITY-AUDIT-STANDARD.md)
-- [Latest integral black/gray/white-box assessment](./docs/SECURITY-AUDIT-2026-08-05.md)
-- [Initial local black/gray/white-box assessment](./docs/SECURITY-ASSESSMENT-EXTREME-2026-08-01.md)
-- [Account lifecycle foundation](./docs/ACCOUNT-LIFECYCLE.md)
-- [Legal readiness checklist](./docs/LEGAL-READINESS.md)
-- [Commercial foundation audit](./docs/COMMERCIAL-FOUNDATION-AUDIT.md)
-- [Self-hosted production readiness](./docs/SELF-HOSTED-PRODUCTION.md)
-- [Forge Notify and transactional email](./docs/FORGE-NOTIFY.md)
+| Comando                  | Uso                                                                 |
+| ------------------------ | ------------------------------------------------------------------- |
+| `npm run test:watch`     | Sesión persistente de pruebas durante el desarrollo.                |
+| `npm run format`         | Aplica el formato del repositorio.                                  |
+| `npm run typecheck`      | Valida los contratos TypeScript del cliente, servidor y Worker.     |
+| `npm run build`          | Compila todos los artefactos de la aplicación.                      |
+| `npm run deploy:package` | Prepara y audita un paquete Linux sin secretos ni datos locales.    |
+| `npm run security:probe` | Ejecuta la sonda local autorizada contra una API en funcionamiento. |
+
+Consulta [DEVELOPMENT.md](./DEVELOPMENT.md) para conocer el flujo de trabajo, las convenciones y los límites de los entornos.
+
+## Estructura del repositorio
+
+```text
+client/       interfaz React, recursos de marca e internacionalización
+server/       API, servicios, autorización, datos y migraciones
+cloudflare/   Worker de entrada para el correo de soporte
+deploy/       unidades y comprobaciones de despliegue Linux
+scripts/      desarrollo, validación, empaquetado y utilidades controladas
+docs/         arquitectura, seguridad, auditorías y continuidad técnica
+```
+
+## Documentación destacada
+
+- [Arquitectura del sistema](./docs/ARCHITECTURE.md)
+- [Migración y aislamiento multi-tenant](./docs/MULTI-TENANT-MIGRATION.md)
+- [Forge Analytics](./docs/FORGE-ANALYTICS.md)
 - [Forge Support](./docs/FORGE-SUPPORT.md)
+- [Forge Notify](./docs/FORGE-NOTIFY.md)
+- [Ciclo de vida de las cuentas](./docs/ACCOUNT-LIFECYCLE.md)
+- [Núcleo de gestores](./docs/MANAGER-CORE.md)
+- [Modelo de cifrado en tránsito y reposo](./docs/ENCRYPTION-IN-TRANSIT-AND-AT-REST.md)
+- [Estándar de auditoría de seguridad](./docs/SECURITY-AUDIT-STANDARD.md)
+- [Preparación para despliegue propio](./docs/SELF-HOSTED-PRODUCTION.md)
 
-## Demo data
+## Límites actuales
 
-Development mode seeds demonstration accounts and classes. Demo credentials are shown on the sign-in page and must never be enabled in production. The server now rejects a production startup when `SEED_DEMO_DATA=true` instead of creating accounts with public passwords.
+- Stripe permanece separado del libro operativo interno: todavía no se procesan pagos, suscripciones ni reembolsos reales.
+- La entregabilidad del correo depende también de DNS, reputación, recepción, rebotes y proveedores externos; una aceptación SMTP no equivale por sí sola a entrega en la bandeja de entrada.
+- Las copias cifradas, la restauración y las migraciones de PostgreSQL deben comprobarse en cada entorno autorizado antes de un lanzamiento comercial.
+- Los textos legales y fiscales requieren completar los datos reales y una revisión profesional.
+- Las aplicaciones de escritorio y móviles forman parte de una evolución posterior, no del núcleo actualmente distribuido.
 
-## Known limitations
+## Propiedad y licencia
 
-- The shared database client now selects PostgreSQL in staging/production and
-  SQLite in explicitly isolated environments. PostgreSQL still requires an
-  authorized integration test, backup and restoration exercise before launch.
-- SQLite-to-PostgreSQL promotion currently provides inventory and a guarded
-  review plan. It deliberately does not transfer identity, billing, community
-  or authentication data without a separately approved migration procedure.
-- Commercial trials still use a single shared centre and remain disabled by
-  default in production until tenant isolation is implemented.
-- Password recovery remains pending. Email verification is implemented through
-  the encrypted Forge Notify queue and SMTP; production fails closed until a
-  relay or local mail transfer agent is configured. Optional two-factor
-  authentication remains a separate account-security capability.
-- Payments, subscriptions and refunds are not implemented.
-- Legal pages are drafts and still require real contact, tax and business information plus professional review.
-- Forge Notify currently covers transactional account and support email. Push,
-  SMS, inbound email parsing and real-time support updates are not implemented.
+Umbravia Forge es un proyecto propietario de **Javier López Díaz**. Este repositorio no concede derechos de copia, redistribución, modificación ni explotación salvo autorización expresa.
 
-## Ownership and licence
+---
 
-Umbravia Forge is owned and operated by Javier López Díaz. The repository currently has no open-source licence; reuse rights are not granted by default.
+<p align="center">
+  <sub>Modular · Guide · Analyze · Belong · Evolve</sub>
+</p>
