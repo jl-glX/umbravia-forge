@@ -1,0 +1,43 @@
+# Sonda temporal e independiente del proxy de Cloudflare.
+# Solo publica salud minima; cualquier otra ruta se cierra con 404.
+{$UMBRAVIA_DIAGNOSTIC_DOMAIN:cf-test.umbraviaforge.com} {
+	encode zstd gzip
+
+	@diagnostic_health {
+		method GET HEAD
+		path /api/health/live /api/health/ready
+	}
+
+	header {
+		-Server
+		Cache-Control "no-store"
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		Referrer-Policy "no-referrer"
+		Strict-Transport-Security "max-age=86400"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-Robots-Tag "noindex, nofollow, noarchive"
+	}
+
+	handle @diagnostic_health {
+		reverse_proxy 127.0.0.1:3001 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 10s
+			}
+		}
+	}
+
+	handle {
+		respond "Not Found" 404
+	}
+
+	log {
+		output file {$UMBRAVIA_DIAGNOSTIC_LOG:/var/log/caddy/umbravia-diagnostic-access.log} {
+			roll_size 5MiB
+			roll_keep 3
+			roll_keep_for 168h
+		}
+		format json
+	}
+}

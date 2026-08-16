@@ -49,3 +49,8 @@
 		}
 	}
 }
+
+# Punto de extension estable para diagnosticos operativos. Un glob vacio es
+# valido en Caddy, de modo que las sondas pueden activarse o retirarse sin
+# volver a modificar el sitio principal.
+import umbravia-diagnostics-enabled/*.caddy

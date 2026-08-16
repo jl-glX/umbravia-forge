@@ -76,6 +76,29 @@ Este canal solo permite que Seguridad incorpore el estado criptográfico a su
 diagnóstico y priorice un hallazgo. No convierte al gestor de seguridad en
 propietario del cifrado.
 
+## Diagnóstico desde la consola de soporte
+
+La rama `manager-support` dispone de una comprobación de solo lectura para la
+sonda pública configurada. Un operador con autoridad superior debe entrar
+primero en esa rama; los demás gestores no pueden ejecutar el diagnóstico.
+
+```text
+use profile:manager-support
+ufctl diagnose probe all
+```
+
+También se puede limitar la comprobación a `dns`, `tls`, `live` o `ready`. El
+comando usa un destino HTTPS fijado por la configuración del servidor, no
+acepta hosts ni rutas escritos por el operador y no sigue redirecciones. Solo
+muestra direcciones resueltas, versión y emisor públicos del certificado,
+estado HTTP y duración. No lee cuerpos de respuesta, cookies, claves,
+certificados privados ni archivos del host, y no puede cambiar Caddy,
+Cloudflare o DNS.
+
+El gestor de soporte ejecuta esta observación a través del coordinador con el
+ámbito cerrado `diagnostic-probe`. Así se evitan choques con otra comprobación
+del mismo ámbito sin convertir la terminal en una herramienta de red genérica.
+
 ## Admisión y retroceso
 
 Las operaciones interactivas conservan rechazo inmediato con conflicto, de

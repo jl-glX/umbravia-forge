@@ -4,6 +4,16 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { CorporateManagerProfileId } from "../db/types.js";
 
+const diagnosticProbeMocks = vi.hoisted(() => ({
+  run: vi.fn(async (check: string) => ({ check, healthy: true })),
+  format: vi.fn(() => ["probe=healthy", "target=diagnostic-probe"]),
+}));
+
+vi.mock("./support-diagnostic-probe.js", () => ({
+  runSupportDiagnosticProbe: diagnosticProbeMocks.run,
+  formatSupportDiagnosticProbeReport: diagnosticProbeMocks.format,
+}));
+
 describe("corporate manager terminal security", () => {
   let directory: string;
   let database: typeof import("../db/client.js");
@@ -296,6 +306,35 @@ describe("corporate manager terminal security", () => {
       "umbravia-forge",
       "manager-email",
     ]);
+  });
+
+  it("runs the read-only probe only from the support manager branch", async () => {
+    const supportUserId = await createManager(
+      "support-diagnostics",
+      "manager-support",
+    );
+    const supportIdentity = await createExternalIdentity(supportUserId);
+    const result = await managerConsole.executeManagerConsoleCommand({
+      actorUserId: supportUserId,
+      terminalIdentity: supportIdentity,
+      command: "ufctl diagnose probe tls",
+    });
+
+    expect(result.lines).toEqual(["probe=healthy", "target=diagnostic-probe"]);
+    expect(diagnosticProbeMocks.run).toHaveBeenCalledWith("tls");
+
+    const emailUserId = await createManager(
+      "email-diagnostics-denied",
+      "manager-email",
+    );
+    const emailIdentity = await createExternalIdentity(emailUserId);
+    await expect(
+      managerConsole.executeManagerConsoleCommand({
+        actorUserId: emailUserId,
+        terminalIdentity: emailIdentity,
+        command: "ufctl diagnose probe all",
+      }),
+    ).rejects.toThrow("only available in the support manager branch");
   });
 
   it("creates organizational workspaces and applies temporary access only by consent", async () => {

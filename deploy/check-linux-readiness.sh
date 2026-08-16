@@ -83,6 +83,8 @@ require_file "$PROJECT_ROOT/dist/server/index.js"
 require_file "$PROJECT_ROOT/dist/public/index.html"
 require_file "$PROJECT_ROOT/package-lock.json"
 require_file "$PROJECT_ROOT/deploy/Caddyfile"
+require_file "$PROJECT_ROOT/deploy/manage-caddy-diagnostics.sh"
+require_file "$PROJECT_ROOT/deploy/caddy-diagnostics-available/cf-test.caddy"
 require_file "$PROJECT_ROOT/deploy/umbravia-forge.service"
 require_file "$PROJECT_ROOT/deploy/backup-postgresql-encrypted.sh"
 require_file "$PROJECT_ROOT/deploy/verify-encrypted-backup.sh"
@@ -94,6 +96,12 @@ require_file "$PROJECT_ROOT/node_modules/@noble/ciphers/package.json"
 require_file "$PROJECT_ROOT/deploy/check-crypto-runtime.mjs"
 require_file "$PROJECT_ROOT/deploy/check-private-content-key.mjs"
 require_file "$PROJECT_ROOT/deploy/check-manager-connection-key.mjs"
+
+if sh -n "$PROJECT_ROOT/deploy/manage-caddy-diagnostics.sh"; then
+  pass "gestor modular de diagnosticos Caddy valido"
+else
+  fail "gestor modular de diagnosticos Caddy no valido"
+fi
 
 CRYPTO_RUNTIME_OUTPUT=""
 if CRYPTO_RUNTIME_OUTPUT=$(node "$PROJECT_ROOT/deploy/check-crypto-runtime.mjs" 2>&1); then
@@ -258,9 +266,10 @@ fi
 
 if command -v caddy >/dev/null 2>&1; then
   CADDY_VALIDATION_LOG=$(mktemp "${TMPDIR:-/tmp}/umbravia-caddy-validation.XXXXXX")
+  CADDY_DIAGNOSTIC_VALIDATION_LOG=$(mktemp "${TMPDIR:-/tmp}/umbravia-caddy-diagnostic-validation.XXXXXX")
   CADDY_VALIDATION_HOME=${HOME:-${TMPDIR:-/tmp}}
   CADDY_VALIDATION_XDG_HOME=${XDG_CONFIG_HOME:-$CADDY_VALIDATION_HOME/.config}
-  trap 'rm -f "$CADDY_VALIDATION_LOG"' EXIT HUP INT TERM
+  trap 'rm -f "$CADDY_VALIDATION_LOG" "$CADDY_DIAGNOSTIC_VALIDATION_LOG"' EXIT HUP INT TERM
   if HOME="$CADDY_VALIDATION_HOME" \
     XDG_CONFIG_HOME="$CADDY_VALIDATION_XDG_HOME" \
     UMBRAVIA_CADDY_LOG="$CADDY_VALIDATION_LOG" \
@@ -269,7 +278,17 @@ if command -v caddy >/dev/null 2>&1; then
   else
     fail "Caddyfile no valido"
   fi
-  rm -f "$CADDY_VALIDATION_LOG"
+
+  if HOME="$CADDY_VALIDATION_HOME" \
+    XDG_CONFIG_HOME="$CADDY_VALIDATION_XDG_HOME" \
+    UMBRAVIA_DIAGNOSTIC_LOG="$CADDY_DIAGNOSTIC_VALIDATION_LOG" \
+    caddy validate --config "$PROJECT_ROOT/deploy/caddy-diagnostics-available/cf-test.caddy" \
+      --adapter caddyfile >/dev/null; then
+    pass "modulo de sonda Caddy valido"
+  else
+    fail "modulo de sonda Caddy no valido"
+  fi
+  rm -f "$CADDY_VALIDATION_LOG" "$CADDY_DIAGNOSTIC_VALIDATION_LOG"
   trap - EXIT HUP INT TERM
 fi
 

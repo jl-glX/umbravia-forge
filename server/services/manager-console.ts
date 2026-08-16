@@ -5,7 +5,10 @@ import {
   recordSecurityEvent,
   type SecurityEventType,
 } from "./security-events.js";
-import { getManagerCoordinationStatus } from "./manager-coordinator.js";
+import {
+  getManagerCoordinationStatus,
+  withCoordinatedManagerOperation,
+} from "./manager-coordinator.js";
 import { getCryptographicMaterialReplacementOverview } from "./cryptographic-material-replacement-manager.js";
 import { isPlatformOperator } from "./facility-context.js";
 import {
@@ -13,6 +16,11 @@ import {
   executeIsolatedManagerTerminalCommand,
   getManagerTerminalExecutionStatus,
 } from "./manager-terminal-executor.js";
+import {
+  formatSupportDiagnosticProbeReport,
+  runSupportDiagnosticProbe,
+  type SupportDiagnosticProbeCheck,
+} from "./support-diagnostic-probe.js";
 
 export const MANAGER_TERMINAL_CREDENTIAL_DURATION_MS = 5 * 60 * 1000;
 export const MANAGER_TERMINAL_SESSION_DURATION_MS = 30 * 60 * 1000;
@@ -1052,6 +1060,9 @@ export async function getManagerConsoleOverview(
       "ufctl unit remove <slug> <user-id>",
       "ufctl permission grant <profile> <user-id> <minutes> <internal|external|any> [unit:<slug>]",
       "ufctl permission revoke <permission-id>",
+      ...(profiles.some((profile) => profile.id === "manager-support")
+        ? ["ufctl diagnose probe [all|dns|tls|live|ready]"]
+        : []),
       "use global|unit:<slug>|profile:<profile>",
       "clear",
       "exit",
@@ -1270,6 +1281,30 @@ export async function executeManagerConsoleCommand(input: {
         "host-filesystem=not-mounted",
         "secrets=not-mounted",
       ];
+    } else if (corporateCommand.startsWith("diagnose probe")) {
+      const match = /^diagnose probe(?:\s+(all|dns|tls|live|ready))?$/.exec(
+        corporateCommand,
+      );
+      if (!match) {
+        throw new ManagerConsoleCommandError(
+          "Usage: ufctl diagnose probe [all|dns|tls|live|ready]",
+        );
+      }
+      if (context.id !== "manager-support") {
+        throw new ManagerConsolePolicyError(
+          "Diagnostic probes are only available in the support manager branch",
+        );
+      }
+      const report = await withCoordinatedManagerOperation(
+        "support",
+        "diagnostic-probe",
+        ["diagnostic-probe"],
+        () =>
+          runSupportDiagnosticProbe(
+            (match[1] ?? "all") as SupportDiagnosticProbeCheck,
+          ),
+      );
+      lines = formatSupportDiagnosticProbeReport(report);
     } else if (corporateCommand.startsWith("role add ")) {
       const match = /^role add\s+([a-z0-9-]+)\s+([A-Za-z0-9-]+)$/.exec(
         corporateCommand,

@@ -22,6 +22,9 @@ protegida y validación previa.
 
 - `Caddyfile`: HTTPS, rechazo temprano de sondas automáticas, límite exterior
   de cuerpo, registro JSON rotado y proxy con comprobación de salud.
+- `manage-caddy-diagnostics.sh`: instala una única extensión modular en Caddy y
+  permite activar o retirar sondas aisladas sin volver a editar el sitio
+  principal.
 - `umbravia-forge.service`: servicio `systemd` sin privilegios, con reinicio
   limitado, cierre mediante `SIGTERM`, resolución portable de Node desde
   `/usr/local/bin` o `/usr/bin` y aislamiento del sistema de archivos.
@@ -106,6 +109,64 @@ Las comprobaciones ofensivas del perímetro se harán más adelante sobre una
 preproducción pública controlada. Los logs se consultan con
 `journalctl -u umbravia-forge` y en
 `/var/log/caddy/umbravia-forge-access.log`.
+
+## Sondas independientes de Caddy
+
+La configuración principal termina en un glob de importación estable:
+`umbravia-diagnostics-enabled/*.caddy`. Caddy acepta que este glob esté vacío.
+Por tanto, una futura sonda puede añadirse o retirarse como módulo sin volver a
+modificar el sitio público ni sus reglas de proxy. Esta organización sigue el
+mecanismo oficial de importación del Caddyfile.
+
+La sonda temporal `cf-test.umbraviaforge.com` publica exclusivamente
+`/api/health/live` y `/api/health/ready`. Rechaza cualquier otro método o ruta,
+no permite indexación y mantiene un registro separado con una semana de
+retención máxima. No contiene credenciales y no da acceso al resto de la
+aplicación.
+
+Activación inicial en el servidor:
+
+```text
+cd ~/umbravia-forge
+sudo sh deploy/manage-caddy-diagnostics.sh enable
+sudo sh deploy/manage-caddy-diagnostics.sh status
+```
+
+Una vez activada la sonda, la consola corporativa permite comprobarla sin
+abrir un navegador. Desde la rama de soporte:
+
+```text
+use profile:manager-support
+ufctl diagnose probe all
+```
+
+El diagnóstico es de solo lectura, usa el host configurado en
+`UMBRAVIA_DIAGNOSTIC_PROBE_ORIGIN` (o `https://cf-test.umbraviaforge.com` por
+defecto) y no permite indicar destinos arbitrarios.
+
+El gestor conserva una copia del Caddyfile, valida la configuración candidata
+antes de instalarla y restaura la anterior si Caddy no puede recargarse. La
+activación no modifica claves existentes. Caddy obtiene y administra el
+certificado TLS del subdominio mediante su flujo normal.
+
+La sonda solo debe pasar a DNS directo después de que el servidor reconozca el
+dominio. Entonces se deshabilitan su redirección y el proxy de Cloudflare, y se
+verifican certificado, ambos endpoints de salud y el cierre `404` del resto de
+rutas.
+
+No debe retirarse por una única comprobación favorable. La salida segura exige
+que el dominio público servido por el proxy mantenga durante siete días
+consecutivos: acceso desde al menos dos redes, salud `live` y `ready`, ausencia
+de errores 52x o tiempos de espera y configuración estable en Cloudflare. Al
+cumplirse estas condiciones se retira solo la sonda actual, conservando el
+punto modular para no tener que recrear la infraestructura:
+
+```text
+sudo sh deploy/manage-caddy-diagnostics.sh disable
+```
+
+Después se elimina el registro DNS temporal de Cloudflare. El import modular
+permanece vacío e inactivo, preparado para futuras sondas autorizadas.
 
 ## Actualizaciones periódicas sin regresiones
 
