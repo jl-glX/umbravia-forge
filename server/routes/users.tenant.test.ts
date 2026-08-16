@@ -150,7 +150,7 @@ describe("user management tenant isolation", () => {
       ])
       .execute();
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "users-secondary-history-class",
         facilityId: "users-secondary",
@@ -169,7 +169,7 @@ describe("user management tenant isolation", () => {
         deduplicationKey: "test:users-shared-history",
         facilityId: "users-secondary",
         bookingId: null,
-        classId: "users-secondary-history-class",
+        activitySessionId: "users-secondary-history-class",
         memberUserId: "users-shared",
         trainerUserId: "users-admin",
         eventType: "baseline_import",

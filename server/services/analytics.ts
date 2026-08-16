@@ -9,7 +9,7 @@ export interface MonthlyMetrics {
 }
 
 export interface ClassPopularity {
-  classId: string;
+  activitySessionId: string;
   className: string;
   trainerName: string;
   totalBookings: number;
@@ -352,7 +352,7 @@ export async function getAnalyticsOverview(
   input: AnalyticsOverviewInput,
 ): Promise<AnalyticsOverview> {
   let classesQuery = db
-    .selectFrom("gymClasses")
+    .selectFrom("activitySessions")
     .select([
       "id",
       "name",
@@ -388,11 +388,15 @@ export async function getAnalyticsOverview(
   const previousEvents = eventRows.filter(
     (event) => event.scheduledAt < input.from,
   );
-  const classIds = classes.map((gymClass) => gymClass.id);
-  const classById = new Map(classes.map((gymClass) => [gymClass.id, gymClass]));
+  const activitySessionIds = classes.map(
+    (activitySession) => activitySession.id,
+  );
+  const classById = new Map(
+    classes.map((activitySession) => [activitySession.id, activitySession]),
+  );
 
   const bookingRows =
-    classIds.length === 0
+    activitySessionIds.length === 0
       ? []
       : await db
           .selectFrom("bookings")
@@ -409,7 +413,7 @@ export async function getAnalyticsOverview(
           )
           .select([
             "bookings.id",
-            "bookings.classId",
+            "bookings.activitySessionId",
             "bookings.userId",
             "bookings.status",
             "bookingLifecycles.lifecycleStatus",
@@ -418,7 +422,7 @@ export async function getAnalyticsOverview(
             "facilityMemberships.role as membershipRole",
             "facilityMemberships.status as membershipStatus",
           ])
-          .where("bookings.classId", "in", classIds)
+          .where("bookings.activitySessionId", "in", activitySessionIds)
           .execute();
 
   const activities = new Map<string, ActivityAccumulator>();
@@ -429,9 +433,9 @@ export async function getAnalyticsOverview(
   >();
   const members = new Map<string, MemberAccumulator>();
 
-  for (const gymClass of classes) {
-    const existing = activities.get(gymClass.name) ?? {
-      activityName: gymClass.name,
+  for (const activitySession of classes) {
+    const existing = activities.get(activitySession.name) ?? {
+      activityName: activitySession.name,
       trainerNames: new Set<string>(),
       sessions: 0,
       availablePlaces: 0,
@@ -442,15 +446,22 @@ export async function getAnalyticsOverview(
       absent: 0,
     };
     existing.sessions += 1;
-    existing.availablePlaces += gymClass.maxCapacity;
-    existing.trainerNames.add(gymClass.trainerName);
-    activities.set(gymClass.name, existing);
+    existing.availablePlaces += activitySession.maxCapacity;
+    existing.trainerNames.add(activitySession.trainerName);
+    activities.set(activitySession.name, existing);
 
-    const hour = localHour(gymClass.scheduledAt, input.utcOffsetMinutes);
-    const weekday = localWeekday(gymClass.scheduledAt, input.utcOffsetMinutes);
-    const timeSlotKey = activityTimeSlotKey(gymClass.name, weekday, hour);
+    const hour = localHour(activitySession.scheduledAt, input.utcOffsetMinutes);
+    const weekday = localWeekday(
+      activitySession.scheduledAt,
+      input.utcOffsetMinutes,
+    );
+    const timeSlotKey = activityTimeSlotKey(
+      activitySession.name,
+      weekday,
+      hour,
+    );
     const timeSlot = timeSlots.get(timeSlotKey) ?? {
-      activityName: gymClass.name,
+      activityName: activitySession.name,
       weekday,
       hour,
       sessions: 0,
@@ -461,7 +472,7 @@ export async function getAnalyticsOverview(
       absent: 0,
     };
     timeSlot.sessions += 1;
-    timeSlot.availablePlaces += gymClass.maxCapacity;
+    timeSlot.availablePlaces += activitySession.maxCapacity;
     timeSlots.set(timeSlotKey, timeSlot);
 
     const hourData = hourMap.get(hour) ?? { bookingCount: 0, classCount: 0 };
@@ -479,14 +490,17 @@ export async function getAnalyticsOverview(
   const now = Date.now();
 
   for (const booking of bookingRows) {
-    const gymClass = classById.get(booking.classId);
-    if (!gymClass) continue;
-    const activity = activities.get(gymClass.name);
+    const activitySession = classById.get(booking.activitySessionId);
+    if (!activitySession) continue;
+    const activity = activities.get(activitySession.name);
     if (!activity) continue;
-    const hour = localHour(gymClass.scheduledAt, input.utcOffsetMinutes);
-    const weekday = localWeekday(gymClass.scheduledAt, input.utcOffsetMinutes);
+    const hour = localHour(activitySession.scheduledAt, input.utcOffsetMinutes);
+    const weekday = localWeekday(
+      activitySession.scheduledAt,
+      input.utcOffsetMinutes,
+    );
     const timeSlot = timeSlots.get(
-      activityTimeSlotKey(gymClass.name, weekday, hour),
+      activityTimeSlotKey(activitySession.name, weekday, hour),
     );
     if (!timeSlot) continue;
 
@@ -494,7 +508,7 @@ export async function getAnalyticsOverview(
       confirmedBookings += 1;
       activity.confirmedBookings += 1;
       timeSlot.confirmedBookings += 1;
-      if (gymClass.scheduledAt <= now) attendanceEligibleBookings += 1;
+      if (activitySession.scheduledAt <= now) attendanceEligibleBookings += 1;
       const hourData = hourMap.get(hour);
       if (hourData) hourData.bookingCount += 1;
     } else if (booking.status === "cancelled") {
@@ -540,8 +554,8 @@ export async function getAnalyticsOverview(
     if (booking.status === "confirmed") {
       member.bookedSessions += 1;
       member.activityCounts.set(
-        gymClass.name,
-        (member.activityCounts.get(gymClass.name) ?? 0) + 1,
+        activitySession.name,
+        (member.activityCounts.get(activitySession.name) ?? 0) + 1,
       );
     }
     if (booking.status === "cancelled") member.cancelledSessions += 1;
@@ -549,7 +563,7 @@ export async function getAnalyticsOverview(
     if (booking.lifecycleStatus === "absent") member.absentSessions += 1;
     member.lastSessionAt = Math.max(
       member.lastSessionAt ?? 0,
-      gymClass.scheduledAt,
+      activitySession.scheduledAt,
     );
     members.set(booking.userId, member);
   }
@@ -619,7 +633,7 @@ export async function getAnalyticsOverview(
   const summary: AnalyticsSummary = {
     sessions: classes.length,
     availablePlaces: classes.reduce(
-      (total, gymClass) => total + gymClass.maxCapacity,
+      (total, activitySession) => total + activitySession.maxCapacity,
       0,
     ),
     confirmedBookings,
@@ -632,7 +646,10 @@ export async function getAnalyticsOverview(
     occupancyRate:
       percentage(
         confirmedBookings,
-        classes.reduce((total, gymClass) => total + gymClass.maxCapacity, 0),
+        classes.reduce(
+          (total, activitySession) => total + activitySession.maxCapacity,
+          0,
+        ),
       ) ?? 0,
     attendanceRate: percentage(attended, attended + absent),
     noShowRate: percentage(absent, attended + absent),
@@ -686,15 +703,19 @@ export async function getMonthlyMetrics(
 
   const bookings = await db
     .selectFrom("bookings")
-    .innerJoin("gymClasses", "gymClasses.id", "bookings.classId")
+    .innerJoin(
+      "activitySessions",
+      "activitySessions.id",
+      "bookings.activitySessionId",
+    )
     .selectAll("bookings")
-    .where("gymClasses.facilityId", "=", facilityId)
-    .where("gymClasses.scheduledAt", ">=", startDate)
-    .where("gymClasses.scheduledAt", "<=", endDate)
+    .where("activitySessions.facilityId", "=", facilityId)
+    .where("activitySessions.scheduledAt", ">=", startDate)
+    .where("activitySessions.scheduledAt", "<=", endDate)
     .execute();
 
   const classes = await db
-    .selectFrom("gymClasses")
+    .selectFrom("activitySessions")
     .selectAll()
     .where("facilityId", "=", facilityId)
     .where("scheduledAt", ">=", startDate)
@@ -711,12 +732,13 @@ export async function getMonthlyMetrics(
   let totalOccupancy = 0;
   let classesWithOccupancy = 0;
 
-  for (const gymClass of classes) {
+  for (const activitySession of classes) {
     const classBookings = bookings.filter(
-      (b) => b.classId === gymClass.id && b.status === "confirmed",
+      (b) =>
+        b.activitySessionId === activitySession.id && b.status === "confirmed",
     );
     const booked = classBookings.length;
-    const capacity = gymClass.maxCapacity;
+    const capacity = activitySession.maxCapacity;
     if (capacity > 0) {
       totalOccupancy += (booked / capacity) * 100;
       classesWithOccupancy++;
@@ -747,34 +769,34 @@ export async function getClassPopularity(
   facilityId: string,
 ): Promise<ClassPopularity[]> {
   const classes = await db
-    .selectFrom("gymClasses")
+    .selectFrom("activitySessions")
     .selectAll()
     .where("facilityId", "=", facilityId)
     .execute();
 
   const popularity: ClassPopularity[] = [];
 
-  for (const gymClass of classes) {
+  for (const activitySession of classes) {
     const bookings = await db
       .selectFrom("bookings")
       .selectAll()
-      .where("classId", "=", gymClass.id)
+      .where("activitySessionId", "=", activitySession.id)
       .where("status", "=", "confirmed")
       .execute();
 
     const booked = bookings.length;
     const occupancyPercent =
-      gymClass.maxCapacity > 0
-        ? Math.round((booked / gymClass.maxCapacity) * 100)
+      activitySession.maxCapacity > 0
+        ? Math.round((booked / activitySession.maxCapacity) * 100)
         : 0;
 
     popularity.push({
-      classId: gymClass.id,
-      className: gymClass.name,
-      trainerName: gymClass.trainerName,
+      activitySessionId: activitySession.id,
+      className: activitySession.name,
+      trainerName: activitySession.trainerName,
       totalBookings: booked,
       averageOccupancy: occupancyPercent,
-      nextScheduledAt: gymClass.scheduledAt,
+      nextScheduledAt: activitySession.scheduledAt,
     });
   }
 
@@ -784,7 +806,7 @@ export async function getClassPopularity(
 // Get peak hours based on class schedules and bookings
 export async function getPeakHours(facilityId: string): Promise<PeakHours[]> {
   const classes = await db
-    .selectFrom("gymClasses")
+    .selectFrom("activitySessions")
     .selectAll()
     .where("facilityId", "=", facilityId)
     .execute();
@@ -794,13 +816,13 @@ export async function getPeakHours(facilityId: string): Promise<PeakHours[]> {
     { bookingCount: number; classCount: number }
   >();
 
-  for (const gymClass of classes) {
-    const hour = Math.floor((gymClass.scheduledAt % 86400000) / 3600000);
+  for (const activitySession of classes) {
+    const hour = Math.floor((activitySession.scheduledAt % 86400000) / 3600000);
 
     const bookings = await db
       .selectFrom("bookings")
       .selectAll()
-      .where("classId", "=", gymClass.id)
+      .where("activitySessionId", "=", activitySession.id)
       .where("status", "=", "confirmed")
       .execute();
 
@@ -841,10 +863,14 @@ export async function getUserActivityMetrics(
 
   const bookings = await db
     .selectFrom("bookings")
-    .innerJoin("gymClasses", "gymClasses.id", "bookings.classId")
+    .innerJoin(
+      "activitySessions",
+      "activitySessions.id",
+      "bookings.activitySessionId",
+    )
     .selectAll("bookings")
     .where("bookings.userId", "=", userId)
-    .where("gymClasses.facilityId", "=", facilityId)
+    .where("activitySessions.facilityId", "=", facilityId)
     .execute();
 
   const confirmedCount = bookings.filter(
@@ -855,12 +881,16 @@ export async function getUserActivityMetrics(
   ).length;
   const upcomingBookings = await db
     .selectFrom("bookings")
-    .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
+    .innerJoin(
+      "activitySessions",
+      "bookings.activitySessionId",
+      "activitySessions.id",
+    )
     .select("bookings.id")
     .where("bookings.userId", "=", userId)
-    .where("gymClasses.facilityId", "=", facilityId)
+    .where("activitySessions.facilityId", "=", facilityId)
     .where("bookings.status", "=", "confirmed")
-    .where("gymClasses.scheduledAt", ">", Date.now())
+    .where("activitySessions.scheduledAt", ">", Date.now())
     .execute();
 
   return {
@@ -886,7 +916,7 @@ export async function getTrainerActivityMetrics(
   totalMembers: number;
 }> {
   const classes = await db
-    .selectFrom("gymClasses")
+    .selectFrom("activitySessions")
     .selectAll()
     .where("trainerId", "=", trainerId)
     .where("facilityId", "=", facilityId)
@@ -896,18 +926,18 @@ export async function getTrainerActivityMetrics(
   let totalOccupancy = 0;
   const uniqueMembers = new Set<string>();
 
-  for (const gymClass of classes) {
+  for (const activitySession of classes) {
     const bookings = await db
       .selectFrom("bookings")
       .selectAll()
-      .where("classId", "=", gymClass.id)
+      .where("activitySessionId", "=", activitySession.id)
       .where("status", "=", "confirmed")
       .execute();
 
     totalBookings += bookings.length;
     const occupancyPercent =
-      gymClass.maxCapacity > 0
-        ? (bookings.length / gymClass.maxCapacity) * 100
+      activitySession.maxCapacity > 0
+        ? (bookings.length / activitySession.maxCapacity) * 100
         : 0;
     totalOccupancy += occupancyPercent;
 
@@ -947,15 +977,23 @@ export async function getMemberMetrics(
   // Get unique users who made bookings in last 30 days
   const activeBookings = await db
     .selectFrom("bookings")
-    .innerJoin("gymClasses", "gymClasses.id", "bookings.classId")
+    .innerJoin(
+      "activitySessions",
+      "activitySessions.id",
+      "bookings.activitySessionId",
+    )
     .innerJoin("facilityMemberships", (join) =>
       join
         .onRef("facilityMemberships.userId", "=", "bookings.userId")
-        .onRef("facilityMemberships.facilityId", "=", "gymClasses.facilityId"),
+        .onRef(
+          "facilityMemberships.facilityId",
+          "=",
+          "activitySessions.facilityId",
+        ),
     )
     .innerJoin("users", "users.id", "bookings.userId")
     .select("bookings.userId")
-    .where("gymClasses.facilityId", "=", facilityId)
+    .where("activitySessions.facilityId", "=", facilityId)
     .where("bookings.status", "=", "confirmed")
     .where("bookings.createdAt", ">", monthAgo)
     .where("facilityMemberships.role", "=", "member")
@@ -980,13 +1018,17 @@ export async function getMemberMetrics(
 export async function getUpcomingBookings(userId: string, facilityId: string) {
   return await db
     .selectFrom("bookings")
-    .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
+    .innerJoin(
+      "activitySessions",
+      "bookings.activitySessionId",
+      "activitySessions.id",
+    )
     .selectAll()
     .where("bookings.userId", "=", userId)
-    .where("gymClasses.facilityId", "=", facilityId)
+    .where("activitySessions.facilityId", "=", facilityId)
     .where("bookings.status", "=", "confirmed")
-    .where("gymClasses.scheduledAt", ">", Date.now())
-    .orderBy("gymClasses.scheduledAt", "asc")
+    .where("activitySessions.scheduledAt", ">", Date.now())
+    .orderBy("activitySessions.scheduledAt", "asc")
     .limit(5)
     .execute();
 }
@@ -997,7 +1039,7 @@ export async function getTrainerUpcomingClasses(
   facilityId: string,
 ) {
   return await db
-    .selectFrom("gymClasses")
+    .selectFrom("activitySessions")
     .selectAll()
     .where("trainerId", "=", trainerId)
     .where("facilityId", "=", facilityId)

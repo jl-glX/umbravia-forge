@@ -144,17 +144,17 @@ export function TrainerDashboardPage() {
                   {formatDate(groupedClasses[date][0].scheduledAt)}
                 </h2>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {groupedClasses[date].map((gymClass) => (
+                  {groupedClasses[date].map((activitySession) => (
                     <TrainerClassCard
-                      key={gymClass.id}
-                      id={gymClass.id}
-                      name={gymClass.name}
-                      scheduledAt={gymClass.scheduledAt}
-                      maxCapacity={gymClass.maxCapacity}
-                      bookedCount={gymClass.bookedCount}
-                      availablePlaces={gymClass.availablePlaces}
-                      waitlistCount={gymClass.waitlistCount}
-                      onClick={() => setSelectedClassId(gymClass.id)}
+                      key={activitySession.id}
+                      id={activitySession.id}
+                      name={activitySession.name}
+                      scheduledAt={activitySession.scheduledAt}
+                      maxCapacity={activitySession.maxCapacity}
+                      bookedCount={activitySession.bookedCount}
+                      availablePlaces={activitySession.availablePlaces}
+                      waitlistCount={activitySession.waitlistCount}
+                      onClick={() => setSelectedClassId(activitySession.id)}
                     />
                   ))}
                 </div>
@@ -167,7 +167,7 @@ export function TrainerDashboardPage() {
       {/* Class Details Modal */}
       {selectedClass && (
         <ClassDetailsModal
-          classId={selectedClass.id}
+          activitySessionId={selectedClass.id}
           className={selectedClass.name}
           scheduledAt={selectedClass.scheduledAt}
           maxCapacity={selectedClass.maxCapacity}

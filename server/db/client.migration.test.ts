@@ -104,7 +104,7 @@ describe("legacy booking migration", () => {
         .insertInto("bookings")
         .values({
           id: "new-active-duplicate",
-          classId: "legacy-class",
+          activitySessionId: "legacy-class",
           userId: "legacy-user",
           status: "waitlist",
           createdAt: 4,

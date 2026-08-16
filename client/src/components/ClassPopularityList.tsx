@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { localizeClass } from "../lib/classLocalization";
 
 interface ClassPopularityData {
-  classId: string;
+  activitySessionId: string;
   className: string;
   trainerName: string;
   totalBookings: number;
@@ -34,7 +34,7 @@ export function ClassPopularityList({
         <div className="space-y-3">
           {topClasses.map((item, index) => (
             <div
-              key={item.classId}
+              key={item.activitySessionId}
               className="flex items-start justify-between pb-3 border-b border-gray-200 last:border-0"
             >
               <div className="flex-1">

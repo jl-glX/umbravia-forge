@@ -152,20 +152,21 @@ export async function canAccessChannel(
   if (channel.scope === "facility") {
     return channel.scopeId === facilityId ? channel : null;
   }
-  const gymClass = await db
-    .selectFrom("gymClasses")
+  const activitySession = await db
+    .selectFrom("activitySessions")
     .select(["trainerId", "facilityId"])
     .where("id", "=", channel.scopeId)
     .executeTakeFirst();
-  if (!gymClass || gymClass.facilityId !== facilityId) return null;
+  if (!activitySession || activitySession.facilityId !== facilityId)
+    return null;
   if (facilityRole === "owner" || facilityRole === "admin") return channel;
   if (facilityRole === "trainer") {
-    return gymClass?.trainerId === userId ? channel : null;
+    return activitySession?.trainerId === userId ? channel : null;
   }
   const booking = await db
     .selectFrom("bookings")
     .select("id")
-    .where("classId", "=", channel.scopeId)
+    .where("activitySessionId", "=", channel.scopeId)
     .where("userId", "=", userId)
     .where("status", "in", ["confirmed", "waitlist"])
     .executeTakeFirst();
@@ -238,16 +239,17 @@ async function canManageChannel(
     );
   }
   if (channel.scope === "class") {
-    const gymClass = await db
-      .selectFrom("gymClasses")
+    const activitySession = await db
+      .selectFrom("activitySessions")
       .select(["trainerId", "facilityId"])
       .where("id", "=", channel.scopeId)
       .executeTakeFirst();
-    if (!gymClass || gymClass.facilityId !== facilityId) return false;
+    if (!activitySession || activitySession.facilityId !== facilityId)
+      return false;
     return (
       facilityRole === "owner" ||
       facilityRole === "admin" ||
-      (facilityRole === "trainer" && gymClass.trainerId === userId)
+      (facilityRole === "trainer" && activitySession.trainerId === userId)
     );
   }
   return false;
@@ -693,14 +695,17 @@ communityRouter.post("/channels", async (req, res, next) => {
     if (scope === "facility" && scopeId !== facility.id)
       return badRequest(res, "Facility channel scope is invalid");
     if (scope === "class") {
-      const gymClass = await db
-        .selectFrom("gymClasses")
+      const activitySession = await db
+        .selectFrom("activitySessions")
         .select(["trainerId", "facilityId"])
         .where("id", "=", scopeId)
         .executeTakeFirst();
-      if (!gymClass || gymClass.facilityId !== facility.id)
+      if (!activitySession || activitySession.facilityId !== facility.id)
         return badRequest(res, "Class does not exist in the selected facility");
-      if (facility.role === "trainer" && gymClass.trainerId !== auth.userId)
+      if (
+        facility.role === "trainer" &&
+        activitySession.trainerId !== auth.userId
+      )
         return res
           .status(403)
           .json({ error: "This class is not assigned to you" });

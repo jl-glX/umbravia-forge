@@ -64,7 +64,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
 
   it("keeps an unanswered booking neutral and stores explicit intentions", async () => {
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "intention-class",
         name: "Intention class",
@@ -133,7 +133,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
 
   it("promotes the more reliable eligible member instead of using FIFO alone", async () => {
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "dynamic-waitlist-class",
         name: "Dynamic waitlist",
@@ -194,7 +194,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
 
   it("applies a temporary and explainable late-cancellation penalty", async () => {
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "late-class",
         name: "Late class",
@@ -221,7 +221,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
 
   it("keeps cancellations between the configured thresholds neutral", async () => {
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "neutral-cancellation-class",
         name: "Neutral cancellation",
@@ -259,7 +259,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
 
     const now = Date.now();
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "past-attendance-class",
         name: "Past class",
@@ -274,7 +274,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
       .insertInto("bookings")
       .values({
         id: "past-attendance-booking",
-        classId: "past-attendance-class",
+        activitySessionId: "past-attendance-class",
         userId: "attendance-member",
         status: "confirmed",
         createdAt: now - 86_400_000,
@@ -326,7 +326,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
 
   it("rejects intentions and attendance for a member who is still waitlisted", async () => {
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "waitlist-guard-class",
         name: "Waitlist guard",
@@ -353,7 +353,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
 
   it("expires an unconfirmed promotion and immediately offers the place to the next member", async () => {
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "promotion-expiry-class",
         name: "Promotion expiry",
@@ -380,7 +380,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await database.db
       .updateTable("waitlistEntries")
       .set({ promotionExpiresAt: Date.now() - 1 })
-      .where("classId", "=", "promotion-expiry-class")
+      .where("activitySessionId", "=", "promotion-expiry-class")
       .where("userId", "=", "expiry-first")
       .execute();
 
@@ -391,7 +391,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     const rows = await database.db
       .selectFrom("bookings")
       .select(["id", "status"])
-      .where("classId", "=", "promotion-expiry-class")
+      .where("activitySessionId", "=", "promotion-expiry-class")
       .execute();
     expect(rows.find((row) => row.id === first.bookingId)?.status).toBe(
       "cancelled",
@@ -416,7 +416,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
       reason: "Test baseline adjustment",
     });
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "anti-farming-class",
         name: "Anti farming",
@@ -444,7 +444,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
 
   it("refills every place released by several expired promotions", async () => {
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "batch-expiry-class",
         name: "Batch expiry",
@@ -476,7 +476,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await database.db
       .updateTable("waitlistEntries")
       .set({ promotionExpiresAt: Date.now() - 1 })
-      .where("classId", "=", "batch-expiry-class")
+      .where("activitySessionId", "=", "batch-expiry-class")
       .where("promotedAt", "is not", null)
       .execute();
 
@@ -490,7 +490,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     const confirmed = await database.db
       .selectFrom("bookings")
       .select("userId")
-      .where("classId", "=", "batch-expiry-class")
+      .where("activitySessionId", "=", "batch-expiry-class")
       .where("status", "=", "confirmed")
       .orderBy("userId")
       .execute();
@@ -502,7 +502,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
 
   it("keeps unrelated penalties when a different absence is excused", async () => {
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "independent-late-class",
         name: "Independent late class",
@@ -521,7 +521,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
 
     const now = Date.now();
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "independent-absence-class",
         name: "Independent absence class",
@@ -536,7 +536,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
       .insertInto("bookings")
       .values({
         id: "independent-absence-booking",
-        classId: "independent-absence-class",
+        activitySessionId: "independent-absence-class",
         userId: "penalty-member",
         status: "confirmed",
         createdAt: now - 86_400_000,

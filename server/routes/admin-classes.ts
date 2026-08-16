@@ -6,7 +6,7 @@ import {
   updateClass,
   deleteClass,
   ClassDeletionBlockedError,
-  saveClassBookingConfiguration,
+  saveActivitySessionBookingConfiguration,
 } from "../services/classes.js";
 import {
   createClassValidation,
@@ -47,15 +47,15 @@ adminClassesRouter.get(
   validateId("id"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const gymClass = await getClassWithAvailability(
+      const activitySession = await getClassWithAvailability(
         req.params.id,
         getFacilityContext(res).id,
       );
-      if (!gymClass) {
+      if (!activitySession) {
         res.status(404).json({ error: "Class not found" });
         return;
       }
-      res.json(gymClass);
+      res.json(activitySession);
     } catch (error) {
       console.error("Error fetching class:", error);
       res.status(500).json({ error: "Failed to fetch class" });
@@ -144,15 +144,15 @@ adminClassesRouter.put(
 adminClassesRouter.post(
   "/batch-delete",
   async (req: express.Request, res: express.Response) => {
-    const requestedIds: unknown[] = Array.isArray(req.body.classIds)
-      ? req.body.classIds
+    const requestedIds: unknown[] = Array.isArray(req.body.activitySessionIds)
+      ? req.body.activitySessionIds
       : [];
-    const classIds = [
+    const activitySessionIds = [
       ...new Set(
         requestedIds.filter((id): id is string => typeof id === "string"),
       ),
     ];
-    if (classIds.length < 1 || classIds.length > 100) {
+    if (activitySessionIds.length < 1 || activitySessionIds.length > 100) {
       res
         .status(400)
         .json({ error: "Between 1 and 100 class IDs are required" });
@@ -166,7 +166,7 @@ adminClassesRouter.post(
       message: string;
       blockers?: ClassDeletionBlockedError["blockers"];
     }> = [];
-    for (const id of classIds) {
+    for (const id of activitySessionIds) {
       try {
         await deleteClass(id, getFacilityContext(res).id);
         deletedIds.push(id);
@@ -194,7 +194,7 @@ adminClassesRouter.put(
   async (req: express.Request, res: express.Response) => {
     try {
       res.json(
-        await saveClassBookingConfiguration(
+        await saveActivitySessionBookingConfiguration(
           req.params.id,
           {
             configuration: req.body.configuration,

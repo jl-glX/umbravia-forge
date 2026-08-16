@@ -38,7 +38,7 @@ export function useTrainerClasses(trainerId: string) {
 
     try {
       const res = await authFetch(
-        `${API_BASE}/api/classes/trainer/${trainerId}`,
+        `${API_BASE}/api/activity-sessions/trainer/${trainerId}`,
       );
 
       if (!res.ok) {

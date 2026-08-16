@@ -265,7 +265,7 @@ export async function seedDatabase() {
 
     // Check if classes already exist
     const existingClasses = await db
-      .selectFrom("gymClasses")
+      .selectFrom("activitySessions")
       .select("id")
       .limit(1)
       .execute();
@@ -293,7 +293,7 @@ export async function seedDatabase() {
         const maxCapacity = Math.floor(Math.random() * 5) + 15; // 15-20 capacity
 
         await db
-          .insertInto("gymClasses")
+          .insertInto("activitySessions")
           .values({
             id: `class-${day}-${hour}`,
             name: classData.name,
@@ -311,14 +311,14 @@ export async function seedDatabase() {
 
     // Add some demo bookings
     const classes = await db
-      .selectFrom("gymClasses")
+      .selectFrom("activitySessions")
       .select(["id"])
       .orderBy("scheduledAt")
       .limit(10)
       .execute();
 
     for (let i = 0; i < Math.min(3, classes.length); i++) {
-      const classId = classes[i].id;
+      const activitySessionId = classes[i].id;
 
       for (let j = 0; j < 8; j++) {
         const userEmail = DEMO_USERS[j % DEMO_USERS.length].email;
@@ -327,7 +327,7 @@ export async function seedDatabase() {
         const existingBooking = await db
           .selectFrom("bookings")
           .select("id")
-          .where("classId", "=", classId)
+          .where("activitySessionId", "=", activitySessionId)
           .where("userId", "=", userId)
           .where("status", "in", ["confirmed", "waitlist"])
           .executeTakeFirst();
@@ -335,12 +335,12 @@ export async function seedDatabase() {
         if (!existingBooking) {
           await db.transaction().execute(async (transaction) => {
             const createdAt = Date.now();
-            const bookingId = `booking-${classId}-${userId}-${i}-${j}`;
+            const bookingId = `booking-${activitySessionId}-${userId}-${i}-${j}`;
             await transaction
               .insertInto("bookings")
               .values({
                 id: bookingId,
-                classId,
+                activitySessionId,
                 userId,
                 status: "confirmed",
                 createdAt,

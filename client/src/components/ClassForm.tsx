@@ -6,12 +6,16 @@ import { useTranslation } from "react-i18next";
 import { VerifiedForm } from "./VerifiedForm";
 
 interface ClassFormProps {
-  gymClass?: AdminClass | null;
+  activitySession?: AdminClass | null;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function ClassForm({ gymClass, onClose, onSuccess }: ClassFormProps) {
+export function ClassForm({
+  activitySession,
+  onClose,
+  onSuccess,
+}: ClassFormProps) {
   const { t } = useTranslation();
   const { createClass, updateClass } = useAdminClasses();
   const { users } = useUsers();
@@ -21,26 +25,27 @@ export function ClassForm({ gymClass, onClose, onSuccess }: ClassFormProps) {
   const trainers = users.filter((u) => u.role === "trainer");
 
   const [formData, setFormData] = useState({
-    name: gymClass?.name || "",
-    description: gymClass?.description || "",
+    name: activitySession?.name || "",
+    description: activitySession?.description || "",
     trainerId:
-      gymClass?.trainerId || (trainers.length > 0 ? trainers[0].id : ""),
+      activitySession?.trainerId || (trainers.length > 0 ? trainers[0].id : ""),
     trainerName:
-      gymClass?.trainerName || (trainers.length > 0 ? trainers[0].name : ""),
-    maxCapacity: gymClass?.maxCapacity || 20,
-    scheduledAt: gymClass
-      ? new Date(gymClass.scheduledAt).toISOString().slice(0, 16)
+      activitySession?.trainerName ||
+      (trainers.length > 0 ? trainers[0].name : ""),
+    maxCapacity: activitySession?.maxCapacity || 20,
+    scheduledAt: activitySession
+      ? new Date(activitySession.scheduledAt).toISOString().slice(0, 16)
       : "",
   });
 
   useEffect(() => {
-    if (formData.trainerId && !gymClass) {
+    if (formData.trainerId && !activitySession) {
       const trainer = trainers.find((t) => t.id === formData.trainerId);
       if (trainer) {
         setFormData((prev) => ({ ...prev, trainerName: trainer.name }));
       }
     }
-  }, [formData.trainerId, trainers, gymClass]);
+  }, [formData.trainerId, trainers, activitySession]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +61,8 @@ export function ClassForm({ gymClass, onClose, onSuccess }: ClassFormProps) {
 
       const scheduledAt = new Date(formData.scheduledAt).getTime();
 
-      if (gymClass) {
-        await updateClass(gymClass.id, {
+      if (activitySession) {
+        await updateClass(activitySession.id, {
           name: formData.name,
           description: formData.description,
           trainerId: formData.trainerId,
@@ -87,7 +92,7 @@ export function ClassForm({ gymClass, onClose, onSuccess }: ClassFormProps) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
         <h2 className="text-xl font-bold mb-4">
-          {gymClass ? t("admin.editClass") : t("admin.createClass")}
+          {activitySession ? t("admin.editClass") : t("admin.createClass")}
         </h2>
 
         {error && (

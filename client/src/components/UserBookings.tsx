@@ -19,7 +19,7 @@ import { localizeClass } from "../lib/classLocalization";
 
 interface UserBooking {
   id: string;
-  classId: string;
+  activitySessionId: string;
   status: "confirmed" | "cancelled" | "waitlist";
   createdAt: number;
   name: string;

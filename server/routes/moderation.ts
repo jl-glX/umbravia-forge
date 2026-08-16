@@ -45,13 +45,13 @@ async function channelBelongsToFacility(
 ): Promise<boolean> {
   if (channel.scope === "facility") return channel.scopeId === facilityId;
   if (channel.scope !== "class") return false;
-  const gymClass = await db
-    .selectFrom("gymClasses")
+  const activitySession = await db
+    .selectFrom("activitySessions")
     .select("id")
     .where("id", "=", channel.scopeId)
     .where("facilityId", "=", facilityId)
     .executeTakeFirst();
-  return Boolean(gymClass);
+  return Boolean(activitySession);
 }
 
 moderationRouter.get("/cases", async (_req, res, next) => {

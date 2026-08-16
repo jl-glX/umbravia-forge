@@ -62,13 +62,13 @@ bookingsRouter.get(
 
 // Get class bookings (for admin/trainer view)
 bookingsRouter.get(
-  "/class/:classId",
-  validateId("classId"),
-  requireTrainerClassOrRole("classId", "admin"),
+  "/class/:activitySessionId",
+  validateId("activitySessionId"),
+  requireTrainerClassOrRole("activitySessionId", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
       const bookings = await getClassBookings(
-        req.params.classId,
+        req.params.activitySessionId,
         getFacilityContext(res).id,
       );
       res.json(bookings);
@@ -81,19 +81,19 @@ bookingsRouter.get(
 
 // Export class attendees as CSV
 bookingsRouter.get(
-  "/class/:classId/export-csv",
-  validateId("classId"),
-  requireTrainerClassOrRole("classId", "admin"),
+  "/class/:activitySessionId/export-csv",
+  validateId("activitySessionId"),
+  requireTrainerClassOrRole("activitySessionId", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
       const csv = await exportClassAttendeesCsv(
-        req.params.classId,
+        req.params.activitySessionId,
         getFacilityContext(res).id,
       );
       res.setHeader("Content-Type", "text/csv;charset=utf-8");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="attendees-${req.params.classId}.csv"`,
+        `attachment; filename="attendees-${req.params.activitySessionId}.csv"`,
       );
       res.send(csv);
     } catch (error) {
@@ -110,15 +110,15 @@ bookingsRouter.post(
   requireSelfFacilityRoleOrBookingDelegation("userId", "admin", "owner"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const { classId, userId } = req.body;
+      const { activitySessionId, userId } = req.body;
 
-      if (!classId || !userId) {
-        res.status(400).json({ error: "Missing classId or userId" });
+      if (!activitySessionId || !userId) {
+        res.status(400).json({ error: "Missing activitySessionId or userId" });
         return;
       }
 
       const result = await bookClass(
-        classId,
+        activitySessionId,
         userId,
         getFacilityContext(res).id,
       );
@@ -265,13 +265,13 @@ bookingsRouter.delete(
 
 // Get class waitlist
 bookingsRouter.get(
-  "/waitlist/:classId",
-  validateId("classId"),
-  requireTrainerClassOrRole("classId", "admin"),
+  "/waitlist/:activitySessionId",
+  validateId("activitySessionId"),
+  requireTrainerClassOrRole("activitySessionId", "admin"),
   async (req: express.Request, res: express.Response) => {
     try {
       const waitlist = await getClassWaitlist(
-        req.params.classId,
+        req.params.activitySessionId,
         getFacilityContext(res).id,
       );
       res.json(waitlist);

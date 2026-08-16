@@ -103,7 +103,7 @@ describe("class tenant isolation", () => {
       ])
       .execute();
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values([
         {
           id: "primary-class",
@@ -132,7 +132,7 @@ describe("class tenant isolation", () => {
       .values([
         {
           id: "primary-booking",
-          classId: "primary-class",
+          activitySessionId: "primary-class",
           userId: "tenant-member",
           status: "confirmed",
           createdAt: now,
@@ -140,7 +140,7 @@ describe("class tenant isolation", () => {
         },
         {
           id: "secondary-booking",
-          classId: "secondary-class",
+          activitySessionId: "secondary-class",
           userId: "tenant-member",
           status: "confirmed",
           createdAt: now,
@@ -176,7 +176,7 @@ describe("class tenant isolation", () => {
 
   it("lists only classes owned by the selected facility", async () => {
     const primary = await request(app)
-      .get("/api/classes")
+      .get("/api/activity-sessions")
       .set("Cookie", adminCookie)
       .expect(200);
     expect(primary.body.map((item: { id: string }) => item.id)).toEqual([
@@ -184,7 +184,7 @@ describe("class tenant isolation", () => {
     ]);
 
     const secondary = await request(app)
-      .get("/api/classes")
+      .get("/api/activity-sessions")
       .set("Cookie", adminCookie)
       .set("X-Facility-Id", "secondary")
       .expect(200);
@@ -193,21 +193,36 @@ describe("class tenant isolation", () => {
     ]);
   });
 
+  it("keeps the previous route as an explicitly deprecated compatibility alias", async () => {
+    const legacy = await request(app)
+      .get("/api/classes")
+      .set("Cookie", adminCookie)
+      .expect(200);
+
+    expect(legacy.headers.deprecation).toBe("true");
+    expect(legacy.headers.link).toBe(
+      '</api/activity-sessions>; rel="successor-version"',
+    );
+    expect(legacy.body.map((item: { id: string }) => item.id)).toEqual([
+      "primary-class",
+    ]);
+  });
+
   it("rejects cross-facility class reads and writes", async () => {
     await request(app)
-      .get("/api/classes/primary-class")
+      .get("/api/activity-sessions/primary-class")
       .set("Cookie", adminCookie)
       .set("X-Facility-Id", "secondary")
       .expect(403);
 
     await request(app)
-      .get("/api/admin/classes/primary-class")
+      .get("/api/admin/activity-sessions/primary-class")
       .set("Cookie", adminCookie)
       .set("X-Facility-Id", "secondary")
       .expect(404);
 
     const created = await request(app)
-      .post("/api/admin/classes")
+      .post("/api/admin/activity-sessions")
       .set("Cookie", adminCookie)
       .set("X-Facility-Id", "secondary")
       .send({
@@ -222,7 +237,7 @@ describe("class tenant isolation", () => {
     expect(created.body.facilityId).toBe("secondary");
 
     const stored = await database.db
-      .selectFrom("gymClasses")
+      .selectFrom("activitySessions")
       .select("facilityId")
       .where("id", "=", created.body.id)
       .executeTakeFirstOrThrow();
@@ -232,7 +247,7 @@ describe("class tenant isolation", () => {
   it("protects class history and reports partial batch deletion", async () => {
     const now = Date.now();
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "empty-primary-class",
         facilityId: "primary",
@@ -246,7 +261,7 @@ describe("class tenant isolation", () => {
       .execute();
 
     const protectedResponse = await request(app)
-      .delete("/api/admin/classes/primary-class")
+      .delete("/api/admin/activity-sessions/primary-class")
       .set("Cookie", adminCookie)
       .expect(409);
     expect(protectedResponse.body).toMatchObject({
@@ -255,9 +270,9 @@ describe("class tenant isolation", () => {
     });
 
     const batch = await request(app)
-      .post("/api/admin/classes/batch-delete")
+      .post("/api/admin/activity-sessions/batch-delete")
       .set("Cookie", adminCookie)
-      .send({ classIds: ["primary-class", "empty-primary-class"] })
+      .send({ activitySessionIds: ["primary-class", "empty-primary-class"] })
       .expect(200);
     expect(batch.body.deletedIds).toEqual(["empty-primary-class"]);
     expect(batch.body.failed).toEqual([
@@ -278,7 +293,7 @@ describe("class tenant isolation", () => {
 
   it("rejects insecure session media links before storing content", async () => {
     const response = await request(app)
-      .put("/api/classes/primary-class/session-content")
+      .put("/api/activity-sessions/primary-class/session-content")
       .set("Cookie", adminCookie)
       .send({
         terminology: "Training plan",

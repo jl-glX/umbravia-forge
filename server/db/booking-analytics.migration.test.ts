@@ -31,7 +31,7 @@ describe("booking analytics event migration", () => {
       })
       .execute();
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "analytics-migration-class",
         facilityId: "primary",
@@ -47,7 +47,7 @@ describe("booking analytics event migration", () => {
       .insertInto("bookings")
       .values({
         id: "analytics-migration-booking",
-        classId: "analytics-migration-class",
+        activitySessionId: "analytics-migration-class",
         userId: "analytics-migration-user",
         status: "confirmed",
         createdAt: now,

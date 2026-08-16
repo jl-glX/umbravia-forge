@@ -41,8 +41,8 @@ export class ClassDeletionBlockedError extends Error {
   }
 }
 
-export async function saveClassBookingConfiguration(
-  classId: string,
+export async function saveActivitySessionBookingConfiguration(
+  activitySessionId: string,
   input: {
     configuration: Partial<BookingConfiguration>;
     lifecycleState?: "active" | "suspended" | "cancelled";
@@ -50,18 +50,18 @@ export async function saveClassBookingConfiguration(
   },
   facilityId = PRIMARY_FACILITY_ID,
 ) {
-  const gymClass = await db
-    .selectFrom("gymClasses")
+  const activitySession = await db
+    .selectFrom("activitySessions")
     .select("id")
-    .where("id", "=", classId)
+    .where("id", "=", activitySessionId)
     .where("facilityId", "=", facilityId)
     .executeTakeFirst();
-  if (!gymClass) throw new Error("Class not found");
+  if (!activitySession) throw new Error("Class not found");
 
   const existing = await db
-    .selectFrom("classBookingConfigurations")
+    .selectFrom("activitySessionBookingConfigurations")
     .selectAll()
-    .where("classId", "=", classId)
+    .where("activitySessionId", "=", activitySessionId)
     .executeTakeFirst();
   const configuration = {
     ...defaultBookingConfiguration,
@@ -85,9 +85,9 @@ export async function saveClassBookingConfiguration(
     );
   }
   await db
-    .insertInto("classBookingConfigurations")
+    .insertInto("activitySessionBookingConfigurations")
     .values({
-      classId,
+      activitySessionId,
       configuration: JSON.stringify(configuration),
       lifecycleState:
         input.lifecycleState ?? existing?.lifecycleState ?? "active",
@@ -95,7 +95,7 @@ export async function saveClassBookingConfiguration(
       updatedAt: Date.now(),
     })
     .onConflict((conflict) =>
-      conflict.column("classId").doUpdateSet({
+      conflict.column("activitySessionId").doUpdateSet({
         configuration: JSON.stringify(configuration),
         lifecycleState:
           input.lifecycleState ?? existing?.lifecycleState ?? "active",
@@ -104,22 +104,22 @@ export async function saveClassBookingConfiguration(
       }),
     )
     .execute();
-  return getClassWithAvailability(classId, facilityId);
+  return getClassWithAvailability(activitySessionId, facilityId);
 }
 
 export async function getAllClasses(
   facilityId = PRIMARY_FACILITY_ID,
 ): Promise<ClassWithAvailability[]> {
   const classes = await db
-    .selectFrom("gymClasses")
+    .selectFrom("activitySessions")
     .selectAll()
     .where("facilityId", "=", facilityId)
     .orderBy("scheduledAt", "asc")
     .execute();
 
   const withAvailability = await Promise.all(
-    classes.map(async (gymClass) => {
-      return getClassWithAvailability(gymClass.id, facilityId);
+    classes.map(async (activitySession) => {
+      return getClassWithAvailability(activitySession.id, facilityId);
     }),
   );
 
@@ -127,43 +127,43 @@ export async function getAllClasses(
 }
 
 export async function getClassWithAvailability(
-  classId: string,
+  activitySessionId: string,
   facilityId = PRIMARY_FACILITY_ID,
 ): Promise<ClassWithAvailability | null> {
-  const gymClass = await db
-    .selectFrom("gymClasses")
+  const activitySession = await db
+    .selectFrom("activitySessions")
     .selectAll()
-    .where("id", "=", classId)
+    .where("id", "=", activitySessionId)
     .where("facilityId", "=", facilityId)
     .executeTakeFirst();
 
-  if (!gymClass) {
+  if (!activitySession) {
     return null;
   }
 
   const confirmedCount = await db
     .selectFrom("bookings")
     .select((eb) => eb.fn.count("id").as("count"))
-    .where("classId", "=", classId)
+    .where("activitySessionId", "=", activitySessionId)
     .where("status", "=", "confirmed")
     .executeTakeFirst();
 
   const bookedCount = Number(confirmedCount?.count ?? 0);
-  const availablePlaces = gymClass.maxCapacity - bookedCount;
+  const availablePlaces = activitySession.maxCapacity - bookedCount;
   const waitlistCount = await db
     .selectFrom("waitlistEntries")
     .select((eb) => eb.fn.count("id").as("count"))
-    .where("classId", "=", classId)
+    .where("activitySessionId", "=", activitySessionId)
     .where("promotedAt", "is", null)
     .executeTakeFirst();
   const configuration = await db
-    .selectFrom("classBookingConfigurations")
+    .selectFrom("activitySessionBookingConfigurations")
     .selectAll()
-    .where("classId", "=", classId)
+    .where("activitySessionId", "=", activitySessionId)
     .executeTakeFirst();
 
   return {
-    ...gymClass,
+    ...activitySession,
     bookedCount,
     availablePlaces,
     waitlistCount: Number(waitlistCount?.count ?? 0),
@@ -199,12 +199,12 @@ export async function createClass(
     throw new Error("Class date must be in the future");
   }
 
-  const classId = `class-${randomBytes(8).toString("hex")}`;
+  const activitySessionId = `class-${randomBytes(8).toString("hex")}`;
 
   await db
-    .insertInto("gymClasses")
+    .insertInto("activitySessions")
     .values({
-      id: classId,
+      id: activitySessionId,
       facilityId,
       name: data.name,
       description: data.description || "",
@@ -215,7 +215,10 @@ export async function createClass(
     })
     .execute();
 
-  const newClass = await getClassWithAvailability(classId, facilityId);
+  const newClass = await getClassWithAvailability(
+    activitySessionId,
+    facilityId,
+  );
   if (!newClass) {
     throw new Error("Failed to create class");
   }
@@ -224,7 +227,7 @@ export async function createClass(
 }
 
 export async function updateClass(
-  classId: string,
+  activitySessionId: string,
   updates: {
     name?: string;
     description?: string;
@@ -235,14 +238,14 @@ export async function updateClass(
   },
   facilityId = PRIMARY_FACILITY_ID,
 ): Promise<ClassWithAvailability> {
-  const gymClass = await db
-    .selectFrom("gymClasses")
+  const activitySession = await db
+    .selectFrom("activitySessions")
     .selectAll()
-    .where("id", "=", classId)
+    .where("id", "=", activitySessionId)
     .where("facilityId", "=", facilityId)
     .executeTakeFirst();
 
-  if (!gymClass) {
+  if (!activitySession) {
     throw new Error("Class not found");
   }
 
@@ -264,13 +267,16 @@ export async function updateClass(
   if (updates.scheduledAt) updateValues.scheduledAt = updates.scheduledAt;
 
   await db
-    .updateTable("gymClasses")
+    .updateTable("activitySessions")
     .set(updateValues)
-    .where("id", "=", classId)
+    .where("id", "=", activitySessionId)
     .where("facilityId", "=", facilityId)
     .execute();
 
-  const updatedClass = await getClassWithAvailability(classId, facilityId);
+  const updatedClass = await getClassWithAvailability(
+    activitySessionId,
+    facilityId,
+  );
   if (!updatedClass) {
     throw new Error("Failed to retrieve updated class");
   }
@@ -279,17 +285,17 @@ export async function updateClass(
 }
 
 export async function deleteClass(
-  classId: string,
+  activitySessionId: string,
   facilityId = PRIMARY_FACILITY_ID,
 ): Promise<void> {
-  const gymClass = await db
-    .selectFrom("gymClasses")
+  const activitySession = await db
+    .selectFrom("activitySessions")
     .selectAll()
-    .where("id", "=", classId)
+    .where("id", "=", activitySessionId)
     .where("facilityId", "=", facilityId)
     .executeTakeFirst();
 
-  if (!gymClass) {
+  if (!activitySession) {
     throw new Error("Class not found");
   }
 
@@ -303,28 +309,28 @@ export async function deleteClass(
     db
       .selectFrom("bookings")
       .select((eb) => eb.fn.count("id").as("count"))
-      .where("classId", "=", classId)
+      .where("activitySessionId", "=", activitySessionId)
       .executeTakeFirst(),
     db
       .selectFrom("waitlistEntries")
       .select((eb) => eb.fn.count("id").as("count"))
-      .where("classId", "=", classId)
+      .where("activitySessionId", "=", activitySessionId)
       .executeTakeFirst(),
     db
-      .selectFrom("classSessionContents")
-      .select((eb) => eb.fn.count("classId").as("count"))
-      .where("classId", "=", classId)
+      .selectFrom("activitySessionContents")
+      .select((eb) => eb.fn.count("activitySessionId").as("count"))
+      .where("activitySessionId", "=", activitySessionId)
       .executeTakeFirst(),
     db
       .selectFrom("sessionContentProgress")
-      .select((eb) => eb.fn.count("classId").as("count"))
-      .where("classId", "=", classId)
+      .select((eb) => eb.fn.count("activitySessionId").as("count"))
+      .where("activitySessionId", "=", activitySessionId)
       .executeTakeFirst(),
     db
       .selectFrom("communityChannels")
       .select((eb) => eb.fn.count("id").as("count"))
       .where("scope", "=", "class")
-      .where("scopeId", "=", classId)
+      .where("scopeId", "=", activitySessionId)
       .executeTakeFirst(),
   ]);
   const blockers = {
@@ -340,12 +346,12 @@ export async function deleteClass(
 
   await db.transaction().execute(async (transaction) => {
     await transaction
-      .deleteFrom("classBookingConfigurations")
-      .where("classId", "=", classId)
+      .deleteFrom("activitySessionBookingConfigurations")
+      .where("activitySessionId", "=", activitySessionId)
       .execute();
     await transaction
-      .deleteFrom("gymClasses")
-      .where("id", "=", classId)
+      .deleteFrom("activitySessions")
+      .where("id", "=", activitySessionId)
       .where("facilityId", "=", facilityId)
       .execute();
   });

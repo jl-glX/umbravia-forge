@@ -76,7 +76,7 @@ describe("extreme local security assessment", () => {
     await database.initializeDatabase();
 
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values([
         {
           id: "assessment-owned-class",

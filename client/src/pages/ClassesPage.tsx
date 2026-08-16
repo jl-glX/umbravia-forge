@@ -33,24 +33,24 @@ export function ClassesPage() {
   );
   const { t } = useTranslation();
 
-  const userBookedClassIds = new Set(bookings.map((b) => b.classId));
+  const userBookedClassIds = new Set(bookings.map((b) => b.activitySessionId));
   const groupedClasses = groupClassesByDate(classes);
   const sortedDates = Object.keys(groupedClasses).sort();
   const availableClasses = classes.filter(
-    (gymClass) => gymClass.availablePlaces > 0,
+    (activitySession) => activitySession.availablePlaces > 0,
   ).length;
   const totalPlaces = classes.reduce(
-    (total, gymClass) => total + gymClass.availablePlaces,
+    (total, activitySession) => total + activitySession.availablePlaces,
     0,
   );
 
-  const handleBook = async (classId: string) => {
+  const handleBook = async (activitySessionId: string) => {
     if (!user?.id) return;
 
     try {
       setBookingError(null);
-      setBookingInProgress(classId);
-      await bookClass(classId);
+      setBookingInProgress(activitySessionId);
+      await bookClass(activitySessionId);
       await refreshClasses();
     } catch (err) {
       const message =
@@ -207,21 +207,21 @@ export function ClassesPage() {
                   </span>
                 </div>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {groupedClasses[date].map((gymClass) => (
+                  {groupedClasses[date].map((activitySession) => (
                     <ClassCard
-                      key={gymClass.id}
-                      id={gymClass.id}
-                      name={gymClass.name}
-                      description={gymClass.description}
-                      trainerName={gymClass.trainerName}
-                      scheduledAt={gymClass.scheduledAt}
-                      maxCapacity={gymClass.maxCapacity}
-                      bookedCount={gymClass.bookedCount}
-                      availablePlaces={gymClass.availablePlaces}
-                      waitlistCount={gymClass.waitlistCount}
-                      onBookClick={() => handleBook(gymClass.id)}
-                      isBooked={userBookedClassIds.has(gymClass.id)}
-                      isLoading={bookingInProgress === gymClass.id}
+                      key={activitySession.id}
+                      id={activitySession.id}
+                      name={activitySession.name}
+                      description={activitySession.description}
+                      trainerName={activitySession.trainerName}
+                      scheduledAt={activitySession.scheduledAt}
+                      maxCapacity={activitySession.maxCapacity}
+                      bookedCount={activitySession.bookedCount}
+                      availablePlaces={activitySession.availablePlaces}
+                      waitlistCount={activitySession.waitlistCount}
+                      onBookClick={() => handleBook(activitySession.id)}
+                      isBooked={userBookedClassIds.has(activitySession.id)}
+                      isLoading={bookingInProgress === activitySession.id}
                     />
                   ))}
                 </div>

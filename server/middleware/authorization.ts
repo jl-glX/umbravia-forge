@@ -210,13 +210,13 @@ export function requireClassFacility(classParamName: string) {
         forbidden(res, "An active facility membership is required");
         return;
       }
-      const gymClass = await db
-        .selectFrom("gymClasses")
+      const activitySession = await db
+        .selectFrom("activitySessions")
         .select("id")
         .where("id", "=", req.params[classParamName])
         .where("facilityId", "=", facility.id)
         .executeTakeFirst();
-      if (!gymClass) {
+      if (!activitySession) {
         forbidden(res);
         return;
       }
@@ -269,10 +269,14 @@ export function requireBookingFacility(bookingParamName: string) {
       }
       const booking = await db
         .selectFrom("bookings")
-        .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
+        .innerJoin(
+          "activitySessions",
+          "bookings.activitySessionId",
+          "activitySessions.id",
+        )
         .select("bookings.id")
         .where("bookings.id", "=", req.params[bookingParamName])
-        .where("gymClasses.facilityId", "=", facility.id)
+        .where("activitySessions.facilityId", "=", facility.id)
         .executeTakeFirst();
       if (!booking) {
         forbidden(res);
@@ -370,14 +374,14 @@ export function requireTrainerClassOrRole(
         return;
       }
 
-      const gymClass = await db
-        .selectFrom("gymClasses")
+      const activitySession = await db
+        .selectFrom("activitySessions")
         .select("trainerId")
         .where("id", "=", req.params[classParamName])
         .where("facilityId", "=", facility.id)
         .executeTakeFirst();
 
-      if (!gymClass || gymClass.trainerId !== auth.userId) {
+      if (!activitySession || activitySession.trainerId !== auth.userId) {
         forbidden(res);
         return;
       }
@@ -418,10 +422,14 @@ export function requireTrainerBookingOrRole(
       }
       const booking = await db
         .selectFrom("bookings")
-        .innerJoin("gymClasses", "bookings.classId", "gymClasses.id")
-        .select("gymClasses.trainerId")
+        .innerJoin(
+          "activitySessions",
+          "bookings.activitySessionId",
+          "activitySessions.id",
+        )
+        .select("activitySessions.trainerId")
         .where("bookings.id", "=", req.params[bookingParamName])
-        .where("gymClasses.facilityId", "=", facility.id)
+        .where("activitySessions.facilityId", "=", facility.id)
         .executeTakeFirst();
       if (!booking || booking.trainerId !== auth.userId) {
         forbidden(res);

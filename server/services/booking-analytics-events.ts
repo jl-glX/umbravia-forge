@@ -20,21 +20,25 @@ export async function recordBookingAnalyticsEvent(
 ): Promise<void> {
   const snapshot = await transaction
     .selectFrom("bookings")
-    .innerJoin("gymClasses", "gymClasses.id", "bookings.classId")
+    .innerJoin(
+      "activitySessions",
+      "activitySessions.id",
+      "bookings.activitySessionId",
+    )
     .leftJoin(
       "users as trainerUsers",
       "trainerUsers.id",
-      "gymClasses.trainerId",
+      "activitySessions.trainerId",
     )
     .select([
       "bookings.id",
-      "bookings.classId",
+      "bookings.activitySessionId",
       "bookings.userId",
-      "gymClasses.facilityId",
+      "activitySessions.facilityId",
       "trainerUsers.id as trainerUserId",
-      "gymClasses.name as activityName",
-      "gymClasses.scheduledAt",
-      "gymClasses.maxCapacity as capacitySnapshot",
+      "activitySessions.name as activityName",
+      "activitySessions.scheduledAt",
+      "activitySessions.maxCapacity as capacitySnapshot",
     ])
     .where("bookings.id", "=", input.bookingId)
     .executeTakeFirstOrThrow();
@@ -55,7 +59,7 @@ export async function recordBookingAnalyticsEvent(
       deduplicationKey,
       facilityId: snapshot.facilityId,
       bookingId: snapshot.id,
-      classId: snapshot.classId,
+      activitySessionId: snapshot.activitySessionId,
       memberUserId: snapshot.userId,
       trainerUserId: snapshot.trainerUserId,
       eventType: input.eventType,

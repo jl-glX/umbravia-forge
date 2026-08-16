@@ -25,7 +25,7 @@ describe("editable booking configuration", () => {
   });
 
   it("keeps existing class creation compatible and stores rules separately", async () => {
-    const gymClass = await classes.createClass({
+    const activitySession = await classes.createClass({
       name: "WOD tarde",
       description: "Sesión de prueba",
       trainerId: "trainer-demo",
@@ -33,11 +33,11 @@ describe("editable booking configuration", () => {
       maxCapacity: 14,
       scheduledAt: Date.now() + 86_400_000,
     });
-    expect(gymClass.lifecycleState).toBe("active");
-    expect(gymClass.bookingConfiguration.durationMinutes).toBe(60);
+    expect(activitySession.lifecycleState).toBe("active");
+    expect(activitySession.bookingConfiguration.durationMinutes).toBe(60);
 
-    const configured = await classes.saveClassBookingConfiguration(
-      gymClass.id,
+    const configured = await classes.saveActivitySessionBookingConfiguration(
+      activitySession.id,
       {
         configuration: {
           room: "Box principal",
@@ -63,7 +63,7 @@ describe("editable booking configuration", () => {
 
   it("rejects contradictory cancellation windows", async () => {
     await expect(
-      classes.saveClassBookingConfiguration("missing-class", {
+      classes.saveActivitySessionBookingConfiguration("missing-class", {
         configuration: {
           onTimeCancellationMinutes: 60,
           lateCancellationMinutes: 180,
@@ -71,7 +71,7 @@ describe("editable booking configuration", () => {
       }),
     ).rejects.toThrow("Class not found");
 
-    const gymClass = await classes.createClass({
+    const activitySession = await classes.createClass({
       name: "Invalid rules",
       description: "",
       trainerId: "trainer-demo",
@@ -80,7 +80,7 @@ describe("editable booking configuration", () => {
       scheduledAt: Date.now() + 86_400_000,
     });
     await expect(
-      classes.saveClassBookingConfiguration(gymClass.id, {
+      classes.saveActivitySessionBookingConfiguration(activitySession.id, {
         configuration: {
           onTimeCancellationMinutes: 60,
           lateCancellationMinutes: 180,

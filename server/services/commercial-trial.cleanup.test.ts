@@ -129,7 +129,7 @@ describe("commercial trial abandonment cleanup", () => {
       templateKey: "traditional_gym",
     });
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "cleanup-class-silent",
         facilityId: seeded.facilityId,
@@ -145,7 +145,7 @@ describe("commercial trial abandonment cleanup", () => {
       .insertInto("bookings")
       .values({
         id: "cleanup-booking-silent",
-        classId: "cleanup-class-silent",
+        activitySessionId: "cleanup-class-silent",
         userId: seeded.userId,
         status: "confirmed",
         createdAt: 1,

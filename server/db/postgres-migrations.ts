@@ -1883,6 +1883,165 @@ CREATE INDEX IF NOT EXISTS "idx_crmFollowUps_member"
   ON "crmFollowUps" ("facilityId", "memberUserId", "createdAt" DESC);
 `,
   },
+  {
+    version: 31,
+    name: "activity-domain-neutralization",
+    sql: String.raw`
+DO $$
+BEGIN
+  IF to_regclass('public."activitySessions"') IS NULL
+     AND to_regclass('public."gymClasses"') IS NOT NULL THEN
+    ALTER TABLE "gymClasses" RENAME TO "activitySessions";
+  END IF;
+  IF to_regclass('public."activitySessionBookingConfigurations"') IS NULL
+     AND to_regclass('public."classBookingConfigurations"') IS NOT NULL THEN
+    ALTER TABLE "classBookingConfigurations"
+      RENAME TO "activitySessionBookingConfigurations";
+  END IF;
+  IF to_regclass('public."activitySessionContents"') IS NULL
+     AND to_regclass('public."classSessionContents"') IS NOT NULL THEN
+    ALTER TABLE "classSessionContents" RENAME TO "activitySessionContents";
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'activitySessionBookingConfigurations'
+      AND column_name = 'classId'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'activitySessionBookingConfigurations'
+      AND column_name = 'activitySessionId'
+  ) THEN
+    ALTER TABLE "activitySessionBookingConfigurations"
+      RENAME COLUMN "classId" TO "activitySessionId";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'bookings' AND column_name = 'classId'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'bookings' AND column_name = 'activitySessionId'
+  ) THEN
+    ALTER TABLE "bookings" RENAME COLUMN "classId" TO "activitySessionId";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'waitlistEntries' AND column_name = 'classId'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'waitlistEntries' AND column_name = 'activitySessionId'
+  ) THEN
+    ALTER TABLE "waitlistEntries" RENAME COLUMN "classId" TO "activitySessionId";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'activitySessionContents' AND column_name = 'classId'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'activitySessionContents' AND column_name = 'activitySessionId'
+  ) THEN
+    ALTER TABLE "activitySessionContents"
+      RENAME COLUMN "classId" TO "activitySessionId";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'sessionContentProgress' AND column_name = 'classId'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'sessionContentProgress' AND column_name = 'activitySessionId'
+  ) THEN
+    ALTER TABLE "sessionContentProgress"
+      RENAME COLUMN "classId" TO "activitySessionId";
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'bookingAnalyticsEvents' AND column_name = 'classId'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'bookingAnalyticsEvents' AND column_name = 'activitySessionId'
+  ) THEN
+    ALTER TABLE "bookingAnalyticsEvents"
+      RENAME COLUMN "classId" TO "activitySessionId";
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  index_names TEXT[];
+BEGIN
+  FOREACH index_names SLICE 1 IN ARRAY ARRAY[
+    ARRAY['idx_gymClasses_scheduledAt', 'idx_activitySessions_scheduledAt'],
+    ARRAY['idx_gymClasses_facility_scheduled', 'idx_activitySessions_facility_scheduled'],
+    ARRAY['idx_classBookingConfigurations_series', 'idx_activitySessionBookingConfigurations_series'],
+    ARRAY['idx_bookings_classId', 'idx_bookings_activitySessionId'],
+    ARRAY['idx_bookings_active_user_class', 'idx_bookings_active_user_activitySession'],
+    ARRAY['idx_waitlistEntries_classId', 'idx_waitlistEntries_activitySessionId'],
+    ARRAY['idx_waitlistEntries_class_expiry', 'idx_waitlistEntries_activitySession_expiry'],
+    ARRAY['idx_bookingAnalyticsEvents_class_event', 'idx_bookingAnalyticsEvents_activitySession_event']
+  ] LOOP
+    IF to_regclass(format('public.%I', index_names[1])) IS NOT NULL
+       AND to_regclass(format('public.%I', index_names[2])) IS NULL THEN
+      EXECUTE format(
+        'ALTER INDEX %I RENAME TO %I',
+        index_names[1],
+        index_names[2]
+      );
+    END IF;
+  END LOOP;
+END $$;
+
+DO $$
+DECLARE
+  constraint_names TEXT[];
+BEGIN
+  FOREACH constraint_names SLICE 1 IN ARRAY ARRAY[
+    ARRAY['activitySessions', 'gymClasses_pkey', 'activitySessions_pkey'],
+    ARRAY['activitySessions', 'gymClasses_facilityId_fkey', 'activitySessions_facilityId_fkey'],
+    ARRAY['activitySessionBookingConfigurations', 'classBookingConfigurations_pkey', 'activitySessionBookingConfigurations_pkey'],
+    ARRAY['activitySessionBookingConfigurations', 'classBookingConfigurations_classId_fkey', 'activitySessionBookingConfigurations_activitySessionId_fkey'],
+    ARRAY['activitySessionBookingConfigurations', 'classBookingConfigurations_lifecycleState_check', 'activitySessionBookingConfigurations_lifecycleState_check'],
+    ARRAY['bookings', 'bookings_classId_fkey', 'bookings_activitySessionId_fkey'],
+    ARRAY['waitlistEntries', 'waitlistEntries_classId_fkey', 'waitlistEntries_activitySessionId_fkey'],
+    ARRAY['waitlistEntries', 'waitlistEntries_classId_userId_key', 'waitlistEntries_activitySessionId_userId_key'],
+    ARRAY['activitySessionContents', 'classSessionContents_pkey', 'activitySessionContents_pkey'],
+    ARRAY['activitySessionContents', 'classSessionContents_classId_fkey', 'activitySessionContents_activitySessionId_fkey'],
+    ARRAY['activitySessionContents', 'classSessionContents_commentsEnabled_check', 'activitySessionContents_commentsEnabled_check'],
+    ARRAY['sessionContentProgress', 'sessionContentProgress_pkey', 'sessionContentProgress_activitySession_user_pkey'],
+    ARRAY['sessionContentProgress', 'sessionContentProgress_classId_fkey', 'sessionContentProgress_activitySessionId_fkey'],
+    ARRAY['bookingAnalyticsEvents', 'bookingAnalyticsEvents_classId_fkey', 'bookingAnalyticsEvents_activitySessionId_fkey']
+  ] LOOP
+    IF EXISTS (
+      SELECT 1
+      FROM pg_constraint
+      WHERE conrelid = to_regclass(format('public.%I', constraint_names[1]))
+        AND conname = constraint_names[2]
+    ) AND NOT EXISTS (
+      SELECT 1
+      FROM pg_constraint
+      WHERE conrelid = to_regclass(format('public.%I', constraint_names[1]))
+        AND conname = constraint_names[3]
+    ) THEN
+      EXECUTE format(
+        'ALTER TABLE %I RENAME CONSTRAINT %I TO %I',
+        constraint_names[1],
+        constraint_names[2],
+        constraint_names[3]
+      );
+    END IF;
+  END LOOP;
+END $$;
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

@@ -146,10 +146,31 @@ app.use("/api/account/lifecycle", accountLifecycleRouter);
 app.use("/api/account/manager", accountManagerRouter);
 app.use("/api/account/continuity", accountContinuityRouter);
 app.use("/api/admin/data-retention", dataRetentionRouter);
-app.use("/api/classes", classesRouter);
+app.use("/api/activity-sessions", classesRouter);
 app.use("/api/bookings", bookingsRouter);
 app.use("/api/users", usersRouter);
-app.use("/api/admin/classes", adminClassesRouter);
+app.use("/api/admin/activity-sessions", adminClassesRouter);
+
+const markLegacyActivitySessionRoute =
+  (successorPath: string): express.RequestHandler =>
+  (_request, response, next) => {
+    response.setHeader("Deprecation", "true");
+    response.setHeader("Link", `<${successorPath}>; rel="successor-version"`);
+    next();
+  };
+
+// One-release compatibility aliases. New clients use activity-session routes;
+// the aliases keep an already deployed client functional during the migration.
+app.use(
+  "/api/classes",
+  markLegacyActivitySessionRoute("/api/activity-sessions"),
+  classesRouter,
+);
+app.use(
+  "/api/admin/classes",
+  markLegacyActivitySessionRoute("/api/admin/activity-sessions"),
+  adminClassesRouter,
+);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/crm", crmRouter);
 app.use("/api/account/security", accountSecurityRouter);

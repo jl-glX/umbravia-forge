@@ -36,7 +36,7 @@ export function useAdminClasses() {
     try {
       setLoading(true);
       setError(null);
-      const response = await authFetch("/api/admin/classes");
+      const response = await authFetch("/api/admin/activity-sessions");
 
       if (!response.ok) {
         throw new Error("Failed to fetch classes");
@@ -62,7 +62,7 @@ export function useAdminClasses() {
     scheduledAt: number;
   }): Promise<AdminClass> => {
     try {
-      const response = await authFetch("/api/admin/classes", {
+      const response = await authFetch("/api/admin/activity-sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -94,7 +94,7 @@ export function useAdminClasses() {
     },
   ): Promise<AdminClass> => {
     try {
-      const response = await authFetch(`/api/admin/classes/${id}`, {
+      const response = await authFetch(`/api/admin/activity-sessions/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
@@ -118,7 +118,7 @@ export function useAdminClasses() {
 
   const deleteClass = async (id: string): Promise<void> => {
     try {
-      const response = await authFetch(`/api/admin/classes/${id}`, {
+      const response = await authFetch(`/api/admin/activity-sessions/${id}`, {
         method: "DELETE",
       });
 
@@ -135,20 +135,25 @@ export function useAdminClasses() {
   };
 
   const deleteMultipleClasses = async (
-    classIds: string[],
+    activitySessionIds: string[],
   ): Promise<ClassBatchDeleteResult> => {
-    const response = await authFetch("/api/admin/classes/batch-delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ classIds }),
-    });
+    const response = await authFetch(
+      "/api/admin/activity-sessions/batch-delete",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activitySessionIds }),
+      },
+    );
     const body = await response.json().catch(() => null);
     if (!response.ok) {
       throw new Error(body?.error || "Failed to delete classes");
     }
     const result = body as ClassBatchDeleteResult;
     setClasses((current) =>
-      current.filter((gymClass) => !result.deletedIds.includes(gymClass.id)),
+      current.filter(
+        (activitySession) => !result.deletedIds.includes(activitySession.id),
+      ),
     );
     return result;
   };

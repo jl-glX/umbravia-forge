@@ -172,7 +172,7 @@ interface DataRetentionRecord {
   releasedAt: number | null;
 }
 
-interface GymClass {
+interface ActivitySession {
   id: string;
   facilityId: Generated<string>;
   name: string;
@@ -183,8 +183,8 @@ interface GymClass {
   scheduledAt: number;
 }
 
-interface ClassBookingConfiguration {
-  classId: string;
+interface ActivitySessionBookingConfiguration {
+  activitySessionId: string;
   configuration: string;
   lifecycleState: "active" | "suspended" | "cancelled";
   seriesId: string | null;
@@ -210,7 +210,7 @@ export type AttendanceIntention = "unanswered" | "yes" | "no" | "uncertain";
 
 interface Booking {
   id: string;
-  classId: string;
+  activitySessionId: string;
   userId: string;
   status: "confirmed" | "cancelled" | "waitlist";
   createdAt: number;
@@ -243,7 +243,7 @@ interface BookingAnalyticsEvent {
   deduplicationKey: string;
   facilityId: string;
   bookingId: string | null;
-  classId: string | null;
+  activitySessionId: string | null;
   memberUserId: string | null;
   trainerUserId: string | null;
   eventType: BookingAnalyticsEventType;
@@ -358,7 +358,7 @@ interface CrmFollowUp {
 
 interface WaitlistEntry {
   id: string;
-  classId: string;
+  activitySessionId: string;
   userId: string;
   position: number;
   createdAt: number;
@@ -425,8 +425,8 @@ export interface SessionContentBlock {
   notes: string;
 }
 
-interface ClassSessionContent {
-  classId: string;
+interface ActivitySessionContent {
+  activitySessionId: string;
   terminology: string;
   blocks: string;
   commentsEnabled: number;
@@ -434,7 +434,7 @@ interface ClassSessionContent {
 }
 
 interface SessionContentProgress {
-  classId: string;
+  activitySessionId: string;
   userId: string;
   completedBlockIds: string;
   notes: string;
@@ -1095,8 +1095,8 @@ export interface Database {
   accountRepresentatives: AccountRepresentative;
   dataRetentionPolicies: DataRetentionPolicy;
   dataRetentionRecords: DataRetentionRecord;
-  gymClasses: GymClass;
-  classBookingConfigurations: ClassBookingConfiguration;
+  activitySessions: ActivitySession;
+  activitySessionBookingConfigurations: ActivitySessionBookingConfiguration;
   bookings: Booking;
   bookingLifecycles: BookingLifecycle;
   bookingAnalyticsEvents: BookingAnalyticsEvent;
@@ -1111,7 +1111,7 @@ export interface Database {
   waitlistEntries: WaitlistEntry;
   bookingReputations: BookingReputation;
   bookingReputationEvents: BookingReputationEvent;
-  classSessionContents: ClassSessionContent;
+  activitySessionContents: ActivitySessionContent;
   sessionContentProgress: SessionContentProgress;
   sessions: Session;
   mfaCredentials: MfaCredential;

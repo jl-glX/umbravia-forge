@@ -803,8 +803,8 @@ export const updateBillingRecordValidation = validateRequest([
 ]);
 
 export const bookingValidation = validateRequest([
-  strictBody(["classId", "userId"]),
-  body("classId").isString().matches(ID_PATTERN),
+  strictBody(["activitySessionId", "userId"]),
+  body("activitySessionId").isString().matches(ID_PATTERN),
   body("userId").isString().matches(ID_PATTERN),
 ]);
 

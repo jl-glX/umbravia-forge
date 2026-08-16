@@ -6,6 +6,7 @@ import Database from "better-sqlite3";
 import { Kysely, SqliteDialect } from "kysely";
 import type { Database as DatabaseSchema } from "./types.js";
 import { generateSupportId } from "../lib/support-id.js";
+import { migrateLegacyActivityDomainSqlite } from "./activity-domain-migration.js";
 import { initializeCommunitySchema } from "./community-schema.js";
 import { initializeE2eeSchema } from "./e2ee-schema.js";
 import { createPostgresDatabaseRuntime } from "./postgres-client.js";
@@ -61,7 +62,7 @@ function reconcileDuplicateBookings(): number {
       `WITH ranked AS (
          SELECT id,
            ROW_NUMBER() OVER (
-             PARTITION BY classId, userId
+             PARTITION BY activitySessionId, userId
              ORDER BY
                CASE status WHEN 'confirmed' THEN 0 ELSE 1 END,
                createdAt ASC,
@@ -85,7 +86,7 @@ function removeStaleWaitlistEntries(): number {
        WHERE promotedAt IS NULL
          AND EXISTS (
            SELECT 1 FROM bookings
-           WHERE bookings.classId = waitlistEntries.classId
+           WHERE bookings.activitySessionId = waitlistEntries.activitySessionId
              AND bookings.userId = waitlistEntries.userId
              AND bookings.status = 'confirmed'
          )`,
@@ -143,6 +144,8 @@ export async function createSqliteEnvironmentDatabase(
 async function initializeSqliteSchema(
   sqliteDb: Database.Database,
 ): Promise<void> {
+  migrateLegacyActivityDomainSqlite(sqliteDb);
+
   const tables = sqliteDb
     .prepare(
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
@@ -649,10 +652,10 @@ async function initializeSqliteSchema(
     `);
   }
 
-  if (!tableNames.includes("gymClasses")) {
-    console.log("Creating gymClasses table...");
+  if (!tableNames.includes("activitySessions")) {
+    console.log("Creating activitySessions table...");
     sqliteDb.exec(`
-      CREATE TABLE gymClasses (
+      CREATE TABLE activitySessions (
         id TEXT PRIMARY KEY,
         facilityId TEXT NOT NULL DEFAULT 'primary',
         name TEXT NOT NULL,
@@ -662,58 +665,66 @@ async function initializeSqliteSchema(
         maxCapacity INTEGER NOT NULL,
         scheduledAt INTEGER NOT NULL
       );
-      CREATE INDEX idx_gymClasses_facility_scheduled
-        ON gymClasses(facilityId, scheduledAt);
-      CREATE INDEX idx_gymClasses_scheduledAt ON gymClasses(scheduledAt);
+      CREATE INDEX idx_activitySessions_facility_scheduled
+        ON activitySessions(facilityId, scheduledAt);
+      CREATE INDEX idx_activitySessions_scheduledAt
+        ON activitySessions(scheduledAt);
     `);
   } else {
-    const classColumns = requireSqliteDatabase()
-      .prepare("PRAGMA table_info(gymClasses)")
+    const classColumns = sqliteDb
+      .prepare("PRAGMA table_info(activitySessions)")
       .all() as Array<{ name: string }>;
     if (!classColumns.some((column) => column.name === "facilityId")) {
       sqliteDb.exec(
-        "ALTER TABLE gymClasses ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'primary'",
+        "ALTER TABLE activitySessions ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'primary'",
       );
     }
     sqliteDb.exec(`
-      CREATE INDEX IF NOT EXISTS idx_gymClasses_facility_scheduled
-        ON gymClasses(facilityId, scheduledAt);
+      CREATE INDEX IF NOT EXISTS idx_activitySessions_facility_scheduled
+        ON activitySessions(facilityId, scheduledAt);
+      CREATE INDEX IF NOT EXISTS idx_activitySessions_scheduledAt
+        ON activitySessions(scheduledAt);
     `);
   }
 
-  if (!tableNames.includes("classBookingConfigurations")) {
+  if (!tableNames.includes("activitySessionBookingConfigurations")) {
     sqliteDb.exec(`
-      CREATE TABLE classBookingConfigurations (
-        classId TEXT PRIMARY KEY,
+      CREATE TABLE activitySessionBookingConfigurations (
+        activitySessionId TEXT PRIMARY KEY,
         configuration TEXT NOT NULL DEFAULT '{}',
         lifecycleState TEXT NOT NULL DEFAULT 'active' CHECK(lifecycleState IN ('active', 'suspended', 'cancelled')),
         seriesId TEXT,
         updatedAt INTEGER NOT NULL,
-        FOREIGN KEY(classId) REFERENCES gymClasses(id) ON DELETE CASCADE
+        FOREIGN KEY(activitySessionId) REFERENCES activitySessions(id) ON DELETE CASCADE
       );
-      CREATE INDEX idx_classBookingConfigurations_series
-        ON classBookingConfigurations(seriesId);
+      CREATE INDEX idx_activitySessionBookingConfigurations_series
+        ON activitySessionBookingConfigurations(seriesId);
     `);
   }
+  sqliteDb.exec(`
+    CREATE INDEX IF NOT EXISTS idx_activitySessionBookingConfigurations_series
+      ON activitySessionBookingConfigurations(seriesId);
+  `);
 
   if (!tableNames.includes("bookings")) {
     console.log("Creating bookings table...");
     sqliteDb.exec(`
       CREATE TABLE bookings (
         id TEXT PRIMARY KEY,
-        classId TEXT NOT NULL,
+        activitySessionId TEXT NOT NULL,
         userId TEXT NOT NULL,
         status TEXT NOT NULL CHECK(status IN ('confirmed', 'cancelled', 'waitlist')),
         createdAt INTEGER NOT NULL,
         cancelledAt INTEGER,
-        FOREIGN KEY(classId) REFERENCES gymClasses(id),
+        FOREIGN KEY(activitySessionId) REFERENCES activitySessions(id),
         FOREIGN KEY(userId) REFERENCES users(id)
       );
-      CREATE INDEX idx_bookings_classId ON bookings(classId);
+      CREATE INDEX idx_bookings_activitySessionId
+        ON bookings(activitySessionId);
       CREATE INDEX idx_bookings_userId ON bookings(userId);
       CREATE INDEX idx_bookings_status ON bookings(status);
-      CREATE UNIQUE INDEX idx_bookings_active_user_class
-        ON bookings(classId, userId)
+      CREATE UNIQUE INDEX idx_bookings_active_user_activitySession
+        ON bookings(activitySessionId, userId)
         WHERE status IN ('confirmed', 'waitlist');
     `);
   } else {
@@ -723,12 +734,14 @@ async function initializeSqliteSchema(
         `Reconciled ${duplicateBookings} duplicate active booking(s).`,
       );
     }
-    sqliteDb.exec(`
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_active_user_class
-        ON bookings(classId, userId)
-        WHERE status IN ('confirmed', 'waitlist');
-    `);
   }
+  sqliteDb.exec(`
+    CREATE INDEX IF NOT EXISTS idx_bookings_activitySessionId
+      ON bookings(activitySessionId);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_active_user_activitySession
+      ON bookings(activitySessionId, userId)
+      WHERE status IN ('confirmed', 'waitlist');
+  `);
 
   if (!tableNames.includes("bookingLifecycles")) {
     sqliteDb.exec(`
@@ -762,7 +775,6 @@ async function initializeSqliteSchema(
       );
     }
   }
-
   sqliteDb.exec(`
     INSERT OR IGNORE INTO bookingLifecycles (
       bookingId,
@@ -795,17 +807,18 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE waitlistEntries (
         id TEXT PRIMARY KEY,
-        classId TEXT NOT NULL,
+        activitySessionId TEXT NOT NULL,
         userId TEXT NOT NULL,
         position INTEGER NOT NULL,
         createdAt INTEGER NOT NULL,
         promotedAt INTEGER,
         promotionExpiresAt INTEGER,
-        FOREIGN KEY(classId) REFERENCES gymClasses(id),
+        FOREIGN KEY(activitySessionId) REFERENCES activitySessions(id),
         FOREIGN KEY(userId) REFERENCES users(id),
-        UNIQUE(classId, userId)
+        UNIQUE(activitySessionId, userId)
       );
-      CREATE INDEX idx_waitlistEntries_classId ON waitlistEntries(classId);
+      CREATE INDEX idx_waitlistEntries_activitySessionId
+        ON waitlistEntries(activitySessionId);
       CREATE INDEX idx_waitlistEntries_userId ON waitlistEntries(userId);
     `);
   } else {
@@ -820,6 +833,10 @@ async function initializeSqliteSchema(
       );
     }
   }
+  sqliteDb.exec(`
+    CREATE INDEX IF NOT EXISTS idx_waitlistEntries_activitySessionId
+      ON waitlistEntries(activitySessionId);
+  `);
 
   if (!tableNames.includes("bookingReputations")) {
     sqliteDb.exec(`
@@ -861,19 +878,19 @@ async function initializeSqliteSchema(
   sqliteDb.exec(`
     CREATE INDEX IF NOT EXISTS idx_bookingReputationEvents_booking_type
       ON bookingReputationEvents(bookingId, type);
-    CREATE INDEX IF NOT EXISTS idx_waitlistEntries_class_expiry
-      ON waitlistEntries(classId, promotionExpiresAt);
+    CREATE INDEX IF NOT EXISTS idx_waitlistEntries_activitySession_expiry
+      ON waitlistEntries(activitySessionId, promotionExpiresAt);
   `);
 
-  if (!tableNames.includes("classSessionContents")) {
+  if (!tableNames.includes("activitySessionContents")) {
     sqliteDb.exec(`
-      CREATE TABLE classSessionContents (
-        classId TEXT PRIMARY KEY,
+      CREATE TABLE activitySessionContents (
+        activitySessionId TEXT PRIMARY KEY,
         terminology TEXT NOT NULL DEFAULT 'Contenido de la sesión',
         blocks TEXT NOT NULL DEFAULT '[]',
         commentsEnabled INTEGER NOT NULL DEFAULT 0 CHECK(commentsEnabled IN (0, 1)),
         updatedAt INTEGER NOT NULL,
-        FOREIGN KEY(classId) REFERENCES gymClasses(id) ON DELETE CASCADE
+        FOREIGN KEY(activitySessionId) REFERENCES activitySessions(id) ON DELETE CASCADE
       );
     `);
   }
@@ -881,13 +898,13 @@ async function initializeSqliteSchema(
   if (!tableNames.includes("sessionContentProgress")) {
     sqliteDb.exec(`
       CREATE TABLE sessionContentProgress (
-        classId TEXT NOT NULL,
+        activitySessionId TEXT NOT NULL,
         userId TEXT NOT NULL,
         completedBlockIds TEXT NOT NULL DEFAULT '[]',
         notes TEXT NOT NULL DEFAULT '',
         updatedAt INTEGER NOT NULL,
-        PRIMARY KEY(classId, userId),
-        FOREIGN KEY(classId) REFERENCES gymClasses(id) ON DELETE CASCADE,
+        PRIMARY KEY(activitySessionId, userId),
+        FOREIGN KEY(activitySessionId) REFERENCES activitySessions(id) ON DELETE CASCADE,
         FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
       );
       CREATE INDEX idx_sessionContentProgress_user
@@ -1329,16 +1346,16 @@ async function initializeSqliteSchema(
     .run(facilityCreatedAt, facilityCreatedAt);
 
   sqliteDb.exec(`
-    CREATE TRIGGER IF NOT EXISTS trg_gymClasses_facility_insert
-    BEFORE INSERT ON gymClasses
+    CREATE TRIGGER IF NOT EXISTS trg_activitySessions_facility_insert
+    BEFORE INSERT ON activitySessions
     WHEN NOT EXISTS (
       SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
     )
     BEGIN
       SELECT RAISE(ABORT, 'Unknown facility');
     END;
-    CREATE TRIGGER IF NOT EXISTS trg_gymClasses_facility_update
-    BEFORE UPDATE OF facilityId ON gymClasses
+    CREATE TRIGGER IF NOT EXISTS trg_activitySessions_facility_update
+    BEFORE UPDATE OF facilityId ON activitySessions
     WHEN NOT EXISTS (
       SELECT 1 FROM facilityProfiles WHERE id = NEW.facilityId
     )
@@ -1354,7 +1371,7 @@ async function initializeSqliteSchema(
         deduplicationKey TEXT NOT NULL UNIQUE,
         facilityId TEXT NOT NULL,
         bookingId TEXT,
-        classId TEXT,
+        activitySessionId TEXT,
         memberUserId TEXT,
         trainerUserId TEXT,
         eventType TEXT NOT NULL CHECK(eventType IN (
@@ -1377,7 +1394,7 @@ async function initializeSqliteSchema(
         recordedAt INTEGER NOT NULL,
         FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
         FOREIGN KEY(bookingId) REFERENCES bookings(id) ON DELETE SET NULL,
-        FOREIGN KEY(classId) REFERENCES gymClasses(id) ON DELETE SET NULL,
+        FOREIGN KEY(activitySessionId) REFERENCES activitySessions(id) ON DELETE SET NULL,
         FOREIGN KEY(memberUserId) REFERENCES users(id) ON DELETE SET NULL,
         FOREIGN KEY(trainerUserId) REFERENCES users(id) ON DELETE SET NULL
       );
@@ -1387,8 +1404,8 @@ async function initializeSqliteSchema(
         ON bookingAnalyticsEvents(facilityId, scheduledAt);
       CREATE INDEX idx_bookingAnalyticsEvents_member_scheduled
         ON bookingAnalyticsEvents(facilityId, memberUserId, scheduledAt);
-      CREATE INDEX idx_bookingAnalyticsEvents_class_event
-        ON bookingAnalyticsEvents(facilityId, classId, eventType, occurredAt);
+      CREATE INDEX idx_bookingAnalyticsEvents_activitySession_event
+        ON bookingAnalyticsEvents(facilityId, activitySessionId, eventType, occurredAt);
     `);
     sqliteDb.exec(`
       INSERT OR IGNORE INTO bookingAnalyticsEvents (
@@ -1396,7 +1413,7 @@ async function initializeSqliteSchema(
         deduplicationKey,
         facilityId,
         bookingId,
-        classId,
+        activitySessionId,
         memberUserId,
         trainerUserId,
         eventType,
@@ -1412,11 +1429,11 @@ async function initializeSqliteSchema(
       SELECT
         'baseline:' || bookings.id,
         'baseline:' || bookings.id,
-        gymClasses.facilityId,
+        activitySessions.facilityId,
         bookings.id,
-        bookings.classId,
+        bookings.activitySessionId,
         bookings.userId,
-        (SELECT id FROM users WHERE id = gymClasses.trainerId),
+        (SELECT id FROM users WHERE id = activitySessions.trainerId),
         'baseline_import',
         'baseline',
         NULL,
@@ -1428,17 +1445,22 @@ async function initializeSqliteSchema(
             ELSE 'confirmation_pending'
           END
         ),
-        gymClasses.name,
-        gymClasses.scheduledAt,
-        gymClasses.maxCapacity,
+        activitySessions.name,
+        activitySessions.scheduledAt,
+        activitySessions.maxCapacity,
         bookings.createdAt,
         CAST(strftime('%s', 'now') AS INTEGER) * 1000
       FROM bookings
-      INNER JOIN gymClasses ON gymClasses.id = bookings.classId
+      INNER JOIN activitySessions
+        ON activitySessions.id = bookings.activitySessionId
       LEFT JOIN bookingLifecycles
         ON bookingLifecycles.bookingId = bookings.id;
     `);
   }
+  sqliteDb.exec(`
+    CREATE INDEX IF NOT EXISTS idx_bookingAnalyticsEvents_activitySession_event
+      ON bookingAnalyticsEvents(facilityId, activitySessionId, eventType, occurredAt);
+  `);
 
   if (!tableNames.includes("analyticsSurveyDefinitions")) {
     sqliteDb.exec(`

@@ -59,8 +59,10 @@ export function SessionContentPage() {
     setLoading(true);
     try {
       const [nextContent, nextProgress] = await Promise.all([
-        request<SessionContent>(`/api/classes/${id}/session-content`),
-        request<SessionProgress>(`/api/classes/${id}/session-progress`),
+        request<SessionContent>(`/api/activity-sessions/${id}/session-content`),
+        request<SessionProgress>(
+          `/api/activity-sessions/${id}/session-progress`,
+        ),
       ]);
       setContent(nextContent);
       setProgress(nextProgress);
@@ -97,14 +99,17 @@ export function SessionContentPage() {
     setSaving(true);
     try {
       setContent(
-        await request<SessionContent>(`/api/classes/${id}/session-content`, {
-          method: "PUT",
-          body: JSON.stringify({
-            terminology: content.terminology,
-            blocks: content.blocks,
-            commentsEnabled: content.commentsEnabled,
-          }),
-        }),
+        await request<SessionContent>(
+          `/api/activity-sessions/${id}/session-content`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              terminology: content.terminology,
+              blocks: content.blocks,
+              commentsEnabled: content.commentsEnabled,
+            }),
+          },
+        ),
       );
       setError("");
     } catch (cause) {
@@ -122,7 +127,7 @@ export function SessionContentPage() {
     setProgressSaving(true);
     try {
       const saved = await request<SessionProgress>(
-        `/api/classes/${id}/session-progress`,
+        `/api/activity-sessions/${id}/session-progress`,
         {
           method: "PUT",
           body: JSON.stringify({

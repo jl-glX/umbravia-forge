@@ -4,7 +4,7 @@ import i18n from "../i18n/config";
 
 export interface UserBooking {
   id: string;
-  classId: string;
+  activitySessionId: string;
   status: "confirmed" | "cancelled" | "waitlist";
   createdAt: number;
   name: string;
@@ -44,7 +44,7 @@ export function useBookings(userId: string) {
     }
   };
 
-  const bookClass = async (classId: string) => {
+  const bookClass = async (activitySessionId: string) => {
     try {
       setError(null);
       const response = await authFetch("/api/bookings", {
@@ -52,7 +52,7 @@ export function useBookings(userId: string) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ classId, userId }),
+        body: JSON.stringify({ activitySessionId, userId }),
       });
 
       if (!response.ok) {

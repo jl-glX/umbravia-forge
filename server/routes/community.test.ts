@@ -346,7 +346,7 @@ describe("community, identity and moderation APIs", () => {
   it("encrypts private class justifications at rest and decrypts authorized responses", async () => {
     const channelId = "community-private-class";
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "synthetic-class",
         facilityId: "primary",

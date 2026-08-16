@@ -23,22 +23,22 @@ function parseBlocks(value: string | null | undefined): SessionContentBlock[] {
   }
 }
 
-export async function getSessionContent(classId: string) {
-  const gymClass = await db
-    .selectFrom("gymClasses")
+export async function getSessionContent(activitySessionId: string) {
+  const activitySession = await db
+    .selectFrom("activitySessions")
     .select(["id", "name", "trainerId"])
-    .where("id", "=", classId)
+    .where("id", "=", activitySessionId)
     .executeTakeFirst();
-  if (!gymClass) throw new Error("Class not found");
+  if (!activitySession) throw new Error("Class not found");
   const content = await db
-    .selectFrom("classSessionContents")
+    .selectFrom("activitySessionContents")
     .selectAll()
-    .where("classId", "=", classId)
+    .where("activitySessionId", "=", activitySessionId)
     .executeTakeFirst();
   return {
-    classId,
-    className: gymClass.name,
-    trainerId: gymClass.trainerId,
+    activitySessionId,
+    className: activitySession.name,
+    trainerId: activitySession.trainerId,
     terminology: content?.terminology ?? "Contenido de la sesión",
     blocks: parseBlocks(content?.blocks),
     commentsEnabled: content?.commentsEnabled === 1,
@@ -47,7 +47,7 @@ export async function getSessionContent(classId: string) {
 }
 
 export async function saveSessionContent(
-  classId: string,
+  activitySessionId: string,
   input: {
     terminology: string;
     blocks: SessionContentBlock[];
@@ -59,22 +59,22 @@ export async function saveSessionContent(
     throw new Error("Session block identifiers must be unique");
   }
   const exists = await db
-    .selectFrom("gymClasses")
+    .selectFrom("activitySessions")
     .select("id")
-    .where("id", "=", classId)
+    .where("id", "=", activitySessionId)
     .executeTakeFirst();
   if (!exists) throw new Error("Class not found");
   await db
-    .insertInto("classSessionContents")
+    .insertInto("activitySessionContents")
     .values({
-      classId,
+      activitySessionId,
       terminology: input.terminology,
       blocks: JSON.stringify(input.blocks),
       commentsEnabled: input.commentsEnabled ? 1 : 0,
       updatedAt: Date.now(),
     })
     .onConflict((conflict) =>
-      conflict.column("classId").doUpdateSet({
+      conflict.column("activitySessionId").doUpdateSet({
         terminology: input.terminology,
         blocks: JSON.stringify(input.blocks),
         commentsEnabled: input.commentsEnabled ? 1 : 0,
@@ -82,24 +82,27 @@ export async function saveSessionContent(
       }),
     )
     .execute();
-  return getSessionContent(classId);
+  return getSessionContent(activitySessionId);
 }
 
-export async function getSessionProgress(classId: string, userId: string) {
-  const gymClass = await db
-    .selectFrom("gymClasses")
+export async function getSessionProgress(
+  activitySessionId: string,
+  userId: string,
+) {
+  const activitySession = await db
+    .selectFrom("activitySessions")
     .select("id")
-    .where("id", "=", classId)
+    .where("id", "=", activitySessionId)
     .executeTakeFirst();
-  if (!gymClass) throw new Error("Class not found");
+  if (!activitySession) throw new Error("Class not found");
   const progress = await db
     .selectFrom("sessionContentProgress")
     .selectAll()
-    .where("classId", "=", classId)
+    .where("activitySessionId", "=", activitySessionId)
     .where("userId", "=", userId)
     .executeTakeFirst();
   return {
-    classId,
+    activitySessionId,
     userId,
     completedBlockIds: parseStringArray(progress?.completedBlockIds),
     notes: progress?.notes ?? "",
@@ -108,11 +111,11 @@ export async function getSessionProgress(classId: string, userId: string) {
 }
 
 export async function saveSessionProgress(
-  classId: string,
+  activitySessionId: string,
   userId: string,
   input: { completedBlockIds: string[]; notes: string },
 ) {
-  const content = await getSessionContent(classId);
+  const content = await getSessionContent(activitySessionId);
   const validIds = new Set(content.blocks.map((block) => block.id));
   const completedBlockIds = [...new Set(input.completedBlockIds)].filter((id) =>
     validIds.has(id),
@@ -121,19 +124,19 @@ export async function saveSessionProgress(
   await db
     .insertInto("sessionContentProgress")
     .values({
-      classId,
+      activitySessionId,
       userId,
       completedBlockIds: JSON.stringify(completedBlockIds),
       notes: input.notes,
       updatedAt,
     })
     .onConflict((conflict) =>
-      conflict.columns(["classId", "userId"]).doUpdateSet({
+      conflict.columns(["activitySessionId", "userId"]).doUpdateSet({
         completedBlockIds: JSON.stringify(completedBlockIds),
         notes: input.notes,
         updatedAt,
       }),
     )
     .execute();
-  return getSessionProgress(classId, userId);
+  return getSessionProgress(activitySessionId, userId);
 }

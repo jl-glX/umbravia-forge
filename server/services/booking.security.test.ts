@@ -40,7 +40,7 @@ describe("booking integrity and export security", () => {
       .execute();
     await database.initializeDatabase();
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "one-place-class",
         name: "One place",
@@ -76,7 +76,7 @@ describe("booking integrity and export security", () => {
     const confirmed = await database.db
       .selectFrom("bookings")
       .select(({ fn }) => fn.countAll<number>().as("count"))
-      .where("classId", "=", "one-place-class")
+      .where("activitySessionId", "=", "one-place-class")
       .where("status", "=", "confirmed")
       .executeTakeFirstOrThrow();
     expect(Number(confirmed.count)).toBe(1);
@@ -94,7 +94,7 @@ describe("booking integrity and export security", () => {
         .insertInto("bookings")
         .values({
           id: "orphan-booking",
-          classId: "missing-class",
+          activitySessionId: "missing-class",
           userId: "missing-user",
           status: "confirmed",
           createdAt: Date.now(),

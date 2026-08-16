@@ -425,21 +425,23 @@ async function removeUserFromFacilityInTransaction(
   }
 
   const classRows = await transaction
-    .selectFrom("gymClasses")
+    .selectFrom("activitySessions")
     .select("id")
     .where("facilityId", "=", facilityId)
     .execute();
-  const classIds = classRows.map((gymClass) => gymClass.id);
-  if (classIds.length > 0) {
+  const activitySessionIds = classRows.map(
+    (activitySession) => activitySession.id,
+  );
+  if (activitySessionIds.length > 0) {
     await transaction
       .deleteFrom("bookings")
       .where("userId", "=", id)
-      .where("classId", "in", classIds)
+      .where("activitySessionId", "in", activitySessionIds)
       .execute();
     await transaction
       .deleteFrom("waitlistEntries")
       .where("userId", "=", id)
-      .where("classId", "in", classIds)
+      .where("activitySessionId", "in", activitySessionIds)
       .execute();
   }
   await transaction

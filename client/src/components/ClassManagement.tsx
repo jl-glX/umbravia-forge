@@ -76,7 +76,8 @@ export function ClassManagement() {
   };
 
   const selectableClasses = filteredClasses.filter(
-    (gymClass) => gymClass.bookedCount === 0 && gymClass.waitlistCount === 0,
+    (activitySession) =>
+      activitySession.bookedCount === 0 && activitySession.waitlistCount === 0,
   );
 
   const toggleSelectionMode = () => {
@@ -176,14 +177,16 @@ export function ClassManagement() {
             type="checkbox"
             checked={
               selectableClasses.length > 0 &&
-              selectableClasses.every((gymClass) =>
-                selectedClassIds.includes(gymClass.id),
+              selectableClasses.every((activitySession) =>
+                selectedClassIds.includes(activitySession.id),
               )
             }
             onChange={(event) =>
               setSelectedClassIds(
                 event.target.checked
-                  ? selectableClasses.map((gymClass) => gymClass.id)
+                  ? selectableClasses.map(
+                      (activitySession) => activitySession.id,
+                    )
                   : [],
               )
             }
@@ -194,7 +197,7 @@ export function ClassManagement() {
 
       {showForm && (
         <ClassForm
-          gymClass={editingClass}
+          activitySession={editingClass}
           onClose={handleFormClose}
           onSuccess={handleFormSuccess}
         />
@@ -206,11 +209,11 @@ export function ClassManagement() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {filteredClasses.map((gymClass) => (
+          {filteredClasses.map((activitySession) => (
             <div
-              key={gymClass.id}
+              key={activitySession.id}
               className={`rounded-2xl border bg-white p-4 transition ${
-                selectedClassIds.includes(gymClass.id)
+                selectedClassIds.includes(activitySession.id)
                   ? "border-brand-path ring-2 ring-brand-path/15"
                   : "border-gray-200 hover:border-brand-steel/50"
               }`}
@@ -221,23 +224,24 @@ export function ClassManagement() {
                     <input
                       type="checkbox"
                       className="mt-1"
-                      checked={selectedClassIds.includes(gymClass.id)}
+                      checked={selectedClassIds.includes(activitySession.id)}
                       disabled={
-                        gymClass.bookedCount > 0 || gymClass.waitlistCount > 0
+                        activitySession.bookedCount > 0 ||
+                        activitySession.waitlistCount > 0
                       }
                       aria-label={t("admin.selectClass", {
-                        name: gymClass.name,
+                        name: activitySession.name,
                       })}
                       onChange={() =>
                         setSelectedClassIds((current) =>
-                          current.includes(gymClass.id)
-                            ? current.filter((id) => id !== gymClass.id)
-                            : [...current, gymClass.id],
+                          current.includes(activitySession.id)
+                            ? current.filter((id) => id !== activitySession.id)
+                            : [...current, activitySession.id],
                         )
                       }
                     />
-                    {(gymClass.bookedCount > 0 ||
-                      gymClass.waitlistCount > 0) && (
+                    {(activitySession.bookedCount > 0 ||
+                      activitySession.waitlistCount > 0) && (
                       <span className="text-xs text-amber-700">
                         {t("admin.classHasActivity")}
                       </span>
@@ -246,37 +250,47 @@ export function ClassManagement() {
                 )}
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900">
-                    {localizeClass(gymClass.name, gymClass.description, t).name}
+                    {
+                      localizeClass(
+                        activitySession.name,
+                        activitySession.description,
+                        t,
+                      ).name
+                    }
                   </h3>
                   <p className="text-sm text-gray-600 mt-1">
                     {
-                      localizeClass(gymClass.name, gymClass.description, t)
-                        .description
+                      localizeClass(
+                        activitySession.name,
+                        activitySession.description,
+                        t,
+                      ).description
                     }
                   </p>
                   <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
                     <div>
                       <p className="text-gray-600">{t("common.trainer")}</p>
                       <p className="font-medium text-gray-900">
-                        {gymClass.trainerName}
+                        {activitySession.trainerName}
                       </p>
                     </div>
                     <div>
                       <p className="text-gray-600">{t("common.dateTime")}</p>
                       <p className="font-medium text-gray-900">
-                        {formatDate(gymClass.scheduledAt)}
+                        {formatDate(activitySession.scheduledAt)}
                       </p>
                     </div>
                     <div>
                       <p className="text-gray-600">{t("common.capacity")}</p>
                       <p className="font-medium text-gray-900">
-                        {gymClass.bookedCount}/{gymClass.maxCapacity}
+                        {activitySession.bookedCount}/
+                        {activitySession.maxCapacity}
                       </p>
                     </div>
                     <div>
                       <p className="text-gray-600">{t("common.waitlist")}</p>
                       <p className="font-medium text-gray-900">
-                        {gymClass.waitlistCount}
+                        {activitySession.waitlistCount}
                       </p>
                     </div>
                   </div>
@@ -288,7 +302,7 @@ export function ClassManagement() {
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        setEditingClass(gymClass);
+                        setEditingClass(activitySession);
                         setShowForm(true);
                       }}
                     >
@@ -301,10 +315,10 @@ export function ClassManagement() {
                       size="sm"
                       onClick={() =>
                         setDeleteRequest({
-                          ids: [gymClass.id],
+                          ids: [activitySession.id],
                           label: localizeClass(
-                            gymClass.name,
-                            gymClass.description,
+                            activitySession.name,
+                            activitySession.description,
                             t,
                           ).name,
                         })

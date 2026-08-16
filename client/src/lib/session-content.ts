@@ -27,7 +27,7 @@ export interface SessionContentBlock {
 }
 
 export interface SessionContent {
-  classId: string;
+  activitySessionId: string;
   className: string;
   trainerId: string;
   terminology: string;
@@ -37,7 +37,7 @@ export interface SessionContent {
 }
 
 export interface SessionProgress {
-  classId: string;
+  activitySessionId: string;
   userId: string;
   completedBlockIds: string[];
   notes: string;

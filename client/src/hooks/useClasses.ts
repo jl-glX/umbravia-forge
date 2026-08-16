@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { authFetch } from "../lib/api";
 import i18n from "../i18n/config";
 
-export interface GymClass {
+export interface ActivitySession {
   id: string;
   name: string;
   description: string;
@@ -16,7 +16,7 @@ export interface GymClass {
 }
 
 export function useClasses() {
-  const [classes, setClasses] = useState<GymClass[]>([]);
+  const [classes, setClasses] = useState<ActivitySession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +28,7 @@ export function useClasses() {
     try {
       setLoading(true);
       setError(null);
-      const response = await authFetch("/api/classes");
+      const response = await authFetch("/api/activity-sessions");
 
       if (!response.ok) {
         throw new Error(i18n.t("errors.fetchClasses"));

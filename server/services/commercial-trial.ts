@@ -254,11 +254,11 @@ async function deleteTrialTenantInTransaction(
   }
 
   const classRows = await transaction
-    .selectFrom("gymClasses")
+    .selectFrom("activitySessions")
     .select("id")
     .where("facilityId", "=", trial.facilityId)
     .execute();
-  const classIds = classRows.map((row) => row.id);
+  const activitySessionIds = classRows.map((row) => row.id);
 
   await transaction
     .deleteFrom("moderationCases")
@@ -302,23 +302,23 @@ async function deleteTrialTenantInTransaction(
     .where("scopeId", "=", trial.facilityId)
     .execute();
 
-  if (classIds.length > 0) {
+  if (activitySessionIds.length > 0) {
     await transaction
       .deleteFrom("communityChannels")
       .where("scope", "=", "class")
-      .where("scopeId", "in", classIds)
+      .where("scopeId", "in", activitySessionIds)
       .execute();
     await transaction
       .deleteFrom("bookings")
-      .where("classId", "in", classIds)
+      .where("activitySessionId", "in", activitySessionIds)
       .execute();
     await transaction
       .deleteFrom("waitlistEntries")
-      .where("classId", "in", classIds)
+      .where("activitySessionId", "in", activitySessionIds)
       .execute();
     await transaction
-      .deleteFrom("gymClasses")
-      .where("id", "in", classIds)
+      .deleteFrom("activitySessions")
+      .where("id", "in", activitySessionIds)
       .execute();
   }
 
@@ -370,11 +370,13 @@ async function stageTrialAttachmentRemoval(
   facilityId: string,
 ) {
   const classRows = await transaction
-    .selectFrom("gymClasses")
+    .selectFrom("activitySessions")
     .select("id")
     .where("facilityId", "=", facilityId)
     .execute();
-  const classIds = classRows.map((gymClass) => gymClass.id);
+  const activitySessionIds = classRows.map(
+    (activitySession) => activitySession.id,
+  );
   const channelRows = await transaction
     .selectFrom("communityChannels")
     .select("id")
@@ -384,11 +386,11 @@ async function stageTrialAttachmentRemoval(
           expression("scope", "=", "facility"),
           expression("scopeId", "=", facilityId),
         ]),
-        ...(classIds.length > 0
+        ...(activitySessionIds.length > 0
           ? [
               expression.and([
                 expression("scope", "=", "class"),
-                expression("scopeId", "in", classIds),
+                expression("scopeId", "in", activitySessionIds),
               ]),
             ]
           : []),
@@ -628,21 +630,29 @@ async function createEnvironmentSummary(facilityId: string) {
         .where("users.accountStatus", "=", "active")
         .executeTakeFirstOrThrow(),
       db
-        .selectFrom("gymClasses")
+        .selectFrom("activitySessions")
         .select(({ fn }) => fn.countAll<number>().as("count"))
         .where("facilityId", "=", facilityId)
         .executeTakeFirstOrThrow(),
       db
         .selectFrom("bookings")
-        .innerJoin("gymClasses", "gymClasses.id", "bookings.classId")
+        .innerJoin(
+          "activitySessions",
+          "activitySessions.id",
+          "bookings.activitySessionId",
+        )
         .select(({ fn }) => fn.countAll<number>().as("count"))
-        .where("gymClasses.facilityId", "=", facilityId)
+        .where("activitySessions.facilityId", "=", facilityId)
         .executeTakeFirstOrThrow(),
       db
         .selectFrom("waitlistEntries")
-        .innerJoin("gymClasses", "gymClasses.id", "waitlistEntries.classId")
+        .innerJoin(
+          "activitySessions",
+          "activitySessions.id",
+          "waitlistEntries.activitySessionId",
+        )
         .select(({ fn }) => fn.countAll<number>().as("count"))
-        .where("gymClasses.facilityId", "=", facilityId)
+        .where("activitySessions.facilityId", "=", facilityId)
         .executeTakeFirstOrThrow(),
       db
         .selectFrom("billingRecords")

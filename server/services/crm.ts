@@ -124,7 +124,11 @@ export async function getCrmWorkspace(facilityId: string, now = Date.now()) {
         .execute(),
       db
         .selectFrom("bookings")
-        .innerJoin("gymClasses", "gymClasses.id", "bookings.classId")
+        .innerJoin(
+          "activitySessions",
+          "activitySessions.id",
+          "bookings.activitySessionId",
+        )
         .leftJoin(
           "bookingLifecycles",
           "bookingLifecycles.bookingId",
@@ -133,11 +137,11 @@ export async function getCrmWorkspace(facilityId: string, now = Date.now()) {
         .select([
           "bookings.userId",
           "bookings.status",
-          "gymClasses.scheduledAt",
+          "activitySessions.scheduledAt",
           "bookingLifecycles.lifecycleStatus",
         ])
-        .where("gymClasses.facilityId", "=", facilityId)
-        .where("gymClasses.scheduledAt", "<=", now)
+        .where("activitySessions.facilityId", "=", facilityId)
+        .where("activitySessions.scheduledAt", "<=", now)
         .execute(),
       db
         .selectFrom("crmFollowUps")

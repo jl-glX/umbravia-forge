@@ -31,7 +31,7 @@ describe("class session content", () => {
       })
       .execute();
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "content-class",
         name: "Strength session",

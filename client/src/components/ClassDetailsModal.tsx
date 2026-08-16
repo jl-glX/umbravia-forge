@@ -10,7 +10,7 @@ import { localizeClass } from "../lib/classLocalization";
 import { getAccessRole } from "../context/auth-context";
 
 interface ClassDetailsModalProps {
-  classId: string;
+  activitySessionId: string;
   className: string;
   scheduledAt: number;
   maxCapacity: number;
@@ -20,7 +20,7 @@ interface ClassDetailsModalProps {
 }
 
 export function ClassDetailsModal({
-  classId,
+  activitySessionId,
   className,
   scheduledAt,
   maxCapacity,
@@ -30,7 +30,7 @@ export function ClassDetailsModal({
 }: ClassDetailsModalProps) {
   const { t } = useTranslation();
   const { attendees, waitlist, loading, error, refreshAttendees } =
-    useClassAttendees(classId);
+    useClassAttendees(activitySessionId);
   const { user } = useAuth();
   const [updatingBooking, setUpdatingBooking] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
@@ -55,7 +55,7 @@ export function ClassDetailsModal({
   const handleExportCsv = async () => {
     try {
       const response = await authFetch(
-        `/api/bookings/class/${classId}/export-csv`,
+        `/api/bookings/class/${activitySessionId}/export-csv`,
         {
           method: "GET",
         },

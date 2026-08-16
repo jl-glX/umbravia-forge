@@ -24,12 +24,27 @@ describe("PostgreSQL migrations", () => {
 
   it("covers every application table expected by isolated SQLite environments", () => {
     const sql = postgresMigrationSql().join("\n");
+    const legacyTableNames = new Map([
+      ["gymClasses", "activitySessions"],
+      ["classBookingConfigurations", "activitySessionBookingConfigurations"],
+      ["classSessionContents", "activitySessionContents"],
+    ]);
     const tables = new Set(
       [...sql.matchAll(/CREATE TABLE IF NOT EXISTS "([^"]+)"/g)].map(
-        (match) => match[1],
+        (match) => legacyTableNames.get(match[1]) ?? match[1],
       ),
     );
 
     expect([...migratableTables].sort()).toEqual([...tables].sort());
+  });
+
+  it("keeps legacy activity identifiers out of the resulting schema", () => {
+    const activityMigration = postgresMigrationSql().at(-1) ?? "";
+
+    expect(activityMigration).toContain('ALTER TABLE "gymClasses"');
+    expect(activityMigration).toContain('RENAME TO "activitySessions"');
+    expect(activityMigration).not.toContain(
+      'CREATE OR REPLACE VIEW "gymClasses"',
+    );
   });
 });

@@ -15,7 +15,7 @@ export interface MonthlyMetric {
 }
 
 export interface ClassPopularityMetric {
-  classId: string;
+  activitySessionId: string;
   className: string;
   trainerName: string;
   totalBookings: number;
@@ -56,7 +56,7 @@ export interface MemberMetric {
 
 export interface UpcomingScheduleItem {
   id: string;
-  classId?: string;
+  activitySessionId?: string;
   userId?: string;
   status?: string;
   createdAt?: number;

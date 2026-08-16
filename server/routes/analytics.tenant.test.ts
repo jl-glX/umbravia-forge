@@ -166,7 +166,7 @@ describe("analytics tenant isolation", () => {
       ])
       .execute();
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values([
         {
           id: "analytics-primary-class",
@@ -215,7 +215,7 @@ describe("analytics tenant isolation", () => {
       .values([
         {
           id: "analytics-primary-booking",
-          classId: "analytics-primary-class",
+          activitySessionId: "analytics-primary-class",
           userId: "analytics-primary-member",
           status: "confirmed",
           createdAt: now,
@@ -223,7 +223,7 @@ describe("analytics tenant isolation", () => {
         },
         {
           id: "analytics-secondary-booking",
-          classId: "analytics-secondary-class",
+          activitySessionId: "analytics-secondary-class",
           userId: "analytics-secondary-member",
           status: "confirmed",
           createdAt: now,
@@ -231,7 +231,7 @@ describe("analytics tenant isolation", () => {
         },
         {
           id: "analytics-trainer-booking",
-          classId: "analytics-trainer-class",
+          activitySessionId: "analytics-trainer-class",
           userId: "analytics-secondary-member",
           status: "confirmed",
           createdAt: now,
@@ -239,7 +239,7 @@ describe("analytics tenant isolation", () => {
         },
         {
           id: "analytics-trainer-past-booking",
-          classId: "analytics-trainer-past-class",
+          activitySessionId: "analytics-trainer-past-class",
           userId: "analytics-secondary-member",
           status: "confirmed",
           createdAt: now - 7_200_000,
@@ -268,7 +268,7 @@ describe("analytics tenant isolation", () => {
           deduplicationKey: "test:analytics-primary-event",
           facilityId: "primary",
           bookingId: "analytics-primary-booking",
-          classId: "analytics-primary-class",
+          activitySessionId: "analytics-primary-class",
           memberUserId: "analytics-primary-member",
           trainerUserId: "analytics-admin",
           eventType: "baseline_import",
@@ -316,7 +316,7 @@ describe("analytics tenant isolation", () => {
           ([
             id,
             bookingId,
-            classId,
+            activitySessionId,
             memberUserId,
             trainerUserId,
             activityName,
@@ -327,7 +327,7 @@ describe("analytics tenant isolation", () => {
             deduplicationKey: `test:${id}`,
             facilityId: "analytics-secondary",
             bookingId: bookingId as string,
-            classId: classId as string,
+            activitySessionId: activitySessionId as string,
             memberUserId: memberUserId as string,
             trainerUserId: trainerUserId as string,
             eventType: "baseline_import" as const,
@@ -392,11 +392,11 @@ describe("analytics tenant isolation", () => {
     expect(popularity.body).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          classId: "analytics-secondary-class",
+          activitySessionId: "analytics-secondary-class",
           totalBookings: 1,
         }),
         expect.objectContaining({
-          classId: "analytics-trainer-class",
+          activitySessionId: "analytics-trainer-class",
           totalBookings: 1,
         }),
       ]),
@@ -441,7 +441,9 @@ describe("analytics tenant isolation", () => {
       ),
     ).expect(200);
     expect(
-      response.body.map((gymClass: { id: string }) => gymClass.id),
+      response.body.map(
+        (activitySession: { id: string }) => activitySession.id,
+      ),
     ).toEqual(["analytics-secondary-class"]);
   });
 

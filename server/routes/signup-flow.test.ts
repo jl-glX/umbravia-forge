@@ -112,7 +112,10 @@ describe("progressive account signup", () => {
     );
     expect(storedChallenge.codeHash).toMatch(/^[a-f\d]+:[a-f\d]+$/);
 
-    await request(app).get("/api/classes").set("Cookie", cookie).expect(403);
+    await request(app)
+      .get("/api/activity-sessions")
+      .set("Cookie", cookie)
+      .expect(403);
 
     await request(app)
       .post("/api/auth/verify-email")
@@ -127,7 +130,10 @@ describe("progressive account signup", () => {
       .executeTakeFirstOrThrow();
     expect(user.accountStatus).toBe("active");
     expect(user.emailVerifiedAt).toEqual(expect.any(Number));
-    await request(app).get("/api/classes").set("Cookie", cookie).expect(200);
+    await request(app)
+      .get("/api/activity-sessions")
+      .set("Cookie", cookie)
+      .expect(200);
 
     const login = await request(app)
       .post("/api/auth/login")

@@ -33,7 +33,7 @@ const API_BASE =
     ? "http://localhost:3001"
     : "";
 
-export function useClassAttendees(classId: string) {
+export function useClassAttendees(activitySessionId: string) {
   const [state, setState] = useState<AttendeeState>({
     attendees: [],
     waitlist: [],
@@ -46,8 +46,8 @@ export function useClassAttendees(classId: string) {
 
     try {
       const [attendeesRes, waitlistRes] = await Promise.all([
-        authFetch(`${API_BASE}/api/bookings/class/${classId}`),
-        authFetch(`${API_BASE}/api/bookings/waitlist/${classId}`),
+        authFetch(`${API_BASE}/api/bookings/class/${activitySessionId}`),
+        authFetch(`${API_BASE}/api/bookings/waitlist/${activitySessionId}`),
       ]);
 
       if (!attendeesRes.ok || !waitlistRes.ok) {
@@ -108,13 +108,13 @@ export function useClassAttendees(classId: string) {
         error: message,
       });
     }
-  }, [classId]);
+  }, [activitySessionId]);
 
   useEffect(() => {
-    if (classId) {
+    if (activitySessionId) {
       fetchAttendees();
     }
-  }, [classId, fetchAttendees]);
+  }, [activitySessionId, fetchAttendees]);
 
   return {
     attendees: state.attendees,

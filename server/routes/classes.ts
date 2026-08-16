@@ -34,16 +34,16 @@ classesRouter.get("/", async (req: express.Request, res: express.Response) => {
   try {
     const facility = getFacilityContext(res);
     const classes = await db
-      .selectFrom("gymClasses")
+      .selectFrom("activitySessions")
       .selectAll()
       .where("facilityId", "=", facility.id)
       .orderBy("scheduledAt", "asc")
       .execute();
 
     const classesWithAvailability = await Promise.all(
-      classes.map(async (gymClass) => {
+      classes.map(async (activitySession) => {
         const withAvailability = await getClassWithAvailability(
-          gymClass.id,
+          activitySession.id,
           facility.id,
         );
         return withAvailability;
@@ -67,7 +67,7 @@ classesRouter.get(
     try {
       const facility = getFacilityContext(res);
       const classes = await db
-        .selectFrom("gymClasses")
+        .selectFrom("activitySessions")
         .selectAll()
         .where("trainerId", "=", req.params.trainerId)
         .where("facilityId", "=", facility.id)
@@ -75,9 +75,9 @@ classesRouter.get(
         .execute();
 
       const classesWithAvailability = await Promise.all(
-        classes.map(async (gymClass) => {
+        classes.map(async (activitySession) => {
           const withAvailability = await getClassWithAvailability(
-            gymClass.id,
+            activitySession.id,
             facility.id,
           );
           return withAvailability;
@@ -184,17 +184,17 @@ classesRouter.get(
   requireClassFacility("id"),
   async (req: express.Request, res: express.Response) => {
     try {
-      const gymClass = await getClassWithAvailability(
+      const activitySession = await getClassWithAvailability(
         req.params.id,
         getFacilityContext(res).id,
       );
 
-      if (!gymClass) {
+      if (!activitySession) {
         res.status(404).json({ error: "Class not found" });
         return;
       }
 
-      res.json(gymClass);
+      res.json(activitySession);
     } catch (error) {
       console.error("Error fetching class:", error);
       res.status(500).json({ error: "Failed to fetch class" });

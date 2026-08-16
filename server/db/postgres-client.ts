@@ -42,7 +42,7 @@ export function createPostgresDatabaseRuntime(
         WITH ranked AS (
           SELECT "id",
             ROW_NUMBER() OVER (
-              PARTITION BY "classId", "userId"
+              PARTITION BY "activitySessionId", "userId"
               ORDER BY CASE "status" WHEN 'confirmed' THEN 0 ELSE 1 END,
                 "createdAt" ASC,
                 "id" ASC
@@ -60,7 +60,7 @@ export function createPostgresDatabaseRuntime(
         WHERE "promotedAt" IS NULL
           AND EXISTS (
             SELECT 1 FROM "bookings"
-            WHERE "bookings"."classId" = "waitlistEntries"."classId"
+            WHERE "bookings"."activitySessionId" = "waitlistEntries"."activitySessionId"
               AND "bookings"."userId" = "waitlistEntries"."userId"
               AND "bookings"."status" = 'confirmed'
           )

@@ -52,7 +52,7 @@ describe("delegations API", () => {
     await database.initializeDatabase();
 
     await database.db
-      .insertInto("gymClasses")
+      .insertInto("activitySessions")
       .values({
         id: "delegated-class",
         name: "Delegated booking class",
@@ -123,13 +123,16 @@ describe("delegations API", () => {
     await request(app)
       .post("/api/bookings")
       .set("Cookie", delegateCookie)
-      .send({ classId: "delegated-class", userId: "delegation-owner" })
+      .send({
+        activitySessionId: "delegated-class",
+        userId: "delegation-owner",
+      })
       .expect(201);
 
     const booking = await database.db
       .selectFrom("bookings")
       .select(["id", "userId", "status"])
-      .where("classId", "=", "delegated-class")
+      .where("activitySessionId", "=", "delegated-class")
       .executeTakeFirstOrThrow();
     expect(booking).toMatchObject({
       userId: "delegation-owner",
