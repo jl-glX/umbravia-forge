@@ -26,6 +26,29 @@ import { useAuth } from "../hooks/useAuth";
 import { authFetch } from "../lib/api";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
+const FIELD_IDS = {
+  username: "community-username",
+  bio: "community-bio",
+  birthDate: "community-birth-date",
+  bioVisibility: "community-bio-visibility",
+  contactSearch: "community-contact-search",
+  groupName: "community-group-name",
+  channelName: "community-channel-name",
+  channelStatus: "community-channel-status",
+  editMessage: "community-edit-message",
+  composeMessage: "community-compose-message",
+} as const;
+
+class ApiError extends Error {
+  readonly code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+  }
+}
+
 interface Profile {
   username: string;
   bio: string;
@@ -126,6 +149,7 @@ export function CommunityPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [principles, setPrinciples] = useState<Principles | null>(null);
   const [notice, setNotice] = useState("");
+  const [usernameError, setUsernameError] = useState("");
   const selectedChannel = channels.find((channel) => channel.id === channelId);
   const canManageSelectedChannel = Boolean(
     selectedChannel &&
@@ -138,7 +162,9 @@ export function CommunityPage() {
       headers: { "Content-Type": "application/json", ...init?.headers },
     });
     const body = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(body?.error ?? "Request failed");
+    if (!response.ok) {
+      throw new ApiError(body?.error ?? "Request failed", body?.code);
+    }
     return body as T;
   };
   const load = useCallback(async () => {
@@ -214,6 +240,8 @@ export function CommunityPage() {
   }, [channelId]);
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
+    setNotice("");
+    setUsernameError("");
     try {
       const saved = await api<Profile>("/api/community/profile", {
         method: "PATCH",
@@ -231,6 +259,10 @@ export function CommunityPage() {
       });
       setNotice(t("community.profileSaved"));
     } catch (error) {
+      if (error instanceof ApiError && error.code === "USERNAME_TAKEN") {
+        setUsernameError(t("community.usernameTaken"));
+        return;
+      }
       setNotice(error instanceof Error ? error.message : String(error));
     }
   };
@@ -456,7 +488,11 @@ export function CommunityPage() {
           </Button>
         </div>
         {notice && (
-          <div className="mt-4 rounded-xl bg-blue-50 p-3 text-blue-800">
+          <div
+            role="status"
+            aria-live="polite"
+            className="mt-4 rounded-xl bg-blue-50 p-3 text-blue-800"
+          >
             {notice}
           </div>
         )}
@@ -464,21 +500,32 @@ export function CommunityPage() {
           <Card className="rounded-3xl p-6">
             <h2 className="font-bold">{t("community.identity")}</h2>
             <VerifiedForm className="mt-4 space-y-4" onSubmit={save}>
-              <Field label={t("community.username")}>
+              <Field
+                label={t("community.username")}
+                htmlFor={FIELD_IDS.username}
+                error={usernameError}
+              >
                 <Input
+                  id={FIELD_IDS.username}
                   required
                   pattern="[a-z0-9][a-z0-9_.]{2,31}"
+                  aria-invalid={Boolean(usernameError)}
+                  aria-describedby={
+                    usernameError ? `${FIELD_IDS.username}-error` : undefined
+                  }
                   value={profile.username}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    setUsernameError("");
                     setProfile((p) => ({
                       ...p,
                       username: e.target.value.toLowerCase(),
-                    }))
-                  }
+                    }));
+                  }}
                 />
               </Field>
-              <Field label={t("community.bio")}>
+              <Field label={t("community.bio")} htmlFor={FIELD_IDS.bio}>
                 <textarea
+                  id={FIELD_IDS.bio}
                   maxLength={300}
                   className="min-h-24 w-full rounded-xl border p-3"
                   value={profile.bio}
@@ -487,8 +534,12 @@ export function CommunityPage() {
                   }
                 />
               </Field>
-              <Field label={t("community.birthDate")}>
+              <Field
+                label={t("community.birthDate")}
+                htmlFor={FIELD_IDS.birthDate}
+              >
                 <Input
+                  id={FIELD_IDS.birthDate}
                   type="date"
                   value={profile.birthDate ?? ""}
                   onChange={(e) =>
@@ -499,8 +550,12 @@ export function CommunityPage() {
                   }
                 />
               </Field>
-              <Field label={t("community.bioVisibility")}>
+              <Field
+                label={t("community.bioVisibility")}
+                htmlFor={FIELD_IDS.bioVisibility}
+              >
                 <select
+                  id={FIELD_IDS.bioVisibility}
                   className="h-10 w-full rounded-md border px-3"
                   value={profile.privacy.bio ?? "contacts"}
                   onChange={(e) =>
@@ -532,12 +587,17 @@ export function CommunityPage() {
               {t("community.contacts")}
             </h2>
             <div className="mt-4 flex gap-2">
+              <Label className="sr-only" htmlFor={FIELD_IDS.contactSearch}>
+                {t("community.searchPeople")}
+              </Label>
               <Input
+                id={FIELD_IDS.contactSearch}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="@usuario"
               />
               <Button
+                aria-label={t("community.searchPeople")}
                 variant="outline"
                 onClick={() => void search()}
                 disabled={query.length < 2}
@@ -629,7 +689,11 @@ export function CommunityPage() {
               ))}
             </div>
             <VerifiedForm className="mt-5 flex gap-2" onSubmit={createGroup}>
+              <Label className="sr-only" htmlFor={FIELD_IDS.groupName}>
+                {t("community.newGroup")}
+              </Label>
               <Input
+                id={FIELD_IDS.groupName}
                 required
                 minLength={2}
                 maxLength={80}
@@ -667,8 +731,12 @@ export function CommunityPage() {
                   className="mb-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-[1fr_14rem_auto] sm:items-end"
                   onSubmit={saveChannel}
                 >
-                  <Field label={t("community.channelName")}>
+                  <Field
+                    label={t("community.channelName")}
+                    htmlFor={FIELD_IDS.channelName}
+                  >
                     <Input
+                      id={FIELD_IDS.channelName}
                       required
                       minLength={2}
                       maxLength={80}
@@ -676,8 +744,12 @@ export function CommunityPage() {
                       onChange={(event) => setChannelName(event.target.value)}
                     />
                   </Field>
-                  <Field label={t("community.channelStatus")}>
+                  <Field
+                    label={t("community.channelStatus")}
+                    htmlFor={FIELD_IDS.channelStatus}
+                  >
                     <select
+                      id={FIELD_IDS.channelStatus}
                       className="h-10 w-full rounded-md border px-3"
                       value={channelStatus}
                       onChange={(event) => setChannelStatus(event.target.value)}
@@ -721,7 +793,14 @@ export function CommunityPage() {
                         className="mt-3 space-y-2"
                         onSubmit={saveEditedMessage}
                       >
+                        <Label
+                          className="sr-only"
+                          htmlFor={FIELD_IDS.editMessage}
+                        >
+                          {t("community.editMessage")}
+                        </Label>
                         <textarea
+                          id={FIELD_IDS.editMessage}
                           required
                           maxLength={4000}
                           className="min-h-24 w-full rounded-xl border p-3"
@@ -819,7 +898,11 @@ export function CommunityPage() {
                       </button>
                     </div>
                   )}
+                  <Label className="sr-only" htmlFor={FIELD_IDS.composeMessage}>
+                    {t("community.message")}
+                  </Label>
                   <textarea
+                    id={FIELD_IDS.composeMessage}
                     required
                     maxLength={4000}
                     className="min-h-24 w-full rounded-xl border p-3"
@@ -1057,15 +1140,28 @@ export function CommunityPage() {
 }
 function Field({
   label,
+  htmlFor,
+  error,
   children,
 }: {
   label: string;
+  htmlFor: string;
+  error?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <Label htmlFor={htmlFor}>{label}</Label>
       {children}
+      {error ? (
+        <p
+          id={`${htmlFor}-error`}
+          role="alert"
+          className="text-sm text-red-600"
+        >
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

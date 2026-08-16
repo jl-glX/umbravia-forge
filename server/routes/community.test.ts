@@ -171,11 +171,12 @@ describe("community, identity and moderation APIs", () => {
         privacy: {},
       })
       .expect(400);
-    await request(app)
+    const duplicate = await request(app)
       .patch("/api/community/profile")
       .set("Cookie", secondMemberCookie)
       .send({ username: "member.training", privacy: {} })
       .expect(409);
+    expect(duplicate.body).toMatchObject({ code: "USERNAME_TAKEN" });
     await request(app)
       .patch("/api/community/profile")
       .set("Cookie", secondMemberCookie)
