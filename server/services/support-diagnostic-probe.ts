@@ -1,5 +1,6 @@
 import { resolve4, resolve6 } from "node:dns/promises";
-import { connect as connectTls } from "node:tls";
+import { connect as connectTls, type ConnectionOptions } from "node:tls";
+import { authenticatedModernTlsOptions } from "../lib/transport-security.js";
 
 const DEFAULT_PROBE_ORIGIN = "https://cf-test.umbraviaforge.com";
 const PROBE_TIMEOUT_MS = 5_000;
@@ -95,6 +96,17 @@ export function resolveSupportDiagnosticProbeOrigin(value?: string) {
   return url;
 }
 
+export function resolveSupportDiagnosticTlsConnectionOptions(
+  url: URL,
+): ConnectionOptions {
+  return {
+    host: url.hostname,
+    port: 443,
+    servername: url.hostname,
+    ...authenticatedModernTlsOptions(),
+  };
+}
+
 async function inspectTls(url: URL): Promise<TlsProbeResult> {
   return new Promise((resolve) => {
     let settled = false;
@@ -104,12 +116,9 @@ async function inspectTls(url: URL): Promise<TlsProbeResult> {
       socket.destroy();
       resolve(result);
     };
-    const socket = connectTls({
-      host: url.hostname,
-      port: 443,
-      servername: url.hostname,
-      rejectUnauthorized: true,
-    });
+    const socket = connectTls(
+      resolveSupportDiagnosticTlsConnectionOptions(url),
+    );
     socket.setTimeout(PROBE_TIMEOUT_MS);
     socket.once("secureConnect", () => {
       const certificate = socket.getPeerCertificate();

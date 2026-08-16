@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   formatSupportDiagnosticProbeReport,
   resolveSupportDiagnosticProbeOrigin,
+  resolveSupportDiagnosticTlsConnectionOptions,
   runSupportDiagnosticProbe,
   type SupportDiagnosticProbeDependencies,
   type TlsProbeResult,
@@ -101,5 +102,23 @@ describe("support diagnostic probe", () => {
     expect(() =>
       resolveSupportDiagnosticProbeOrigin("http://cf-test.umbraviaforge.com"),
     ).toThrow("must be an HTTPS origin");
+  });
+
+  it("uses the shared authenticated AEAD TLS policy for the probe", () => {
+    const options = resolveSupportDiagnosticTlsConnectionOptions(
+      new URL("https://cf-test.umbraviaforge.com"),
+    );
+
+    expect(options).toMatchObject({
+      host: "cf-test.umbraviaforge.com",
+      port: 443,
+      servername: "cf-test.umbraviaforge.com",
+      minVersion: "TLSv1.2",
+      rejectUnauthorized: true,
+    });
+    expect(String(options.ciphers).split(":").slice(0, 2)).toEqual([
+      "TLS_AES_256_GCM_SHA384",
+      "TLS_AES_128_GCM_SHA256",
+    ]);
   });
 });
