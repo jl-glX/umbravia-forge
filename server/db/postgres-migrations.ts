@@ -1763,6 +1763,126 @@ CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_application_status"
   ("applicationTenantId", "facilityId", "status", "category", "updatedAt" DESC);
 `,
   },
+  {
+    version: 29,
+    name: "tenant-monthly-analytics-surveys",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "analyticsSurveyDefinitions" (
+  "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "seriesKey" TEXT NOT NULL,
+  "version" INTEGER NOT NULL CHECK ("version" > 0),
+  "title" TEXT NOT NULL,
+  "description" TEXT NOT NULL DEFAULT '',
+  "privacyMode" TEXT NOT NULL CHECK ("privacyMode" IN ('anonymous', 'confidential', 'identified')),
+  "minimumResponses" INTEGER NOT NULL DEFAULT 5 CHECK ("minimumResponses" BETWEEN 5 AND 50),
+  "status" TEXT NOT NULL DEFAULT 'published' CHECK ("status" IN ('published', 'archived')),
+  "createdByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  UNIQUE ("facilityId", "seriesKey", "version")
+);
+
+CREATE TABLE IF NOT EXISTS "analyticsSurveyQuestions" (
+  "id" TEXT PRIMARY KEY,
+  "surveyId" TEXT NOT NULL REFERENCES "analyticsSurveyDefinitions" ("id") ON DELETE CASCADE,
+  "position" INTEGER NOT NULL CHECK ("position" BETWEEN 1 AND 10),
+  "prompt" TEXT NOT NULL,
+  "questionType" TEXT NOT NULL CHECK ("questionType" IN ('scale_1_5', 'single_choice', 'multiple_choice')),
+  "optionsJson" TEXT NOT NULL DEFAULT '[]',
+  "required" INTEGER NOT NULL DEFAULT 1 CHECK ("required" IN (0, 1)),
+  "createdAt" BIGINT NOT NULL,
+  UNIQUE ("surveyId", "position")
+);
+
+CREATE TABLE IF NOT EXISTS "analyticsSurveyCampaigns" (
+  "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "surveyId" TEXT NOT NULL REFERENCES "analyticsSurveyDefinitions" ("id") ON DELETE RESTRICT,
+  "periodKey" TEXT NOT NULL,
+  "opensAt" BIGINT NOT NULL,
+  "closesAt" BIGINT NOT NULL,
+  "status" TEXT NOT NULL DEFAULT 'scheduled' CHECK ("status" IN ('scheduled', 'active', 'closed')),
+  "createdByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  CHECK ("closesAt" > "opensAt"),
+  UNIQUE ("facilityId", "periodKey")
+);
+
+CREATE TABLE IF NOT EXISTS "analyticsSurveyResponses" (
+  "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "campaignId" TEXT NOT NULL REFERENCES "analyticsSurveyCampaigns" ("id") ON DELETE CASCADE,
+  "respondentUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "submittedAt" BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "analyticsSurveyAnswers" (
+  "id" TEXT PRIMARY KEY,
+  "responseId" TEXT NOT NULL REFERENCES "analyticsSurveyResponses" ("id") ON DELETE CASCADE,
+  "questionId" TEXT NOT NULL REFERENCES "analyticsSurveyQuestions" ("id") ON DELETE RESTRICT,
+  "valueJson" TEXT NOT NULL,
+  "createdAt" BIGINT NOT NULL,
+  UNIQUE ("responseId", "questionId")
+);
+
+CREATE TABLE IF NOT EXISTS "analyticsSurveyParticipations" (
+  "campaignId" TEXT NOT NULL REFERENCES "analyticsSurveyCampaigns" ("id") ON DELETE CASCADE,
+  "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "completedAt" BIGINT NOT NULL,
+  PRIMARY KEY ("campaignId", "userId")
+);
+
+CREATE INDEX IF NOT EXISTS "idx_analyticsSurveyDefinitions_facility_status"
+  ON "analyticsSurveyDefinitions" ("facilityId", "status", "seriesKey", "version" DESC);
+CREATE INDEX IF NOT EXISTS "idx_analyticsSurveyCampaigns_facility_window"
+  ON "analyticsSurveyCampaigns" ("facilityId", "status", "opensAt", "closesAt");
+CREATE INDEX IF NOT EXISTS "idx_analyticsSurveyResponses_campaign"
+  ON "analyticsSurveyResponses" ("campaignId", "submittedAt");
+CREATE INDEX IF NOT EXISTS "idx_analyticsSurveyAnswers_question"
+  ON "analyticsSurveyAnswers" ("questionId", "createdAt");
+`,
+  },
+  {
+    version: 30,
+    name: "tenant-member-crm-foundation",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "crmMemberProfiles" (
+  "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "memberUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "manualSegment" TEXT CHECK ("manualSegment" IS NULL OR "manualSegment" IN ('onboarding', 'engaged', 'attention', 'reengagement')),
+  "assignedToUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "nextFollowUpAt" BIGINT,
+  "updatedByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  UNIQUE ("facilityId", "memberUserId")
+);
+
+CREATE TABLE IF NOT EXISTS "crmFollowUps" (
+  "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "memberUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "assignedToUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "kind" TEXT NOT NULL CHECK ("kind" IN ('onboarding', 'check_in', 'retention', 'service')),
+  "status" TEXT NOT NULL DEFAULT 'open' CHECK ("status" IN ('open', 'completed', 'dismissed')),
+  "dueAt" BIGINT NOT NULL,
+  "completedAt" BIGINT,
+  "createdByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS "idx_crmMemberProfiles_facility_segment"
+  ON "crmMemberProfiles" ("facilityId", "manualSegment", "nextFollowUpAt");
+CREATE INDEX IF NOT EXISTS "idx_crmFollowUps_facility_status_due"
+  ON "crmFollowUps" ("facilityId", "status", "dueAt");
+CREATE INDEX IF NOT EXISTS "idx_crmFollowUps_member"
+  ON "crmFollowUps" ("facilityId", "memberUserId", "createdAt" DESC);
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

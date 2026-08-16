@@ -1440,6 +1440,93 @@ async function initializeSqliteSchema(
     `);
   }
 
+  if (!tableNames.includes("analyticsSurveyDefinitions")) {
+    sqliteDb.exec(`
+      CREATE TABLE analyticsSurveyDefinitions (
+        id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL,
+        seriesKey TEXT NOT NULL,
+        version INTEGER NOT NULL CHECK(version > 0),
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        privacyMode TEXT NOT NULL CHECK(privacyMode IN ('anonymous', 'confidential', 'identified')),
+        minimumResponses INTEGER NOT NULL DEFAULT 5 CHECK(minimumResponses BETWEEN 5 AND 50),
+        status TEXT NOT NULL DEFAULT 'published' CHECK(status IN ('published', 'archived')),
+        createdByUserId TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(createdByUserId) REFERENCES users(id) ON DELETE RESTRICT,
+        UNIQUE(facilityId, seriesKey, version)
+      );
+      CREATE TABLE analyticsSurveyQuestions (
+        id TEXT PRIMARY KEY,
+        surveyId TEXT NOT NULL,
+        position INTEGER NOT NULL CHECK(position BETWEEN 1 AND 10),
+        prompt TEXT NOT NULL,
+        questionType TEXT NOT NULL CHECK(questionType IN ('scale_1_5', 'single_choice', 'multiple_choice')),
+        optionsJson TEXT NOT NULL DEFAULT '[]',
+        required INTEGER NOT NULL DEFAULT 1 CHECK(required IN (0, 1)),
+        createdAt INTEGER NOT NULL,
+        FOREIGN KEY(surveyId) REFERENCES analyticsSurveyDefinitions(id) ON DELETE CASCADE,
+        UNIQUE(surveyId, position)
+      );
+      CREATE TABLE analyticsSurveyCampaigns (
+        id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL,
+        surveyId TEXT NOT NULL,
+        periodKey TEXT NOT NULL,
+        opensAt INTEGER NOT NULL,
+        closesAt INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled', 'active', 'closed')),
+        createdByUserId TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(surveyId) REFERENCES analyticsSurveyDefinitions(id) ON DELETE RESTRICT,
+        FOREIGN KEY(createdByUserId) REFERENCES users(id) ON DELETE RESTRICT,
+        CHECK(closesAt > opensAt),
+        UNIQUE(facilityId, periodKey)
+      );
+      CREATE TABLE analyticsSurveyResponses (
+        id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL,
+        campaignId TEXT NOT NULL,
+        respondentUserId TEXT,
+        submittedAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(campaignId) REFERENCES analyticsSurveyCampaigns(id) ON DELETE CASCADE,
+        FOREIGN KEY(respondentUserId) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE TABLE analyticsSurveyAnswers (
+        id TEXT PRIMARY KEY,
+        responseId TEXT NOT NULL,
+        questionId TEXT NOT NULL,
+        valueJson TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        FOREIGN KEY(responseId) REFERENCES analyticsSurveyResponses(id) ON DELETE CASCADE,
+        FOREIGN KEY(questionId) REFERENCES analyticsSurveyQuestions(id) ON DELETE RESTRICT,
+        UNIQUE(responseId, questionId)
+      );
+      CREATE TABLE analyticsSurveyParticipations (
+        campaignId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        completedAt INTEGER NOT NULL,
+        FOREIGN KEY(campaignId) REFERENCES analyticsSurveyCampaigns(id) ON DELETE CASCADE,
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+        PRIMARY KEY(campaignId, userId)
+      );
+      CREATE INDEX idx_analyticsSurveyDefinitions_facility_status
+        ON analyticsSurveyDefinitions(facilityId, status, seriesKey, version DESC);
+      CREATE INDEX idx_analyticsSurveyCampaigns_facility_window
+        ON analyticsSurveyCampaigns(facilityId, status, opensAt, closesAt);
+      CREATE INDEX idx_analyticsSurveyResponses_campaign
+        ON analyticsSurveyResponses(campaignId, submittedAt);
+      CREATE INDEX idx_analyticsSurveyAnswers_question
+        ON analyticsSurveyAnswers(questionId, createdAt);
+    `);
+  }
+
   if (!tableNames.includes("facilityMemberships")) {
     console.log("Creating facilityMemberships table...");
     sqliteDb.exec(`
@@ -1461,6 +1548,48 @@ async function initializeSqliteSchema(
         ON facilityMemberships(facilityId, role, status);
     `);
   }
+
+  sqliteDb.exec(`
+    CREATE TABLE IF NOT EXISTS crmMemberProfiles (
+      id TEXT PRIMARY KEY,
+      facilityId TEXT NOT NULL,
+      memberUserId TEXT NOT NULL,
+      manualSegment TEXT CHECK(manualSegment IS NULL OR manualSegment IN ('onboarding', 'engaged', 'attention', 'reengagement')),
+      assignedToUserId TEXT,
+      nextFollowUpAt INTEGER,
+      updatedByUserId TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+      FOREIGN KEY(memberUserId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(assignedToUserId) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY(updatedByUserId) REFERENCES users(id) ON DELETE RESTRICT,
+      UNIQUE(facilityId, memberUserId)
+    );
+    CREATE TABLE IF NOT EXISTS crmFollowUps (
+      id TEXT PRIMARY KEY,
+      facilityId TEXT NOT NULL,
+      memberUserId TEXT NOT NULL,
+      assignedToUserId TEXT,
+      kind TEXT NOT NULL CHECK(kind IN ('onboarding', 'check_in', 'retention', 'service')),
+      status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'completed', 'dismissed')),
+      dueAt INTEGER NOT NULL,
+      completedAt INTEGER,
+      createdByUserId TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+      FOREIGN KEY(memberUserId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(assignedToUserId) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY(createdByUserId) REFERENCES users(id) ON DELETE RESTRICT
+    );
+    CREATE INDEX IF NOT EXISTS idx_crmMemberProfiles_facility_segment
+      ON crmMemberProfiles(facilityId, manualSegment, nextFollowUpAt);
+    CREATE INDEX IF NOT EXISTS idx_crmFollowUps_facility_status_due
+      ON crmFollowUps(facilityId, status, dueAt);
+    CREATE INDEX IF NOT EXISTS idx_crmFollowUps_member
+      ON crmFollowUps(facilityId, memberUserId, createdAt DESC);
+  `);
 
   const membershipBackfillAt = Date.now();
   sqliteDb

@@ -12,6 +12,7 @@ import { PeriodSelector } from "../components/PeriodSelector";
 import { UpcomingBookingsList } from "../components/UpcomingBookingsList";
 import { PeakHoursChart } from "../components/PeakHoursChart";
 import { ClassPopularityList } from "../components/ClassPopularityList";
+import { AnalyticsSurveyParticipation } from "../components/AnalyticsSurveyParticipation";
 import { useTranslation } from "react-i18next";
 
 type PeriodType = "day" | "week" | "month";
@@ -116,6 +117,10 @@ export function ActivityDashboardPage() {
                 />
               </div>
             )}
+
+            <div className="mb-8">
+              <AnalyticsSurveyParticipation />
+            </div>
 
             {/* No Data State */}
             {(!activityMetrics || activityMetrics.totalBookings === 0) && (

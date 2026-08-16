@@ -60,6 +60,10 @@ const AdminAnalyticsDashboardPage = lazyPage(
   () => import("./pages/AdminAnalyticsDashboardPage"),
   "AdminAnalyticsDashboardPage",
 );
+const AdminCrmPage = lazyPage(
+  () => import("./pages/AdminCrmPage"),
+  "AdminCrmPage",
+);
 const UnauthorizedPage = lazyPage(
   () => import("./pages/UnauthorizedPage"),
   "UnauthorizedPage",
@@ -510,6 +514,14 @@ function AppContent() {
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminAnalyticsDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/crm"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminCrmPage />
               </ProtectedRoute>
             }
           />

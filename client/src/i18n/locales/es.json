@@ -57,6 +57,7 @@
     "dashboard": "Panel",
     "admin": "Administración",
     "analytics": "Analítica",
+    "crm": "CRM",
     "security": "Seguridad",
     "support": "Soporte",
     "logout": "Cerrar sesión"
@@ -1342,6 +1343,47 @@
       "attended": "Asistencias",
       "absent": "Ausencias"
     },
+    "surveys": {
+      "memberTitle": "Encuestas mensuales del centro",
+      "memberDescription": "Tu experiencia ayuda al centro a explicar las métricas y mejorar con decisiones fundamentadas.",
+      "noPending": "No tienes encuestas pendientes en este momento.",
+      "requiredAnswers": "Completa todas las preguntas obligatorias antes de enviar.",
+      "responseSaved": "Respuesta guardada. Gracias por participar.",
+      "saveError": "No se ha podido guardar el cambio. Revisa los datos y vuelve a intentarlo.",
+      "submit": "Enviar respuestas",
+      "closes": "Disponible hasta el {{date}}",
+      "privacyLabel": "Privacidad de las respuestas",
+      "privacy": {
+        "anonymous": "Anónima: el centro no puede vincular respuestas y cuenta",
+        "confidential": "Confidencial: acceso restringido y resultados agregados",
+        "identified": "Identificada: la respuesta queda vinculada a la cuenta"
+      },
+      "resultsTitle": "Resultados de encuestas",
+      "resultsDescription": "Resultados agregados por campaña; nunca se muestran respuestas individuales.",
+      "thresholdPending": "{{count}} respuestas de {{minimum}} necesarias. Los resultados permanecen ocultos.",
+      "responseCount": "{{count}} respuestas incluidas",
+      "managementTitle": "Diseño de encuestas mensuales",
+      "managementDescription": "Publica versiones inmutables y prográmalas por mes. No se admite texto libre en esta primera base.",
+      "title": "Título",
+      "description": "Descripción",
+      "minimumResponses": "Umbral mínimo de respuestas (5–50)",
+      "question": "Pregunta {{number}}",
+      "required": "Obligatoria",
+      "types": {
+        "scale": "Escala de 1 a 5",
+        "single": "Una opción",
+        "multiple": "Varias opciones"
+      },
+      "optionsHint": "Una opción por línea (entre 2 y 8)",
+      "addQuestion": "Añadir pregunta",
+      "publish": "Publicar versión",
+      "published": "Versión {{version}} publicada.",
+      "scheduleTitle": "Programar campaña",
+      "selectSurvey": "Selecciona una encuesta publicada",
+      "schedule": "Programar",
+      "campaignCreated": "Campaña mensual programada.",
+      "campaignCount": "{{count}} campañas registradas"
+    },
     "period": { "day": "Hoy", "week": "Esta semana", "month": "Este mes" },
     "recommendations": {
       "COLLECT_MORE_DATA": {
@@ -2027,6 +2069,73 @@
     "childId": "ID de la cuenta menor",
     "guardianId": "ID de la cuenta tutora",
     "createReview": "Crear revisión"
+  },
+  "crm": {
+    "title": "Relación con socios",
+    "description": "Organiza el acompañamiento de los socios del centro con señales operativas, responsables y seguimientos revisables.",
+    "adminOnly": "Solo la administración del centro puede acceder al CRM.",
+    "loading": "Cargando el CRM del centro...",
+    "requestError": "No se pudo completar la operación",
+    "requestErrorDetail": "Código de referencia: {{code}}",
+    "summary": {
+      "totalMembers": "Socios activos",
+      "onboarding": "Incorporación",
+      "engaged": "Activos",
+      "attention": "Requieren atención",
+      "reengagement": "Reactivación",
+      "overdue": "Seguimientos vencidos"
+    },
+    "segments": {
+      "all": "Todos los segmentos",
+      "onboarding": "Incorporación",
+      "engaged": "Activo",
+      "attention": "Atención",
+      "reengagement": "Reactivación"
+    },
+    "membersTitle": "Socios del centro",
+    "membersDescription": "Las sugerencias se calculan a partir de reservas y asistencia del propio centro. Puedes mantenerlas o establecer una clasificación manual.",
+    "searchPlaceholder": "Buscar por nombre o correo",
+    "noMembers": "No hay socios que coincidan con los filtros.",
+    "member": "Socio",
+    "segment": "Segmento manual",
+    "automaticSegment": "Sugerencia automática: {{segment}}",
+    "assignee": "Responsable",
+    "unassigned": "Sin asignar",
+    "nextFollowUp": "Próximo seguimiento",
+    "effectiveSegment": "Segmento efectivo",
+    "openFollowUps": "{{count}} seguimientos abiertos",
+    "unknownAssignee": "Responsable no disponible",
+    "unknownMember": "Socio no disponible",
+    "chooseMember": "Selecciona un socio",
+    "metrics": {
+      "last30Days": "Últimos 30 días: {{bookings}} reservas, {{attended}} asistencias y {{absent}} ausencias",
+      "noActivity": "Sin actividad registrada",
+      "lastActivity": "Última actividad: {{date}}"
+    },
+    "followUps": {
+      "newTitle": "Crear seguimiento",
+      "newDescription": "Registra una tarea concreta sin automatizar comunicaciones comerciales.",
+      "kindLabel": "Tipo de seguimiento",
+      "dueAt": "Fecha prevista",
+      "create": "Crear seguimiento",
+      "title": "Seguimientos",
+      "description": "Tareas abiertas y resueltas del centro, con responsable y fecha.",
+      "empty": "Todavía no hay seguimientos.",
+      "complete": "Marcar como completado",
+      "kinds": {
+        "onboarding": "Incorporación",
+        "check_in": "Revisión",
+        "retention": "Retención",
+        "service": "Servicio"
+      },
+      "statuses": {
+        "open": "Abierto",
+        "completed": "Completado",
+        "dismissed": "Descartado"
+      }
+    },
+    "privacyTitle": "Límite de privacidad",
+    "privacyDescription": "El CRM no expone respuestas individuales de encuestas ni combina datos entre centros. Las encuestas permanecen anónimas y solo se muestran de forma agregada."
   },
   "unauthorized": {
     "title": "Acceso denegado",

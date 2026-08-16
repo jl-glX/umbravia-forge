@@ -10,6 +10,7 @@ import {
   MemberEngagementTable,
 } from "../components/AnalyticsOverviewPanels";
 import { MetricCard } from "../components/MetricCard";
+import { AnalyticsSurveyResults } from "../components/AnalyticsSurveyResults";
 import { PeakHoursChart } from "../components/PeakHoursChart";
 import { PeriodSelector } from "../components/PeriodSelector";
 import { getAccessRole } from "../context/auth-context";
@@ -110,6 +111,7 @@ export function TrainerAnalyticsDashboardPage() {
             </div>
 
             <AnalyticsDataQuality quality={data.dataQuality} />
+            <AnalyticsSurveyResults />
             <BookingHistoryPanel history={data.history} />
 
             <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">

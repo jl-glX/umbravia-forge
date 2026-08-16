@@ -57,6 +57,7 @@
     "dashboard": "Übersicht",
     "admin": "Verwaltung",
     "analytics": "Analysen",
+    "crm": "CRM",
     "security": "Sicherheit",
     "support": "Support",
     "logout": "Abmelden"
@@ -1338,6 +1339,47 @@
       "attended": "Teilnahmen",
       "absent": "Abwesenheiten"
     },
+    "surveys": {
+      "memberTitle": "Monatliche Center-Umfragen",
+      "memberDescription": "Deine Erfahrung hilft dem Center, Kennzahlen einzuordnen und fundierte Entscheidungen zu treffen.",
+      "noPending": "Derzeit sind keine Umfragen offen.",
+      "requiredAnswers": "Bitte beantworte vor dem Absenden alle Pflichtfragen.",
+      "responseSaved": "Antwort gespeichert. Danke für deine Teilnahme.",
+      "saveError": "Die Änderung konnte nicht gespeichert werden. Bitte prüfe die Angaben.",
+      "submit": "Antworten senden",
+      "closes": "Verfügbar bis {{date}}",
+      "privacyLabel": "Datenschutz der Antworten",
+      "privacy": {
+        "anonymous": "Anonym: Antworten können keinem Konto zugeordnet werden",
+        "confidential": "Vertraulich: beschränkter Zugriff und aggregierte Ergebnisse",
+        "identified": "Identifiziert: die Antwort bleibt mit dem Konto verknüpft"
+      },
+      "resultsTitle": "Umfrageergebnisse",
+      "resultsDescription": "Aggregierte Ergebnisse; einzelne Antworten werden nie angezeigt.",
+      "thresholdPending": "{{count}} von {{minimum}} erforderlichen Antworten. Ergebnisse bleiben verborgen.",
+      "responseCount": "{{count}} Antworten berücksichtigt",
+      "managementTitle": "Monatliche Umfragen gestalten",
+      "managementDescription": "Unveränderliche Versionen veröffentlichen und monatsweise planen. Freitext ist zunächst ausgeschlossen.",
+      "title": "Titel",
+      "description": "Beschreibung",
+      "minimumResponses": "Mindestanzahl Antworten (5–50)",
+      "question": "Frage {{number}}",
+      "required": "Pflichtfeld",
+      "types": {
+        "scale": "Skala von 1 bis 5",
+        "single": "Eine Auswahl",
+        "multiple": "Mehrfachauswahl"
+      },
+      "optionsHint": "Eine Option pro Zeile (2 bis 8)",
+      "addQuestion": "Frage hinzufügen",
+      "publish": "Version veröffentlichen",
+      "published": "Version {{version}} veröffentlicht.",
+      "scheduleTitle": "Kampagne planen",
+      "selectSurvey": "Veröffentlichte Umfrage auswählen",
+      "schedule": "Planen",
+      "campaignCreated": "Monatliche Kampagne geplant.",
+      "campaignCount": "{{count}} Kampagnen gespeichert"
+    },
     "period": {
       "day": "Heute",
       "week": "Diese Woche",
@@ -2024,6 +2066,73 @@
     "childId": "Konto-ID des Minderjährigen",
     "guardianId": "Konto-ID der erziehungsberechtigten Person",
     "createReview": "Prüfung erstellen"
+  },
+  "crm": {
+    "title": "Mitgliederbeziehungen",
+    "description": "Organisiert die Betreuung der Mitglieder dieses Zentrums mit betrieblichen Signalen, Verantwortlichen und nachvollziehbaren Nachverfolgungen.",
+    "adminOnly": "Nur die Verwaltung des Zentrums kann auf das CRM zugreifen.",
+    "loading": "CRM des Zentrums wird geladen...",
+    "requestError": "Der Vorgang konnte nicht abgeschlossen werden",
+    "requestErrorDetail": "Referenzcode: {{code}}",
+    "summary": {
+      "totalMembers": "Aktive Mitglieder",
+      "onboarding": "Einführung",
+      "engaged": "Aktiv",
+      "attention": "Benötigen Aufmerksamkeit",
+      "reengagement": "Reaktivierung",
+      "overdue": "Überfällige Nachverfolgungen"
+    },
+    "segments": {
+      "all": "Alle Segmente",
+      "onboarding": "Einführung",
+      "engaged": "Aktiv",
+      "attention": "Aufmerksamkeit",
+      "reengagement": "Reaktivierung"
+    },
+    "membersTitle": "Mitglieder des Zentrums",
+    "membersDescription": "Vorschläge basieren auf Buchungen und Anwesenheit in diesem Zentrum. Sie können übernommen oder manuell ersetzt werden.",
+    "searchPlaceholder": "Nach Name oder E-Mail suchen",
+    "noMembers": "Keine Mitglieder entsprechen den Filtern.",
+    "member": "Mitglied",
+    "segment": "Manuelles Segment",
+    "automaticSegment": "Automatischer Vorschlag: {{segment}}",
+    "assignee": "Verantwortlich",
+    "unassigned": "Nicht zugewiesen",
+    "nextFollowUp": "Nächste Nachverfolgung",
+    "effectiveSegment": "Wirksames Segment",
+    "openFollowUps": "{{count}} offene Nachverfolgungen",
+    "unknownAssignee": "Verantwortliche Person nicht verfügbar",
+    "unknownMember": "Mitglied nicht verfügbar",
+    "chooseMember": "Mitglied auswählen",
+    "metrics": {
+      "last30Days": "Letzte 30 Tage: {{bookings}} Buchungen, {{attended}} Teilnahmen und {{absent}} Abwesenheiten",
+      "noActivity": "Keine Aktivität erfasst",
+      "lastActivity": "Letzte Aktivität: {{date}}"
+    },
+    "followUps": {
+      "newTitle": "Nachverfolgung erstellen",
+      "newDescription": "Eine konkrete Aufgabe erfassen, ohne kommerzielle Kommunikation zu automatisieren.",
+      "kindLabel": "Art der Nachverfolgung",
+      "dueAt": "Fälligkeitsdatum",
+      "create": "Nachverfolgung erstellen",
+      "title": "Nachverfolgungen",
+      "description": "Offene und erledigte Aufgaben des Zentrums mit Verantwortlichen und Datum.",
+      "empty": "Noch keine Nachverfolgungen vorhanden.",
+      "complete": "Als erledigt markieren",
+      "kinds": {
+        "onboarding": "Einführung",
+        "check_in": "Überprüfung",
+        "retention": "Bindung",
+        "service": "Service"
+      },
+      "statuses": {
+        "open": "Offen",
+        "completed": "Erledigt",
+        "dismissed": "Verworfen"
+      }
+    },
+    "privacyTitle": "Datenschutzgrenze",
+    "privacyDescription": "Das CRM zeigt keine individuellen Umfrageantworten und kombiniert keine Daten verschiedener Zentren. Umfragen bleiben anonym und werden nur aggregiert dargestellt."
   },
   "unauthorized": {
     "title": "Zugriff verweigert",

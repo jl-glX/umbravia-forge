@@ -10,6 +10,19 @@ import {
   getTrainerUpcomingClasses,
   getAnalyticsOverview,
 } from "../services/analytics.js";
+import {
+  AnalyticsSurveyError,
+  createSurveyCampaign,
+  createSurveyDefinition,
+  getSurveyCampaignResults,
+  listAvailableSurveyCampaigns,
+  listSurveyCampaigns,
+  listSurveyManagement,
+  submitSurveyResponse,
+  type SurveyAnswerInput,
+  type SurveyQuestionInput,
+} from "../services/analytics-surveys.js";
+import type { AnalyticsSurveyPrivacyMode } from "../db/types.js";
 import { monthValidation, validateId } from "../middleware/validation.js";
 import {
   authenticate,
@@ -24,6 +37,18 @@ export const analyticsRouter = express.Router();
 analyticsRouter.use(authenticate, selectFacilityContext, requireFacility());
 
 const MAX_ANALYTICS_PERIOD_MS = 93 * 24 * 60 * 60 * 1_000;
+
+function handleSurveyError(error: unknown, res: express.Response): void {
+  if (error instanceof AnalyticsSurveyError) {
+    res.status(error.status).json({ error: error.message, code: error.code });
+    return;
+  }
+  console.error("Error processing analytics survey:", error);
+  res.status(500).json({
+    error: "Failed to process analytics survey",
+    code: "ANALYTICS_SURVEY_FAILED",
+  });
+}
 
 analyticsRouter.get(
   "/overview",
@@ -68,6 +93,137 @@ analyticsRouter.get(
         error: "Failed to fetch analytics overview",
         code: "ANALYTICS_OVERVIEW_FAILED",
       });
+    }
+  },
+);
+
+analyticsRouter.get(
+  "/surveys/manage",
+  requireFacility("owner", "admin"),
+  async (_req: express.Request, res: express.Response) => {
+    try {
+      res.json(await listSurveyManagement(getFacilityContext(res).id));
+    } catch (error) {
+      handleSurveyError(error, res);
+    }
+  },
+);
+
+analyticsRouter.post(
+  "/surveys",
+  requireFacility("owner", "admin"),
+  async (req: express.Request, res: express.Response) => {
+    const body = req.body as {
+      title?: string;
+      description?: string;
+      privacyMode?: AnalyticsSurveyPrivacyMode;
+      minimumResponses?: number;
+      questions?: SurveyQuestionInput[];
+    };
+    try {
+      const created = await createSurveyDefinition({
+        facilityId: getFacilityContext(res).id,
+        createdByUserId: getAuthenticatedUser(res).userId,
+        title: body.title ?? "",
+        description: body.description,
+        privacyMode: body.privacyMode ?? "anonymous",
+        minimumResponses: body.minimumResponses,
+        questions: body.questions ?? [],
+      });
+      res.status(201).json(created);
+    } catch (error) {
+      handleSurveyError(error, res);
+    }
+  },
+);
+
+analyticsRouter.get(
+  "/survey-campaigns",
+  requireFacility("trainer", "owner", "admin"),
+  async (_req: express.Request, res: express.Response) => {
+    try {
+      res.json(await listSurveyCampaigns(getFacilityContext(res).id));
+    } catch (error) {
+      handleSurveyError(error, res);
+    }
+  },
+);
+
+analyticsRouter.post(
+  "/survey-campaigns",
+  requireFacility("owner", "admin"),
+  async (req: express.Request, res: express.Response) => {
+    const body = req.body as {
+      surveyId?: string;
+      periodKey?: string;
+      opensAt?: number;
+      closesAt?: number;
+    };
+    try {
+      const created = await createSurveyCampaign({
+        facilityId: getFacilityContext(res).id,
+        createdByUserId: getAuthenticatedUser(res).userId,
+        surveyId: body.surveyId ?? "",
+        periodKey: body.periodKey ?? "",
+        opensAt: body.opensAt ?? Number.NaN,
+        closesAt: body.closesAt ?? Number.NaN,
+      });
+      res.status(201).json(created);
+    } catch (error) {
+      handleSurveyError(error, res);
+    }
+  },
+);
+
+analyticsRouter.get(
+  "/survey-campaigns/available",
+  requireFacility("member", "trainer", "owner", "admin"),
+  async (_req: express.Request, res: express.Response) => {
+    try {
+      res.json(
+        await listAvailableSurveyCampaigns(
+          getFacilityContext(res).id,
+          getAuthenticatedUser(res).userId,
+        ),
+      );
+    } catch (error) {
+      handleSurveyError(error, res);
+    }
+  },
+);
+
+analyticsRouter.post(
+  "/survey-campaigns/:campaignId/responses",
+  requireFacility("member", "trainer", "owner", "admin"),
+  async (req: express.Request, res: express.Response) => {
+    const body = req.body as { answers?: SurveyAnswerInput[] };
+    try {
+      const submitted = await submitSurveyResponse({
+        facilityId: getFacilityContext(res).id,
+        campaignId: req.params.campaignId,
+        userId: getAuthenticatedUser(res).userId,
+        answers: Array.isArray(body.answers) ? body.answers : [],
+      });
+      res.status(201).json(submitted);
+    } catch (error) {
+      handleSurveyError(error, res);
+    }
+  },
+);
+
+analyticsRouter.get(
+  "/survey-campaigns/:campaignId/results",
+  requireFacility("trainer", "owner", "admin"),
+  async (req: express.Request, res: express.Response) => {
+    try {
+      res.json(
+        await getSurveyCampaignResults(
+          getFacilityContext(res).id,
+          req.params.campaignId,
+        ),
+      );
+    } catch (error) {
+      handleSurveyError(error, res);
     }
   },
 );

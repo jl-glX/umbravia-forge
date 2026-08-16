@@ -53,6 +53,7 @@
     "dashboard": "Dashboard",
     "admin": "Admin",
     "analytics": "Analytics",
+    "crm": "CRM",
     "security": "Security",
     "support": "Support",
     "logout": "Log out"
@@ -1334,6 +1335,47 @@
       "attended": "Attendance",
       "absent": "Absences"
     },
+    "surveys": {
+      "memberTitle": "Monthly facility surveys",
+      "memberDescription": "Your experience helps the facility explain its metrics and improve through evidence-based decisions.",
+      "noPending": "You have no pending surveys right now.",
+      "requiredAnswers": "Complete every required question before submitting.",
+      "responseSaved": "Response saved. Thank you for participating.",
+      "saveError": "The change could not be saved. Check the information and try again.",
+      "submit": "Submit answers",
+      "closes": "Available until {{date}}",
+      "privacyLabel": "Response privacy",
+      "privacy": {
+        "anonymous": "Anonymous: the facility cannot link answers to your account",
+        "confidential": "Confidential: restricted access and aggregate results",
+        "identified": "Identified: the response is linked to your account"
+      },
+      "resultsTitle": "Survey results",
+      "resultsDescription": "Aggregate campaign results; individual responses are never displayed.",
+      "thresholdPending": "{{count}} of {{minimum}} required responses. Results remain hidden.",
+      "responseCount": "{{count}} responses included",
+      "managementTitle": "Monthly survey design",
+      "managementDescription": "Publish immutable versions and schedule them by month. Free text is not accepted in this initial foundation.",
+      "title": "Title",
+      "description": "Description",
+      "minimumResponses": "Minimum response threshold (5–50)",
+      "question": "Question {{number}}",
+      "required": "Required",
+      "types": {
+        "scale": "1 to 5 scale",
+        "single": "Single choice",
+        "multiple": "Multiple choice"
+      },
+      "optionsHint": "One option per line (between 2 and 8)",
+      "addQuestion": "Add question",
+      "publish": "Publish version",
+      "published": "Version {{version}} published.",
+      "scheduleTitle": "Schedule campaign",
+      "selectSurvey": "Select a published survey",
+      "schedule": "Schedule",
+      "campaignCreated": "Monthly campaign scheduled.",
+      "campaignCount": "{{count}} campaigns recorded"
+    },
     "period": { "day": "Today", "week": "This week", "month": "This month" },
     "recommendations": {
       "COLLECT_MORE_DATA": {
@@ -2013,6 +2055,73 @@
     "childId": "Minor account ID",
     "guardianId": "Guardian account ID",
     "createReview": "Create review"
+  },
+  "crm": {
+    "title": "Member relationships",
+    "description": "Organize member care within this facility using operational signals, accountable staff and reviewable follow-ups.",
+    "adminOnly": "Only facility administrators can access the CRM.",
+    "loading": "Loading the facility CRM...",
+    "requestError": "The operation could not be completed",
+    "requestErrorDetail": "Reference code: {{code}}",
+    "summary": {
+      "totalMembers": "Active members",
+      "onboarding": "Onboarding",
+      "engaged": "Engaged",
+      "attention": "Need attention",
+      "reengagement": "Re-engagement",
+      "overdue": "Overdue follow-ups"
+    },
+    "segments": {
+      "all": "All segments",
+      "onboarding": "Onboarding",
+      "engaged": "Engaged",
+      "attention": "Attention",
+      "reengagement": "Re-engagement"
+    },
+    "membersTitle": "Facility members",
+    "membersDescription": "Suggestions use bookings and attendance from this facility. You can keep them or set a manual classification.",
+    "searchPlaceholder": "Search by name or email",
+    "noMembers": "No members match the filters.",
+    "member": "Member",
+    "segment": "Manual segment",
+    "automaticSegment": "Automatic suggestion: {{segment}}",
+    "assignee": "Assignee",
+    "unassigned": "Unassigned",
+    "nextFollowUp": "Next follow-up",
+    "effectiveSegment": "Effective segment",
+    "openFollowUps": "{{count}} open follow-ups",
+    "unknownAssignee": "Assignee unavailable",
+    "unknownMember": "Member unavailable",
+    "chooseMember": "Select a member",
+    "metrics": {
+      "last30Days": "Last 30 days: {{bookings}} bookings, {{attended}} attendances and {{absent}} absences",
+      "noActivity": "No recorded activity",
+      "lastActivity": "Last activity: {{date}}"
+    },
+    "followUps": {
+      "newTitle": "Create follow-up",
+      "newDescription": "Record a concrete task without automating commercial communications.",
+      "kindLabel": "Follow-up type",
+      "dueAt": "Due date",
+      "create": "Create follow-up",
+      "title": "Follow-ups",
+      "description": "Open and resolved facility tasks with an assignee and date.",
+      "empty": "There are no follow-ups yet.",
+      "complete": "Mark as completed",
+      "kinds": {
+        "onboarding": "Onboarding",
+        "check_in": "Check-in",
+        "retention": "Retention",
+        "service": "Service"
+      },
+      "statuses": {
+        "open": "Open",
+        "completed": "Completed",
+        "dismissed": "Dismissed"
+      }
+    },
+    "privacyTitle": "Privacy boundary",
+    "privacyDescription": "The CRM does not expose individual survey responses or combine data across facilities. Surveys remain anonymous and are only shown in aggregate."
   },
   "unauthorized": {
     "title": "Access denied",

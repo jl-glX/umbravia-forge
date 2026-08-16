@@ -10,6 +10,7 @@ import {
   Building2,
   ShoppingBag,
   Timer,
+  UsersRound,
   X,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -267,6 +268,15 @@ export function Navigation() {
                 >
                   <Shield size={20} />
                   <span>{t("nav.admin")}</span>
+                </Link>
+                <Link
+                  to="/admin/crm"
+                  className={`${navLinkClass} ${
+                    isActive("/admin/crm") ? activeClass : inactiveClass
+                  }`}
+                >
+                  <UsersRound size={20} />
+                  <span>{t("nav.crm")}</span>
                 </Link>
               </>
             )}

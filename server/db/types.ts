@@ -257,6 +257,105 @@ interface BookingAnalyticsEvent {
   recordedAt: number;
 }
 
+export type AnalyticsSurveyPrivacyMode =
+  "anonymous" | "confidential" | "identified";
+export type AnalyticsSurveyQuestionType =
+  "scale_1_5" | "single_choice" | "multiple_choice";
+
+interface AnalyticsSurveyDefinition {
+  id: string;
+  facilityId: string;
+  seriesKey: string;
+  version: number;
+  title: string;
+  description: string;
+  privacyMode: AnalyticsSurveyPrivacyMode;
+  minimumResponses: number;
+  status: "published" | "archived";
+  createdByUserId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface AnalyticsSurveyQuestion {
+  id: string;
+  surveyId: string;
+  position: number;
+  prompt: string;
+  questionType: AnalyticsSurveyQuestionType;
+  optionsJson: string;
+  required: number;
+  createdAt: number;
+}
+
+interface AnalyticsSurveyCampaign {
+  id: string;
+  facilityId: string;
+  surveyId: string;
+  periodKey: string;
+  opensAt: number;
+  closesAt: number;
+  status: "scheduled" | "active" | "closed";
+  createdByUserId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface AnalyticsSurveyResponse {
+  id: string;
+  facilityId: string;
+  campaignId: string;
+  respondentUserId: string | null;
+  submittedAt: number;
+}
+
+interface AnalyticsSurveyAnswer {
+  id: string;
+  responseId: string;
+  questionId: string;
+  valueJson: string;
+  createdAt: number;
+}
+
+interface AnalyticsSurveyParticipation {
+  campaignId: string;
+  userId: string;
+  completedAt: number;
+}
+
+export type CrmMemberSegment =
+  "onboarding" | "engaged" | "attention" | "reengagement";
+
+interface CrmMemberProfile {
+  id: string;
+  facilityId: string;
+  memberUserId: string;
+  manualSegment: CrmMemberSegment | null;
+  assignedToUserId: string | null;
+  nextFollowUpAt: number | null;
+  updatedByUserId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type CrmFollowUpKind =
+  "onboarding" | "check_in" | "retention" | "service";
+export type CrmFollowUpStatus = "open" | "completed" | "dismissed";
+
+interface CrmFollowUp {
+  id: string;
+  facilityId: string;
+  memberUserId: string;
+  assignedToUserId: string | null;
+  kind: CrmFollowUpKind;
+  status: CrmFollowUpStatus;
+  dueAt: number;
+  completedAt: number | null;
+  createdByUserId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 interface WaitlistEntry {
   id: string;
   classId: string;
@@ -1001,6 +1100,14 @@ export interface Database {
   bookings: Booking;
   bookingLifecycles: BookingLifecycle;
   bookingAnalyticsEvents: BookingAnalyticsEvent;
+  analyticsSurveyDefinitions: AnalyticsSurveyDefinition;
+  analyticsSurveyQuestions: AnalyticsSurveyQuestion;
+  analyticsSurveyCampaigns: AnalyticsSurveyCampaign;
+  analyticsSurveyResponses: AnalyticsSurveyResponse;
+  analyticsSurveyAnswers: AnalyticsSurveyAnswer;
+  analyticsSurveyParticipations: AnalyticsSurveyParticipation;
+  crmMemberProfiles: CrmMemberProfile;
+  crmFollowUps: CrmFollowUp;
   waitlistEntries: WaitlistEntry;
   bookingReputations: BookingReputation;
   bookingReputationEvents: BookingReputationEvent;
