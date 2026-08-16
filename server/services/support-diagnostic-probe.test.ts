@@ -49,6 +49,16 @@ describe("support diagnostic probe", () => {
       ready: { ok: true, status: 200 },
     });
     expect(probeDependencies.fetch).toHaveBeenCalledTimes(2);
+    expect(probeDependencies.fetch).toHaveBeenNthCalledWith(
+      1,
+      new URL("https://cf-test.umbraviaforge.com/api/health/live"),
+      expect.any(Object),
+    );
+    expect(probeDependencies.fetch).toHaveBeenNthCalledWith(
+      2,
+      new URL("https://cf-test.umbraviaforge.com/api/health"),
+      expect.any(Object),
+    );
     expect(formatSupportDiagnosticProbeReport(report)).toContain(
       "probe=healthy",
     );

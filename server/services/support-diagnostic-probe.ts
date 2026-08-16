@@ -5,7 +5,7 @@ const DEFAULT_PROBE_ORIGIN = "https://cf-test.umbraviaforge.com";
 const PROBE_TIMEOUT_MS = 5_000;
 const PROBE_PATHS = {
   live: "/api/health/live",
-  ready: "/api/health/ready",
+  ready: "/api/health",
 } as const;
 
 export type SupportDiagnosticProbeCheck =

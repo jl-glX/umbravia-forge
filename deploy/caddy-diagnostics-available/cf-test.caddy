@@ -5,7 +5,7 @@
 
 	@diagnostic_health {
 		method GET HEAD
-		path /api/health/live /api/health/ready
+		path /api/health/live /api/health
 	}
 
 	header {

@@ -119,7 +119,7 @@ modificar el sitio público ni sus reglas de proxy. Esta organización sigue el
 mecanismo oficial de importación del Caddyfile.
 
 La sonda temporal `cf-test.umbraviaforge.com` publica exclusivamente
-`/api/health/live` y `/api/health/ready`. Rechaza cualquier otro método o ruta,
+`/api/health/live` y `/api/health`. Rechaza cualquier otro método o ruta,
 no permite indexación y mantiene un registro separado con una semana de
 retención máxima. No contiene credenciales y no da acceso al resto de la
 aplicación.
