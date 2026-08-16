@@ -8,6 +8,19 @@ import { describe, expect, it } from "vitest";
 const execFileAsync = promisify(execFile);
 
 describe("systemd deployment service", () => {
+  it.skipIf(process.platform === "win32")(
+    "keeps the diagnostic Caddy manager valid POSIX shell",
+    async () => {
+      const result = await execFileAsync("sh", [
+        "-n",
+        path.resolve("deploy", "manage-caddy-diagnostics.sh"),
+      ]);
+
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+    },
+  );
+
   it("approves the reviewed native install scripts used in production", async () => {
     const [packageSource, npmConfig] = await Promise.all([
       readFile(path.resolve("package.json"), "utf8"),
@@ -57,9 +70,10 @@ describe("systemd deployment service", () => {
   });
 
   it("validates Caddy without taking ownership of its production log", async () => {
-    const [caddyfile, readiness] = await Promise.all([
+    const [caddyfile, readiness, diagnosticManager] = await Promise.all([
       readFile(path.resolve("deploy", "Caddyfile"), "utf8"),
       readFile(path.resolve("deploy", "check-linux-readiness.sh"), "utf8"),
+      readFile(path.resolve("deploy", "manage-caddy-diagnostics.sh"), "utf8"),
     ]);
 
     expect(caddyfile).toContain(
@@ -107,6 +121,26 @@ describe("systemd deployment service", () => {
     expect(readiness).toContain("host publico del MTA aun no configurado");
     expect(readiness).toContain(
       "EMAIL_PUBLIC_MAIL_HOST es obligatorio en el modo DNS estricto",
+    );
+    expect(diagnosticManager).toContain("validate_config()");
+    expect(diagnosticManager).toContain(
+      'UMBRAVIA_DIAGNOSTIC_LOG="$validation_log"',
+    );
+    expect(diagnosticManager).toContain(
+      "PROBE_LOG=${UMBRAVIA_DIAGNOSTIC_RUNTIME_LOG:-/var/log/caddy/umbravia-diagnostic-access.log}",
+    );
+    expect(diagnosticManager).toContain(
+      'systemctl show "$CADDY_SERVICE" --property=User --value',
+    );
+    expect(diagnosticManager).toContain(
+      'systemctl show "$CADDY_SERVICE" --property=Group --value',
+    );
+    expect(diagnosticManager).toContain(
+      'chown "$caddy_user:$caddy_group" "$PROBE_LOG"',
+    );
+    expect(diagnosticManager).toContain('chmod 0640 "$PROBE_LOG"');
+    expect(diagnosticManager).not.toMatch(
+      /^\s*caddy validate --config "\$CONFIG_PATH"/m,
     );
   });
 

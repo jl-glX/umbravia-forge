@@ -149,6 +149,12 @@ antes de instalarla y restaura la anterior si Caddy no puede recargarse. La
 activación no modifica claves existentes. Caddy obtiene y administra el
 certificado TLS del subdominio mediante su flujo normal.
 
+Las validaciones escriben en un registro temporal para no crear archivos de
+producción como `root`. Antes de activar la sonda, el gestor prepara su registro
+operativo con el usuario y el grupo reales del servicio Caddy, permisos `0640`
+y directorio restringido. Esto también repara de forma segura un registro vacío
+que hubiera quedado con propietario incorrecto tras una validación anterior.
+
 La sonda solo debe pasar a DNS directo después de que el servidor reconozca el
 dominio. Entonces se deshabilitan su redirección y el proxy de Cloudflare, y se
 verifican certificado, ambos endpoints de salud y el cierre `404` del resto de

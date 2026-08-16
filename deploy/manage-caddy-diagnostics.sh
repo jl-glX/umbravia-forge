@@ -7,6 +7,8 @@ CONFIG_DIR=$(dirname -- "$CONFIG_PATH")
 MODULE_DIR=${UMBRAVIA_CADDY_DIAGNOSTICS_DIR:-$CONFIG_DIR/umbravia-diagnostics-enabled}
 AVAILABLE_DIR=${UMBRAVIA_CADDY_DIAGNOSTICS_AVAILABLE_DIR:-$SCRIPT_DIR/caddy-diagnostics-available}
 BACKUP_DIR=${UMBRAVIA_CADDY_BACKUP_DIR:-/var/backups/umbravia-forge/caddy}
+CADDY_SERVICE=${UMBRAVIA_CADDY_SERVICE:-caddy.service}
+PROBE_LOG=${UMBRAVIA_DIAGNOSTIC_RUNTIME_LOG:-/var/log/caddy/umbravia-diagnostic-access.log}
 IMPORT_LINE='import umbravia-diagnostics-enabled/*.caddy'
 PROBE_NAME=cf-test
 PROBE_FILE=$MODULE_DIR/$PROBE_NAME.caddy
@@ -42,6 +44,40 @@ config_has_import() {
   grep -Fqx "$IMPORT_LINE" "$CONFIG_PATH"
 }
 
+validate_config() {
+  config=$1
+  validation_log=$(mktemp "${TMPDIR:-/tmp}/umbravia-caddy-diagnostic-validation.XXXXXX")
+  if UMBRAVIA_DIAGNOSTIC_LOG="$validation_log" \
+    caddy validate --config "$config" --adapter caddyfile >/dev/null; then
+    rm -f "$validation_log"
+    return 0
+  fi
+  rm -f "$validation_log"
+  return 1
+}
+
+prepare_probe_log() {
+  case "$PROBE_LOG" in
+    /*) ;;
+    *) fail "la ruta del registro de la sonda debe ser absoluta" ;;
+  esac
+
+  caddy_user=$(systemctl show "$CADDY_SERVICE" --property=User --value)
+  caddy_group=$(systemctl show "$CADDY_SERVICE" --property=Group --value)
+  [ -n "$caddy_user" ] || fail "no se pudo determinar el usuario de $CADDY_SERVICE"
+  [ -n "$caddy_group" ] || caddy_group=$caddy_user
+
+  probe_log_dir=$(dirname -- "$PROBE_LOG")
+  if [ -e "$PROBE_LOG" ] && [ ! -f "$PROBE_LOG" ]; then
+    fail "$PROBE_LOG existe pero no es un archivo regular"
+  fi
+
+  install -d -o "$caddy_user" -g "$caddy_group" -m 0750 "$probe_log_dir"
+  touch "$PROBE_LOG"
+  chown "$caddy_user:$caddy_group" "$PROBE_LOG"
+  chmod 0640 "$PROBE_LOG"
+}
+
 make_candidate() {
   candidate=$1
   cp -p "$CONFIG_PATH" "$candidate"
@@ -51,8 +87,7 @@ make_candidate() {
       printf '%s\n' "$IMPORT_LINE"
     } >>"$candidate"
   fi
-  UMBRAVIA_DIAGNOSTIC_LOG=${UMBRAVIA_DIAGNOSTIC_LOG:-/tmp/umbravia-diagnostic-validation.log} \
-    caddy validate --config "$candidate" --adapter caddyfile >/dev/null
+  validate_config "$candidate"
 }
 
 install_candidate() {
@@ -67,8 +102,8 @@ install_candidate() {
 }
 
 reload_caddy() {
-  caddy validate --config "$CONFIG_PATH" --adapter caddyfile >/dev/null
-  systemctl reload caddy
+  validate_config "$CONFIG_PATH"
+  systemctl reload "$CADDY_SERVICE"
 }
 
 enable_probe() {
@@ -77,6 +112,7 @@ enable_probe() {
   [ -f "$PROBE_TEMPLATE" ] || fail "no existe la plantilla $PROBE_TEMPLATE"
 
   install -d -o root -g root -m 0755 "$MODULE_DIR" "$BACKUP_DIR"
+  prepare_probe_log
   timestamp=$(date -u +%Y%m%dT%H%M%SZ)
   backup=$BACKUP_DIR/Caddyfile.before-diagnostics.$timestamp
   candidate=$(mktemp "$CONFIG_DIR/.Caddyfile.umbravia.XXXXXX")
@@ -108,7 +144,7 @@ enable_probe() {
     else
       rm -f "$PROBE_FILE"
     fi
-    systemctl reload caddy || true
+    systemctl reload "$CADDY_SERVICE" || true
     fail "Caddy no pudo recargarse; se restauro la configuracion anterior"
   fi
 
@@ -130,7 +166,7 @@ disable_probe() {
 
   if ! reload_caddy; then
     cp -p "$module_backup" "$PROBE_FILE"
-    systemctl reload caddy || true
+    systemctl reload "$CADDY_SERVICE" || true
     fail "Caddy no pudo recargarse; la sonda fue restaurada"
   fi
 
