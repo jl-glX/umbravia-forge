@@ -121,15 +121,21 @@ describe("commercial foundation API", () => {
   });
 
   it("keeps trial provisioning opt-in in production", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("COMMERCIAL_TRIALS_ENABLED", "false");
-    await request(app)
-      .get("/api/commercial/trial")
-      .expect(503)
-      .expect(({ body }) => {
-        expect(body.code).toBe("COMMERCIAL_TRIALS_DISABLED");
-      });
-    vi.stubEnv("NODE_ENV", "test");
+    try {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("COMMERCIAL_TRIALS_ENABLED", "false");
+      await request(app)
+        .post("/api/commercial/trial")
+        .set("Cookie", adminCookie)
+        .send({ facilityName: "Blocked Centre", facilityType: "yoga" })
+        .expect(503)
+        .expect(({ body }) => {
+          expect(body.code).toBe("COMMERCIAL_TRIALS_DISABLED");
+        });
+    } finally {
+      vi.stubEnv("NODE_ENV", "test");
+      vi.stubEnv("COMMERCIAL_TRIALS_ENABLED", "true");
+    }
   });
 
   it("creates an editable centre from a template and preserves optional data", async () => {
@@ -277,6 +283,98 @@ describe("commercial foundation API", () => {
       .set("X-Facility-Id", "commercial-secondary")
       .expect(200);
     expect(selectedSecondary.body.trial.facilityName).toBe("Secondary Centre");
+  });
+
+  it("keeps repeated configuration edits unrestricted during the active trial", async () => {
+    for (let index = 0; index < 21; index += 1) {
+      const response = await request(app)
+        .patch("/api/commercial/trial")
+        .set("Cookie", adminCookie)
+        .send({ scheduleNotes: `Edición de prueba ${index + 1}` })
+        .expect(200);
+
+      expect(response.body.trial.scheduleNotes).toBe(
+        `Edición de prueba ${index + 1}`,
+      );
+    }
+  });
+
+  it("limits post-trial edit bursts per tenant without affecting another centre", async () => {
+    const primary = await database.db
+      .selectFrom("commercialTrials")
+      .selectAll()
+      .where("facilityId", "=", "primary")
+      .executeTakeFirstOrThrow();
+    const secondary = await database.db
+      .selectFrom("commercialTrials")
+      .selectAll()
+      .where("facilityId", "=", "commercial-secondary")
+      .executeTakeFirstOrThrow();
+    const eventIds = Array.from(
+      { length: 20 },
+      (_, index) => `post-trial-limit-primary-${index}`,
+    );
+
+    try {
+      await database.db
+        .updateTable("commercialTrials")
+        .set({ status: "trial_expired" })
+        .where("id", "in", [primary.id, secondary.id])
+        .execute();
+      await database.db
+        .insertInto("commercialTrialEvents")
+        .values(
+          eventIds.map((id, index) => ({
+            id,
+            trialId: primary.id,
+            actorUserId: "commercial-admin",
+            type: "trial_configuration_updated",
+            metadata: JSON.stringify({ editPolicy: "post_trial_limited" }),
+            createdAt: Date.now() - index,
+          })),
+        )
+        .execute();
+
+      await request(app)
+        .patch("/api/commercial/trial")
+        .set("Cookie", adminCookie)
+        .send({ scheduleNotes: "Debe quedar temporalmente limitada" })
+        .expect(429)
+        .expect("Retry-After", /\d+/)
+        .expect(({ body }) => {
+          expect(body.code).toBe("COMMERCIAL_TRIAL_EDIT_COOLDOWN");
+          expect(body.retryAfterSeconds).toBeGreaterThan(0);
+        });
+
+      const secondaryUpdate = await request(app)
+        .patch("/api/commercial/trial")
+        .set("Cookie", adminCookie)
+        .set("X-Facility-Id", "commercial-secondary")
+        .send({ scheduleNotes: "El segundo tenant sigue editable" })
+        .expect(200);
+      expect(secondaryUpdate.body.trial).toMatchObject({
+        facilityId: "commercial-secondary",
+        scheduleNotes: "El segundo tenant sigue editable",
+      });
+
+      const unchangedPrimary = await request(app)
+        .get("/api/commercial/trial")
+        .set("Cookie", adminCookie)
+        .expect(200);
+      expect(unchangedPrimary.body.trial.scheduleNotes).not.toBe(
+        "El segundo tenant sigue editable",
+      );
+    } finally {
+      await database.db
+        .deleteFrom("commercialTrialEvents")
+        .where("id", "in", eventIds)
+        .execute();
+      await database.db
+        .updateTable("commercialTrials")
+        .set({ status: "trial_active" })
+        .where("id", "in", [primary.id, secondary.id])
+        .execute();
+    }
   });
 
   it("creates voluntary commercial contact without sharing environment data by default", async () => {

@@ -197,8 +197,17 @@ export async function finalizeAdministratorSignup(userId: string) {
     );
 }
 
-function domainError(message: string, statusCode = 409) {
-  return Object.assign(new Error(message), { statusCode });
+function domainError(
+  message: string,
+  statusCode = 409,
+  code?: string,
+  retryAfterSeconds?: number,
+) {
+  return Object.assign(new Error(message), {
+    statusCode,
+    ...(code ? { code } : {}),
+    ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
+  });
 }
 
 function serializeTrial<T extends { classTypes: string }>(trial: T) {
@@ -844,8 +853,53 @@ export async function updateCommercialTrial(
 ) {
   const trial = await expireIfNeeded(facilityId);
   if (!trial) throw domainError("Commercial trial not found", 404);
-  if (trial.status !== "trial_active")
-    throw domainError("Only an active trial can be edited");
+  const isPostTrialEditable =
+    trial.status === "trial_expired" || trial.status === "trial_converted";
+  if (trial.status !== "trial_active" && !isPostTrialEditable) {
+    throw domainError(
+      "This trial configuration cannot be edited",
+      409,
+      "COMMERCIAL_TRIAL_NOT_EDITABLE",
+    );
+  }
+
+  // During the trial, edits are deliberately unlimited. Once the trial has
+  // ended, this narrow per-trial window only slows sustained editor abuse; it
+  // does not reserve capacity or affect another facility/tenant.
+  const now = Date.now();
+  if (isPostTrialEditable) {
+    const editWindowMs = 10 * 60 * 1000;
+    const recentUpdates = await db
+      .selectFrom("commercialTrialEvents")
+      .select(["createdAt", "metadata"])
+      .where("trialId", "=", trial.id)
+      .where("type", "=", "trial_configuration_updated")
+      .where("createdAt", ">=", now - editWindowMs)
+      .orderBy("createdAt", "asc")
+      .execute();
+    const limitedUpdates = recentUpdates.filter((event) => {
+      try {
+        const metadata = JSON.parse(event.metadata) as {
+          editPolicy?: string;
+        };
+        return metadata.editPolicy === "post_trial_limited";
+      } catch {
+        return false;
+      }
+    });
+    if (limitedUpdates.length >= 20) {
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil((limitedUpdates[0].createdAt + editWindowMs - now) / 1000),
+      );
+      throw domainError(
+        "Too many configuration edits",
+        429,
+        "COMMERCIAL_TRIAL_EDIT_COOLDOWN",
+        retryAfterSeconds,
+      );
+    }
+  }
   const update = {
     ...(input.facilityName !== undefined
       ? { facilityName: input.facilityName }
@@ -879,7 +933,7 @@ export async function updateCommercialTrial(
     ...(input.usesWaitlist !== undefined
       ? { usesWaitlist: input.usesWaitlist ? 1 : 0 }
       : {}),
-    updatedAt: Date.now(),
+    updatedAt: now,
   };
   await db
     .updateTable("commercialTrials")
@@ -889,12 +943,13 @@ export async function updateCommercialTrial(
   if (input.facilityName) {
     await db
       .updateTable("facilityProfiles")
-      .set({ name: input.facilityName, updatedAt: Date.now() })
+      .set({ name: input.facilityName, updatedAt: now })
       .where("id", "=", facilityId)
       .execute();
   }
   await recordEvent(trial.id, actorUserId, "trial_configuration_updated", {
     fields: Object.keys(input),
+    editPolicy: isPostTrialEditable ? "post_trial_limited" : "trial_unlimited",
   });
   return getCommercialTrialOverview(facilityId);
 }

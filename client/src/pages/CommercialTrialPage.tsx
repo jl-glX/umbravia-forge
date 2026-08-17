@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  AlertTriangle,
   Building2,
   CircleHelp,
   Database,
@@ -20,7 +21,6 @@ import {
   type ConversionOrigin,
   type CommercialTrialOverview,
 } from "../lib/commercial";
-import { VerifiedForm } from "../components/VerifiedForm";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -41,6 +41,22 @@ const emptyForm = {
   usesWaitlist: true,
 };
 
+type CommercialTrialErrorBody = {
+  error?: string;
+  code?: string;
+  retryAfterSeconds?: number;
+};
+
+class CommercialTrialRequestError extends Error {
+  constructor(
+    message: string,
+    readonly code?: string,
+    readonly retryAfterSeconds?: number,
+  ) {
+    super(message);
+  }
+}
+
 export function CommercialTrialPage() {
   const { t } = useTranslation();
   const [overview, setOverview] = useState<CommercialTrialOverview | null>(
@@ -53,15 +69,36 @@ export function CommercialTrialPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const formatRequestError = useCallback(
+    (cause: unknown) => {
+      if (cause instanceof CommercialTrialRequestError) {
+        if (cause.code === "COMMERCIAL_TRIALS_DISABLED")
+          return t("commercial.trial.errors.provisioningDisabled");
+        if (cause.code === "COMMERCIAL_TRIAL_EDIT_COOLDOWN")
+          return t("commercial.trial.errors.editCooldown", {
+            count: Math.max(1, Math.ceil((cause.retryAfterSeconds ?? 60) / 60)),
+          });
+        if (cause.code === "COMMERCIAL_TRIAL_NOT_EDITABLE")
+          return t("commercial.trial.errors.notEditable");
+      }
+      return cause instanceof Error ? cause.message : String(cause);
+    },
+    [t],
+  );
+
   const request = useCallback(
     async <T,>(path: string, init?: RequestInit): Promise<T> => {
       const response = await authFetch(path, {
         ...init,
         headers: { "Content-Type": "application/json", ...init?.headers },
       });
-      const body = await response.json();
+      const body = (await response.json()) as CommercialTrialErrorBody;
       if (!response.ok)
-        throw new Error(body.error ?? t("commercial.trial.requestFailed"));
+        throw new CommercialTrialRequestError(
+          body.error ?? t("commercial.trial.requestFailed"),
+          body.code,
+          body.retryAfterSeconds,
+        );
       return body as T;
     },
     [t],
@@ -101,11 +138,11 @@ export function CommercialTrialPage() {
       }
       setError("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(formatRequestError(cause));
     } finally {
       setLoading(false);
     }
-  }, [request]);
+  }, [formatRequestError, request]);
 
   useEffect(() => void load(), [load]);
 
@@ -134,7 +171,7 @@ export function CommercialTrialPage() {
       );
       setError("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(formatRequestError(cause));
     } finally {
       setSaving(false);
     }
@@ -149,7 +186,7 @@ export function CommercialTrialPage() {
       });
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(formatRequestError(cause));
     } finally {
       setSaving(false);
     }
@@ -172,7 +209,7 @@ export function CommercialTrialPage() {
       }
       setError("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(formatRequestError(cause));
     } finally {
       setSaving(false);
     }
@@ -195,7 +232,7 @@ export function CommercialTrialPage() {
       );
       setError("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(formatRequestError(cause));
     }
   };
 
@@ -210,7 +247,7 @@ export function CommercialTrialPage() {
       );
       setError("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(formatRequestError(cause));
     } finally {
       setSaving(false);
     }
@@ -239,7 +276,18 @@ export function CommercialTrialPage() {
           {t("commercial.trial.description")}
         </p>
         {error && (
-          <p className="mt-5 rounded-xl bg-red-50 p-4 text-red-700">{error}</p>
+          <div
+            role="alert"
+            className="mt-5 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800 shadow-sm"
+          >
+            <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+            <div>
+              <p className="font-semibold">
+                {t("commercial.trial.errors.title")}
+              </p>
+              <p className="mt-1 text-sm leading-6">{error}</p>
+            </div>
+          </div>
         )}
         {overview && (
           <Card className="mt-8 border-blue-200 bg-blue-50 p-6 md:p-8">
@@ -427,15 +475,23 @@ export function CommercialTrialPage() {
         )}
         {(!overview ||
           overview.trial.status === "trial_active" ||
-          overview.trial.status === "trial_expired") && (
+          overview.trial.status === "trial_expired" ||
+          overview.trial.status === "trial_converted") && (
           <Card className="mt-8 p-6 md:p-8">
-            <VerifiedForm onSubmit={submit} className="space-y-6">
+            <form onSubmit={submit} className="space-y-6">
               <div className="flex items-center gap-3">
                 <Building2 className="text-blue-700" />
                 <h2 className="text-xl font-bold">
                   {t("commercial.trial.centreData")}
                 </h2>
               </div>
+              <p className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+                {t(
+                  overview?.trial.status === "trial_active"
+                    ? "commercial.trial.editPolicy.trial"
+                    : "commercial.trial.editPolicy.afterTrial",
+                )}
+              </p>
               <div className="grid gap-5 md:grid-cols-2">
                 <div>
                   <Label htmlFor="facilityName">
@@ -589,7 +645,7 @@ export function CommercialTrialPage() {
                   ? t("commercial.trial.save")
                   : t("commercial.trial.create")}
               </Button>
-            </VerifiedForm>
+            </form>
           </Card>
         )}
       </div>

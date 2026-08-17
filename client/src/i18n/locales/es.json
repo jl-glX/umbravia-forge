@@ -640,6 +640,10 @@
     },
     "facilityName": "Nombre del centro",
     "facilityType": "Tipo de centro",
+    "initialFacilityTitle": "Configura primero tu centro",
+    "initialFacilityDescription": "Estos ajustes iniciales preparan la plantilla de tu centro. Podrás editarlos libremente desde el área de cuenta durante el periodo de prueba.",
+    "accountDetailsTitle": "Datos de la cuenta",
+    "accountDetailsDescription": "Completa ahora los datos de la persona que administrará el centro.",
     "administratorTrialNotice": "El centro y su prueba de 31 días se crearán únicamente después de verificar el correo. Hasta entonces no ocuparán un tenant ni contarán como actividad real.",
     "fullName": "Nombre completo",
     "confirmPassword": "Confirmar contraseña",
@@ -1826,6 +1830,17 @@
       "description": "Usa una plantilla como punto de partida. Todos los datos opcionales se pueden completar o cambiar más tarde.",
       "centreData": "Datos del centro",
       "requestFailed": "No se ha podido completar la operación",
+      "errors": {
+        "title": "No se ha podido guardar la configuración",
+        "provisioningDisabled": "La creación de nuevos centros de prueba no está habilitada en este momento. La configuración de un centro existente sigue disponible desde el área de cuenta.",
+        "editCooldown_one": "Has realizado muchas ediciones seguidas. Espera aproximadamente {{count}} minuto antes de volver a guardar.",
+        "editCooldown_other": "Has realizado muchas ediciones seguidas. Espera aproximadamente {{count}} minutos antes de volver a guardar.",
+        "notEditable": "Este centro ya no admite cambios de configuración en su estado actual."
+      },
+      "editPolicy": {
+        "trial": "Durante el periodo de prueba puedes editar esta configuración tantas veces como necesites.",
+        "afterTrial": "Fuera del periodo de prueba puedes seguir editando con normalidad. Solo se aplicará una pausa temporal si se detectan muchas modificaciones seguidas."
+      },
       "provisionalAddress": "Dirección provisional",
       "create": "Guardar configuración",
       "save": "Guardar cambios",

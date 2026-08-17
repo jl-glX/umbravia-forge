@@ -5,6 +5,7 @@ interface RequestError extends Error {
   statusCode?: number;
   type?: string;
   code?: string;
+  retryAfterSeconds?: number;
 }
 
 export function notFoundHandler(_req: Request, res: Response): void {
@@ -53,8 +54,15 @@ export function errorHandler(
       : safeStatusCode < 500
         ? "REQUEST_ERROR"
         : "INTERNAL_ERROR";
+  const retryAfterSeconds = Number.isFinite(error.retryAfterSeconds)
+    ? Math.max(1, Math.ceil(error.retryAfterSeconds!))
+    : undefined;
+  if (safeStatusCode === 429 && retryAfterSeconds !== undefined) {
+    res.setHeader("Retry-After", retryAfterSeconds.toString());
+  }
   res.status(safeStatusCode).json({
     error: safeStatusCode < 500 ? error.message : "Internal server error",
     code: publicCode,
+    ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
   });
 }

@@ -13,7 +13,6 @@ import {
   requireFacility,
   selectFacilityContext,
 } from "../middleware/authorization.js";
-import { requireRecentFormVerification } from "../middleware/form-verification.js";
 import {
   commercialConversionDraftValidation,
   commercialRequestValidation,
@@ -36,6 +35,25 @@ import {
 
 export const commercialRouter = express.Router();
 
+function requireCommercialProvisioningEnabled(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.COMMERCIAL_TRIALS_ENABLED !== "true"
+  ) {
+    res.status(503).json({
+      error: "Commercial trial provisioning is not enabled",
+      code: "COMMERCIAL_TRIALS_DISABLED",
+    });
+    return;
+  }
+
+  next();
+}
+
 commercialRouter.get("/", (_req, res) => {
   res.json({
     ...commercialFoundation,
@@ -50,27 +68,12 @@ commercialRouter.get("/", (_req, res) => {
   });
 });
 
-commercialRouter.use("/trial", (_req, res, next) => {
-  if (
-    process.env.NODE_ENV === "production" &&
-    process.env.COMMERCIAL_TRIALS_ENABLED !== "true"
-  ) {
-    res.status(503).json({
-      error: "Commercial trial provisioning is not enabled",
-      code: "COMMERCIAL_TRIALS_DISABLED",
-    });
-    return;
-  }
-  next();
-});
-
 commercialRouter.use(
   "/trial",
   authenticate,
   selectFacilityContext,
   requireFacility("owner", "admin"),
 );
-commercialRouter.use("/trial", requireRecentFormVerification);
 
 commercialRouter.get("/trial", async (_req, res, next) => {
   try {
@@ -102,6 +105,7 @@ commercialRouter.post(
 
 commercialRouter.post(
   "/trial",
+  requireCommercialProvisioningEnabled,
   createCommercialTrialValidation,
   async (req: Request, res: Response, next: NextFunction) => {
     try {

@@ -290,6 +290,10 @@
     },
     "facilityName": "Name des Studios",
     "facilityType": "Art des Studios",
+    "initialFacilityTitle": "Zuerst das Studio konfigurieren",
+    "initialFacilityDescription": "Diese Anfangseinstellungen bereiten die Vorlage des Studios vor. Während der Testphase können sie im Kontobereich frei bearbeitet werden.",
+    "accountDetailsTitle": "Kontodaten",
+    "accountDetailsDescription": "Ergänzen Sie nun die Daten der Person, die das Studio verwalten wird.",
     "administratorTrialNotice": "Das Studio und seine 31-tägige Testphase werden erst nach der E-Mail-Bestätigung erstellt. Bis dahin belegen sie keinen Mandanten und zählen nicht als echte Aktivität."
   },
   "home": {
@@ -1829,6 +1833,17 @@
       "description": "Eine Vorlage als Ausgangspunkt verwenden. Optionale Angaben können später ergänzt oder geändert werden.",
       "centreData": "Zentrumsdaten",
       "requestFailed": "Der Vorgang konnte nicht abgeschlossen werden",
+      "errors": {
+        "title": "Die Konfiguration konnte nicht gespeichert werden",
+        "provisioningDisabled": "Die Erstellung neuer Testzentren ist derzeit nicht aktiviert. Ein bestehendes Zentrum kann weiterhin im Kontobereich bearbeitet werden.",
+        "editCooldown_one": "Du hast viele Änderungen direkt hintereinander vorgenommen. Warte etwa {{count}} Minute, bevor du erneut speicherst.",
+        "editCooldown_other": "Du hast viele Änderungen direkt hintereinander vorgenommen. Warte etwa {{count}} Minuten, bevor du erneut speicherst.",
+        "notEditable": "Dieses Zentrum erlaubt in seinem aktuellen Status keine Konfigurationsänderungen mehr."
+      },
+      "editPolicy": {
+        "trial": "Während des Testzeitraums kannst du diese Konfiguration beliebig oft bearbeiten.",
+        "afterTrial": "Ausserhalb des Testzeitraums kannst du normal weiterarbeiten. Eine vorübergehende Pause wird nur bei sehr vielen Änderungen direkt hintereinander angewendet."
+      },
       "provisionalAddress": "Vorläufige Adresse",
       "create": "Konfiguration speichern",
       "save": "Änderungen speichern",

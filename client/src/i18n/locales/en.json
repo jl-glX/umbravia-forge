@@ -632,6 +632,10 @@
     },
     "facilityName": "Facility name",
     "facilityType": "Facility type",
+    "initialFacilityTitle": "Configure your facility first",
+    "initialFacilityDescription": "These initial settings prepare your facility template. You can edit them freely from the account area during the trial period.",
+    "accountDetailsTitle": "Account details",
+    "accountDetailsDescription": "Now complete the details of the person who will administer the facility.",
     "administratorTrialNotice": "The facility and its 31-day trial are created only after email verification. Until then they do not occupy a tenant or count as real activity.",
     "fullName": "Full name",
     "confirmPassword": "Confirm password",
@@ -1812,6 +1816,17 @@
       "description": "Use a template as a starting point. Every optional detail can be completed or changed later.",
       "centreData": "Centre details",
       "requestFailed": "The operation could not be completed",
+      "errors": {
+        "title": "The configuration could not be saved",
+        "provisioningDisabled": "New trial centre creation is not enabled right now. You can still edit an existing centre from the account area.",
+        "editCooldown_one": "You have made many consecutive edits. Wait about {{count}} minute before saving again.",
+        "editCooldown_other": "You have made many consecutive edits. Wait about {{count}} minutes before saving again.",
+        "notEditable": "This centre no longer accepts configuration changes in its current state."
+      },
+      "editPolicy": {
+        "trial": "During the trial period, you can edit this configuration as often as needed.",
+        "afterTrial": "Outside the trial period, you can continue editing normally. A temporary pause is applied only when many consecutive changes are detected."
+      },
       "provisionalAddress": "Provisional address",
       "create": "Save setup",
       "save": "Save changes",

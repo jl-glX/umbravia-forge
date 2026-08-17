@@ -200,7 +200,13 @@ export function SignupPage() {
               </fieldset>
 
               {formData.accountType === "administrator" ? (
-                <>
+                <fieldset className="space-y-4 rounded-2xl border border-orange-200 bg-orange-50/60 p-4">
+                  <legend className="px-2 text-sm font-semibold text-slate-950">
+                    {t("auth.initialFacilityTitle")}
+                  </legend>
+                  <p className="text-sm leading-6 text-slate-600">
+                    {t("auth.initialFacilityDescription")}
+                  </p>
                   <div className="space-y-2">
                     <Label htmlFor="facilityName">
                       {t("auth.facilityName")}
@@ -254,8 +260,17 @@ export function SignupPage() {
                   <p className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-950">
                     {t("auth.administratorTrialNotice")}
                   </p>
-                </>
+                </fieldset>
               ) : null}
+
+              <div className="border-t border-slate-200 pt-4">
+                <p className="text-sm font-semibold text-slate-950">
+                  {t("auth.accountDetailsTitle")}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  {t("auth.accountDetailsDescription")}
+                </p>
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-slate-700">
