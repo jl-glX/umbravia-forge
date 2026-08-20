@@ -39,7 +39,10 @@ describe("PostgreSQL migrations", () => {
   });
 
   it("keeps legacy activity identifiers out of the resulting schema", () => {
-    const activityMigration = postgresMigrationSql().at(-1) ?? "";
+    const activityMigration =
+      postgresMigrationSql().find((sql) =>
+        sql.includes('RENAME TO "activitySessions"'),
+      ) ?? "";
 
     expect(activityMigration).toContain('ALTER TABLE "gymClasses"');
     expect(activityMigration).toContain('RENAME TO "activitySessions"');

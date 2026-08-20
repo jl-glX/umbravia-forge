@@ -2042,6 +2042,45 @@ BEGIN
 END $$;
 `,
   },
+  {
+    version: 32,
+    name: "stripe-commercial-subscriptions",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "facilityCommercialSubscriptions" (
+  "facilityId" TEXT PRIMARY KEY REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "stripeCustomerId" TEXT UNIQUE,
+  "stripeSubscriptionId" TEXT UNIQUE,
+  "stripePriceId" TEXT,
+  "planKey" TEXT CHECK ("planKey" IS NULL OR "planKey" IN ('monthly', 'annual')),
+  "status" TEXT NOT NULL DEFAULT 'inactive' CHECK ("status" IN (
+    'inactive', 'checkout_pending', 'trialing', 'active', 'past_due',
+    'unpaid', 'paused', 'canceled', 'incomplete', 'incomplete_expired'
+  )),
+  "currentPeriodEnd" BIGINT,
+  "cancelAtPeriodEnd" INTEGER NOT NULL DEFAULT 0 CHECK ("cancelAtPeriodEnd" IN (0, 1)),
+  "lastStripeEventCreatedAt" BIGINT,
+  "lastStripeEventId" TEXT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS "idx_facilityCommercialSubscriptions_status"
+  ON "facilityCommercialSubscriptions" ("status", "currentPeriodEnd");
+
+CREATE TABLE IF NOT EXISTS "stripeWebhookEvents" (
+  "eventId" TEXT PRIMARY KEY,
+  "eventType" TEXT NOT NULL,
+  "facilityId" TEXT REFERENCES "facilityProfiles" ("id") ON DELETE SET NULL,
+  "stripeCreatedAt" BIGINT NOT NULL,
+  "livemode" INTEGER NOT NULL CHECK ("livemode" IN (0, 1)),
+  "receivedAt" BIGINT NOT NULL,
+  "processedAt" BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS "idx_stripeWebhookEvents_received"
+  ON "stripeWebhookEvents" ("receivedAt" DESC);
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

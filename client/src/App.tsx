@@ -152,6 +152,10 @@ const CommercialTrialPage = lazyPage(
   () => import("./pages/CommercialTrialPage"),
   "CommercialTrialPage",
 );
+const CommercialSubscriptionPage = lazyPage(
+  () => import("./pages/CommercialSubscriptionPage"),
+  "CommercialSubscriptionPage",
+);
 const SessionContentPage = lazyPage(
   () => import("./pages/SessionContentPage"),
   "SessionContentPage",
@@ -473,6 +477,14 @@ function AppContent() {
             element={
               <ProtectedRoute requiredRole="admin">
                 <CommercialTrialPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/subscription"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <CommercialSubscriptionPage />
               </ProtectedRoute>
             }
           />

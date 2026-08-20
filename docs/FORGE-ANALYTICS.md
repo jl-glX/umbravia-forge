@@ -90,9 +90,10 @@ resultados sigue sin demostrar por sí sola la causa del comportamiento.
 
 ## Frontera comercial
 
-La base técnica no concede ni revoca productos. La futura integración de
-Stripe será autoridad de cobro y un servicio separado de permisos comerciales
-traducirá el estado de la suscripción a capacidades del centro.
+Stripe Billing ya es la autoridad técnica del cobro de la suscripción SaaS en
+modo Test. El servicio separado de permisos comerciales traduce estados
+firmados de suscripción o una prueba comercial vigente a capacidades del
+centro; Analytics y CRM no conceden ni revocan productos.
 
 Una división inicial razonable es:
 
@@ -102,10 +103,11 @@ Una división inicial razonable es:
 - acceso de entrenadores incluido en la suscripción del centro y limitado a
   sus propias clases.
 
-No se debe simular una suscripción activa ni introducir una barrera de pago
-antes de disponer de precios, impuestos, facturación, renovaciones, reembolsos,
-webhooks idempotentes y una política de degradación cuando Stripe no esté
-disponible.
+No se debe simular una suscripción activa. Checkout selecciona Prices del
+servidor, el portal delega la gestión al Customer de Stripe y los webhooks son
+firmados e idempotentes. La aplicación efectiva de barreras a rutas concretas
+continúa siendo una decisión de producto; impuestos automáticos, Live,
+reembolsos y cobros a socios siguen fuera del alcance actual.
 
 ## Evolución prevista
 
@@ -113,7 +115,8 @@ disponible.
    piloto.
 2. Validar y observar la historia transaccional y los umbrales de privacidad en
    un PostgreSQL autorizado antes de ampliar los periodos disponibles.
-3. Crear permisos comerciales independientes de la analítica.
+3. Conectar cada ruta comercial aprobada al servicio de permisos independiente
+   ya disponible y validar la degradación con Stripe indisponible.
 4. Separar cargas pesadas en un almacén de lectura antes de habilitar
    históricos largos, cohortes, soporte técnico y Crashnalytics.
 

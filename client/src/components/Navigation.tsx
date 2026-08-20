@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Timer,
   UsersRound,
+  WalletCards,
   X,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -249,6 +250,17 @@ export function Navigation() {
 
             {accessRole === "admin" && (
               <>
+                <Link
+                  to="/admin/subscription"
+                  className={`${navLinkClass} ${
+                    isActive("/admin/subscription")
+                      ? activeClass
+                      : inactiveClass
+                  }`}
+                >
+                  <WalletCards size={20} />
+                  <span>{t("nav.subscription")}</span>
+                </Link>
                 <Link
                   to="/admin/commercial-trial"
                   className={`${navLinkClass} ${
