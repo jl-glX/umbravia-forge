@@ -209,9 +209,11 @@ export async function createManagedEnvironment(
         try {
           environmentDatabase
             .prepare(
-              "UPDATE facilityProfiles SET name = ?, updatedAt = ? WHERE id = 'primary'",
+              `INSERT INTO facilityProfiles
+               (id, slug, name, logoDataUrl, accentColor, status, createdAt, updatedAt)
+               VALUES (?, ?, ?, '', '#2563eb', 'active', ?, ?)`,
             )
-            .run(name, now);
+            .run(`facility-${slug}`, slug, name, now, now);
         } finally {
           environmentDatabase.close();
         }

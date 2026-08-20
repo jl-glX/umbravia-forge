@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("class tenant isolation", () => {
   let directory: string;
@@ -21,6 +22,9 @@ describe("class tenant isolation", () => {
     await database.initializeDatabase();
 
     const now = Date.now();
+    await createActiveTestFacility(database.db, "facility-alpha", {
+      createdAt: now,
+    });
     await database.db
       .insertInto("facilityProfiles")
       .values({
@@ -65,8 +69,8 @@ describe("class tenant isolation", () => {
       .insertInto("facilityMemberships")
       .values([
         {
-          id: "primary:tenant-admin",
-          facilityId: "primary",
+          id: "facility-alpha:tenant-admin",
+          facilityId: "facility-alpha",
           userId: "tenant-admin",
           role: "owner",
           status: "active",
@@ -83,8 +87,8 @@ describe("class tenant isolation", () => {
           updatedAt: now + 1,
         },
         {
-          id: "primary:tenant-member",
-          facilityId: "primary",
+          id: "facility-alpha:tenant-member",
+          facilityId: "facility-alpha",
           userId: "tenant-member",
           role: "member",
           status: "active",
@@ -106,8 +110,8 @@ describe("class tenant isolation", () => {
       .insertInto("activitySessions")
       .values([
         {
-          id: "primary-class",
-          facilityId: "primary",
+          id: "facility-alpha-class",
+          facilityId: "facility-alpha",
           name: "Primary class",
           description: "",
           trainerId: "tenant-admin",
@@ -131,8 +135,8 @@ describe("class tenant isolation", () => {
       .insertInto("bookings")
       .values([
         {
-          id: "primary-booking",
-          activitySessionId: "primary-class",
+          id: "facility-alpha-booking",
+          activitySessionId: "facility-alpha-class",
           userId: "tenant-member",
           status: "confirmed",
           createdAt: now,
@@ -175,12 +179,12 @@ describe("class tenant isolation", () => {
   });
 
   it("lists only classes owned by the selected facility", async () => {
-    const primary = await request(app)
+    const facility_alpha = await request(app)
       .get("/api/activity-sessions")
       .set("Cookie", adminCookie)
       .expect(200);
-    expect(primary.body.map((item: { id: string }) => item.id)).toEqual([
-      "primary-class",
+    expect(facility_alpha.body.map((item: { id: string }) => item.id)).toEqual([
+      "facility-alpha-class",
     ]);
 
     const secondary = await request(app)
@@ -204,19 +208,19 @@ describe("class tenant isolation", () => {
       '</api/activity-sessions>; rel="successor-version"',
     );
     expect(legacy.body.map((item: { id: string }) => item.id)).toEqual([
-      "primary-class",
+      "facility-alpha-class",
     ]);
   });
 
   it("rejects cross-facility class reads and writes", async () => {
     await request(app)
-      .get("/api/activity-sessions/primary-class")
+      .get("/api/activity-sessions/facility-alpha-class")
       .set("Cookie", adminCookie)
       .set("X-Facility-Id", "secondary")
       .expect(403);
 
     await request(app)
-      .get("/api/admin/activity-sessions/primary-class")
+      .get("/api/admin/activity-sessions/facility-alpha-class")
       .set("Cookie", adminCookie)
       .set("X-Facility-Id", "secondary")
       .expect(404);
@@ -249,9 +253,9 @@ describe("class tenant isolation", () => {
     await database.db
       .insertInto("activitySessions")
       .values({
-        id: "empty-primary-class",
-        facilityId: "primary",
-        name: "Empty primary class",
+        id: "empty-facility_alpha-class",
+        facilityId: "facility-alpha",
+        name: "Empty facility_alpha class",
         description: "",
         trainerId: "tenant-admin",
         trainerName: "Tenant Admin",
@@ -261,7 +265,7 @@ describe("class tenant isolation", () => {
       .execute();
 
     const protectedResponse = await request(app)
-      .delete("/api/admin/activity-sessions/primary-class")
+      .delete("/api/admin/activity-sessions/facility-alpha-class")
       .set("Cookie", adminCookie)
       .expect(409);
     expect(protectedResponse.body).toMatchObject({
@@ -272,12 +276,17 @@ describe("class tenant isolation", () => {
     const batch = await request(app)
       .post("/api/admin/activity-sessions/batch-delete")
       .set("Cookie", adminCookie)
-      .send({ activitySessionIds: ["primary-class", "empty-primary-class"] })
+      .send({
+        activitySessionIds: [
+          "facility-alpha-class",
+          "empty-facility_alpha-class",
+        ],
+      })
       .expect(200);
-    expect(batch.body.deletedIds).toEqual(["empty-primary-class"]);
+    expect(batch.body.deletedIds).toEqual(["empty-facility_alpha-class"]);
     expect(batch.body.failed).toEqual([
       expect.objectContaining({
-        id: "primary-class",
+        id: "facility-alpha-class",
         code: "CLASS_DELETION_REQUIRES_REVIEW",
       }),
     ]);
@@ -286,14 +295,14 @@ describe("class tenant isolation", () => {
       await database.db
         .selectFrom("bookings")
         .select("id")
-        .where("id", "=", "primary-booking")
+        .where("id", "=", "facility-alpha-booking")
         .executeTakeFirst(),
     ).toBeTruthy();
   });
 
   it("rejects insecure session media links before storing content", async () => {
     const response = await request(app)
-      .put("/api/activity-sessions/primary-class/session-content")
+      .put("/api/activity-sessions/facility-alpha-class/session-content")
       .set("Cookie", adminCookie)
       .send({
         terminology: "Training plan",
@@ -328,12 +337,12 @@ describe("class tenant isolation", () => {
   });
 
   it("derives booking isolation from the owning class", async () => {
-    const primary = await request(app)
+    const facility_alpha = await request(app)
       .get("/api/bookings/user/tenant-member")
       .set("Cookie", memberCookie)
       .expect(200);
-    expect(primary.body.map((item: { id: string }) => item.id)).toEqual([
-      "primary-booking",
+    expect(facility_alpha.body.map((item: { id: string }) => item.id)).toEqual([
+      "facility-alpha-booking",
     ]);
 
     const secondary = await request(app)
@@ -363,7 +372,7 @@ describe("class tenant isolation", () => {
     const reputation = await import("../services/booking-reputation.js");
     await reputation.adjustBookingReputation({
       userId: "tenant-member",
-      facilityId: "primary",
+      facilityId: "facility-alpha",
       pointsDelta: -5,
       reason: "Primary tenant check",
     });
@@ -374,11 +383,11 @@ describe("class tenant isolation", () => {
       reason: "Secondary tenant check",
     });
 
-    const primary = await request(app)
+    const facility_alpha = await request(app)
       .get("/api/bookings/reputation/tenant-member")
       .set("Cookie", memberCookie)
       .expect(200);
-    expect(primary.body).toMatchObject({ score: 95 });
+    expect(facility_alpha.body).toMatchObject({ score: 95 });
 
     const secondary = await request(app)
       .get("/api/bookings/reputation/tenant-member")

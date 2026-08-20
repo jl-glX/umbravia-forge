@@ -20,7 +20,6 @@ import {
 } from "../lib/legal-versions.js";
 import { completeAccountRecovery } from "./account-recovery.js";
 import {
-  ensurePrimaryCompatibilityMembership,
   type FacilityContext,
   isPlatformOperator,
   resolveFacilityContext,
@@ -268,9 +267,6 @@ export async function signup(
     }
   });
 
-  if (!administratorSignup) {
-    await ensurePrimaryCompatibilityMembership(user.id, user.role, createdAt);
-  }
   await ensureSupportIdentifier(user.id);
   return createSession(user, metadata);
 }

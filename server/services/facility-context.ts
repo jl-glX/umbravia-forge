@@ -1,8 +1,6 @@
 import { db } from "../db/client.js";
 import type { FacilityRole } from "../db/types.js";
 
-export const PRIMARY_FACILITY_ID = "primary";
-
 export interface FacilityContext {
   id: string;
   slug: string;
@@ -15,54 +13,6 @@ export class FacilityAccessDeniedError extends Error {
     super("The requested facility is not available to this account");
     this.name = "FacilityAccessDeniedError";
   }
-}
-
-function facilityRoleForLegacyRole(
-  role: "member" | "trainer" | "admin",
-): Exclude<FacilityRole, "owner"> {
-  return role;
-}
-
-export async function ensurePrimaryCompatibilityMembership(
-  userId: string,
-  legacyRole: "member" | "trainer" | "admin",
-  createdAt = Date.now(),
-): Promise<void> {
-  const existing = await db
-    .selectFrom("facilityMemberships")
-    .select("id")
-    .where("facilityId", "=", PRIMARY_FACILITY_ID)
-    .where("userId", "=", userId)
-    .executeTakeFirst();
-  if (existing) return;
-
-  let role: FacilityRole = facilityRoleForLegacyRole(legacyRole);
-  if (legacyRole === "admin") {
-    const owner = await db
-      .selectFrom("facilityMemberships")
-      .select("id")
-      .where("facilityId", "=", PRIMARY_FACILITY_ID)
-      .where("role", "=", "owner")
-      .where("status", "=", "active")
-      .executeTakeFirst();
-    if (!owner) role = "owner";
-  }
-
-  await db
-    .insertInto("facilityMemberships")
-    .values({
-      id: `${PRIMARY_FACILITY_ID}:${userId}`,
-      facilityId: PRIMARY_FACILITY_ID,
-      userId,
-      role,
-      status: "active",
-      createdAt,
-      updatedAt: createdAt,
-    })
-    .onConflict((conflict) =>
-      conflict.columns(["facilityId", "userId"]).doNothing(),
-    )
-    .execute();
 }
 
 export async function listFacilityContexts(
@@ -90,15 +40,13 @@ export async function listFacilityContexts(
 }
 
 export async function isPlatformOperator(userId: string): Promise<boolean> {
-  const membership = await db
-    .selectFrom("facilityMemberships")
-    .select("id")
-    .where("facilityId", "=", PRIMARY_FACILITY_ID)
+  const operator = await db
+    .selectFrom("platformOperators")
+    .select("userId")
     .where("userId", "=", userId)
-    .where("role", "in", ["owner", "admin"])
     .where("status", "=", "active")
     .executeTakeFirst();
-  return Boolean(membership);
+  return Boolean(operator);
 }
 
 export async function resolveFacilityContext(

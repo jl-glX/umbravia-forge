@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  createActivePlatformOperator,
+  createActiveTestFacility,
+} from "../testing/facility-fixtures.js";
 
 describe("security manager API", () => {
   let directory: string;
@@ -75,12 +79,13 @@ describe("security manager API", () => {
         updatedAt: Date.now(),
       })
       .execute();
+    await createActiveTestFacility(database.db, "facility-alpha");
     await database.db
       .insertInto("facilityMemberships")
       .values([
         {
-          id: "primary:security-manager-admin",
-          facilityId: "primary",
+          id: "facility-alpha:security-manager-admin",
+          facilityId: "facility-alpha",
           userId: "security-manager-admin",
           role: "owner",
           status: "active",
@@ -98,6 +103,7 @@ describe("security manager API", () => {
         },
       ])
       .execute();
+    await createActivePlatformOperator(database.db, "security-manager-admin");
     await database.db
       .insertInto("securityEvents")
       .values({

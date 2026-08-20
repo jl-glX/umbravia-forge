@@ -9,6 +9,24 @@ de claves.
 El estado vivo prevalece siempre sobre este documento y sobre cualquier
 historial de trabajo.
 
+## Continuidad del cambio activo — 20 de agosto de 2026
+
+- El código activo ya no crea ni reconoce un centro implícito o privilegiado.
+  Las rutas de tenant exigen un perfil y una membresía activos; los permisos de
+  plataforma usan `platformOperators`, aprovisionado de forma controlada.
+- Los perfiles de compatibilidad heredados quedan cerrados y con sus membresías
+  suspendidas, conservando el identificador original para trazabilidad. Los
+  backfills actuales sin destino usan `legacy-import-quarantine`, también
+  cerrado. Antes de trasladar esos datos debe revisarse su propiedad; ninguno
+  de esos ámbitos es un tenant operativo ni una vía de autorización.
+- La base de Stripe sigue limitada a Test. Checkout, portal y webhooks firmados
+  están implementados; el ciclo registra la sesión vigente y descarta cambios
+  procedentes de intentos antiguos. No se han configurado Prices, impuestos,
+  credenciales ni endpoints Live desde el repositorio.
+- Las migraciones y pruebas del repositorio no demuestran que una base
+  PostgreSQL externa se haya migrado. Siguen pendientes la copia/restauración y
+  la validación cruzada en un entorno autorizado antes de producción.
+
 ## Fuentes y orden de autoridad
 
 Antes de intervenir, contrastar las fuentes en este orden:

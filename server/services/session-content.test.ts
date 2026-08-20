@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+const FACILITY_ID = "facility-session-content";
+
 describe("class session content", () => {
   let directory: string;
   let database: typeof import("../db/client.js");
@@ -16,6 +18,7 @@ describe("class session content", () => {
     database = await import("../db/client.js");
     sessions = await import("./session-content.js");
     await database.initializeDatabase();
+    const now = Date.now();
     await database.db
       .insertInto("users")
       .values({
@@ -31,8 +34,21 @@ describe("class session content", () => {
       })
       .execute();
     await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: FACILITY_ID,
+        slug: "session-content",
+        name: "Session content",
+        logoDataUrl: "",
+        accentColor: "#f97316",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "content-class",
         name: "Strength session",
         description: "",

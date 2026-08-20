@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  createActivePlatformOperator,
+  createActiveTestFacility,
+} from "../testing/facility-fixtures.js";
 
 describe("resource manager API", () => {
   let directory: string;
@@ -50,11 +54,12 @@ describe("resource manager API", () => {
         },
       ])
       .execute();
+    await createActiveTestFacility(database.db, "facility-alpha");
     await database.db
       .insertInto("facilityMemberships")
       .values({
-        id: "primary:resources-admin",
-        facilityId: "primary",
+        id: "facility-alpha:resources-admin",
+        facilityId: "facility-alpha",
         userId: "resources-admin",
         role: "owner",
         status: "active",
@@ -62,6 +67,7 @@ describe("resource manager API", () => {
         updatedAt: Date.now(),
       })
       .execute();
+    await createActivePlatformOperator(database.db, "resources-admin");
 
     app = (await import("../index.js")).app;
     const adminLogin = await request(app).post("/api/auth/login").send({

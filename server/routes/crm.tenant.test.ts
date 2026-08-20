@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("CRM route authorization and tenant isolation", () => {
   let directory: string;
@@ -20,6 +21,10 @@ describe("CRM route authorization and tenant isolation", () => {
     database = await import("../db/client.js");
     const auth = await import("../services/auth.js");
     await database.initializeDatabase();
+
+    await createActiveTestFacility(database.db, "facility-alpha", {
+      createdAt: now,
+    });
 
     await database.db
       .insertInto("facilityProfiles")
@@ -64,8 +69,8 @@ describe("CRM route authorization and tenant isolation", () => {
           createdAt: now,
         },
         {
-          id: "crm-route-primary-member",
-          email: "crm-route-primary-member@example.com",
+          id: "crm-route-facility_alpha-member",
+          email: "crm-route-facility_alpha-member@example.com",
           phone: null,
           name: "Primary Member",
           accountStatus: "active",
@@ -95,8 +100,8 @@ describe("CRM route authorization and tenant isolation", () => {
       .insertInto("facilityMemberships")
       .values([
         {
-          id: "primary:crm-route-admin",
-          facilityId: "primary",
+          id: "facility-alpha:crm-route-admin",
+          facilityId: "facility-alpha",
           userId: "crm-route-admin",
           role: "owner",
           status: "active",
@@ -122,9 +127,9 @@ describe("CRM route authorization and tenant isolation", () => {
           updatedAt: now,
         },
         {
-          id: "primary:crm-route-primary-member",
-          facilityId: "primary",
-          userId: "crm-route-primary-member",
+          id: "facility-alpha:crm-route-facility_alpha-member",
+          facilityId: "facility-alpha",
+          userId: "crm-route-facility_alpha-member",
           role: "member",
           status: "active",
           createdAt: now,
@@ -187,13 +192,13 @@ describe("CRM route authorization and tenant isolation", () => {
       expect.objectContaining({ userId: "crm-route-secondary-member" }),
     ]);
     expect(JSON.stringify(response.body)).not.toContain(
-      "crm-route-primary-member",
+      "crm-route-facility_alpha-member",
     );
   });
 
   it("does not update a member from another facility", async () => {
     const response = await request(app)
-      .patch("/api/crm/members/crm-route-primary-member")
+      .patch("/api/crm/members/crm-route-facility_alpha-member")
       .set("Cookie", adminCookie)
       .set("X-Facility-Id", "crm-route-secondary")
       .send({ manualSegment: "attention" })

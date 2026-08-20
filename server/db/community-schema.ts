@@ -119,7 +119,7 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
 
     CREATE TABLE IF NOT EXISTS parentalControls (
       id TEXT PRIMARY KEY,
-      facilityId TEXT NOT NULL DEFAULT 'primary',
+      facilityId TEXT NOT NULL,
       childUserId TEXT NOT NULL,
       guardianUserId TEXT NOT NULL,
       settings TEXT NOT NULL DEFAULT '{}',
@@ -137,7 +137,7 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
       reporterUserId TEXT NOT NULL,
       subjectUserId TEXT,
       messageId TEXT,
-      facilityId TEXT NOT NULL DEFAULT 'primary',
+      facilityId TEXT NOT NULL,
       category TEXT NOT NULL,
       description TEXT NOT NULL,
       evidence TEXT NOT NULL DEFAULT '[]',
@@ -204,7 +204,7 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
       ALTER TABLE parentalControls RENAME TO parentalControlsLegacy;
       CREATE TABLE parentalControls (
         id TEXT PRIMARY KEY,
-        facilityId TEXT NOT NULL DEFAULT 'primary',
+        facilityId TEXT NOT NULL,
         childUserId TEXT NOT NULL,
         guardianUserId TEXT NOT NULL,
         settings TEXT NOT NULL DEFAULT '{}',
@@ -220,7 +220,7 @@ export function initializeCommunitySchema(sqliteDb: Database.Database) {
         id, facilityId, childUserId, guardianUserId, settings, status,
         createdAt, updatedAt
       )
-      SELECT id, 'primary', childUserId, guardianUserId, settings, status,
+      SELECT id, 'legacy-import-quarantine', childUserId, guardianUserId, settings, status,
              createdAt, updatedAt
       FROM parentalControlsLegacy;
       DROP TABLE parentalControlsLegacy;

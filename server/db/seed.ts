@@ -1,8 +1,9 @@
 import { db } from "./client.js";
 import { hashPassword } from "../services/auth.js";
 import { ensureSupportIdentifier } from "../services/support-identifiers.js";
-import { ensurePrimaryCompatibilityMembership } from "../services/facility-context.js";
 import { recordBookingAnalyticsEvent } from "../services/booking-analytics-events.js";
+
+const DEMO_FACILITY_ID = "facility-demo-centre";
 
 const DEMO_PASSWORDS = {
   admin: "UmbraviaForgeAdmin123",
@@ -247,20 +248,65 @@ export async function seedDatabase() {
       }
     }
 
-    const seededUsers = await db.selectFrom("users").select("id").execute();
+    const demoEmails = [
+      ADMIN_USER.email,
+      ...TRAINERS.map((trainer) => trainer.email),
+      ...DEMO_USERS.map((user) => user.email),
+    ];
+    const seededUsers = await db
+      .selectFrom("users")
+      .select(["id", "role", "createdAt"])
+      .where("email", "in", demoEmails)
+      .execute();
     await Promise.all(
       seededUsers.map((user) => ensureSupportIdentifier(user.id)),
     );
-    const seededRoles = await db
-      .selectFrom("users")
-      .select(["id", "role", "createdAt"])
+    const facilityNow = Date.now();
+    await db
+      .insertInto("facilityProfiles")
+      .values({
+        id: DEMO_FACILITY_ID,
+        slug: DEMO_FACILITY_ID,
+        name: "Centro de demostración Umbravia Forge",
+        logoDataUrl: "",
+        accentColor: "#2563eb",
+        status: "active",
+        createdAt: facilityNow,
+        updatedAt: facilityNow,
+      })
+      .onConflict((conflict) => conflict.column("id").doNothing())
       .execute();
-    for (const user of seededRoles) {
-      await ensurePrimaryCompatibilityMembership(
-        user.id,
-        user.role,
-        user.createdAt,
-      );
+    for (const user of seededUsers) {
+      await db
+        .insertInto("facilityMemberships")
+        .values({
+          id: `${DEMO_FACILITY_ID}:${user.id}`,
+          facilityId: DEMO_FACILITY_ID,
+          userId: user.id,
+          role: user.role === "admin" ? "owner" : user.role,
+          status: "active",
+          createdAt: user.createdAt,
+          updatedAt: user.createdAt,
+        })
+        .onConflict((conflict) =>
+          conflict.columns(["facilityId", "userId"]).doNothing(),
+        )
+        .execute();
+    }
+    const demoAdmin = seededUsers.find((user) => user.role === "admin");
+    if (demoAdmin) {
+      await db
+        .insertInto("platformOperators")
+        .values({
+          userId: demoAdmin.id,
+          source: "controlled_provisioning",
+          status: "active",
+          createdAt: facilityNow,
+          updatedAt: facilityNow,
+          revokedAt: null,
+        })
+        .onConflict((conflict) => conflict.column("userId").doNothing())
+        .execute();
     }
 
     // Check if classes already exist
@@ -296,6 +342,7 @@ export async function seedDatabase() {
           .insertInto("activitySessions")
           .values({
             id: `class-${day}-${hour}`,
+            facilityId: DEMO_FACILITY_ID,
             name: classData.name,
             description: classData.description,
             trainerId: trainer.id,
@@ -416,7 +463,7 @@ export async function seedDatabase() {
         .values({
           ...channel,
           scope: "facility",
-          scopeId: "primary",
+          scopeId: DEMO_FACILITY_ID,
           status: "community_active",
           createdBy: ADMIN_USER.id,
           createdAt: Date.now(),

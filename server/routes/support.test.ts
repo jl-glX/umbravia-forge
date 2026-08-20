@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 import {
   buildSupportReplyAddress,
   resolveSupportEmailInboundConfiguration,
@@ -95,6 +96,9 @@ describe("Forge Support API", () => {
       .execute();
     await database.initializeDatabase();
     const now = Date.now();
+    await createActiveTestFacility(database.db, "facility-alpha", {
+      createdAt: now,
+    });
     await database.db
       .insertInto("facilityProfiles")
       .values({
@@ -150,6 +154,47 @@ describe("Forge Support API", () => {
       ])
       .execute();
     await database.db
+      .insertInto("facilityMemberships")
+      .values([
+        {
+          id: "facility-alpha:support-admin",
+          facilityId: "facility-alpha",
+          userId: "support-admin",
+          role: "admin",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "facility-alpha:support-member",
+          facilityId: "facility-alpha",
+          userId: "support-member",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "facility-alpha:support-peer",
+          facilityId: "facility-alpha",
+          userId: "support-peer",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "facility-alpha:support-agent",
+          facilityId: "facility-alpha",
+          userId: "support-agent",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ])
+      .execute();
+    await database.db
       .updateTable("users")
       .set({ accountStatus: "active", emailVerifiedAt: Date.now() })
       .where("id", "=", "support-member")
@@ -158,7 +203,7 @@ describe("Forge Support API", () => {
       .insertInto("supportAgents")
       .values({
         id: "support-agent-membership",
-        facilityId: "primary",
+        facilityId: "facility-alpha",
         userId: "support-agent",
         role: "agent",
         active: 1,
@@ -284,12 +329,14 @@ describe("Forge Support API", () => {
       .set("X-Facility-Id", "secondary")
       .expect(200);
 
-    const primaryQueue = await request(app)
+    const facility_alphaQueue = await request(app)
       .get("/api/support/tickets")
       .set("Cookie", adminCookie)
       .expect(200);
     expect(
-      primaryQueue.body.tickets.map((ticket: { id: string }) => ticket.id),
+      facility_alphaQueue.body.tickets.map(
+        (ticket: { id: string }) => ticket.id,
+      ),
     ).not.toContain(secondaryTicket.body.ticket.id);
 
     const secondaryAgentCapabilities = await request(app)
@@ -319,7 +366,7 @@ describe("Forge Support API", () => {
       .send(articleInput)
       .expect(201);
 
-    const primaryKnowledge = await request(app)
+    const facility_alphaKnowledge = await request(app)
       .get("/api/support/knowledge?q=Tenant-specific")
       .set("Cookie", memberCookie)
       .expect(200);
@@ -328,9 +375,11 @@ describe("Forge Support API", () => {
       .set("Cookie", memberCookie)
       .set("X-Facility-Id", "secondary")
       .expect(200);
-    expect(primaryKnowledge.body.articles).toHaveLength(1);
+    expect(facility_alphaKnowledge.body.articles).toHaveLength(1);
     expect(secondaryKnowledge.body.articles).toHaveLength(1);
-    expect(primaryKnowledge.body.articles[0].facilityId).toBe("primary");
+    expect(facility_alphaKnowledge.body.articles[0].facilityId).toBe(
+      "facility-alpha",
+    );
     expect(secondaryKnowledge.body.articles[0].facilityId).toBe("secondary");
   });
 
@@ -577,7 +626,7 @@ describe("Forge Support API", () => {
         id: "commercial-application-ticket",
         publicId: "UFS-COMMERCIAL",
         applicationTenantId: "commercial",
-        facilityId: "primary",
+        facilityId: "facility-alpha",
         requesterUserId: "support-member",
         assigneeUserId: null,
         subject: "Commercial application internal record",
@@ -602,7 +651,7 @@ describe("Forge Support API", () => {
       .values({
         id: "commercial-application-article",
         applicationTenantId: "commercial",
-        facilityId: "primary",
+        facilityId: "facility-alpha",
         slug: "commercial-internal-record",
         title: "Commercial application internal record",
         summary: "Must not cross the corporate support boundary.",

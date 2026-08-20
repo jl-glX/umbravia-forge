@@ -16,7 +16,7 @@ describe("commercial trial tenant migration", () => {
     directory = undefined;
   });
 
-  it("moves the legacy trial into primary and allows one trial per facility", async () => {
+  it("quarantines the legacy trial and allows one trial per active facility", async () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-commercial-v22-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
@@ -78,7 +78,7 @@ describe("commercial trial tenant migration", () => {
         subdomain, realDataDeclaration, conversionDraft, startedAt, expiresAt,
         pausedAt, closedAt, createdAt, updatedAt
       ) VALUES (
-        'primary', 'commercial-migration-owner', 'Legacy Facility',
+        'facility-alpha', 'commercial-migration-owner', 'Legacy Facility',
         'traditional_gym', NULL, NULL, NULL, 20, '[]', '', 'es', 'EUR', 1, 1,
         'traditional_gym', 'trial_active', 'legacy-demo', 'undeclared', '[]',
         10, 20, NULL, NULL, 10, 10
@@ -102,8 +102,8 @@ describe("commercial trial tenant migration", () => {
         ])
         .executeTakeFirstOrThrow(),
     ).resolves.toEqual({
-      id: "primary",
-      facilityId: "primary",
+      id: "facility-alpha",
+      facilityId: "legacy-import-quarantine",
       autoCleanupEligible: 0,
       dataReviewRequestedAt: null,
       cleanupEligibleAt: null,
@@ -143,7 +143,10 @@ describe("commercial trial tenant migration", () => {
         .orderBy("facilityId")
         .execute(),
     ).resolves.toEqual([
-      { id: "primary", facilityId: "primary" },
+      {
+        id: "facility-alpha",
+        facilityId: "legacy-import-quarantine",
+      },
       { id: "trial-secondary", facilityId: "secondary" },
     ]);
   });

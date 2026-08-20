@@ -114,7 +114,7 @@ describe("monthly analytics surveys", () => {
 
     await expect(
       surveys.createSurveyCampaign({
-        facilityId: "primary",
+        facilityId: "facility-alpha",
         surveyId: definition.id,
         periodKey: "2026-08",
         opensAt: now - 1_000,

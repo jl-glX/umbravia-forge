@@ -133,7 +133,7 @@ describe("progressive account signup", () => {
     await request(app)
       .get("/api/activity-sessions")
       .set("Cookie", cookie)
-      .expect(200);
+      .expect(403);
 
     const login = await request(app)
       .post("/api/auth/login")
@@ -217,7 +217,7 @@ describe("progressive account signup", () => {
       role: "owner",
       name: "Centro Verificado",
     });
-    expect(membership.facilityId).not.toBe("primary");
+    expect(membership.facilityId).not.toBe("facility-alpha");
     const trial = await database.db
       .selectFrom("commercialTrials")
       .select(["facilityId", "ownerUserId", "startedAt", "expiresAt"])

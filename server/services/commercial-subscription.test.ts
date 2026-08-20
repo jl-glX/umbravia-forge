@@ -14,13 +14,13 @@ describe("commercial subscriptions", () => {
 
   const gateway: StripeBillingGateway = {
     async createCustomer(input) {
-      expect(input.idempotencyKey).toBe("forge-customer-primary");
-      return { id: "cus_primary" };
+      expect(input.idempotencyKey).toBe(`forge-customer-${input.facilityId}`);
+      return { id: `cus_${input.facilityId.replaceAll("-", "_")}` };
     },
     async createCheckoutSession(input) {
       checkoutInputs.push(input);
       return {
-        id: "cs_test_primary",
+        id: `cs_test_${input.facilityId.replaceAll("-", "_")}`,
         url: "https://checkout.stripe.test/session",
       };
     },
@@ -46,6 +46,20 @@ describe("commercial subscriptions", () => {
     vi.resetModules();
     database = await import("../db/client.js");
     await database.initializeDatabase();
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "facility-alpha",
+        slug: "facility-alpha",
+        name: "Facility Alpha",
+        logoDataUrl: "",
+        accentColor: "#2563eb",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
     service = await import("./commercial-subscription.js");
     service.setStripeBillingGatewayFactoryForTests(() => gateway);
   });
@@ -59,14 +73,14 @@ describe("commercial subscriptions", () => {
 
   it("creates Checkout on server-selected prices and activates only by webhook", async () => {
     const checkout = await service.createCommercialCheckout({
-      facilityId: "primary",
+      facilityId: "facility-alpha",
       email: "owner@example.com",
       plan: "monthly",
     });
     expect(checkout.url).toBe("https://checkout.stripe.test/session");
     expect(checkoutInputs[0]).toMatchObject({
-      customerId: "cus_primary",
-      facilityId: "primary",
+      customerId: "cus_facility_alpha",
+      facilityId: "facility-alpha",
       plan: "monthly",
       priceId: "price_monthly",
       successUrl: "http://localhost:3000/admin/subscription?checkout=success",
@@ -75,10 +89,14 @@ describe("commercial subscriptions", () => {
     expect(
       await database.db
         .selectFrom("facilityCommercialSubscriptions")
-        .select(["status", "stripePriceId"])
-        .where("facilityId", "=", "primary")
+        .select(["status", "stripePriceId", "stripeCheckoutSessionId"])
+        .where("facilityId", "=", "facility-alpha")
         .executeTakeFirstOrThrow(),
-    ).toEqual({ status: "checkout_pending", stripePriceId: "price_monthly" });
+    ).toEqual({
+      status: "checkout_pending",
+      stripePriceId: "price_monthly",
+      stripeCheckoutSessionId: "cs_test_facility_alpha",
+    });
 
     const event = {
       id: "evt_subscription_active",
@@ -87,10 +105,10 @@ describe("commercial subscriptions", () => {
       livemode: false,
       data: {
         object: {
-          id: "sub_primary",
+          id: "sub_facility_alpha",
           object: "subscription",
-          customer: "cus_primary",
-          metadata: { facility_id: "primary", plan_key: "monthly" },
+          customer: "cus_facility_alpha",
+          metadata: { facility_id: "facility-alpha", plan_key: "monthly" },
           status: "active",
           cancel_at_period_end: false,
           items: {
@@ -113,7 +131,8 @@ describe("commercial subscriptions", () => {
       duplicate: true,
     });
 
-    const overview = await service.getCommercialSubscriptionOverview("primary");
+    const overview =
+      await service.getCommercialSubscriptionOverview("facility-alpha");
     expect(overview.subscription).toMatchObject({
       status: "active",
       plan: "monthly",
@@ -131,12 +150,12 @@ describe("commercial subscriptions", () => {
       livemode: false,
       data: {
         object: {
-          id: "cs_test_primary",
+          id: "cs_test_facility_alpha",
           object: "checkout.session",
-          customer: "cus_primary",
-          subscription: "sub_primary",
-          client_reference_id: "primary",
-          metadata: { facility_id: "primary", plan_key: "monthly" },
+          customer: "cus_facility_alpha",
+          subscription: "sub_facility_alpha",
+          client_reference_id: "facility-alpha",
+          metadata: { facility_id: "facility-alpha", plan_key: "monthly" },
         },
       },
     } as unknown as Stripe.Event);
@@ -144,7 +163,7 @@ describe("commercial subscriptions", () => {
       await database.db
         .selectFrom("facilityCommercialSubscriptions")
         .select(["status", "currentPeriodEnd"])
-        .where("facilityId", "=", "primary")
+        .where("facilityId", "=", "facility-alpha")
         .executeTakeFirstOrThrow(),
     ).toEqual({
       status: "active",
@@ -166,10 +185,10 @@ describe("commercial subscriptions", () => {
         livemode: false,
         data: {
           object: {
-            id: "sub_primary",
+            id: "sub_facility_alpha",
             object: "subscription",
             customer: input.customer,
-            metadata: { facility_id: "primary", plan_key: "monthly" },
+            metadata: { facility_id: "facility-alpha", plan_key: "monthly" },
             status: input.status,
             cancel_at_period_end: false,
             items: {
@@ -188,7 +207,7 @@ describe("commercial subscriptions", () => {
       event({
         id: "evt_old",
         created: 1_700_000_000,
-        customer: "cus_primary",
+        customer: "cus_facility_alpha",
         status: "canceled",
       }),
     );
@@ -203,7 +222,7 @@ describe("commercial subscriptions", () => {
     const stored = await database.db
       .selectFrom("facilityCommercialSubscriptions")
       .select("status")
-      .where("facilityId", "=", "primary")
+      .where("facilityId", "=", "facility-alpha")
       .executeTakeFirstOrThrow();
     expect(stored.status).toBe("active");
     expect(
@@ -215,12 +234,65 @@ describe("commercial subscriptions", () => {
     ).toEqual({ facilityId: null });
   });
 
+  it("closes only the matching pending Checkout attempt when it expires", async () => {
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "facility-checkout-expiry",
+        slug: "facility-checkout-expiry",
+        name: "Checkout expiry",
+        logoDataUrl: "",
+        accentColor: "#2563eb",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await service.createCommercialCheckout({
+      facilityId: "facility-checkout-expiry",
+      email: "expiry@example.com",
+      plan: "annual",
+    });
+
+    await service.ingestStripeWebhookEvent({
+      id: "evt_checkout_expired",
+      type: "checkout.session.expired",
+      created: 1_900_000_100,
+      livemode: false,
+      data: {
+        object: {
+          id: "cs_test_facility_checkout_expiry",
+          object: "checkout.session",
+          customer: "cus_facility_checkout_expiry",
+          subscription: null,
+          client_reference_id: "facility-checkout-expiry",
+          metadata: {
+            facility_id: "facility-checkout-expiry",
+            plan_key: "annual",
+          },
+        },
+      },
+    } as unknown as Stripe.Event);
+
+    await expect(
+      database.db
+        .selectFrom("facilityCommercialSubscriptions")
+        .select(["status", "stripeCheckoutSessionId"])
+        .where("facilityId", "=", "facility-checkout-expiry")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      status: "inactive",
+      stripeCheckoutSessionId: null,
+    });
+  });
+
   it("opens the Stripe customer portal without accepting a return URL", async () => {
-    expect(await service.createCommercialPortal("primary")).toEqual({
+    expect(await service.createCommercialPortal("facility-alpha")).toEqual({
       url: "https://billing.stripe.test/portal",
     });
     expect(portalInputs[0]).toEqual({
-      customerId: "cus_primary",
+      customerId: "cus_facility_alpha",
       returnUrl: "http://localhost:3000/admin/subscription",
       portalConfigurationId: null,
     });

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("commercial foundation API", () => {
   let directory: string;
@@ -46,7 +47,33 @@ describe("commercial foundation API", () => {
         },
       ])
       .execute();
-    await database.initializeDatabase();
+    const now = Date.now();
+    await createActiveTestFacility(database.db, "facility-alpha", {
+      createdAt: now,
+    });
+    await database.db
+      .insertInto("facilityMemberships")
+      .values([
+        {
+          id: "facility-alpha:commercial-admin",
+          facilityId: "facility-alpha",
+          userId: "commercial-admin",
+          role: "owner",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "facility-alpha:commercial-member",
+          facilityId: "facility-alpha",
+          userId: "commercial-member",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ])
+      .execute();
     app = (await import("../index.js")).app;
     const login = async (
       identifier: string,
@@ -207,7 +234,7 @@ describe("commercial foundation API", () => {
     const facility = await database.db
       .selectFrom("facilityProfiles")
       .selectAll()
-      .where("id", "=", "primary")
+      .where("id", "=", "facility-alpha")
       .executeTakeFirstOrThrow();
     expect(facility.name).toBe("Fitness Boreal");
   });
@@ -269,12 +296,12 @@ describe("commercial foundation API", () => {
     });
     expect(secondary.body.environment.counts.users).toBe(1);
 
-    const primary = await request(app)
+    const facility_alpha = await request(app)
       .get("/api/commercial/trial")
       .set("Cookie", adminCookie)
       .expect(200);
-    expect(primary.body.trial).toMatchObject({
-      facilityId: "primary",
+    expect(facility_alpha.body.trial).toMatchObject({
+      facilityId: "facility-alpha",
       facilityName: "Fitness Boreal",
     });
     const selectedSecondary = await request(app)
@@ -300,10 +327,10 @@ describe("commercial foundation API", () => {
   });
 
   it("limits post-trial edit bursts per tenant without affecting another centre", async () => {
-    const primary = await database.db
+    const facility_alpha = await database.db
       .selectFrom("commercialTrials")
       .selectAll()
-      .where("facilityId", "=", "primary")
+      .where("facilityId", "=", "facility-alpha")
       .executeTakeFirstOrThrow();
     const secondary = await database.db
       .selectFrom("commercialTrials")
@@ -312,21 +339,21 @@ describe("commercial foundation API", () => {
       .executeTakeFirstOrThrow();
     const eventIds = Array.from(
       { length: 20 },
-      (_, index) => `post-trial-limit-primary-${index}`,
+      (_, index) => `post-trial-limit-facility_alpha-${index}`,
     );
 
     try {
       await database.db
         .updateTable("commercialTrials")
         .set({ status: "trial_expired" })
-        .where("id", "in", [primary.id, secondary.id])
+        .where("id", "in", [facility_alpha.id, secondary.id])
         .execute();
       await database.db
         .insertInto("commercialTrialEvents")
         .values(
           eventIds.map((id, index) => ({
             id,
-            trialId: primary.id,
+            trialId: facility_alpha.id,
             actorUserId: "commercial-admin",
             type: "trial_configuration_updated",
             metadata: JSON.stringify({ editPolicy: "post_trial_limited" }),
@@ -372,7 +399,7 @@ describe("commercial foundation API", () => {
       await database.db
         .updateTable("commercialTrials")
         .set({ status: "trial_active" })
-        .where("id", "in", [primary.id, secondary.id])
+        .where("id", "in", [facility_alpha.id, secondary.id])
         .execute();
     }
   });
@@ -478,7 +505,7 @@ describe("commercial foundation API", () => {
         realDataDeclaration: "undeclared",
         pausedAt: null,
       })
-      .where("facilityId", "=", "primary")
+      .where("facilityId", "=", "facility-alpha")
       .execute();
     const assistance = await request(app)
       .post("/api/commercial/trial/real-data-declaration")
@@ -497,7 +524,7 @@ describe("commercial foundation API", () => {
         realDataDeclaration: "undeclared",
         pausedAt: null,
       })
-      .where("facilityId", "=", "primary")
+      .where("facilityId", "=", "facility-alpha")
       .execute();
     const withoutRealData = await request(app)
       .post("/api/commercial/trial/real-data-declaration")

@@ -20,8 +20,8 @@ export interface FacilityProfileContextValue {
 }
 
 export const defaultFacilityProfile: FacilityProfile = {
-  id: "primary",
-  name: "Centro Umbravia Forge",
+  id: "",
+  name: "Umbravia Forge",
   logoDataUrl: "",
   accentColor: "#2563eb",
   updatedAt: 0,

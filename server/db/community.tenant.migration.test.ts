@@ -16,7 +16,7 @@ describe("community tenant migration", () => {
     directory = undefined;
   });
 
-  it("moves legacy parental controls into primary and permits a pair per facility", async () => {
+  it("quarantines legacy parental controls and permits a pair per active facility", async () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-community-v21-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
@@ -114,7 +114,7 @@ describe("community tenant migration", () => {
         .orderBy("id")
         .execute(),
     ).resolves.toEqual([
-      { id: "legacy-control", facilityId: "primary" },
+      { id: "legacy-control", facilityId: "legacy-import-quarantine" },
       { id: "secondary-control", facilityId: "secondary" },
     ]);
   });

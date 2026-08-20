@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("community, identity and moderation APIs", () => {
   let directory: string;
@@ -65,6 +66,9 @@ describe("community, identity and moderation APIs", () => {
       .execute();
     await database.initializeDatabase();
     const now = Date.now();
+    await createActiveTestFacility(database.db, "facility-alpha", {
+      createdAt: now,
+    });
     await database.db
       .insertInto("facilityProfiles")
       .values({
@@ -102,6 +106,38 @@ describe("community, identity and moderation APIs", () => {
         {
           id: "secondary:community-peer",
           facilityId: "secondary",
+          userId: "community-peer",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ])
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values([
+        {
+          id: "facility-alpha:community-admin",
+          facilityId: "facility-alpha",
+          userId: "community-admin",
+          role: "admin",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "facility-alpha:community-member",
+          facilityId: "facility-alpha",
+          userId: "community-member",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "facility-alpha:community-peer",
+          facilityId: "facility-alpha",
           userId: "community-peer",
           role: "member",
           status: "active",
@@ -245,7 +281,7 @@ describe("community, identity and moderation APIs", () => {
     const channel = await request(app)
       .post("/api/community/channels")
       .set("Cookie", adminCookie)
-      .send({ scope: "facility", scopeId: "primary", name: "General" })
+      .send({ scope: "facility", scopeId: "facility-alpha", name: "General" })
       .expect(201);
     const root = await request(app)
       .post(`/api/community/channels/${channel.body.id}/messages`)
@@ -270,7 +306,7 @@ describe("community, identity and moderation APIs", () => {
       .set("Cookie", adminCookie)
       .send({
         scope: "facility",
-        scopeId: "primary",
+        scopeId: "facility-alpha",
         name: "Message lifecycle",
       })
       .expect(201);
@@ -350,7 +386,7 @@ describe("community, identity and moderation APIs", () => {
       .insertInto("activitySessions")
       .values({
         id: "synthetic-class",
-        facilityId: "primary",
+        facilityId: "facility-alpha",
         name: "Synthetic class",
         description: "",
         trainerId: "community-admin",
@@ -517,7 +553,7 @@ describe("community, identity and moderation APIs", () => {
           "A personal community report must remain under central moderation.",
       })
       .expect(201);
-    expect(centralReport.body.facilityId).toBe("primary");
+    expect(centralReport.body.facilityId).toBe("secondary");
     const ownCentralCases = await request(app)
       .get("/api/moderation/cases")
       .set("Cookie", secondMemberCookie)
@@ -533,7 +569,7 @@ describe("community, identity and moderation APIs", () => {
       .expect(200);
     expect(
       secondaryModeratorCases.body.map((item: { id: string }) => item.id),
-    ).not.toContain(centralReport.body.id);
+    ).toContain(centralReport.body.id);
 
     const privateSearch = await request(app)
       .get("/api/community/search/messages")
@@ -742,15 +778,15 @@ describe("community, identity and moderation APIs", () => {
       .get(`/api/community/channels/${secondaryChannel.body.id}/messages`)
       .set("Cookie", memberCookie)
       .expect(404);
-    const primaryChannels = await request(app)
+    const facility_alphaChannels = await request(app)
       .get("/api/community/channels")
       .set("Cookie", memberCookie)
       .expect(200);
     expect(
-      primaryChannels.body.map((channel: { id: string }) => channel.id),
+      facility_alphaChannels.body.map((channel: { id: string }) => channel.id),
     ).not.toContain(secondaryChannel.body.id);
 
-    const primarySearch = await request(app)
+    const facility_alphaSearch = await request(app)
       .get("/api/community/search/messages")
       .query({ q: "Secondary-only" })
       .set("Cookie", memberCookie)
@@ -761,7 +797,7 @@ describe("community, identity and moderation APIs", () => {
       .set("Cookie", memberCookie)
       .set("X-Facility-Id", "secondary")
       .expect(200);
-    expect(primarySearch.body.results).toEqual([]);
+    expect(facility_alphaSearch.body.results).toEqual([]);
     expect(secondarySearch.body.results).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ body: "Secondary-only community message" }),
@@ -907,12 +943,12 @@ describe("community, identity and moderation APIs", () => {
       })
       .expect(201);
 
-    const primaryCases = await request(app)
+    const facility_alphaCases = await request(app)
       .get("/api/moderation/cases")
       .set("Cookie", adminCookie)
       .expect(200);
     expect(
-      primaryCases.body.map((item: { id: string }) => item.id),
+      facility_alphaCases.body.map((item: { id: string }) => item.id),
     ).not.toContain(secondaryCase.body.id);
 
     const secondaryCases = await request(app)

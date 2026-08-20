@@ -145,6 +145,7 @@ async function ensureStripeCustomer(input: {
       facilityId: input.facilityId,
       stripeCustomerId: customer.id,
       stripeSubscriptionId: null,
+      stripeCheckoutSessionId: null,
       stripePriceId: null,
       planKey: null,
       status: existing?.status ?? "inactive",
@@ -208,6 +209,7 @@ export async function createCommercialCheckout(input: {
     .updateTable("facilityCommercialSubscriptions")
     .set({
       planKey: input.plan,
+      stripeCheckoutSessionId: session.id,
       stripePriceId: configuration.prices[input.plan],
       status: "checkout_pending",
       updatedAt: Date.now(),
@@ -268,19 +270,30 @@ export async function ingestStripeWebhookEvent(event: Stripe.Event) {
   let facilityId: string | null = null;
   let customerId: string | null = null;
   let subscriptionId: string | null = null;
+  let checkoutSessionId: string | null = null;
   let priceId: string | null = null;
   let plan: CommercialPlanKey | null = null;
   let status: CommercialSubscriptionStatus | null = null;
   let currentPeriodEnd: number | null = null;
   let cancelAtPeriodEnd = 0;
 
-  if (event.type === "checkout.session.completed") {
+  if (
+    event.type === "checkout.session.completed" ||
+    event.type === "checkout.session.async_payment_succeeded" ||
+    event.type === "checkout.session.async_payment_failed" ||
+    event.type === "checkout.session.expired"
+  ) {
     const session = event.data.object;
+    checkoutSessionId = session.id;
     facilityId = session.metadata?.facility_id ?? session.client_reference_id;
     customerId = stripeObjectId(session.customer);
     subscriptionId = stripeObjectId(session.subscription);
     plan = planFromMetadata(session.metadata?.plan_key, null, configuration);
-    status = "checkout_pending";
+    status =
+      event.type === "checkout.session.async_payment_failed" ||
+      event.type === "checkout.session.expired"
+        ? "inactive"
+        : "checkout_pending";
   } else if (
     event.type === "customer.subscription.created" ||
     event.type === "customer.subscription.updated" ||
@@ -318,27 +331,41 @@ export async function ingestStripeWebhookEvent(event: Stripe.Event) {
     if (facilityId && customerId && status) {
       const local = await transaction
         .selectFrom("facilityCommercialSubscriptions")
-        .select(["stripeCustomerId", "status", "lastStripeEventCreatedAt"])
+        .select([
+          "stripeCustomerId",
+          "stripeCheckoutSessionId",
+          "status",
+          "lastStripeEventCreatedAt",
+        ])
         .where("facilityId", "=", facilityId)
         .executeTakeFirst();
-      const checkoutCompletion = event.type === "checkout.session.completed";
+      const checkoutEvent = event.type.startsWith("checkout.session.");
+      const checkoutFailed =
+        event.type === "checkout.session.async_payment_failed" ||
+        event.type === "checkout.session.expired";
+      const currentCheckout =
+        !checkoutEvent || local?.stripeCheckoutSessionId === checkoutSessionId;
       const trustedMapping =
         local?.stripeCustomerId === customerId &&
-        (checkoutCompletion ||
+        currentCheckout &&
+        (checkoutEvent ||
           local.lastStripeEventCreatedAt === null ||
           eventCreatedAt >= local.lastStripeEventCreatedAt);
       if (trustedMapping) {
-        const checkoutCanSetPending =
-          checkoutCompletion &&
+        const checkoutCanChangeStatus =
+          checkoutEvent &&
           (local.status === "inactive" || local.status === "checkout_pending");
         await transaction
           .updateTable("facilityCommercialSubscriptions")
           .set({
-            stripeSubscriptionId: subscriptionId,
+            ...(subscriptionId ? { stripeSubscriptionId: subscriptionId } : {}),
+            ...(!checkoutEvent || checkoutFailed
+              ? { stripeCheckoutSessionId: null }
+              : {}),
             ...(priceId ? { stripePriceId: priceId } : {}),
             ...(plan ? { planKey: plan } : {}),
-            ...(!checkoutCompletion || checkoutCanSetPending ? { status } : {}),
-            ...(!checkoutCompletion
+            ...(!checkoutEvent || checkoutCanChangeStatus ? { status } : {}),
+            ...(!checkoutEvent
               ? {
                   currentPeriodEnd,
                   cancelAtPeriodEnd,

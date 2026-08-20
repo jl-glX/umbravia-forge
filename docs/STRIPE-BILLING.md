@@ -13,6 +13,8 @@ de este bloque.
   historial de facturas según la configuración del Dashboard;
 - webhook firmado sobre el cuerpo JSON exacto, montado antes del parser general;
 - deduplicación transaccional por identificador de evento;
+- seguimiento del Checkout vigente por centro, de forma que un evento tardío
+  de una sesión anterior no pueda alterar un intento posterior;
 - rechazo de eventos Live, eventos antiguos y asociaciones de Customer que no
   coincidan con el centro local;
 - estado comercial y permisos derivados en un servicio independiente de Forge
@@ -59,6 +61,9 @@ deben introducir mediante el mecanismo de secretos autorizado del entorno.
 5. Crear un endpoint de webhook hacia
    `POST /api/internal/stripe-billing` y suscribirlo a:
    - `checkout.session.completed`;
+   - `checkout.session.expired`;
+   - `checkout.session.async_payment_succeeded`;
+   - `checkout.session.async_payment_failed`;
    - `customer.subscription.created`;
    - `customer.subscription.updated`;
    - `customer.subscription.deleted`.
@@ -78,9 +83,16 @@ La migración 32 añade:
 - `stripeWebhookEvents`, registro mínimo de eventos procesados para garantizar
   idempotencia sin conservar el payload.
 
-Los eventos solo pueden actualizar una suscripción cuando `facility_id` y el
-Customer firmado coinciden con el vínculo local. El borrado de un centro elimina
-su estado comercial y anonimiza la referencia retenida del evento.
+La migración 33 añade el identificador de la Checkout Session vigente. Los
+eventos de Checkout solo mantienen el intento pendiente o lo cierran como
+fallido; nunca conceden capacidades de pago. La activación continúa dependiendo
+de un evento firmado de suscripción, incluso si el navegador vuelve por la URL
+de éxito.
+
+Los eventos solo pueden actualizar una suscripción cuando `facility_id`, el
+Customer firmado y, para eventos de Checkout, la sesión vigente coinciden con
+el vínculo local. El borrado de un centro elimina su estado comercial y
+anonimiza la referencia retenida del evento.
 
 ## Estados y degradación
 

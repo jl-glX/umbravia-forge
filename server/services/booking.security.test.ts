@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+const FACILITY_ID = "facility-booking-security";
+
 describe("booking integrity and export security", () => {
   let directory: string;
   let database: typeof import("../db/client.js");
@@ -18,7 +20,19 @@ describe("booking integrity and export security", () => {
     database = await import("../db/client.js");
     booking = await import("./booking.js");
     await database.initializeDatabase();
-
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: FACILITY_ID,
+        slug: "booking-security",
+        name: "Booking security",
+        logoDataUrl: "",
+        accentColor: "#f97316",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
     await database.db
       .insertInto("users")
       .values(
@@ -38,10 +52,25 @@ describe("booking integrity and export security", () => {
         })),
       )
       .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values(
+        Array.from({ length: 5 }, (_, index) => ({
+          id: `${FACILITY_ID}:concurrent-user-${index}`,
+          facilityId: FACILITY_ID,
+          userId: `concurrent-user-${index}`,
+          role: "member" as const,
+          status: "active" as const,
+          createdAt: now,
+          updatedAt: now,
+        })),
+      )
+      .execute();
     await database.initializeDatabase();
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "one-place-class",
         name: "One place",
         description: "",
@@ -62,7 +91,11 @@ describe("booking integrity and export security", () => {
   it("serializes simultaneous requests so capacity is never exceeded", async () => {
     const results = await Promise.all(
       Array.from({ length: 5 }, (_, index) =>
-        booking.bookClass("one-place-class", `concurrent-user-${index}`),
+        booking.bookClass(
+          "one-place-class",
+          `concurrent-user-${index}`,
+          FACILITY_ID,
+        ),
       ),
     );
 
@@ -83,7 +116,10 @@ describe("booking integrity and export security", () => {
   });
 
   it("neutralizes spreadsheet formulas in attendee exports", async () => {
-    const csv = await booking.exportClassAttendeesCsv("one-place-class");
+    const csv = await booking.exportClassAttendeesCsv(
+      "one-place-class",
+      FACILITY_ID,
+    );
     expect(csv).toContain("'=HYPERLINK");
     expect(csv).not.toMatch(/(?:^|\n)"=HYPERLINK/);
   });

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("administrator account safety", () => {
   let directory: string;
@@ -72,12 +73,13 @@ describe("administrator account safety", () => {
         },
       ])
       .execute();
+    await createActiveTestFacility(database.db, "facility-alpha");
     await database.db
       .insertInto("facilityMemberships")
       .values([
         {
-          id: "primary:protected-admin",
-          facilityId: "primary",
+          id: "facility-alpha:protected-admin",
+          facilityId: "facility-alpha",
           userId: "protected-admin",
           role: "owner",
           status: "active",
@@ -85,8 +87,8 @@ describe("administrator account safety", () => {
           updatedAt: Date.now(),
         },
         {
-          id: "primary:synthetic-member",
-          facilityId: "primary",
+          id: "facility-alpha:synthetic-member",
+          facilityId: "facility-alpha",
           userId: "synthetic-member",
           role: "member",
           status: "active",
@@ -94,8 +96,8 @@ describe("administrator account safety", () => {
           updatedAt: Date.now(),
         },
         {
-          id: "primary:retained-member",
-          facilityId: "primary",
+          id: "facility-alpha:retained-member",
+          facilityId: "facility-alpha",
           userId: "retained-member",
           role: "member",
           status: "active",
@@ -103,8 +105,8 @@ describe("administrator account safety", () => {
           updatedAt: Date.now(),
         },
         {
-          id: "primary:deletable-member",
-          facilityId: "primary",
+          id: "facility-alpha:deletable-member",
+          facilityId: "facility-alpha",
           userId: "deletable-member",
           role: "member",
           status: "active",
@@ -225,7 +227,7 @@ describe("administrator account safety", () => {
       .values({
         id: "retained-ticket",
         publicId: "UFS-RETAINED01",
-        facilityId: "primary",
+        facilityId: "facility-alpha",
         requesterUserId: "retained-member",
         assigneeUserId: null,
         subject: "Synthetic retention check",

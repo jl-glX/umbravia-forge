@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("analytics tenant isolation", () => {
   let directory: string;
@@ -24,6 +25,9 @@ describe("analytics tenant isolation", () => {
     await database.initializeDatabase();
 
     now = Date.now();
+    await createActiveTestFacility(database.db, "facility-alpha", {
+      createdAt: now,
+    });
     await database.db
       .insertInto("facilityProfiles")
       .values({
@@ -54,8 +58,8 @@ describe("analytics tenant isolation", () => {
           createdAt: now,
         },
         {
-          id: "analytics-primary-member",
-          email: "analytics-primary@example.com",
+          id: "analytics-facility_alpha-member",
+          email: "analytics-facility_alpha@example.com",
           phone: null,
           name: "Primary Member",
           accountStatus: "active",
@@ -110,8 +114,8 @@ describe("analytics tenant isolation", () => {
       .insertInto("facilityMemberships")
       .values([
         {
-          id: "primary:analytics-admin",
-          facilityId: "primary",
+          id: "facility-alpha:analytics-admin",
+          facilityId: "facility-alpha",
           userId: "analytics-admin",
           role: "owner",
           status: "active",
@@ -128,9 +132,9 @@ describe("analytics tenant isolation", () => {
           updatedAt: now + 1,
         },
         {
-          id: "primary:analytics-primary-member",
-          facilityId: "primary",
-          userId: "analytics-primary-member",
+          id: "facility-alpha:analytics-facility_alpha-member",
+          facilityId: "facility-alpha",
+          userId: "analytics-facility_alpha-member",
           role: "member",
           status: "active",
           createdAt: now,
@@ -169,8 +173,8 @@ describe("analytics tenant isolation", () => {
       .insertInto("activitySessions")
       .values([
         {
-          id: "analytics-primary-class",
-          facilityId: "primary",
+          id: "analytics-facility_alpha-class",
+          facilityId: "facility-alpha",
           name: "Primary analytics class",
           description: "",
           trainerId: "analytics-admin",
@@ -214,9 +218,9 @@ describe("analytics tenant isolation", () => {
       .insertInto("bookings")
       .values([
         {
-          id: "analytics-primary-booking",
-          activitySessionId: "analytics-primary-class",
-          userId: "analytics-primary-member",
+          id: "analytics-facility_alpha-booking",
+          activitySessionId: "analytics-facility_alpha-class",
+          userId: "analytics-facility_alpha-member",
           status: "confirmed",
           createdAt: now,
           cancelledAt: null,
@@ -264,12 +268,12 @@ describe("analytics tenant isolation", () => {
       .insertInto("bookingAnalyticsEvents")
       .values([
         {
-          id: "analytics-primary-event",
-          deduplicationKey: "test:analytics-primary-event",
-          facilityId: "primary",
-          bookingId: "analytics-primary-booking",
-          activitySessionId: "analytics-primary-class",
-          memberUserId: "analytics-primary-member",
+          id: "analytics-facility_alpha-event",
+          deduplicationKey: "test:analytics-facility_alpha-event",
+          facilityId: "facility-alpha",
+          bookingId: "analytics-facility_alpha-booking",
+          activitySessionId: "analytics-facility_alpha-class",
+          memberUserId: "analytics-facility_alpha-member",
           trainerUserId: "analytics-admin",
           eventType: "baseline_import",
           source: "baseline",
@@ -418,7 +422,7 @@ describe("analytics tenant isolation", () => {
 
   it("does not expose a member activity from another facility", async () => {
     await secondary(
-      request(app).get("/api/analytics/user/analytics-primary-member"),
+      request(app).get("/api/analytics/user/analytics-facility_alpha-member"),
     ).expect(404);
   });
 

@@ -258,9 +258,13 @@ async function deleteTrialTenantInTransaction(
   transaction: Transaction<Database>,
   trial: { id: string; facilityId: string; ownerUserId: string },
 ) {
-  if (trial.facilityId === "primary") {
-    throw new Error("The primary facility cannot be removed automatically");
-  }
+  const facility = await transaction
+    .selectFrom("facilityProfiles")
+    .select("status")
+    .where("id", "=", trial.facilityId)
+    .executeTakeFirstOrThrow();
+  if (facility.status !== "active")
+    throw new Error("An inactive facility cannot be removed automatically");
 
   const classRows = await transaction
     .selectFrom("activitySessions")

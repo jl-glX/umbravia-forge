@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("member commerce API", () => {
   let directory: string;
@@ -36,6 +37,9 @@ describe("member commerce API", () => {
       .execute();
     await database.initializeDatabase();
     const now = Date.now();
+    await createActiveTestFacility(database.db, "facility-alpha", {
+      createdAt: now,
+    });
     await database.db
       .insertInto("facilityProfiles")
       .values({
@@ -51,22 +55,33 @@ describe("member commerce API", () => {
       .execute();
     await database.db
       .insertInto("facilityMemberships")
-      .values({
-        id: "secondary:commerce-member",
-        facilityId: "secondary",
-        userId: "commerce-member",
-        role: "member",
-        status: "active",
-        createdAt: now,
-        updatedAt: now,
-      })
+      .values([
+        {
+          id: "facility-alpha:commerce-member",
+          facilityId: "facility-alpha",
+          userId: "commerce-member",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "secondary:commerce-member",
+          facilityId: "secondary",
+          userId: "commerce-member",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ])
       .execute();
     await database.db
       .insertInto("billingRecords")
       .values([
         {
           id: "member-payment",
-          facilityId: "primary",
+          facilityId: "facility-alpha",
           userId: "commerce-member",
           customerName: "Commerce Member",
           customerEmail: "commerce-member@example.com",
@@ -161,10 +176,10 @@ describe("member commerce API", () => {
   });
 
   it("isolates payments by the selected facility", async () => {
-    const primary = await request(app)
+    const facility_alpha = await request(app)
       .get("/api/member-commerce/summary")
       .set("Cookie", memberCookie)
-      .set("X-Facility-Id", "primary")
+      .set("X-Facility-Id", "facility-alpha")
       .expect(200);
     const secondary = await request(app)
       .get("/api/member-commerce/summary")
@@ -173,7 +188,7 @@ describe("member commerce API", () => {
       .expect(200);
 
     expect(
-      primary.body.payments.map((payment: { id: string }) => payment.id),
+      facility_alpha.body.payments.map((payment: { id: string }) => payment.id),
     ).toEqual(["member-payment"]);
     expect(
       secondary.body.payments.map((payment: { id: string }) => payment.id),

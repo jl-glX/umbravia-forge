@@ -16,7 +16,7 @@ describe("support tenant migration", () => {
     directory = undefined;
   });
 
-  it("moves legacy knowledge into primary and permits the same slug per facility", async () => {
+  it("quarantines legacy knowledge and permits the same slug per active facility", async () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-forge-support-v19-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
@@ -111,7 +111,7 @@ describe("support tenant migration", () => {
     ).resolves.toEqual([
       {
         id: "legacy-article",
-        facilityId: "primary",
+        facilityId: "legacy-import-quarantine",
         slug: "shared-guide",
       },
       {

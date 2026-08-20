@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("billing API", () => {
   let directory: string;
@@ -48,6 +49,9 @@ describe("billing API", () => {
       .execute();
     await database.initializeDatabase();
     const now = Date.now();
+    await createActiveTestFacility(database.db, "facility-alpha", {
+      createdAt: now,
+    });
     await database.db
       .insertInto("facilityProfiles")
       .values({
@@ -64,6 +68,24 @@ describe("billing API", () => {
     await database.db
       .insertInto("facilityMemberships")
       .values([
+        {
+          id: "facility-alpha:billing-admin",
+          facilityId: "facility-alpha",
+          userId: "billing-admin",
+          role: "owner",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "facility-alpha:billing-member",
+          facilityId: "facility-alpha",
+          userId: "billing-member",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
         {
           id: "secondary:billing-admin",
           facilityId: "secondary",
@@ -328,12 +350,12 @@ describe("billing API", () => {
       userId: "billing-member",
     });
 
-    const primary = await request(app)
+    const facility_alpha = await request(app)
       .get("/api/billing")
       .set("Cookie", adminCookie)
       .expect(200);
     expect(
-      primary.body.some(
+      facility_alpha.body.some(
         (record: { id: string }) => record.id === created.body.id,
       ),
     ).toBe(false);

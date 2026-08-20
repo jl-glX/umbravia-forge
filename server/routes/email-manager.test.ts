@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  createActivePlatformOperator,
+  createActiveTestFacility,
+} from "../testing/facility-fixtures.js";
 
 describe("email manager API", () => {
   let directory: string;
@@ -53,11 +57,12 @@ describe("email manager API", () => {
         },
       ])
       .execute();
+    await createActiveTestFacility(database.db, "facility-alpha");
     await database.db
       .insertInto("facilityMemberships")
       .values({
-        id: "primary:email-manager-admin",
-        facilityId: "primary",
+        id: "facility-alpha:email-manager-admin",
+        facilityId: "facility-alpha",
         userId: "email-manager-admin",
         role: "owner",
         status: "active",
@@ -65,6 +70,7 @@ describe("email manager API", () => {
         updatedAt: Date.now(),
       })
       .execute();
+    await createActivePlatformOperator(database.db, "email-manager-admin");
     await database.db
       .insertInto("emailDeliveries")
       .values({

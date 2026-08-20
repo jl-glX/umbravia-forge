@@ -84,12 +84,13 @@ membresía activa seleccionada y vuelve a aplicar esa frontera en cada lectura,
 escritura y búsqueda. Los mensajes, eventos y adjuntos heredan la frontera del
 ticket y no pueden consultarse desde otro centro.
 
-Los datos antiguos se asignan al centro `primary` durante la migración. La
-dirección de correo sin etiqueta continúa entrando en esa cola central; una
-respuesta posterior conserva la frontera del ticket mediante su dirección
-firmada. El enrutamiento de nuevas solicitudes de correo a centros concretos se
-añadirá junto con los alias y subdominios de centro, sin deducir el destino a
-partir del remitente.
+Los datos antiguos sin ámbito se clasifican en el perfil cerrado
+`legacy-import-quarantine`; ese perfil no concede acceso ni recibe solicitudes
+nuevas. El correo entrante solo puede crear un ticket cuando el solicitante
+registrado resuelve una membresía activa de centro. Una respuesta posterior
+conserva la frontera del ticket mediante su dirección firmada. Los alias o
+subdominios de centro futuros deberán resolver el destino de forma explícita,
+sin deducirlo únicamente a partir del remitente.
 
 El historial de soporte puede contener datos personales. Los periodos de
 retención, exportación, supresión, bloqueos legales y acceso del personal deben

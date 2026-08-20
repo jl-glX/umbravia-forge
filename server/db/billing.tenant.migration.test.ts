@@ -16,7 +16,7 @@ describe("billing tenant migration", () => {
     directory = undefined;
   });
 
-  it("moves legacy billing records into the primary facility", async () => {
+  it("quarantines legacy billing records outside active facilities", async () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-forge-billing-v18-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
@@ -72,7 +72,7 @@ describe("billing tenant migration", () => {
         .executeTakeFirstOrThrow(),
     ).resolves.toEqual({
       id: "legacy-billing",
-      facilityId: "primary",
+      facilityId: "legacy-import-quarantine",
       concept: "Legacy membership",
     });
   });

@@ -86,12 +86,15 @@ Known demo classes are localized at display time. User-created names and descrip
   service and never by Analytics or CRM.
 - Invoice details, archived records and custom billing cycles belong to Umbravia Forge's financial domain. The visible interface does not expose App-ProTrack as a product name.
 - Facility profile settings store the centre name, logo and accent colour separately from Umbravia Forge's product identity. Logo updates are admin-only and accept PNG, JPEG or WebP images up to 512 KB.
-- `primary` remains a compatibility facility for existing data and omitted
-  selectors. Facility memberships and server-resolved context now scope
-  activity sessions, bookings, reputation, billing, support, moderation,
-  community, commercial trials, CRM and surveys. This repository coverage does
-  not replace a PostgreSQL staging migration, backup/restore exercise and
-  controlled cross-tenant validation before commercial production.
+- There is no implicit or privileged compatibility facility. Every operational
+  tenant must be an active `facilityProfiles` row and every user-facing context
+  must resolve through an active membership. Inherited unscoped data is moved
+  to a closed `legacy-import-quarantine` scope for explicit review; it never
+  grants access. Platform-wide authorization is represented separately by a
+  controlled `platformOperators` record, not by membership of a special
+  facility. These repository controls do not replace a PostgreSQL staging
+  migration, backup/restore exercise and controlled cross-tenant validation
+  before commercial production.
 
 ## Community, identity and moderation
 

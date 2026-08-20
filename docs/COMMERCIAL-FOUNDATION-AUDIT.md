@@ -4,7 +4,9 @@ Fecha de revisión: 3 de agosto de 2026
 
 > [!NOTE]
 > Esta es una fotografía histórica. La base multi-tenant y sus salvaguardas se
-> integraron después; el estado vigente está en
+> integraron después. El identificador `primary` descrito más abajo fue retirado
+> del código activo el 20 de agosto de 2026; se conserva aquí únicamente como
+> evidencia de la limitación que existía en la fecha de la auditoría. El estado vigente está en
 > [MULTI-TENANT-MIGRATION.md](./MULTI-TENANT-MIGRATION.md) y
 > [ARCHITECTURE.md](./ARCHITECTURE.md).
 

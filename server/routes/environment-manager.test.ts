@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  createActivePlatformOperator,
+  createActiveTestFacility,
+} from "../testing/facility-fixtures.js";
 
 describe("environment manager API", () => {
   let directory: string;
@@ -51,11 +55,12 @@ describe("environment manager API", () => {
         },
       ])
       .execute();
+    await createActiveTestFacility(database.db, "facility-alpha");
     await database.db
       .insertInto("facilityMemberships")
       .values({
-        id: "primary:environment-admin",
-        facilityId: "primary",
+        id: "facility-alpha:environment-admin",
+        facilityId: "facility-alpha",
         userId: "environment-admin",
         role: "owner",
         status: "active",
@@ -63,6 +68,7 @@ describe("environment manager API", () => {
         updatedAt: Date.now(),
       })
       .execute();
+    await createActivePlatformOperator(database.db, "environment-admin");
 
     app = (await import("../index.js")).app;
     const adminLogin = await request(app).post("/api/auth/login").send({
