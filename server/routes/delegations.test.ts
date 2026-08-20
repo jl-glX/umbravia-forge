@@ -5,6 +5,8 @@ import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+const FACILITY_ID = "facility-delegations";
+
 describe("delegations API", () => {
   let directory: string;
   let database: typeof import("../db/client.js");
@@ -22,7 +24,19 @@ describe("delegations API", () => {
     database = await import("../db/client.js");
     const auth = await import("../services/auth.js");
     await database.initializeDatabase();
-
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: FACILITY_ID,
+        slug: "delegations",
+        name: "Delegations",
+        logoDataUrl: "",
+        accentColor: "#f97316",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
     for (const user of [
       {
         id: "delegation-owner",
@@ -49,11 +63,36 @@ describe("delegations API", () => {
         .execute();
     }
 
+    await database.db
+      .insertInto("facilityMemberships")
+      .values([
+        {
+          id: `${FACILITY_ID}:delegation-owner`,
+          facilityId: FACILITY_ID,
+          userId: "delegation-owner",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: `${FACILITY_ID}:delegation-helper`,
+          facilityId: FACILITY_ID,
+          userId: "delegation-helper",
+          role: "member",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ])
+      .execute();
+
     await database.initializeDatabase();
 
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "delegated-class",
         name: "Delegated booking class",
         description: "",

@@ -51,6 +51,11 @@ las fronteras de seguridad o la organización documental.
   actualizarlas.
 - Actualizar `docs/README.md`, el documento vigente afectado y, cuando cambie la
   continuidad operativa, `docs/OPERATIONAL-HANDOFF.md`.
+- Revisar y actualizar `docs/OPERATIONAL-HANDOFF.md` periódicamente en hitos
+  relevantes, antes de un relevo de trabajo y antes de publicar cambios que
+  alteren arquitectura, operación, seguridad, datos o integraciones externas.
+  Evitar actualizaciones mecánicas: cada revisión debe reflejar estado,
+  validación, riesgos y pendientes reales.
 - No reescribir una auditoría fechada como si describiera el presente. Añadir
   una nota de continuidad o remitir al documento vigente.
 - Mantener enlaces relativos válidos y distinguir entre: implementado y

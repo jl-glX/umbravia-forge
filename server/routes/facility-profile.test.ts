@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("facility profile API", () => {
   let directory: string;
@@ -51,6 +52,9 @@ describe("facility profile API", () => {
       .execute();
 
     const membershipCreatedAt = Date.now();
+    await createActiveTestFacility(database.db, "facility-alpha", {
+      createdAt: membershipCreatedAt,
+    });
     await database.db
       .insertInto("facilityProfiles")
       .values({
@@ -68,8 +72,8 @@ describe("facility profile API", () => {
       .insertInto("facilityMemberships")
       .values([
         {
-          id: "primary:facility-admin",
-          facilityId: "primary",
+          id: "facility-alpha:facility-admin",
+          facilityId: "facility-alpha",
           userId: "facility-admin",
           role: "owner",
           status: "active",
@@ -77,8 +81,8 @@ describe("facility profile API", () => {
           updatedAt: membershipCreatedAt,
         },
         {
-          id: "primary:facility-member",
-          facilityId: "primary",
+          id: "facility-alpha:facility-member",
+          facilityId: "facility-alpha",
           userId: "facility-member",
           role: "member",
           status: "active",
@@ -134,7 +138,7 @@ describe("facility profile API", () => {
       .expect(200);
 
     expect(updated.body).toMatchObject({
-      id: "primary",
+      id: "facility-alpha",
       name: "Gimnasio Horizonte",
       accentColor: "#0f766e",
     });
@@ -193,7 +197,7 @@ describe("facility profile API", () => {
       .set("Cookie", memberCookie)
       .expect(200);
     expect(memberships.body.facilities).toEqual([
-      expect.objectContaining({ id: "primary", role: "member" }),
+      expect.objectContaining({ id: "facility-alpha", role: "member" }),
       expect.objectContaining({ id: "secondary", role: "member" }),
     ]);
 

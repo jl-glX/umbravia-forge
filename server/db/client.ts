@@ -40,6 +40,71 @@ function requireSqliteDatabase(): Database.Database {
   return sqliteDb;
 }
 
+function quoteSqliteIdentifier(identifier: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(identifier)) {
+    throw new Error("Unexpected SQLite schema identifier");
+  }
+  return `"${identifier}"`;
+}
+
+function enforceActiveFacilityBoundary(database: Database.Database): void {
+  database.transaction(() => {
+    database.exec(`
+      UPDATE facilityMemberships
+      SET status = 'suspended', updatedAt = MAX(updatedAt, CAST(unixepoch('subsec') * 1000 AS INTEGER))
+      WHERE facilityId IN (
+        SELECT id FROM facilityProfiles WHERE id NOT LIKE 'facility-%'
+      ) AND status IN ('active', 'invited');
+
+      UPDATE facilityProfiles
+      SET status = 'closed', updatedAt = MAX(updatedAt, CAST(unixepoch('subsec') * 1000 AS INTEGER))
+      WHERE id NOT LIKE 'facility-%' AND status <> 'closed';
+
+    `);
+
+    const facilityTables = database
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+      )
+      .all() as Array<{ name: string }>;
+    for (const { name } of facilityTables) {
+      if (name === "facilityProfiles") continue;
+      const columns = database
+        .prepare(`PRAGMA table_info(${quoteSqliteIdentifier(name)})`)
+        .all() as Array<{ name: string }>;
+      if (!columns.some((column) => column.name === "facilityId")) continue;
+      const table = quoteSqliteIdentifier(name);
+      const insertTrigger = quoteSqliteIdentifier(
+        `trg_${name}_active_facility_insert`,
+      );
+      const updateTrigger = quoteSqliteIdentifier(
+        `trg_${name}_active_facility_update`,
+      );
+      database.exec(`
+        CREATE TRIGGER IF NOT EXISTS ${insertTrigger}
+        BEFORE INSERT ON ${table}
+        WHEN NEW.facilityId IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM facilityProfiles
+          WHERE id = NEW.facilityId AND status = 'active'
+        )
+        BEGIN
+          SELECT RAISE(ABORT, 'Facility scope is not active');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS ${updateTrigger}
+        BEFORE UPDATE OF facilityId ON ${table}
+        WHEN NEW.facilityId IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM facilityProfiles
+          WHERE id = NEW.facilityId AND status = 'active'
+        )
+        BEGIN
+          SELECT RAISE(ABORT, 'Facility scope is not active');
+        END;
+      `);
+    }
+  })();
+}
+
 export const db: Kysely<DatabaseSchema> =
   postgresRuntime?.db ??
   new Kysely<DatabaseSchema>({
@@ -153,6 +218,21 @@ async function initializeSqliteSchema(
     .all() as Array<{ name: string }>;
 
   const tableNames = tables.map((t) => t.name);
+  const legacyFacilityBackfillRequired = [
+    "activitySessions",
+    "billingRecords",
+    "supportKnowledgeArticles",
+    "bookingReputations",
+    "bookingReputationEvents",
+    "commercialTrials",
+    "parentalControls",
+  ].some((tableName) => {
+    if (!tableNames.includes(tableName)) return false;
+    const columns = sqliteDb
+      .prepare(`PRAGMA table_info(${quoteSqliteIdentifier(tableName)})`)
+      .all() as Array<{ name: string }>;
+    return !columns.some((column) => column.name === "facilityId");
+  });
 
   if (!tableNames.includes("users")) {
     console.log("Creating users table...");
@@ -657,7 +737,7 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE activitySessions (
         id TEXT PRIMARY KEY,
-        facilityId TEXT NOT NULL DEFAULT 'primary',
+        facilityId TEXT NOT NULL,
         name TEXT NOT NULL,
         description TEXT NOT NULL,
         trainerId TEXT NOT NULL,
@@ -676,7 +756,7 @@ async function initializeSqliteSchema(
       .all() as Array<{ name: string }>;
     if (!classColumns.some((column) => column.name === "facilityId")) {
       sqliteDb.exec(
-        "ALTER TABLE activitySessions ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'primary'",
+        "ALTER TABLE activitySessions ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'legacy-import-quarantine'",
       );
     }
     sqliteDb.exec(`
@@ -841,7 +921,7 @@ async function initializeSqliteSchema(
   if (!tableNames.includes("bookingReputations")) {
     sqliteDb.exec(`
       CREATE TABLE bookingReputations (
-        facilityId TEXT NOT NULL DEFAULT 'primary',
+        facilityId TEXT NOT NULL,
         userId TEXT NOT NULL,
         score INTEGER NOT NULL DEFAULT 100 CHECK(score BETWEEN 0 AND 100),
         penaltyUntil INTEGER,
@@ -859,7 +939,7 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE bookingReputationEvents (
         id TEXT PRIMARY KEY,
-        facilityId TEXT NOT NULL DEFAULT 'primary',
+        facilityId TEXT NOT NULL,
         userId TEXT NOT NULL,
         bookingId TEXT,
         type TEXT NOT NULL,
@@ -1103,7 +1183,7 @@ async function initializeSqliteSchema(
         publicId TEXT NOT NULL UNIQUE,
         applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
           CHECK(applicationTenantId IN ('commercial', 'corporate-support')),
-        facilityId TEXT NOT NULL DEFAULT 'primary',
+        facilityId TEXT NOT NULL,
         requesterUserId TEXT NOT NULL,
         assigneeUserId TEXT,
         subject TEXT NOT NULL,
@@ -1133,7 +1213,7 @@ async function initializeSqliteSchema(
         id TEXT PRIMARY KEY,
         applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
           CHECK(applicationTenantId IN ('commercial', 'corporate-support')),
-        facilityId TEXT NOT NULL DEFAULT 'primary',
+        facilityId TEXT NOT NULL,
         userId TEXT NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('agent', 'manager')),
         active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
@@ -1190,7 +1270,7 @@ async function initializeSqliteSchema(
         id TEXT PRIMARY KEY,
         applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
           CHECK(applicationTenantId IN ('commercial', 'corporate-support')),
-        facilityId TEXT NOT NULL DEFAULT 'primary',
+        facilityId TEXT NOT NULL,
         slug TEXT NOT NULL,
         title TEXT NOT NULL,
         summary TEXT NOT NULL DEFAULT '',
@@ -1241,7 +1321,7 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE billingRecords (
         id TEXT PRIMARY KEY,
-        facilityId TEXT NOT NULL DEFAULT 'primary',
+        facilityId TEXT NOT NULL,
         userId TEXT,
         customerName TEXT NOT NULL,
         customerEmail TEXT NOT NULL DEFAULT '',
@@ -1274,7 +1354,7 @@ async function initializeSqliteSchema(
 
     if (!billingColumnNames.includes("facilityId")) {
       sqliteDb.exec(
-        "ALTER TABLE billingRecords ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'primary'",
+        "ALTER TABLE billingRecords ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'legacy-import-quarantine'",
       );
     }
 
@@ -1336,14 +1416,28 @@ async function initializeSqliteSchema(
     );
   }
 
-  const facilityCreatedAt = Date.now();
-  sqliteDb
-    .prepare(
-      `INSERT OR IGNORE INTO facilityProfiles
-       (id, slug, name, logoDataUrl, accentColor, status, createdAt, updatedAt)
-       VALUES ('primary', 'primary', 'Centro Umbravia Forge', '', '#2563eb', 'active', ?, ?)`,
-    )
-    .run(facilityCreatedAt, facilityCreatedAt);
+  const legacyFacilityId = "legacy-import-quarantine";
+  const legacyUsersExist = Boolean(
+    sqliteDb.prepare("SELECT 1 FROM users LIMIT 1").get(),
+  );
+  if (
+    legacyUsersExist &&
+    (legacyFacilityBackfillRequired || !tableNames.includes("facilityProfiles"))
+  ) {
+    const facilityCreatedAt = Date.now();
+    sqliteDb
+      .prepare(
+        `INSERT OR IGNORE INTO facilityProfiles
+         (id, slug, name, logoDataUrl, accentColor, status, createdAt, updatedAt)
+         VALUES (?, ?, 'Legacy import under review', '', '#64748b', 'closed', ?, ?)`,
+      )
+      .run(
+        legacyFacilityId,
+        legacyFacilityId,
+        facilityCreatedAt,
+        facilityCreatedAt,
+      );
+  }
 
   sqliteDb.exec(`
     CREATE TRIGGER IF NOT EXISTS trg_activitySessions_facility_insert
@@ -1614,31 +1708,39 @@ async function initializeSqliteSchema(
   `);
 
   const membershipBackfillAt = Date.now();
-  sqliteDb
-    .prepare(
-      `INSERT OR IGNORE INTO facilityMemberships
-       (id, facilityId, userId, role, status, createdAt, updatedAt)
-       SELECT 'primary:' || id,
-              'primary',
-              id,
-              CASE role
-                WHEN 'admin' THEN 'admin'
-                WHEN 'trainer' THEN 'trainer'
-                ELSE 'member'
-              END,
-              'active',
-              createdAt,
-              ?
-       FROM users`,
-    )
-    .run(membershipBackfillAt);
+  if (!tableNames.includes("facilityMemberships")) {
+    sqliteDb
+      .prepare(
+        `INSERT OR IGNORE INTO facilityMemberships
+         (id, facilityId, userId, role, status, createdAt, updatedAt)
+         SELECT ? || ':' || id,
+                ?,
+                id,
+                CASE role
+                  WHEN 'admin' THEN 'admin'
+                  WHEN 'trainer' THEN 'trainer'
+                  ELSE 'member'
+                END,
+                'active',
+                createdAt,
+                ?
+         FROM users
+         WHERE EXISTS (SELECT 1 FROM facilityProfiles WHERE id = ?)`,
+      )
+      .run(
+        legacyFacilityId,
+        legacyFacilityId,
+        membershipBackfillAt,
+        legacyFacilityId,
+      );
+  }
 
   sqliteDb.exec(`
     CREATE TABLE IF NOT EXISTS supportKnowledgeArticles (
       id TEXT PRIMARY KEY,
       applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
         CHECK(applicationTenantId IN ('commercial', 'corporate-support')),
-      facilityId TEXT NOT NULL DEFAULT 'primary',
+      facilityId TEXT NOT NULL,
       slug TEXT NOT NULL,
       title TEXT NOT NULL,
       summary TEXT NOT NULL DEFAULT '',
@@ -1682,7 +1784,7 @@ async function initializeSqliteSchema(
         id TEXT PRIMARY KEY,
         applicationTenantId TEXT NOT NULL DEFAULT 'corporate-support'
           CHECK(applicationTenantId IN ('commercial', 'corporate-support')),
-        facilityId TEXT NOT NULL DEFAULT 'primary',
+        facilityId TEXT NOT NULL,
         slug TEXT NOT NULL,
         title TEXT NOT NULL,
         summary TEXT NOT NULL DEFAULT '',
@@ -1702,7 +1804,7 @@ async function initializeSqliteSchema(
         id, applicationTenantId, facilityId, slug, title, summary, body, category, status,
         authorUserId, createdAt, updatedAt, publishedAt
       )
-      SELECT id, applicationTenantId, 'primary', slug, title, summary, body, category, status,
+      SELECT id, applicationTenantId, 'legacy-import-quarantine', slug, title, summary, body, category, status,
              authorUserId, createdAt, updatedAt, publishedAt
       FROM supportKnowledgeArticlesLegacy;
       DROP TABLE supportKnowledgeArticlesLegacy;
@@ -1856,7 +1958,7 @@ async function initializeSqliteSchema(
       );
       INSERT INTO bookingReputations
         (facilityId, userId, score, penaltyUntil, updatedAt)
-      SELECT 'primary', userId, score, penaltyUntil, updatedAt
+      SELECT 'legacy-import-quarantine', userId, score, penaltyUntil, updatedAt
       FROM bookingReputationsLegacy;
       DROP TABLE bookingReputationsLegacy;
     `);
@@ -1884,7 +1986,7 @@ async function initializeSqliteSchema(
       );
       INSERT INTO bookingReputationEvents
         (id, facilityId, userId, bookingId, type, pointsDelta, reason, createdAt)
-      SELECT id, 'primary', userId, bookingId, type, pointsDelta, reason, createdAt
+      SELECT id, 'legacy-import-quarantine', userId, bookingId, type, pointsDelta, reason, createdAt
       FROM bookingReputationEventsLegacy;
       DROP TABLE bookingReputationEventsLegacy;
     `);
@@ -1908,7 +2010,7 @@ async function initializeSqliteSchema(
          SELECT membership.id
          FROM facilityMemberships AS membership
          INNER JOIN users AS user ON user.id = membership.userId
-         WHERE membership.facilityId = 'primary'
+         WHERE membership.facilityId = 'legacy-import-quarantine'
            AND membership.status = 'active'
            AND user.role = 'admin'
          ORDER BY user.createdAt ASC, user.id ASC
@@ -1917,7 +2019,7 @@ async function initializeSqliteSchema(
        AND NOT EXISTS (
          SELECT 1
          FROM facilityMemberships
-         WHERE facilityId = 'primary'
+         WHERE facilityId = 'legacy-import-quarantine'
            AND role = 'owner'
            AND status = 'active'
        )`,
@@ -1992,7 +2094,7 @@ async function initializeSqliteSchema(
       .all() as Array<{ name: string }>;
     if (!commercialColumns.some((column) => column.name === "facilityId")) {
       sqliteDb.exec(
-        "ALTER TABLE commercialTrials ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'primary'",
+        "ALTER TABLE commercialTrials ADD COLUMN facilityId TEXT NOT NULL DEFAULT 'legacy-import-quarantine'",
       );
     }
     if (
@@ -2252,10 +2354,23 @@ async function initializeSqliteSchema(
   }
 
   sqliteDb.exec(`
+    CREATE TABLE IF NOT EXISTS platformOperators (
+      userId TEXT PRIMARY KEY,
+      source TEXT NOT NULL CHECK(source = 'controlled_provisioning'),
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      revokedAt INTEGER,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_platformOperators_status
+      ON platformOperators(status, userId);
+
     CREATE TABLE IF NOT EXISTS facilityCommercialSubscriptions (
       facilityId TEXT PRIMARY KEY,
       stripeCustomerId TEXT UNIQUE,
       stripeSubscriptionId TEXT UNIQUE,
+      stripeCheckoutSessionId TEXT UNIQUE,
       stripePriceId TEXT,
       planKey TEXT CHECK(planKey IS NULL OR planKey IN ('monthly', 'annual')),
       status TEXT NOT NULL DEFAULT 'inactive' CHECK(status IN (
@@ -2286,6 +2401,22 @@ async function initializeSqliteSchema(
     CREATE INDEX IF NOT EXISTS idx_stripeWebhookEvents_received
       ON stripeWebhookEvents(receivedAt DESC);
   `);
+
+  const subscriptionColumns = sqliteDb
+    .prepare("PRAGMA table_info(facilityCommercialSubscriptions)")
+    .all() as Array<{ name: string }>;
+  if (
+    !subscriptionColumns.some(
+      (column) => column.name === "stripeCheckoutSessionId",
+    )
+  ) {
+    sqliteDb.exec(
+      "ALTER TABLE facilityCommercialSubscriptions ADD COLUMN stripeCheckoutSessionId TEXT",
+    );
+    sqliteDb.exec(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_facilityCommercialSubscriptions_checkout ON facilityCommercialSubscriptions(stripeCheckoutSessionId)",
+    );
+  }
 
   if (!tableNames.includes("delegationGrants")) {
     console.log("Creating delegationGrants table...");
@@ -2332,6 +2463,7 @@ async function initializeSqliteSchema(
 
   initializeCommunitySchema(sqliteDb);
   initializeE2eeSchema(sqliteDb);
+  enforceActiveFacilityBoundary(sqliteDb);
 
   console.log("Database initialized successfully");
 }

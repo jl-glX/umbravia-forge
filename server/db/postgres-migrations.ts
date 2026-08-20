@@ -310,7 +310,7 @@ CREATE INDEX IF NOT EXISTS "idx_feedback_createdAt" ON "feedback" ("createdAt");
 
 CREATE TABLE IF NOT EXISTS "billingRecords" (
   "id" TEXT PRIMARY KEY,
-  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine',
   "userId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
   "customerName" TEXT NOT NULL,
   "customerEmail" TEXT NOT NULL DEFAULT '',
@@ -415,7 +415,7 @@ CREATE INDEX IF NOT EXISTS "idx_delegationGrants_expiry" ON "delegationGrants" (
 CREATE TABLE IF NOT EXISTS "supportTickets" (
   "id" TEXT PRIMARY KEY,
   "publicId" TEXT NOT NULL UNIQUE,
-  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine',
   "requesterUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
   "assigneeUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
   "subject" TEXT NOT NULL,
@@ -440,7 +440,7 @@ CREATE INDEX IF NOT EXISTS "idx_supportTickets_assignee" ON "supportTickets" ("a
 
 CREATE TABLE IF NOT EXISTS "supportAgents" (
   "id" TEXT PRIMARY KEY,
-  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine',
   "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
   "role" TEXT NOT NULL CHECK ("role" IN ('agent', 'manager')),
   "active" SMALLINT NOT NULL DEFAULT 1 CHECK ("active" IN (0, 1)),
@@ -486,7 +486,7 @@ CREATE INDEX IF NOT EXISTS "idx_supportEvents_ticket" ON "supportEvents" ("ticke
 
 CREATE TABLE IF NOT EXISTS "supportKnowledgeArticles" (
   "id" TEXT PRIMARY KEY,
-  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine',
   "slug" TEXT NOT NULL,
   "title" TEXT NOT NULL,
   "summary" TEXT NOT NULL DEFAULT '',
@@ -501,7 +501,7 @@ CREATE TABLE IF NOT EXISTS "supportKnowledgeArticles" (
 CREATE INDEX IF NOT EXISTS "idx_supportKnowledge_status" ON "supportKnowledgeArticles" ("facilityId", "status", "category", "updatedAt" DESC);
 
 INSERT INTO "facilityProfiles" ("id", "name", "logoDataUrl", "accentColor", "updatedAt")
-VALUES ('primary', 'Centro Umbravia Forge', '', '#2563eb', 0)
+VALUES ('legacy-import-quarantine', 'Legacy import under review', '', '#64748b', 0)
 ON CONFLICT ("id") DO NOTHING;
 `;
 
@@ -752,7 +752,7 @@ CREATE INDEX IF NOT EXISTS "idx_facilityLinks_source_status"
 
 CREATE TABLE IF NOT EXISTS "parentalControls" (
   "id" TEXT PRIMARY KEY,
-  "facilityId" TEXT NOT NULL DEFAULT 'primary' REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine' REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
   "childUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
   "guardianUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
   "settings" TEXT NOT NULL DEFAULT '{}',
@@ -769,7 +769,7 @@ CREATE TABLE IF NOT EXISTS "moderationCases" (
   "reporterUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
   "subjectUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
   "messageId" TEXT REFERENCES "communityMessages" ("id") ON DELETE SET NULL,
-  "facilityId" TEXT NOT NULL DEFAULT 'primary' REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine' REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
   "category" TEXT NOT NULL,
   "description" TEXT NOT NULL,
   "evidence" TEXT NOT NULL DEFAULT '[]',
@@ -876,7 +876,7 @@ ALTER TABLE "emailDeliveries"
 CREATE TABLE IF NOT EXISTS "supportTickets" (
   "id" TEXT PRIMARY KEY,
   "publicId" TEXT NOT NULL UNIQUE,
-  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine',
   "requesterUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
   "assigneeUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
   "subject" TEXT NOT NULL,
@@ -901,7 +901,7 @@ CREATE INDEX IF NOT EXISTS "idx_supportTickets_assignee" ON "supportTickets" ("a
 
 CREATE TABLE IF NOT EXISTS "supportAgents" (
   "id" TEXT PRIMARY KEY,
-  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine',
   "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
   "role" TEXT NOT NULL CHECK ("role" IN ('agent', 'manager')),
   "active" SMALLINT NOT NULL DEFAULT 1 CHECK ("active" IN (0, 1)),
@@ -947,7 +947,7 @@ CREATE INDEX IF NOT EXISTS "idx_supportEvents_ticket" ON "supportEvents" ("ticke
 
 CREATE TABLE IF NOT EXISTS "supportKnowledgeArticles" (
   "id" TEXT PRIMARY KEY,
-  "facilityId" TEXT NOT NULL DEFAULT 'primary',
+  "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine',
   "slug" TEXT NOT NULL,
   "title" TEXT NOT NULL,
   "summary" TEXT NOT NULL DEFAULT '',
@@ -1187,7 +1187,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "idx_facilityProfiles_slug"
 INSERT INTO "facilityProfiles"
   ("id", "slug", "name", "logoDataUrl", "accentColor", "status", "createdAt", "updatedAt")
 VALUES
-  ('primary', 'primary', 'Centro Umbravia Forge', '', '#2563eb', 'active', 0, 0)
+  ('legacy-import-quarantine', 'legacy-import-quarantine', 'Legacy import under review', '', '#64748b', 'closed', 0, 0)
 ON CONFLICT ("id") DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS "facilityMemberships" (
@@ -1209,8 +1209,8 @@ CREATE INDEX IF NOT EXISTS "idx_facilityMemberships_facility_role"
 INSERT INTO "facilityMemberships"
   ("id", "facilityId", "userId", "role", "status", "createdAt", "updatedAt")
 SELECT
-  'primary:' || "id",
-  'primary',
+  'legacy-import-quarantine:' || "id",
+  'legacy-import-quarantine',
   "id",
   CASE "role"
     WHEN 'admin' THEN 'admin'
@@ -1229,7 +1229,7 @@ WHERE "id" = (
   SELECT membership."id"
   FROM "facilityMemberships" AS membership
   INNER JOIN "users" AS account ON account."id" = membership."userId"
-  WHERE membership."facilityId" = 'primary'
+  WHERE membership."facilityId" = 'legacy-import-quarantine'
     AND membership."status" = 'active'
     AND account."role" = 'admin'
   ORDER BY account."createdAt" ASC, account."id" ASC
@@ -1238,7 +1238,7 @@ WHERE "id" = (
 AND NOT EXISTS (
   SELECT 1
   FROM "facilityMemberships"
-  WHERE "facilityId" = 'primary'
+  WHERE "facilityId" = 'legacy-import-quarantine'
     AND "role" = 'owner'
     AND "status" = 'active'
 );
@@ -1249,7 +1249,7 @@ AND NOT EXISTS (
     name: "facility-class-scope",
     sql: String.raw`
 ALTER TABLE "gymClasses"
-  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine';
 
 ALTER TABLE "gymClasses"
   ADD CONSTRAINT "gymClasses_facilityId_fkey"
@@ -1265,10 +1265,10 @@ CREATE INDEX IF NOT EXISTS "idx_gymClasses_facility_scheduled"
     name: "facility-booking-reputation-scope",
     sql: String.raw`
 ALTER TABLE "bookingReputations"
-  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine';
 
 ALTER TABLE "bookingReputationEvents"
-  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine';
 
 UPDATE "bookingReputationEvents" AS event
 SET "facilityId" = (
@@ -1306,7 +1306,7 @@ CREATE INDEX IF NOT EXISTS "idx_bookingReputationEvents_facility_user"
     name: "facility-billing-scope",
     sql: String.raw`
 ALTER TABLE "billingRecords"
-  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine';
 ALTER TABLE "billingRecords"
   ADD CONSTRAINT "billingRecords_facilityId_fkey"
   FOREIGN KEY ("facilityId") REFERENCES "facilityProfiles" ("id")
@@ -1320,7 +1320,7 @@ CREATE INDEX IF NOT EXISTS "idx_billingRecords_facility_status"
     name: "facility-support-scope",
     sql: String.raw`
 ALTER TABLE "supportKnowledgeArticles"
-  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine';
 ALTER TABLE "supportKnowledgeArticles"
   DROP CONSTRAINT IF EXISTS "supportKnowledgeArticles_slug_key";
 
@@ -1401,7 +1401,7 @@ CREATE INDEX IF NOT EXISTS "idx_facilityLinks_source_status"
     name: "facility-community-controls-scope",
     sql: String.raw`
 ALTER TABLE "parentalControls"
-  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine';
 ALTER TABLE "parentalControls"
   DROP CONSTRAINT IF EXISTS "parentalControls_childUserId_guardianUserId_key";
 
@@ -1429,7 +1429,7 @@ CREATE INDEX IF NOT EXISTS "idx_parentalControls_facility_status"
     name: "commercial-trials-facility-scope",
     sql: String.raw`
 ALTER TABLE "commercialTrials"
-  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'primary';
+  ADD COLUMN IF NOT EXISTS "facilityId" TEXT NOT NULL DEFAULT 'legacy-import-quarantine';
 
 DO $$
 BEGIN
@@ -2079,6 +2079,73 @@ CREATE TABLE IF NOT EXISTS "stripeWebhookEvents" (
 
 CREATE INDEX IF NOT EXISTS "idx_stripeWebhookEvents_received"
   ON "stripeWebhookEvents" ("receivedAt" DESC);
+`,
+  },
+  {
+    version: 33,
+    name: "canonical-facility-boundary-and-stripe-checkout-lifecycle",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "platformOperators" (
+  "userId" TEXT PRIMARY KEY REFERENCES "users" ("id") ON DELETE CASCADE,
+  "source" TEXT NOT NULL CHECK ("source" = 'controlled_provisioning'),
+  "status" TEXT NOT NULL DEFAULT 'active' CHECK ("status" IN ('active', 'revoked')),
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  "revokedAt" BIGINT
+);
+CREATE INDEX IF NOT EXISTS "idx_platformOperators_status"
+  ON "platformOperators" ("status", "userId");
+
+ALTER TABLE "facilityCommercialSubscriptions"
+  ADD COLUMN IF NOT EXISTS "stripeCheckoutSessionId" TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_facilityCommercialSubscriptions_checkout"
+  ON "facilityCommercialSubscriptions" ("stripeCheckoutSessionId");
+
+UPDATE "facilityMemberships"
+SET "status" = 'suspended', "updatedAt" = GREATEST("updatedAt", 0)
+WHERE "facilityId" IN (
+  SELECT "id" FROM "facilityProfiles" WHERE "id" NOT LIKE 'facility-%'
+) AND "status" IN ('active', 'invited');
+
+UPDATE "facilityProfiles"
+SET "status" = 'closed', "updatedAt" = GREATEST("updatedAt", 0)
+WHERE "id" NOT LIKE 'facility-%' AND "status" <> 'closed';
+
+CREATE OR REPLACE FUNCTION "enforceActiveFacilityScope"()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW."facilityId" IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM "facilityProfiles"
+    WHERE "id" = NEW."facilityId"
+      AND "status" = 'active'
+  ) THEN
+    RAISE EXCEPTION 'Facility scope is not active';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$
+DECLARE
+  scoped_table record;
+  trigger_name text;
+BEGIN
+  FOR scoped_table IN
+    SELECT table_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND column_name = 'facilityId'
+      AND table_name <> 'facilityProfiles'
+  LOOP
+    trigger_name := 'trg_' || scoped_table.table_name || '_active_facility';
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', trigger_name, scoped_table.table_name);
+    EXECUTE format(
+      'CREATE TRIGGER %I BEFORE INSERT OR UPDATE OF "facilityId" ON %I FOR EACH ROW EXECUTE FUNCTION "enforceActiveFacilityScope"()',
+      trigger_name,
+      scoped_table.table_name
+    );
+  END LOOP;
+END $$;
 `,
   },
 ];

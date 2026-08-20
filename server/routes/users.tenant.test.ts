@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("user management tenant isolation", () => {
   let directory: string;
@@ -19,6 +20,10 @@ describe("user management tenant isolation", () => {
     const auth = await import("../services/auth.js");
     await database.initializeDatabase();
     const now = Date.now();
+
+    await createActiveTestFacility(database.db, "facility-alpha", {
+      createdAt: now,
+    });
 
     await database.db
       .insertInto("facilityProfiles")
@@ -50,8 +55,8 @@ describe("user management tenant isolation", () => {
           createdAt: now,
         },
         {
-          id: "users-primary-only",
-          email: "users-primary@example.com",
+          id: "users-facility_alpha-only",
+          email: "users-facility_alpha@example.com",
           phone: null,
           name: "Primary Only",
           accountStatus: "active",
@@ -94,8 +99,8 @@ describe("user management tenant isolation", () => {
       .insertInto("facilityMemberships")
       .values([
         {
-          id: "primary:users-admin",
-          facilityId: "primary",
+          id: "facility-alpha:users-admin",
+          facilityId: "facility-alpha",
           userId: "users-admin",
           role: "owner",
           status: "active",
@@ -112,9 +117,9 @@ describe("user management tenant isolation", () => {
           updatedAt: now + 1,
         },
         {
-          id: "primary:users-primary-only",
-          facilityId: "primary",
-          userId: "users-primary-only",
+          id: "facility-alpha:users-facility_alpha-only",
+          facilityId: "facility-alpha",
+          userId: "users-facility_alpha-only",
           role: "member",
           status: "active",
           createdAt: now,
@@ -130,8 +135,8 @@ describe("user management tenant isolation", () => {
           updatedAt: now,
         },
         {
-          id: "primary:users-shared",
-          facilityId: "primary",
+          id: "facility-alpha:users-shared",
+          facilityId: "facility-alpha",
           userId: "users-shared",
           role: "member",
           status: "active",
@@ -206,12 +211,12 @@ describe("user management tenant isolation", () => {
   }
 
   it("lists and reads users only from the selected facility", async () => {
-    const primary = await request(app)
+    const facility_alpha = await request(app)
       .get("/api/users")
       .set("Cookie", adminCookie)
       .expect(200);
-    expect(ids(primary)).toContain("users-primary-only");
-    expect(ids(primary)).not.toContain("users-secondary-only");
+    expect(ids(facility_alpha)).toContain("users-facility_alpha-only");
+    expect(ids(facility_alpha)).not.toContain("users-secondary-only");
 
     const secondary = await request(app)
       .get("/api/users")
@@ -219,10 +224,10 @@ describe("user management tenant isolation", () => {
       .set("X-Facility-Id", "users-secondary")
       .expect(200);
     expect(ids(secondary)).toContain("users-secondary-only");
-    expect(ids(secondary)).not.toContain("users-primary-only");
+    expect(ids(secondary)).not.toContain("users-facility_alpha-only");
 
     await request(app)
-      .get("/api/users/users-primary-only")
+      .get("/api/users/users-facility_alpha-only")
       .set("Cookie", adminCookie)
       .set("X-Facility-Id", "users-secondary")
       .expect(404);
@@ -270,7 +275,7 @@ describe("user management tenant isolation", () => {
         .select("facilityId")
         .where("userId", "=", "users-shared")
         .execute(),
-    ).resolves.toEqual([{ facilityId: "primary" }]);
+    ).resolves.toEqual([{ facilityId: "facility-alpha" }]);
     await expect(
       database.db
         .selectFrom("bookingAnalyticsEvents")

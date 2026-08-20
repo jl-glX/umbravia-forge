@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("booking analytics event migration", () => {
   let directory: string;
@@ -16,6 +17,9 @@ describe("booking analytics event migration", () => {
     await database.initializeDatabase();
 
     const now = Date.now();
+    await createActiveTestFacility(database.db, "facility-alpha", {
+      createdAt: now,
+    });
     await database.db
       .insertInto("users")
       .values({
@@ -34,7 +38,7 @@ describe("booking analytics event migration", () => {
       .insertInto("activitySessions")
       .values({
         id: "analytics-migration-class",
-        facilityId: "primary",
+        facilityId: "facility-alpha",
         name: "Migration class",
         description: "",
         trainerId: "trainer",

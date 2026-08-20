@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("booking reputation tenant isolation", () => {
   let directory: string;
@@ -18,6 +19,9 @@ describe("booking reputation tenant isolation", () => {
     await database.initializeDatabase();
 
     const now = Date.now();
+    await createActiveTestFacility(database.db, "facility-alpha", {
+      createdAt: now,
+    });
     await database.db
       .insertInto("facilityProfiles")
       .values({
@@ -49,8 +53,8 @@ describe("booking reputation tenant isolation", () => {
       .insertInto("facilityMemberships")
       .values([
         {
-          id: "primary:shared-member",
-          facilityId: "primary",
+          id: "facility-alpha:shared-member",
+          facilityId: "facility-alpha",
           userId: "shared-member",
           role: "member",
           status: "active",
@@ -79,7 +83,7 @@ describe("booking reputation tenant isolation", () => {
   it("maintains independent scores and events for each facility", async () => {
     await reputation.adjustBookingReputation({
       userId: "shared-member",
-      facilityId: "primary",
+      facilityId: "facility-alpha",
       pointsDelta: -10,
       reason: "Primary-only adjustment",
     });
@@ -91,7 +95,7 @@ describe("booking reputation tenant isolation", () => {
     });
 
     await expect(
-      reputation.getBookingReputation("shared-member", "primary"),
+      reputation.getBookingReputation("shared-member", "facility-alpha"),
     ).resolves.toMatchObject({ score: 90 });
     await expect(
       reputation.getBookingReputation("shared-member", "secondary"),
@@ -104,7 +108,7 @@ describe("booking reputation tenant isolation", () => {
       .orderBy("facilityId")
       .execute();
     expect(rows).toEqual([
-      { facilityId: "primary", userId: "shared-member", score: 90 },
+      { facilityId: "facility-alpha", userId: "shared-member", score: 90 },
       { facilityId: "secondary", userId: "shared-member", score: 75 },
     ]);
 
@@ -114,7 +118,7 @@ describe("booking reputation tenant isolation", () => {
       .orderBy("facilityId")
       .execute();
     expect(events).toEqual([
-      { facilityId: "primary", reason: "Primary-only adjustment" },
+      { facilityId: "facility-alpha", reason: "Primary-only adjustment" },
       { facilityId: "secondary", reason: "Secondary-only adjustment" },
     ]);
   });

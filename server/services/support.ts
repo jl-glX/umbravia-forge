@@ -34,6 +34,7 @@ import {
 import { getManagedEmailChannelCapabilities } from "./email-manager.js";
 import { stageStoredFilesForRemoval } from "../lib/staged-file-removal.js";
 import { SUPPORT_DATA_APPLICATION_TENANT_ID } from "../lib/application-tenancy.js";
+import { resolveFacilityContext } from "./facility-context.js";
 
 export class SupportAccessError extends Error {
   readonly statusCode = 403;
@@ -754,12 +755,18 @@ export async function ingestSupportInboundEmail(
     const inboundIdentity = createHash("sha256")
       .update(`${sender}\n${messageIdHash}`)
       .digest("hex");
+    const facility = await resolveFacilityContext(requester.id);
+    if (!facility) {
+      throw new SupportAccessError(
+        "Inbound support email requires an active facility membership",
+      );
+    }
     const now = Date.now();
     const ticket = {
       id: `support-ticket-email-${inboundIdentity}`,
       publicId: publicTicketId(),
       applicationTenantId: SUPPORT_DATA_APPLICATION_TENANT_ID,
-      facilityId: "primary",
+      facilityId: facility.id,
       requesterUserId: requester.id,
       assigneeUserId: null,
       subject: requiredText(

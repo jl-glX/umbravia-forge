@@ -14,7 +14,7 @@ describe("booking reputation tenant migration", () => {
     if (directory) await rm(directory, { recursive: true, force: true });
   });
 
-  it("moves legacy global reputation into the primary facility", async () => {
+  it("quarantines legacy global reputation outside active facilities", async () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-forge-reputation-v17-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
@@ -86,7 +86,7 @@ describe("booking reputation tenant migration", () => {
         .select(["facilityId", "userId", "score"])
         .executeTakeFirstOrThrow(),
     ).resolves.toEqual({
-      facilityId: "primary",
+      facilityId: "legacy-import-quarantine",
       userId: "legacy-reputation-user",
       score: 72,
     });
@@ -96,7 +96,7 @@ describe("booking reputation tenant migration", () => {
         .select(["facilityId", "id", "reason"])
         .executeTakeFirstOrThrow(),
     ).resolves.toEqual({
-      facilityId: "primary",
+      facilityId: "legacy-import-quarantine",
       id: "legacy-event",
       reason: "Legacy adjustment",
     });

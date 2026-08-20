@@ -13,7 +13,6 @@ import {
   moderationStatuses,
 } from "../lib/community-policy.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
-import { PRIMARY_FACILITY_ID } from "../services/facility-context.js";
 import { canAccessChannel } from "./community.js";
 
 export const moderationRouter = express.Router();
@@ -88,7 +87,7 @@ moderationRouter.post("/cases", async (req, res, next) => {
     const auth = getAuthenticatedUser(res);
     const facility = getFacilityContext(res);
     const facilityId = facility.id;
-    let caseFacilityId = facilityId;
+    const caseFacilityId = facilityId;
     let personalCommunityReport = false;
     const category = String(req.body.category ?? "").trim();
     const description = String(req.body.description ?? "").trim();
@@ -136,7 +135,6 @@ moderationRouter.post("/cases", async (req, res, next) => {
       )
         return res.status(404).json({ error: "Reportable message not found" });
       if (channel.scope === "community") {
-        caseFacilityId = PRIMARY_FACILITY_ID;
         personalCommunityReport = true;
       }
       if (subjectUserId && subjectUserId !== message.authorUserId)
@@ -274,7 +272,7 @@ moderationRouter.post("/cases/:id/actions", async (req, res, next) => {
       });
     if (["resolved", "rejected"].includes(moderationCase.status))
       return res.status(409).json({ error: "Moderation case is closed" });
-    if (state === "platform_suspended" && facilityId !== "primary") {
+    if (state === "platform_suspended" && !auth.platformOperator) {
       return res.status(403).json({
         error: "Platform suspension requires central moderation",
         code: "CENTRAL_MODERATION_REQUIRED",

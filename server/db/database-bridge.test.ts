@@ -33,7 +33,7 @@ describe("SQLite to PostgreSQL bridge planning", () => {
     const plan = bridge.buildSqliteToPostgresMigrationPlan(environmentPath);
 
     expect(inspection.ready).toBe(true);
-    expect(inspection.rowCounts.facilityProfiles).toBe(1);
+    expect(inspection.rowCounts.facilityProfiles).toBe(0);
     expect(plan.targetProvider).toBe("postgresql");
     expect(plan.executionEnabled).toBe(false);
     expect(plan.excludedByDefault).toContain("sessions");

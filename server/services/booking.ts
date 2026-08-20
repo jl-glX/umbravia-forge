@@ -12,7 +12,6 @@ import {
   recordBookingReputationEvent,
 } from "./booking-reputation.js";
 import { parseBookingConfiguration } from "../lib/booking-configuration.js";
-import { PRIMARY_FACILITY_ID } from "./facility-context.js";
 import { recordBookingAnalyticsEvent } from "./booking-analytics-events.js";
 
 const DEFAULT_PROMOTION_CONFIRMATION_MINUTES = 15;
@@ -459,7 +458,7 @@ async function cancelBookingInTransaction(
 
 export async function getClassWithAvailability(
   activitySessionId: string,
-  facilityId = PRIMARY_FACILITY_ID,
+  facilityId: string,
 ) {
   let activitySession = await db
     .selectFrom("activitySessions")
@@ -510,7 +509,7 @@ export async function getClassWithAvailability(
 export async function bookClass(
   activitySessionId: string,
   userId: string,
-  facilityId = PRIMARY_FACILITY_ID,
+  facilityId: string,
 ) {
   return db.transaction().execute(async (transaction) => {
     const now = Date.now();
@@ -941,10 +940,7 @@ export async function markBookingAttendance(
   });
 }
 
-export async function getUserBookings(
-  userId: string,
-  facilityId = PRIMARY_FACILITY_ID,
-) {
+export async function getUserBookings(userId: string, facilityId: string) {
   const rows = await db
     .selectFrom("bookings")
     .innerJoin(
@@ -1014,7 +1010,7 @@ export async function getUserBookings(
 
 export async function getClassBookings(
   activitySessionId: string,
-  facilityId = PRIMARY_FACILITY_ID,
+  facilityId: string,
 ) {
   return db
     .selectFrom("bookings")
@@ -1043,7 +1039,7 @@ export async function getClassBookings(
 
 export async function getClassWaitlist(
   activitySessionId: string,
-  facilityId = PRIMARY_FACILITY_ID,
+  facilityId: string,
 ) {
   const entries = await db
     .selectFrom("waitlistEntries")
@@ -1098,7 +1094,7 @@ export async function getClassWaitlist(
 
 export async function exportClassAttendeesCsv(
   activitySessionId: string,
-  facilityId = PRIMARY_FACILITY_ID,
+  facilityId: string,
 ): Promise<string> {
   const activitySession = await db
     .selectFrom("activitySessions")

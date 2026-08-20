@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import type { Transaction } from "kysely";
 import { db } from "../db/client.js";
 import type { BookingReputationEventType, Database } from "../db/types.js";
-import { PRIMARY_FACILITY_ID } from "./facility-context.js";
 
 const STARTING_SCORE = 100;
 const MIN_SCORE = 0;
@@ -159,10 +158,7 @@ export async function recordBookingReputationEvent(
   );
 }
 
-export async function getBookingReputation(
-  userId: string,
-  facilityId = PRIMARY_FACILITY_ID,
-) {
+export async function getBookingReputation(userId: string, facilityId: string) {
   const membership = await db
     .selectFrom("facilityMemberships")
     .select("id")

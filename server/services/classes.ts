@@ -5,7 +5,6 @@ import {
   parseBookingConfiguration,
   type BookingConfiguration,
 } from "../lib/booking-configuration.js";
-import { PRIMARY_FACILITY_ID } from "./facility-context.js";
 
 export interface ClassWithAvailability {
   id: string;
@@ -48,7 +47,7 @@ export async function saveActivitySessionBookingConfiguration(
     lifecycleState?: "active" | "suspended" | "cancelled";
     seriesId?: string | null;
   },
-  facilityId = PRIMARY_FACILITY_ID,
+  facilityId: string,
 ) {
   const activitySession = await db
     .selectFrom("activitySessions")
@@ -108,7 +107,7 @@ export async function saveActivitySessionBookingConfiguration(
 }
 
 export async function getAllClasses(
-  facilityId = PRIMARY_FACILITY_ID,
+  facilityId: string,
 ): Promise<ClassWithAvailability[]> {
   const classes = await db
     .selectFrom("activitySessions")
@@ -128,7 +127,7 @@ export async function getAllClasses(
 
 export async function getClassWithAvailability(
   activitySessionId: string,
-  facilityId = PRIMARY_FACILITY_ID,
+  facilityId: string,
 ): Promise<ClassWithAvailability | null> {
   const activitySession = await db
     .selectFrom("activitySessions")
@@ -184,7 +183,7 @@ export async function createClass(
     maxCapacity: number;
     scheduledAt: number;
   },
-  facilityId = PRIMARY_FACILITY_ID,
+  facilityId: string,
 ): Promise<ClassWithAvailability> {
   // Validate input
   if (!data.name || !data.trainerId || !data.maxCapacity || !data.scheduledAt) {
@@ -236,7 +235,7 @@ export async function updateClass(
     maxCapacity?: number;
     scheduledAt?: number;
   },
-  facilityId = PRIMARY_FACILITY_ID,
+  facilityId: string,
 ): Promise<ClassWithAvailability> {
   const activitySession = await db
     .selectFrom("activitySessions")
@@ -286,7 +285,7 @@ export async function updateClass(
 
 export async function deleteClass(
   activitySessionId: string,
-  facilityId = PRIMARY_FACILITY_ID,
+  facilityId: string,
 ): Promise<void> {
   const activitySession = await db
     .selectFrom("activitySessions")

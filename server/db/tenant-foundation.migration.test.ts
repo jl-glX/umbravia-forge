@@ -76,53 +76,23 @@ describe("tenant foundation migration", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  it("keeps the existing primary facility as the compatibility tenant", async () => {
+  it("does not create an implicit compatibility facility", async () => {
     await expect(
-      database.db
-        .selectFrom("facilityProfiles")
-        .select(["id", "slug", "status", "createdAt"])
-        .where("id", "=", "primary")
-        .executeTakeFirstOrThrow(),
-    ).resolves.toMatchObject({
-      id: "primary",
-      slug: "primary",
-      status: "active",
-    });
+      database.db.selectFrom("facilityProfiles").select("id").execute(),
+    ).resolves.toEqual([]);
   });
 
-  it("backfills every legacy account and assigns one deterministic owner", async () => {
+  it("does not grant facility or platform authority from a global role", async () => {
     const memberships = await database.db
       .selectFrom("facilityMemberships")
-      .select(["facilityId", "userId", "role", "status"])
-      .orderBy("userId")
+      .select("id")
       .execute();
-
-    expect(memberships).toEqual([
-      {
-        facilityId: "primary",
-        userId: "legacy-admin-first",
-        role: "owner",
-        status: "active",
-      },
-      {
-        facilityId: "primary",
-        userId: "legacy-admin-second",
-        role: "admin",
-        status: "active",
-      },
-      {
-        facilityId: "primary",
-        userId: "legacy-member",
-        role: "member",
-        status: "active",
-      },
-      {
-        facilityId: "primary",
-        userId: "legacy-trainer",
-        role: "trainer",
-        status: "active",
-      },
-    ]);
+    const operators = await database.db
+      .selectFrom("platformOperators")
+      .select("userId")
+      .execute();
+    expect(memberships).toEqual([]);
+    expect(operators).toEqual([]);
   });
 
   it("keeps the backfill idempotent", async () => {
@@ -131,6 +101,67 @@ describe("tenant foundation migration", () => {
       .selectFrom("facilityMemberships")
       .select("id")
       .execute();
-    expect(memberships).toHaveLength(4);
+    expect(memberships).toHaveLength(0);
+  });
+
+  it("closes inherited noncanonical scopes instead of granting access", async () => {
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "legacy-retired-scope",
+        slug: "legacy-retired-scope",
+        name: "Retired scope",
+        logoDataUrl: "",
+        accentColor: "#64748b",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values({
+        id: "legacy-retired-scope:legacy-member",
+        facilityId: "legacy-retired-scope",
+        userId: "legacy-member",
+        role: "member",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+
+    await database.initializeDatabase();
+
+    await expect(
+      database.db
+        .selectFrom("facilityProfiles")
+        .select("status")
+        .where("id", "=", "legacy-retired-scope")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ status: "closed" });
+    await expect(
+      database.db
+        .selectFrom("facilityMemberships")
+        .select("status")
+        .where("id", "=", "legacy-retired-scope:legacy-member")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ status: "suspended" });
+    await expect(
+      database.db
+        .insertInto("activitySessions")
+        .values({
+          id: "legacy-retired-session",
+          facilityId: "legacy-retired-scope",
+          name: "Rejected session",
+          description: "",
+          trainerId: "legacy-trainer",
+          trainerName: "Legacy trainer",
+          maxCapacity: 1,
+          scheduledAt: now + 60_000,
+        })
+        .execute(),
+    ).rejects.toThrow("Facility scope is not active");
   });
 });

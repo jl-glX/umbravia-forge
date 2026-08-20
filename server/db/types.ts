@@ -174,7 +174,7 @@ interface DataRetentionRecord {
 
 interface ActivitySession {
   id: string;
-  facilityId: Generated<string>;
+  facilityId: string;
   name: string;
   description: string;
   trainerId: string;
@@ -879,6 +879,15 @@ interface FacilityMembership {
   updatedAt: number;
 }
 
+interface PlatformOperator {
+  userId: string;
+  source: "controlled_provisioning";
+  status: "active" | "revoked";
+  createdAt: number;
+  updatedAt: number;
+  revokedAt: number | null;
+}
+
 export type CorporateManagerProfileId =
   | "manager-core"
   | "manager-coordinator"
@@ -1073,6 +1082,7 @@ interface FacilityCommercialSubscription {
   facilityId: string;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  stripeCheckoutSessionId: string | null;
   stripePriceId: string | null;
   planKey: "monthly" | "annual" | null;
   status: CommercialSubscriptionStatus;
@@ -1183,6 +1193,7 @@ export interface Database {
   moderationAppeals: ModerationAppeal;
   facilityProfiles: FacilityProfile;
   facilityMemberships: FacilityMembership;
+  platformOperators: PlatformOperator;
   corporateRoleAssignments: CorporateRoleAssignment;
   managerOrganizationalUnits: ManagerOrganizationalUnit;
   managerOrganizationalMemberships: ManagerOrganizationalMembership;

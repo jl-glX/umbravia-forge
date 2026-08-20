@@ -4,6 +4,8 @@ import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+const FACILITY_ID = "facility-extreme-assessment";
+
 describe("extreme local security assessment", () => {
   let directory: string;
   let database: typeof import("../db/client.js");
@@ -71,14 +73,55 @@ describe("extreme local security assessment", () => {
         .execute();
     }
 
-    // Simulate the next startup of a persistent installation so the
-    // compatibility migration assigns every legacy account to `primary`.
-    await database.initializeDatabase();
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: FACILITY_ID,
+        slug: "extreme-assessment",
+        name: "Extreme assessment",
+        logoDataUrl: "",
+        accentColor: "#f97316",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values(
+        Object.values(users).map((user) => ({
+          id: `${FACILITY_ID}:${user.id}`,
+          facilityId: FACILITY_ID,
+          userId: user.id,
+          role:
+            user.role === "admin"
+              ? ("admin" as const)
+              : user.role === "trainer"
+                ? ("trainer" as const)
+                : ("member" as const),
+          status: "active" as const,
+          createdAt: now,
+          updatedAt: now,
+        })),
+      )
+      .execute();
+    await database.db
+      .insertInto("platformOperators")
+      .values({
+        userId: users.admin.id,
+        source: "controlled_provisioning",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+        revokedAt: null,
+      })
+      .execute();
 
     await database.db
       .insertInto("activitySessions")
       .values([
         {
+          facilityId: FACILITY_ID,
           id: "assessment-owned-class",
           name: "Owned class",
           description: "",
@@ -88,6 +131,7 @@ describe("extreme local security assessment", () => {
           scheduledAt: Date.now() + 86_400_000,
         },
         {
+          facilityId: FACILITY_ID,
           id: "assessment-other-class",
           name: "Other class",
           description: "",

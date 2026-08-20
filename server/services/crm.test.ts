@@ -109,7 +109,7 @@ describe("facility CRM isolation and privacy boundaries", () => {
   it("rejects members and assignees belonging to another facility", async () => {
     await expect(
       crm.updateCrmMemberProfile({
-        facilityId: "primary",
+        facilityId: "facility-alpha",
         memberUserId: "crm-secondary-member",
         updatedByUserId: "admin",
         manualSegment: "attention",
@@ -159,9 +159,9 @@ describe("facility CRM isolation and privacy boundaries", () => {
     });
     expect(secondary.followUps).toHaveLength(1);
 
-    const primary = await crm.getCrmWorkspace("primary", now);
-    expect(primary.followUps).toHaveLength(0);
-    expect(primary.members).not.toEqual(
+    const facility_alpha = await crm.getCrmWorkspace("facility-alpha", now);
+    expect(facility_alpha.followUps).toHaveLength(0);
+    expect(facility_alpha.members).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ userId: "crm-secondary-member" }),
       ]),

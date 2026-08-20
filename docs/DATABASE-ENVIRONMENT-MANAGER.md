@@ -61,9 +61,11 @@ concreto y autorizado. Como mínimo, el procedimiento futuro deberá:
 ## Límite multi-centro
 
 El esquema actual incorpora perfiles y membresías de centro y aplica el tenant
-resuelto por el servidor a las áreas operativas principales. `primary` se
-conserva como compatibilidad, no como prueba de que el sistema siga limitado a
-un único centro.
+resuelto por el servidor a las áreas operativas principales. No existe un
+centro implícito o privilegiado: los entornos nuevos crean un perfil explícito
+con identificador propio. Los datos heredados que todavía carezcan de ámbito se
+clasifican en `legacy-import-quarantine`, un perfil cerrado que no concede
+acceso y exige revisión antes de cualquier traslado.
 
 La promoción disponible sigue sirviendo para inventariar una instancia SQLite
 completa y preparar su traslado a una base PostgreSQL vacía; no fusiona varios

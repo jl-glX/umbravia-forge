@@ -24,8 +24,8 @@ const users = {
     createdAt: Date.now(),
     expiresAt: Date.now() + 60_000,
     facility: {
-      id: "primary",
-      slug: "primary",
+      id: "facility-alpha",
+      slug: "facility-alpha",
       name: "Primary",
       role: "member" as const,
     },
@@ -39,8 +39,8 @@ const users = {
     createdAt: Date.now(),
     expiresAt: Date.now() + 60_000,
     facility: {
-      id: "primary",
-      slug: "primary",
+      id: "facility-alpha",
+      slug: "facility-alpha",
       name: "Primary",
       role: "trainer" as const,
     },
@@ -54,8 +54,8 @@ const users = {
     createdAt: Date.now(),
     expiresAt: Date.now() + 60_000,
     facility: {
-      id: "primary",
-      slug: "primary",
+      id: "facility-alpha",
+      slug: "facility-alpha",
       name: "Primary",
       role: "owner" as const,
     },

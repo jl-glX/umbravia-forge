@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+const FACILITY_ID = "facility-booking-lifecycle";
+
 describe("attendance intention, reputation and dynamic waitlist", () => {
   let directory: string;
   let database: typeof import("../db/client.js");
@@ -53,7 +55,52 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
         })),
       )
       .execute();
-    await database.initializeDatabase();
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: FACILITY_ID,
+        slug: "booking-lifecycle",
+        name: "Booking lifecycle",
+        logoDataUrl: "",
+        accentColor: "#f97316",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values(
+        [
+          "holder",
+          "first-waiting",
+          "reliable-waiting",
+          "late-member",
+          "reminder-member",
+          "attendance-member",
+          "expiry-holder",
+          "expiry-first",
+          "expiry-second",
+          "farm-member",
+          "penalty-member",
+          "neutral-member",
+          "batch-holder-a",
+          "batch-holder-b",
+          "batch-wait-a",
+          "batch-wait-b",
+          "batch-wait-c",
+          "batch-wait-d",
+        ].map((userId) => ({
+          id: `${FACILITY_ID}:${userId}`,
+          facilityId: FACILITY_ID,
+          userId,
+          role: "member" as const,
+          status: "active" as const,
+          createdAt: now,
+          updatedAt: now,
+        })),
+      )
+      .execute();
   });
 
   afterAll(async () => {
@@ -66,6 +113,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "intention-class",
         name: "Intention class",
         description: "",
@@ -75,7 +123,11 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
         scheduledAt: Date.now() + 86_400_000,
       })
       .execute();
-    const created = await booking.bookClass("intention-class", "holder");
+    const created = await booking.bookClass(
+      "intention-class",
+      "holder",
+      FACILITY_ID,
+    );
     const initial = await database.db
       .selectFrom("bookingLifecycles")
       .selectAll()
@@ -89,7 +141,10 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
       "holder",
       "uncertain",
     );
-    const uncertain = await reputation.getBookingReputation("holder");
+    const uncertain = await reputation.getBookingReputation(
+      "holder",
+      FACILITY_ID,
+    );
     expect(uncertain.score).toBe(99);
 
     await booking.setAttendanceIntention(created.bookingId, "holder", "yes");
@@ -135,6 +190,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "dynamic-waitlist-class",
         name: "Dynamic waitlist",
         description: "",
@@ -144,17 +200,26 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
         scheduledAt: Date.now() + 86_400_000,
       })
       .execute();
-    const holder = await booking.bookClass("dynamic-waitlist-class", "holder");
-    await booking.bookClass("dynamic-waitlist-class", "first-waiting");
+    const holder = await booking.bookClass(
+      "dynamic-waitlist-class",
+      "holder",
+      FACILITY_ID,
+    );
+    await booking.bookClass(
+      "dynamic-waitlist-class",
+      "first-waiting",
+      FACILITY_ID,
+    );
     await reputation.adjustBookingReputation({
       userId: "first-waiting",
-      facilityId: "primary",
+      facilityId: FACILITY_ID,
       pointsDelta: -60,
       reason: "Test-only reduced priority",
     });
     const reliable = await booking.bookClass(
       "dynamic-waitlist-class",
       "reliable-waiting",
+      FACILITY_ID,
     );
 
     await booking.cancelBooking(holder.bookingId, "holder");
@@ -196,6 +261,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "late-class",
         name: "Late class",
         description: "",
@@ -205,9 +271,16 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
         scheduledAt: Date.now() + 30 * 60_000,
       })
       .execute();
-    const created = await booking.bookClass("late-class", "late-member");
+    const created = await booking.bookClass(
+      "late-class",
+      "late-member",
+      FACILITY_ID,
+    );
     await booking.cancelBooking(created.bookingId, "late-member");
-    const summary = await reputation.getBookingReputation("late-member");
+    const summary = await reputation.getBookingReputation(
+      "late-member",
+      FACILITY_ID,
+    );
     expect(summary).toMatchObject({
       score: 88,
       penaltyActive: true,
@@ -223,6 +296,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "neutral-cancellation-class",
         name: "Neutral cancellation",
         description: "",
@@ -235,9 +309,13 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     const created = await booking.bookClass(
       "neutral-cancellation-class",
       "neutral-member",
+      FACILITY_ID,
     );
     await booking.cancelBooking(created.bookingId, "neutral-member");
-    const summary = await reputation.getBookingReputation("neutral-member");
+    const summary = await reputation.getBookingReputation(
+      "neutral-member",
+      FACILITY_ID,
+    );
     expect(summary).toMatchObject({ score: 100, penaltyActive: false });
     expect(summary.events[0]).toMatchObject({
       type: "cancelled_neutral",
@@ -249,6 +327,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     const reminderBooking = await booking.bookClass(
       "intention-class",
       "reminder-member",
+      FACILITY_ID,
     );
     await expect(
       booking.recordBookingReminder(reminderBooking.bookingId),
@@ -261,6 +340,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "past-attendance-class",
         name: "Past class",
         description: "",
@@ -297,11 +377,11 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
 
     await booking.markBookingAttendance("past-attendance-booking", "absent");
     expect(
-      await reputation.getBookingReputation("attendance-member"),
+      await reputation.getBookingReputation("attendance-member", FACILITY_ID),
     ).toMatchObject({ score: 80, penaltyActive: true });
     await booking.markBookingAttendance("past-attendance-booking", "excused");
     expect(
-      await reputation.getBookingReputation("attendance-member"),
+      await reputation.getBookingReputation("attendance-member", FACILITY_ID),
     ).toMatchObject({ score: 100, penaltyActive: false });
     expect(
       await database.db
@@ -328,6 +408,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "waitlist-guard-class",
         name: "Waitlist guard",
         description: "",
@@ -337,10 +418,11 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
         scheduledAt: Date.now() + 86_400_000,
       })
       .execute();
-    await booking.bookClass("waitlist-guard-class", "holder");
+    await booking.bookClass("waitlist-guard-class", "holder", FACILITY_ID);
     const waiting = await booking.bookClass(
       "waitlist-guard-class",
       "expiry-first",
+      FACILITY_ID,
     );
     expect(waiting.status).toBe("waitlist");
     await expect(
@@ -355,6 +437,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "promotion-expiry-class",
         name: "Promotion expiry",
         description: "",
@@ -367,14 +450,17 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     const holder = await booking.bookClass(
       "promotion-expiry-class",
       "expiry-holder",
+      FACILITY_ID,
     );
     const first = await booking.bookClass(
       "promotion-expiry-class",
       "expiry-first",
+      FACILITY_ID,
     );
     const second = await booking.bookClass(
       "promotion-expiry-class",
       "expiry-second",
+      FACILITY_ID,
     );
     await booking.cancelBooking(holder.bookingId, "expiry-holder");
     await database.db
@@ -411,13 +497,14 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
   it("does not let repeated rebooking farm on-time cancellation points", async () => {
     await reputation.adjustBookingReputation({
       userId: "farm-member",
-      facilityId: "primary",
+      facilityId: FACILITY_ID,
       pointsDelta: -10,
       reason: "Test baseline adjustment",
     });
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "anti-farming-class",
         name: "Anti farming",
         description: "",
@@ -427,12 +514,23 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
         scheduledAt: Date.now() + 86_400_000,
       })
       .execute();
-    const first = await booking.bookClass("anti-farming-class", "farm-member");
+    const first = await booking.bookClass(
+      "anti-farming-class",
+      "farm-member",
+      FACILITY_ID,
+    );
     await booking.cancelBooking(first.bookingId, "farm-member");
-    const second = await booking.bookClass("anti-farming-class", "farm-member");
+    const second = await booking.bookClass(
+      "anti-farming-class",
+      "farm-member",
+      FACILITY_ID,
+    );
     await booking.cancelBooking(second.bookingId, "farm-member");
 
-    const summary = await reputation.getBookingReputation("farm-member");
+    const summary = await reputation.getBookingReputation(
+      "farm-member",
+      FACILITY_ID,
+    );
     expect(summary.score).toBe(91);
     expect(
       summary.events
@@ -446,6 +544,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "batch-expiry-class",
         name: "Batch expiry",
         description: "",
@@ -458,10 +557,12 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     const holderA = await booking.bookClass(
       "batch-expiry-class",
       "batch-holder-a",
+      FACILITY_ID,
     );
     const holderB = await booking.bookClass(
       "batch-expiry-class",
       "batch-holder-b",
+      FACILITY_ID,
     );
     for (const userId of [
       "batch-wait-a",
@@ -469,7 +570,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
       "batch-wait-c",
       "batch-wait-d",
     ]) {
-      await booking.bookClass("batch-expiry-class", userId);
+      await booking.bookClass("batch-expiry-class", userId, FACILITY_ID);
     }
     await booking.cancelBooking(holderA.bookingId, "batch-holder-a");
     await booking.cancelBooking(holderB.bookingId, "batch-holder-b");
@@ -480,8 +581,10 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
       .where("promotedAt", "is not", null)
       .execute();
 
-    const availability =
-      await booking.getClassWithAvailability("batch-expiry-class");
+    const availability = await booking.getClassWithAvailability(
+      "batch-expiry-class",
+      FACILITY_ID,
+    );
     expect(availability).toMatchObject({
       bookedCount: 2,
       availablePlaces: 0,
@@ -504,6 +607,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "independent-late-class",
         name: "Independent late class",
         description: "",
@@ -516,6 +620,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     const late = await booking.bookClass(
       "independent-late-class",
       "penalty-member",
+      FACILITY_ID,
     );
     await booking.cancelBooking(late.bookingId, "penalty-member");
 
@@ -523,6 +628,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     await database.db
       .insertInto("activitySessions")
       .values({
+        facilityId: FACILITY_ID,
         id: "independent-absence-class",
         name: "Independent absence class",
         description: "",
@@ -566,7 +672,7 @@ describe("attendance intention, reputation and dynamic waitlist", () => {
     );
 
     expect(
-      await reputation.getBookingReputation("penalty-member"),
+      await reputation.getBookingReputation("penalty-member", FACILITY_ID),
     ).toMatchObject({ score: 88, penaltyActive: true });
   });
 });

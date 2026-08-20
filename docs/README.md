@@ -1,6 +1,9 @@
 # Índice de documentación
 
-Estado revisado contra el código de `main` en `c2da111` el 20 de agosto de 2026. Esta referencia describe el repositorio; no demuestra por sí sola el
+Estado revisado contra el código y las pruebas del cambio activo el 20 de agosto
+de 2026. El índice evita fijar un SHA que quede obsoleto con cada actualización:
+la sincronización se comprueba en el diff y en la validación del commit que se
+publica. Esta referencia describe el repositorio; no demuestra por sí sola el
 estado de un servidor, DNS, correo, copias, restauraciones ni datos reales.
 
 ## Cómo interpretar los documentos

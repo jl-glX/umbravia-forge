@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  createActivePlatformOperator,
+  createActiveTestFacility,
+} from "../testing/facility-fixtures.js";
 
 describe("encryption manager API", () => {
   let directory: string;
@@ -53,11 +57,12 @@ describe("encryption manager API", () => {
         },
       ])
       .execute();
+    await createActiveTestFacility(database.db, "facility-alpha");
     await database.db
       .insertInto("facilityMemberships")
       .values({
-        id: "primary:encryption-manager-admin",
-        facilityId: "primary",
+        id: "facility-alpha:encryption-manager-admin",
+        facilityId: "facility-alpha",
         userId: "encryption-manager-admin",
         role: "owner",
         status: "active",
@@ -65,6 +70,7 @@ describe("encryption manager API", () => {
         updatedAt: Date.now(),
       })
       .execute();
+    await createActivePlatformOperator(database.db, "encryption-manager-admin");
 
     app = (await import("../index.js")).app;
     const adminLogin = await request(app).post("/api/auth/login").send({
