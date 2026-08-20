@@ -49,6 +49,7 @@
     "paymentsAndOrders": "My payments and orders",
     "timer": "Timer",
     "billing": "Billing",
+    "subscription": "Subscription",
     "commercialTrial": "Centre setup",
     "dashboard": "Dashboard",
     "admin": "Admin",
@@ -57,6 +58,46 @@
     "security": "Security",
     "support": "Support",
     "logout": "Log out"
+  },
+  "subscription": {
+    "eyebrow": "Umbravia Forge billing",
+    "title": "Centre subscription",
+    "description": "Subscribe and manage your centre through Stripe's secure environment. Charges to members remain separate from this subscription.",
+    "loadError": "The subscription status could not be loaded.",
+    "actionError": "Stripe could not be opened. Refresh the status and try again.",
+    "checkoutSuccess": "Stripe has received the process. Access will update when the signed confirmation arrives; you can refresh the status here.",
+    "checkoutCancelled": "The subscription was not completed and your access has not changed.",
+    "notConfiguredTitle": "Payments are not configured yet",
+    "notConfiguredDescription": "The feature is ready, but the server does not yet have an active test-mode Stripe configuration.",
+    "testMode": "Test mode: this environment does not accept Stripe Live events or keys.",
+    "current": "Current status",
+    "renewsOn": "Renews on",
+    "endsOn": "Ends on",
+    "manage": "Manage in Stripe",
+    "opening": "Opening Stripe…",
+    "choosePlan": "Choose a plan",
+    "priceNotice": "Stripe will show the price, currency and terms before confirmation.",
+    "continueToCheckout": "Continue to Stripe",
+    "plan": {
+      "monthly": "Monthly plan",
+      "annual": "Annual plan"
+    },
+    "planDescription": {
+      "monthly": "Monthly renewal with self-service management in the secure portal.",
+      "annual": "Annual renewal with one billing reference per period."
+    },
+    "status": {
+      "inactive": "No subscription",
+      "checkout_pending": "Awaiting confirmation",
+      "trialing": "Trial period",
+      "active": "Active",
+      "past_due": "Payment overdue",
+      "unpaid": "Unpaid",
+      "paused": "Paused",
+      "canceled": "Cancelled",
+      "incomplete": "Payment incomplete",
+      "incomplete_expired": "Process expired"
+    }
   },
   "accountMenu": {
     "open": "Open account menu",

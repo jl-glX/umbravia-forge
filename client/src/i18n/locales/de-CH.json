@@ -53,6 +53,7 @@
     "paymentsAndOrders": "Meine Zahlungen und Bestellungen",
     "timer": "Timer",
     "billing": "Abrechnung",
+    "subscription": "Abonnement",
     "commercialTrial": "Zentrum einrichten",
     "dashboard": "Übersicht",
     "admin": "Verwaltung",
@@ -61,6 +62,46 @@
     "security": "Sicherheit",
     "support": "Support",
     "logout": "Abmelden"
+  },
+  "subscription": {
+    "eyebrow": "Abrechnung von Umbravia Forge",
+    "title": "Abonnement des Zentrums",
+    "description": "Schliesse das Abonnement deines Zentrums in der sicheren Stripe-Umgebung ab und verwalte es dort. Zahlungen von Mitgliedern bleiben davon getrennt.",
+    "loadError": "Der Abonnementstatus konnte nicht geladen werden.",
+    "actionError": "Stripe konnte nicht geöffnet werden. Aktualisiere den Status und versuche es erneut.",
+    "checkoutSuccess": "Stripe hat den Vorgang erhalten. Der Zugang wird nach Eingang der signierten Bestätigung aktualisiert.",
+    "checkoutCancelled": "Das Abonnement wurde nicht abgeschlossen und dein Zugang wurde nicht geändert.",
+    "notConfiguredTitle": "Zahlungen sind noch nicht konfiguriert",
+    "notConfiguredDescription": "Die Funktion ist vorbereitet, aber auf dem Server ist noch keine Stripe-Testkonfiguration aktiv.",
+    "testMode": "Testmodus: Diese Umgebung akzeptiert keine Stripe-Live-Ereignisse oder -Schlüssel.",
+    "current": "Aktueller Status",
+    "renewsOn": "Verlängert sich am",
+    "endsOn": "Endet am",
+    "manage": "In Stripe verwalten",
+    "opening": "Stripe wird geöffnet…",
+    "choosePlan": "Abrechnungsart wählen",
+    "priceNotice": "Stripe zeigt Preis, Währung und Bedingungen vor der Bestätigung an.",
+    "continueToCheckout": "Weiter zu Stripe",
+    "plan": {
+      "monthly": "Monatsplan",
+      "annual": "Jahresplan"
+    },
+    "planDescription": {
+      "monthly": "Monatliche Verlängerung mit Selbstverwaltung im sicheren Portal.",
+      "annual": "Jährliche Verlängerung mit einer Abrechnungsreferenz pro Zeitraum."
+    },
+    "status": {
+      "inactive": "Kein Abonnement",
+      "checkout_pending": "Bestätigung ausstehend",
+      "trialing": "Testzeitraum",
+      "active": "Aktiv",
+      "past_due": "Zahlung überfällig",
+      "unpaid": "Unbezahlt",
+      "paused": "Pausiert",
+      "canceled": "Gekündigt",
+      "incomplete": "Zahlung unvollständig",
+      "incomplete_expired": "Vorgang abgelaufen"
+    }
   },
   "accountMenu": {
     "open": "Kontomenü öffnen",

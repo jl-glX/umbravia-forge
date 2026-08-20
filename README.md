@@ -146,6 +146,7 @@ docs/         arquitectura, seguridad, auditorías y continuidad técnica
 - [Forge Analytics](./docs/FORGE-ANALYTICS.md)
 - [Forge Support](./docs/FORGE-SUPPORT.md)
 - [Forge Notify](./docs/FORGE-NOTIFY.md)
+- [Suscripciones y facturación con Stripe](./docs/STRIPE-BILLING.md)
 - [Ciclo de vida de las cuentas](./docs/ACCOUNT-LIFECYCLE.md)
 - [Núcleo de gestores](./docs/MANAGER-CORE.md)
 - [Modelo de cifrado en tránsito y reposo](./docs/ENCRYPTION-IN-TRANSIT-AND-AT-REST.md)
@@ -159,7 +160,7 @@ automatizados están en [AGENTS.md](./AGENTS.md).
 
 ## Límites actuales
 
-- Stripe permanece separado del libro operativo interno: todavía no se procesan pagos, suscripciones ni reembolsos reales.
+- Stripe permanece separado del libro operativo interno. La suscripción SaaS del centro dispone de Checkout, portal y webhooks en modo Test; todavía no se aceptan claves o eventos Live ni se procesan reembolsos o cobros del centro a sus socios.
 - La entregabilidad del correo depende también de DNS, reputación, recepción, rebotes y proveedores externos; una aceptación SMTP no equivale por sí sola a entrega en la bandeja de entrada.
 - Las copias cifradas, la restauración y las migraciones de PostgreSQL deben comprobarse en cada entorno autorizado antes de un lanzamiento comercial.
 - Los textos legales y fiscales requieren completar los datos reales y una revisión profesional.

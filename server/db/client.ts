@@ -2251,6 +2251,42 @@ async function initializeSqliteSchema(
     `);
   }
 
+  sqliteDb.exec(`
+    CREATE TABLE IF NOT EXISTS facilityCommercialSubscriptions (
+      facilityId TEXT PRIMARY KEY,
+      stripeCustomerId TEXT UNIQUE,
+      stripeSubscriptionId TEXT UNIQUE,
+      stripePriceId TEXT,
+      planKey TEXT CHECK(planKey IS NULL OR planKey IN ('monthly', 'annual')),
+      status TEXT NOT NULL DEFAULT 'inactive' CHECK(status IN (
+        'inactive', 'checkout_pending', 'trialing', 'active', 'past_due',
+        'unpaid', 'paused', 'canceled', 'incomplete', 'incomplete_expired'
+      )),
+      currentPeriodEnd INTEGER,
+      cancelAtPeriodEnd INTEGER NOT NULL DEFAULT 0 CHECK(cancelAtPeriodEnd IN (0, 1)),
+      lastStripeEventCreatedAt INTEGER,
+      lastStripeEventId TEXT,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_facilityCommercialSubscriptions_status
+      ON facilityCommercialSubscriptions(status, currentPeriodEnd);
+
+    CREATE TABLE IF NOT EXISTS stripeWebhookEvents (
+      eventId TEXT PRIMARY KEY,
+      eventType TEXT NOT NULL,
+      facilityId TEXT,
+      stripeCreatedAt INTEGER NOT NULL,
+      livemode INTEGER NOT NULL CHECK(livemode IN (0, 1)),
+      receivedAt INTEGER NOT NULL,
+      processedAt INTEGER NOT NULL,
+      FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_stripeWebhookEvents_received
+      ON stripeWebhookEvents(receivedAt DESC);
+  `);
+
   if (!tableNames.includes("delegationGrants")) {
     console.log("Creating delegationGrants table...");
     sqliteDb.exec(`

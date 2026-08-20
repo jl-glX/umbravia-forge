@@ -23,6 +23,7 @@ export const migrationTableGroups = {
     "commercialTrials",
     "commercialTrialEvents",
     "commercialRequests",
+    "facilityCommercialSubscriptions",
   ],
   identity: [
     "users",
@@ -64,6 +65,7 @@ export const migrationTableGroups = {
     "analyticsSurveyParticipations",
     "analyticsSurveyResponses",
     "analyticsSurveyAnswers",
+    "stripeWebhookEvents",
   ],
   security: [
     "emailVerificationChallenges",

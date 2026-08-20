@@ -30,6 +30,7 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Forge Notify](./FORGE-NOTIFY.md)
 - [Gestor de bases y entornos](./DATABASE-ENVIRONMENT-MANAGER.md)
 - [Política de dependencias](./dependency-policy.md)
+- [Suscripciones y facturación con Stripe](./STRIPE-BILLING.md)
 
 ## Seguridad, cifrado y comunicaciones
 

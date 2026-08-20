@@ -53,6 +53,7 @@
     "paymentsAndOrders": "Mis pagos y pedidos",
     "timer": "Temporizador",
     "billing": "Facturación",
+    "subscription": "Suscripción",
     "commercialTrial": "Configuración del centro",
     "dashboard": "Panel",
     "admin": "Administración",
@@ -61,6 +62,46 @@
     "security": "Seguridad",
     "support": "Soporte",
     "logout": "Cerrar sesión"
+  },
+  "subscription": {
+    "eyebrow": "Facturación de Umbravia Forge",
+    "title": "Suscripción del centro",
+    "description": "Contrata y administra la suscripción de tu centro mediante el entorno seguro de Stripe. Los cobros a socios siguen separados de esta suscripción.",
+    "loadError": "No se pudo cargar el estado de la suscripción.",
+    "actionError": "No se pudo abrir Stripe. Actualiza el estado e inténtalo de nuevo.",
+    "checkoutSuccess": "Stripe ha recibido el proceso. El acceso se actualizará cuando llegue la confirmación firmada; puedes refrescar el estado aquí.",
+    "checkoutCancelled": "No se ha completado la contratación ni se ha modificado tu acceso.",
+    "notConfiguredTitle": "Pagos todavía no configurados",
+    "notConfiguredDescription": "La función está preparada, pero el servidor aún no tiene activa una configuración de Stripe en modo de prueba.",
+    "testMode": "Modo de prueba: este entorno no acepta eventos ni claves de Stripe Live.",
+    "current": "Estado actual",
+    "renewsOn": "Renueva el",
+    "endsOn": "Finaliza el",
+    "manage": "Gestionar en Stripe",
+    "opening": "Abriendo Stripe…",
+    "choosePlan": "Elige una modalidad",
+    "priceNotice": "Stripe mostrará el precio, la moneda y las condiciones antes de confirmar.",
+    "continueToCheckout": "Continuar a Stripe",
+    "plan": {
+      "monthly": "Plan mensual",
+      "annual": "Plan anual"
+    },
+    "planDescription": {
+      "monthly": "Renovación mensual con gestión autoservicio desde el portal seguro.",
+      "annual": "Renovación anual con una sola referencia de facturación por periodo."
+    },
+    "status": {
+      "inactive": "Sin suscripción",
+      "checkout_pending": "Confirmación pendiente",
+      "trialing": "Periodo de prueba",
+      "active": "Activa",
+      "past_due": "Pago pendiente",
+      "unpaid": "Impagada",
+      "paused": "Pausada",
+      "canceled": "Cancelada",
+      "incomplete": "Pago incompleto",
+      "incomplete_expired": "Proceso caducado"
+    }
   },
   "accountMenu": {
     "open": "Abrir menú de cuenta",

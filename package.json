@@ -78,6 +78,7 @@
     "react-dom": "19.2.8",
     "react-i18next": "17.0.11",
     "react-router-dom": "7.18.2",
+    "stripe": "22.5.0",
     "tailwind-merge": "3.6.0"
   },
   "devDependencies": {

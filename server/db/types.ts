@@ -1057,6 +1057,43 @@ interface CommercialTrialEvent {
   createdAt: number;
 }
 
+export type CommercialSubscriptionStatus =
+  | "inactive"
+  | "checkout_pending"
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "unpaid"
+  | "paused"
+  | "canceled"
+  | "incomplete"
+  | "incomplete_expired";
+
+interface FacilityCommercialSubscription {
+  facilityId: string;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  stripePriceId: string | null;
+  planKey: "monthly" | "annual" | null;
+  status: CommercialSubscriptionStatus;
+  currentPeriodEnd: number | null;
+  cancelAtPeriodEnd: number;
+  lastStripeEventCreatedAt: number | null;
+  lastStripeEventId: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface StripeWebhookEvent {
+  eventId: string;
+  eventType: string;
+  facilityId: string | null;
+  stripeCreatedAt: number;
+  livemode: number;
+  receivedAt: number;
+  processedAt: number;
+}
+
 interface AdministratorSignupProvisioning {
   userId: string;
   facilityName: string;
@@ -1155,5 +1192,7 @@ export interface Database {
   commercialTrialEvents: CommercialTrialEvent;
   administratorSignupProvisioning: AdministratorSignupProvisioning;
   commercialRequests: CommercialRequest;
+  facilityCommercialSubscriptions: FacilityCommercialSubscription;
+  stripeWebhookEvents: StripeWebhookEvent;
   delegationGrants: DelegationGrant;
 }

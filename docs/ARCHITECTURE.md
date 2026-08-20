@@ -79,7 +79,11 @@ Known demo classes are localized at display time. User-created names and descrip
 - Keep data transfer separate from migration planning: sensitive identity,
   billing, community and authentication records require explicit approval and
   a destination-specific procedure.
-- Keep the Umbravia Forge billing ledger separate from future Stripe payment processing. The current module records operational status; it does not move money.
+- Keep the centre-to-member billing ledger separate from Stripe Billing. The
+  ledger records operational status and does not move money; Stripe Checkout,
+  the customer portal and signed webhooks now manage the centre's SaaS
+  subscription in test mode. Commercial entitlements are derived by a separate
+  service and never by Analytics or CRM.
 - Invoice details, archived records and custom billing cycles belong to Umbravia Forge's financial domain. The visible interface does not expose App-ProTrack as a product name.
 - Facility profile settings store the centre name, logo and accent colour separately from Umbravia Forge's product identity. Logo updates are admin-only and accept PNG, JPEG or WebP images up to 512 KB.
 - `primary` remains a compatibility facility for existing data and omitted
