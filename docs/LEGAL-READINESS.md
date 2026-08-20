@@ -19,7 +19,8 @@ execution by itself.
 
 - Owner and responsible person: Javier López Díaz.
 - Product name: Umbravia Forge.
-- Current stage: private software project under development.
+- Current stage: proprietary software under development in a public source
+  repository; not a general commercial service.
 - Commercial payments: not enabled.
 
 ## Complete before public or commercial release

@@ -28,8 +28,11 @@ The current implementation can demonstrate:
 - hashed, expiring email-verification challenges with attempt limits;
 - a confirmed-compromise action that revokes secondary sessions and pending
   challenges, marks the account for review and rotates the support alias;
-- a minimal recovery centre that exposes real passkey access and labels future
-  email, code and support-assisted methods as unavailable.
+- a recovery centre with passkey access and an email-code password-reset flow:
+  identifiers are resolved without revealing account existence, challenges are
+  hashed, expiring, single-use and attempt-limited, password reuse is rejected,
+  and a successful reset revokes sessions and pending challenges;
+- cancellation of a scheduled deletion as part of a successful owner recovery;
 - Cloudflare Turnstile challenges for signup, password login and passkey login,
   with every token validated by the server;
 - queued transactional verification email with encrypted pending payloads,
@@ -50,7 +53,7 @@ The demo deliberately does not:
 - decide which law applies to a user or a record;
 - claim that a retention duration or legal basis is valid;
 - replace professional legal review.
-- complete password reset or support-assisted recovery;
+- complete support-assisted recovery;
 - automatically remove passkeys after a reported compromise.
 
 Each protected request obtains a short-lived Turnstile token in the browser.
@@ -80,11 +83,17 @@ legitimate.
 
 ## Recovery foundation
 
-`/recover-account` is deliberately an index of recovery capabilities rather
-than a fake password-reset form. Passkeys already work through the login page;
-email reset, recovery-code orchestration and assisted support remain visibly
-planned. Merely opening the page does not reactivate an account or cancel a
-scheduled deletion.
+`/recover-account` exposes the implemented passkey route and the email-code
+password-reset flow. A request can start from email, username or public support
+ID without disclosing whether the account exists. Codes expire, have bounded
+attempts and are consumed once; the new password cannot reuse the current
+credential. A successful reset revokes existing sessions and challenges,
+rotates the public support ID and cancels a scheduled deletion so the verified
+owner can regain access. Merely opening the page or requesting a code does none
+of those things.
+
+Support-assisted recovery remains unavailable until identity evidence,
+operator permissions, escalation, audit and abuse controls are defined.
 
 ## Account continuity and representation
 

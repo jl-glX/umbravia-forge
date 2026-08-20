@@ -2,20 +2,22 @@
 
 ## Purpose
 
-Umbravia Forge currently operates as one installation with the compatibility
-facility `primary`. The multi-tenant transition must preserve that behaviour
-until every operational query has an explicit facility boundary and negative
-cross-facility tests.
+Umbravia Forge retains the compatibility facility `primary`, but the
+multi-tenant foundation and its operational safeguards are integrated in
+`main`. Existing accounts can continue through the oldest active membership
+when no selector is supplied; new tenant-aware flows use a server-resolved
+facility context and negative cross-facility tests.
 
 The presence of a `facilityId` column is not proof of isolation. A phase is only
 complete when reads, writes, updates, deletes, background work and exported
 data all enforce the same boundary on the server.
 
-## Stable baseline
+## Integrated baseline
 
-The validated baseline before this work is commit `61c3b65`. Development is
-isolated from `main`, and each phase is saved only after its focused checks and
-the repository validation gate pass.
+The work started from `61c3b65` and was integrated in `main` by `ae23459`.
+Subsequent tenant CRM, surveys and commercial trial refinements are present in
+`e449a9b` and `c2da111`. The repository therefore no longer treats bookings or
+reputation as development-branch-only work.
 
 Database changes are forward migrations. Before applying them outside an
 isolated test database, operators must create a PostgreSQL backup, verify that
@@ -70,9 +72,20 @@ role in `users.role` does not authorize a write to another facility.
   isolated facility profiles.
 - `9c0ed2c`: facility-owned classes, scoped class administration and negative
   cross-facility tests.
-- Booking operations remain on the development branch until their full
-  repository gate and checkpoint commit pass. Booking reputation remains a
-  separate decision because its existing storage is account-global.
+- `35c9e5c`: facility-scoped bookings and waitlists.
+- `8479bce`: facility-scoped booking reputation.
+- `608d5bf`: facility-scoped billing.
+- `cc138f2`: facility-scoped support.
+- `90e275a`: facility-scoped moderation.
+- `31c571b`: facility-scoped community data.
+- `808b0fb`: commercial trial tenant provisioning and cleanup.
+- `1555188`: lifecycle isolation and remaining multi-tenant safeguards.
+- `ae23459`: integration of the foundation and safeguards in `main`.
+- `e449a9b`: tenant CRM and monthly analytics surveys.
+
+These checkpoints demonstrate repository implementation and automated
+coverage. They do not prove that an external PostgreSQL instance has been
+migrated, restored and exercised with real operational data.
 
 ## Initial data classification
 

@@ -1,5 +1,9 @@
 # Auditoría de neutralización del dominio de actividades — 16 de agosto de 2026
 
+> [!NOTE]
+> Evidencia histórica del commit auditado. El estado vigente se mantiene en
+> [ACTIVITY-DOMAIN-MIGRATION.md](./ACTIVITY-DOMAIN-MIGRATION.md).
+
 **Identificador:** UF-ACTIVITY-DOMAIN-MIG-2026-08-16
 
 **Estándar aplicado:** [Estándar interno de auditoría integral de seguridad](./SECURITY-AUDIT-STANDARD.md)

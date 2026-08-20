@@ -2,6 +2,12 @@
 
 Fecha de revisión: 3 de agosto de 2026
 
+> [!NOTE]
+> Esta es una fotografía histórica. La base multi-tenant y sus salvaguardas se
+> integraron después; el estado vigente está en
+> [MULTI-TENANT-MIGRATION.md](./MULTI-TENANT-MIGRATION.md) y
+> [ARCHITECTURE.md](./ARCHITECTURE.md).
+
 ## Resultado
 
 Los puntos 1 a 7 tienen una implementación demostrable y el punto 8 dispone de

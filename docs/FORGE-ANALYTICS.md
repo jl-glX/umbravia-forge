@@ -56,7 +56,8 @@ Clases, reservas y asistencia
   -> servicio canónico de lectura
        -> administración: todo el centro seleccionado
        -> entrenador: únicamente sus sesiones y sus participantes
-       -> futuro CRM: segmentos comerciales autorizados
+       -> CRM del centro: perfiles y segmentos comerciales autorizados
+       -> encuestas mensuales: respuestas y agregados por tenant
        -> futuro soporte: salud y trazabilidad técnica saneada
        -> futuro Crashnalytics: fallos saneados por versión y entorno
 ```
@@ -77,10 +78,11 @@ desfase UTC necesario para agrupar horas. La API rechaza intervalos inválidos y
 periodos de más de 93 días en una única consulta. Ese límite protege la base
 transaccional mientras no exista un almacén analítico agregado.
 
-Las métricas responden **qué** ha ocurrido. Afirmar **por qué** una actividad
-tiene más o menos demanda requiere contrastar el comportamiento con encuestas
-mensuales versionadas. Hasta entonces, las recomendaciones deben hablar de
-revisar o contrastar, no de una causa confirmada.
+Las métricas responden **qué** ha ocurrido. Las encuestas mensuales versionadas
+ya permiten contrastar comportamiento y percepción en modos anónimo,
+confidencial e identificado, con umbrales de agregación. Incluso con esa señal,
+una correlación no demuestra por sí sola la causa: las recomendaciones deben
+hablar de revisar o contrastar, no de una explicación confirmada.
 
 La comparación por franja reutiliza las sesiones y reservas actuales: no crea
 otra tabla ni exige una migración. Una correlación entre una hora y mejores
@@ -107,14 +109,13 @@ disponible.
 
 ## Evolución prevista
 
-1. Validar esta vertical con datos sintéticos y centros piloto.
-2. Validar y observar la nueva historia transaccional en producción antes de
-   ampliar los periodos disponibles.
-3. Incorporar encuestas mensuales con modos anónimo, confidencial e
-   identificado, umbral mínimo de agregación y preguntas versionadas.
-4. Crear permisos comerciales independientes de la analítica.
-5. Separar cargas pesadas en un almacén de lectura antes de habilitar históricos
-   largos, cohortes, CRM, soporte técnico y Crashnalytics.
+1. Validar esta vertical, el CRM y las encuestas con datos sintéticos y centros
+   piloto.
+2. Validar y observar la historia transaccional y los umbrales de privacidad en
+   un PostgreSQL autorizado antes de ampliar los periodos disponibles.
+3. Crear permisos comerciales independientes de la analítica.
+4. Separar cargas pesadas en un almacén de lectura antes de habilitar
+   históricos largos, cohortes, soporte técnico y Crashnalytics.
 
 Cada nueva pantalla debe consumir contratos del servicio de lectura. No debe
 consultar tablas directamente ni redefinir términos como socio activo,

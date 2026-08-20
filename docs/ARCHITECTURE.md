@@ -25,12 +25,14 @@ Development uses a single launcher for Vite and Express. Production builds the c
 
 - Authentication and persistent sessions.
 - Users and role-based permissions.
-- Gym classes and trainer assignments.
+- Activity sessions and trainer assignments, with temporary compatibility
+  aliases for the former class-oriented HTTP vocabulary.
 - Bookings, capacity and waitlist promotion.
 - Activity and administrative analytics.
 - Forge Analytics as a tenant-scoped read layer shared by administrative and
-  trainer views; future CRM, support and sanitized crash analytics consumers
-  must keep independent authorization boundaries. See
+  trainer views, monthly surveys and a separate tenant CRM foundation. Support
+  and any future sanitized crash analytics consumers keep independent
+  authorization boundaries. See
   [Forge Analytics](./FORGE-ANALYTICS.md).
 - Umbravia Forge financial records adapted internally from App-ProTrack's budget and transaction domain.
 - Internationalized user interface.
@@ -80,7 +82,12 @@ Known demo classes are localized at display time. User-created names and descrip
 - Keep the Umbravia Forge billing ledger separate from future Stripe payment processing. The current module records operational status; it does not move money.
 - Invoice details, archived records and custom billing cycles belong to Umbravia Forge's financial domain. The visible interface does not expose App-ProTrack as a product name.
 - Facility profile settings store the centre name, logo and accent colour separately from Umbravia Forge's product identity. Logo updates are admin-only and accept PNG, JPEG or WebP images up to 512 KB.
-- The current installation has one `primary` facility profile. Before operating as a true multi-tenant SaaS, users, classes, bookings and billing records must all be scoped by facility and tested for cross-tenant isolation.
+- `primary` remains a compatibility facility for existing data and omitted
+  selectors. Facility memberships and server-resolved context now scope
+  activity sessions, bookings, reputation, billing, support, moderation,
+  community, commercial trials, CRM and surveys. This repository coverage does
+  not replace a PostgreSQL staging migration, backup/restore exercise and
+  controlled cross-tenant validation before commercial production.
 
 ## Community, identity and moderation
 
@@ -97,7 +104,9 @@ The operational scope and consciously deferred decisions are recorded in
 - The interface keeps three visual identities separate: the fixed Umbravia Forge product logo, the active facility logo and the signed-in user's profile photo. Profile photos can only be updated by their account owner and use the same safe image restrictions as facility logos.
 - Continue adapting suitable App-ProTrack concepts instead of duplicating a second finance domain.
 - Keep Umbravia Forge functional when optional integrations are unavailable.
-- Keep account closure decisions separate from physical deletion, while
-  allowing the lifecycle module to request a disposition preview from the
-  retention module. Both are demonstrators with execution disabled; see
+- Keep account closure decisions separate from physical deletion. Scheduling,
+  cancellation and cleanup coordination are implemented, while destructive
+  data-retention execution remains disabled pending legal and operational
+  policy. The lifecycle module can request a disposition preview from the
+  retention module; see
   [Account lifecycle foundation](./ACCOUNT-LIFECYCLE.md).

@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/jl-glX/umbravia-forge/actions/workflows/ci.yml"><img src="https://github.com/jl-glX/umbravia-forge/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/Node.js-24_LTS-334155?logo=nodedotjs&logoColor=white" alt="Node.js 24 LTS">
-  <img src="https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white" alt="TypeScript 6">
+  <img src="https://img.shields.io/badge/TypeScript-7_native-3178C6?logo=typescript&logoColor=white" alt="TypeScript 7 native">
   <img src="https://img.shields.io/badge/licencia-propietaria-F07A3A" alt="Licencia propietaria">
 </p>
 
@@ -23,6 +23,8 @@
   <a href="./DEVELOPMENT.md">Desarrollo</a>
   ·
   <a href="./docs/SECURITY.md">Seguridad</a>
+  ·
+  <a href="./docs/README.md">Documentación</a>
 </p>
 
 > [!IMPORTANT]
@@ -74,7 +76,7 @@ Las decisiones y fronteras completas están documentadas en [Arquitectura](./doc
 
 | Capa      | Tecnologías principales                                                              |
 | --------- | ------------------------------------------------------------------------------------ |
-| Interfaz  | React 19, TypeScript 6, Vite 8, Tailwind CSS 4, i18next                              |
+| Interfaz  | React 19, TypeScript 7 nativo, Vite 8, Tailwind CSS 4, i18next                       |
 | API       | Node.js 24 LTS, Express 5, validación y middleware de autorización                   |
 | Datos     | Kysely, PostgreSQL, SQLite para entornos aislados                                    |
 | Seguridad | Argon2id, WebAuthn/passkeys, TOTP, AES-256-GCM y XChaCha20-Poly1305 según el dominio |
@@ -138,6 +140,7 @@ docs/         arquitectura, seguridad, auditorías y continuidad técnica
 
 ## Documentación destacada
 
+- [Índice y vigencia de toda la documentación](./docs/README.md)
 - [Arquitectura del sistema](./docs/ARCHITECTURE.md)
 - [Migración y aislamiento multi-tenant](./docs/MULTI-TENANT-MIGRATION.md)
 - [Forge Analytics](./docs/FORGE-ANALYTICS.md)
@@ -148,6 +151,11 @@ docs/         arquitectura, seguridad, auditorías y continuidad técnica
 - [Modelo de cifrado en tránsito y reposo](./docs/ENCRYPTION-IN-TRANSIT-AND-AT-REST.md)
 - [Estándar de auditoría de seguridad](./docs/SECURITY-AUDIT-STANDARD.md)
 - [Preparación para despliegue propio](./docs/SELF-HOSTED-PRODUCTION.md)
+- [Relevo operativo](./docs/OPERATIONAL-HANDOFF.md)
+
+Las auditorías fechadas conservan evidencia histórica y no sustituyen a los
+documentos vigentes. Las reglas duraderas para agentes y colaboradores
+automatizados están en [AGENTS.md](./AGENTS.md).
 
 ## Límites actuales
 
