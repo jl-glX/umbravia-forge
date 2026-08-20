@@ -158,17 +158,28 @@ docs/           maintained technical and release documentation
 - Use TypeScript 7 for compilation. TypeScript 6 remains installed only as the
   programmatic API required by ESLint until that API is available in the native
   compiler.
+- Treat code, migrations and tests as the implementation source of truth. Use
+  `docs/README.md` to distinguish maintained documents from dated audits.
+- Update the maintained document affected by a behavior, security boundary,
+  migration or operational workflow. Do not rewrite dated evidence as if it
+  described the current commit.
+- Follow `AGENTS.md`, especially its protected-state rules. Never rotate or
+  replace secrets, keys, certificates or provider configuration as part of a
+  routine code or documentation change.
 
 ## Before review
 
 ```bash
 npm run format
-npm run CI
+npm run ci:validate
 git diff --check
 ```
 
-`npm run CI` performs a clean locked install, verifies formatting, lint,
-client/server TypeScript, tests and production builds, and audits dependencies.
+`npm run ci:validate` verifies portability, formatting, lint, client/server
+TypeScript, tests, production builds and dependencies without replacing the
+working installation. `npm run CI` remains available when a clean locked
+installation is explicitly required. Commit descriptions are written in
+Spanish so the project history uses the collaboration language.
 The dependency maintenance rules and intentional compatibility holds are
 documented in `docs/dependency-policy.md`.
 

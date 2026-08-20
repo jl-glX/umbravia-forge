@@ -39,7 +39,9 @@ desplegado, un temporizador sea innecesario o una migración esté aplicada.
   secretos.
 
 Las reglas detalladas para configuración protegida están en
-[DEVELOPMENT.md](../DEVELOPMENT.md). Este relevo no las reemplaza.
+[AGENTS.md](../AGENTS.md) y [DEVELOPMENT.md](../DEVELOPMENT.md). El índice
+[docs/README.md](./README.md) distingue documentación vigente de auditorías
+históricas. Este relevo no los reemplaza.
 
 ## Comprobación inicial
 
@@ -134,7 +136,7 @@ Antes de preparar un commit:
 2. Confirmar que solo se incluyen archivos del alcance aprobado.
 3. Ejecutar las validaciones acordes al cambio.
 4. Comprobar que el remoto y la sesión de GitHub están accesibles.
-5. Crear un commit con un mensaje concreto y publicar únicamente cuando el
+5. Crear un commit descriptivo en español y publicar únicamente cuando el
    usuario lo haya pedido expresamente.
 
 Un push correcto confirma la publicación en Git, no el despliegue en el

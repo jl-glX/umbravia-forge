@@ -11,7 +11,7 @@ committed lockfile as the reproducible source for installations.
 - TypeScript 7.0.x as the native project compiler
 - TypeScript 6.0.x only as the temporary programmatic API consumed by
   `typescript-eslint`
-- Node 26 type definitions aligned with the supported runtime
+- Node 24 type definitions aligned with the supported runtime
 
 The dual TypeScript installation follows the upstream TypeScript 7 migration
 guidance. Remove the TypeScript 6 alias when the native compiler exposes the

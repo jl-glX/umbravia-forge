@@ -1,5 +1,9 @@
 # Auditoría de seguridad de la consola corporativa de gestores
 
+> [!NOTE]
+> Evidencia histórica del alcance indicado. El estado vigente del plano de
+> gestión se mantiene en [MANAGER-CORE.md](./MANAGER-CORE.md).
+
 **Fecha:** 15 de agosto de 2026
 
 **Ámbito:** implementación local de la consola corporativa, jerarquía de

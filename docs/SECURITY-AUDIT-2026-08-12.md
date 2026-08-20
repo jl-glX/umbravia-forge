@@ -1,5 +1,9 @@
 # Auditoría integral de comunidad, soporte y continuidad — 12 de agosto de 2026
 
+> [!NOTE]
+> Evidencia histórica del commit auditado. El estado vigente se mantiene en
+> [SECURITY.md](./SECURITY.md) y en el [índice documental](./README.md).
+
 **Identificador:** UF-SEC-2026-08-12-COMMUNITY-SUPPORT
 
 **Estándar aplicado:** [Estándar interno de auditoría integral de seguridad](./SECURITY-AUDIT-STANDARD.md)

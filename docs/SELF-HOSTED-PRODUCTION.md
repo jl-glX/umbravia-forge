@@ -266,10 +266,11 @@ staging nunca se convierten en datos de producción.
 No se deben procesar datos reales ni abrir tráfico comercial antes de completar
 estas comprobaciones.
 
-## Evolución futura del perímetro
+## Perímetro Cloudflare
 
-Cuando exista un dominio propio, la posible incorporación de Cloudflare WAF/CDN
-se evaluará con el borrador
-[`FUTURE-CLOUDFLARE-EDGE.md`](./FUTURE-CLOUDFLARE-EDGE.md). Esa fase no forma
-parte del despliegue actual y no sustituirá los controles de Caddy, Express ni
-el desafío antiabuso propio.
+La base de Cloudflare para el dominio público y Turnstile está activada; las
+decisiones verificadas y el endurecimiento todavía pendiente se mantienen en
+[`FUTURE-CLOUDFLARE-EDGE.md`](./FUTURE-CLOUDFLARE-EDGE.md). El proxy no
+sustituye los controles de Caddy y Express, ni demuestra la identidad de red
+del correo saliente. El cierre directo del origen, las reglas WAF adicionales y
+cualquier cambio DNS requieren comprobación operativa y reversión propia.

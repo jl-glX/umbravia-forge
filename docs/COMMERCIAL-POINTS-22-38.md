@@ -3,6 +3,11 @@
 **Estado:** base funcional integrada, auditada y verificable
 **Fecha:** 4 de agosto de 2026
 
+> [!NOTE]
+> Este documento conserva el cierre histórico de esos puntos. Para el estado
+> actual de aislamiento, cifrado, soporte y analítica deben consultarse los
+> documentos vigentes del [índice de documentación](./README.md).
+
 Este documento traslada los puntos 22–38 del borrador comercial maestro al
 producto Umbravia Forge. No sustituye asesoramiento jurídico, una política de
 moderación aprobada ni las decisiones de producto que el propio borrador dejó

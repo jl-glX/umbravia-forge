@@ -11,15 +11,17 @@ This migration makes `activitySession` the canonical internal term. Visible
 labels remain localizable: a facility may still present an activity session as
 a class, course, appointment, practice or another configured term.
 
-## Stable baseline and restoration
+## Integrated baseline and restoration
 
 The validated baseline before this work is commit `e449a9b` and the annotated
-restore tag is `restore/pre-domain-neutralization-20260816`. Development is
-isolated on `codex/activity-domain-neutralization`.
+restore tag is `restore/pre-domain-neutralization-20260816`. The migration is
+now integrated in `main`; `activitySession` and the neutral API paths are the
+canonical contracts, while the former branch name remains historical context.
 
-The baseline passed `npm run ci:validate` before the branch and tag were created.
-No security configuration, credentials, key material or production database was
-changed while establishing this checkpoint.
+The baseline passed `npm run ci:validate` before the branch and tag were
+created, and the integrated code retains focused migration and compatibility
+tests. No security configuration, credentials, key material or production
+database was changed while establishing the checkpoint.
 
 Database changes are forward-only and idempotent. Before applying them outside
 an isolated database, operators must create and verify a PostgreSQL backup,

@@ -1,7 +1,10 @@
 # Security
 
-The latest integral black-box, gray-box and white-box assessment is documented
-in [SECURITY-AUDIT-2026-08-05.md](./SECURITY-AUDIT-2026-08-05.md).
+The latest integral black-box, gray-box and white-box assessment preserved in
+the repository is the historical review of 12 August 2026, documented in
+[SECURITY-AUDIT-2026-08-12.md](./SECURITY-AUDIT-2026-08-12.md). The manager
+console received a later, narrower review in
+[MANAGER-CONSOLE-SECURITY-AUDIT-2026-08-15.md](./MANAGER-CONSOLE-SECURITY-AUDIT-2026-08-15.md).
 
 Future reviews follow the
 [`SECURITY-AUDIT-STANDARD.md`](./SECURITY-AUDIT-STANDARD.md) internal standard.
@@ -113,13 +116,16 @@ session controls, rate limiting and monitoring remain independent layers.
 - Physical verification of passkeys on representative Android, iOS and macOS devices.
 - CSRF review if cross-site deployment requirements change.
 - Deployment proxy and HTTPS configuration review.
-- Versioned database migrations, encrypted backups and retention rules.
+- Operational validation of the versioned PostgreSQL migrations, encrypted
+  backups, restoration and retention rules in every authorized environment.
 - Expansion of audit coverage for every sensitive administrative operation.
 - Monitoring, alerting and a documented incident-response process.
 - Secret management outside local `.env` files.
 
 ## Reporting a vulnerability
 
-The repository owner is Javier López Díaz. A dedicated security contact and private reporting channel must be added before the repository or service is made public.
+The repository owner is Javier López Díaz. The source repository is public, but
+a dedicated private security contact and a documented incident-response channel
+are still required before a general commercial launch.
 
 Do not disclose active vulnerabilities in a public issue when a private reporting channel is available.

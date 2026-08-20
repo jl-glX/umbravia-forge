@@ -1,8 +1,12 @@
 # Auditoría integral de seguridad — 5 de agosto de 2026
 
+> [!NOTE]
+> Evidencia histórica del commit auditado. El estado vigente se mantiene en
+> [SECURITY.md](./SECURITY.md).
+
 **Identificador:** UF-SEC-2026-08-05
 
-**Estándar aplicado:** [Estándar interno de auditoría integral de seguridad](../Security-Audit-Standard.md)
+**Estándar aplicado:** [Estándar interno de auditoría integral de seguridad](./SECURITY-AUDIT-STANDARD.md)
 
 **Versión evaluada:** fa1a755426e9cdbde6ec44a383d419c41904a60b, con las correcciones documentadas en este informe
 

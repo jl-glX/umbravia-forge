@@ -1,5 +1,10 @@
 # Auditoría dirigida de correo y recuperación de cuentas — 9 de agosto de 2026
 
+> [!NOTE]
+> Evidencia histórica del alcance indicado. El estado vigente se mantiene en
+> [SECURITY.md](./SECURITY.md), [FORGE-NOTIFY.md](./FORGE-NOTIFY.md) y
+> [ACCOUNT-LIFECYCLE.md](./ACCOUNT-LIFECYCLE.md).
+
 **Identificador:** UF-SEC-2026-08-09-MAIL-RECOVERY
 
 **Estándar aplicado:** [Estándar interno de auditoría integral de seguridad](./SECURITY-AUDIT-STANDARD.md)

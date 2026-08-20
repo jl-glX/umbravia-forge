@@ -1,5 +1,9 @@
 # Auditoría de la base CRM y de encuestas analíticas
 
+> [!NOTE]
+> Evidencia histórica de esta base. El estado vigente y sus límites operativos
+> se mantienen en [FORGE-ANALYTICS.md](./FORGE-ANALYTICS.md).
+
 **Fecha:** 16 de agosto de 2026
 
 **Ámbito:** CRM por centro, encuestas analíticas periódicas, autorización,

@@ -7,6 +7,8 @@ import { BrandLockup } from "../components/BrandLockup";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useAuth } from "../hooks/useAuth";
 import { getAccessRole } from "../context/auth-context";
+import { CommercialArticle } from "../components/CommercialArticle";
+import commercialSpanishMarkdown from "../content/commercial.es.md?raw";
 
 export function CommercialPage() {
   const { t } = useTranslation();
@@ -152,6 +154,8 @@ export function CommercialPage() {
             ),
           )}
         </div>
+
+        <CommercialArticle source={commercialSpanishMarkdown} />
 
         <footer className="pt-10 text-center text-xs text-slate-400">
           © {new Date().getFullYear()} Umbravia Forge

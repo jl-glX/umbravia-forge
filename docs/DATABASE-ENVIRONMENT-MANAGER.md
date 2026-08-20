@@ -60,8 +60,14 @@ concreto y autorizado. Como mínimo, el procedimiento futuro deberá:
 
 ## Límite multi-centro
 
-El esquema actual representa una instalación de centro único. La promoción
-sirve para mover una instancia completa a una base PostgreSQL vacía; no sirve
-para fusionar varios clientes. Antes de un SaaS multi-centro deben incorporarse
-identificadores de tenant y pruebas de aislamiento en usuarios, clases,
-reservas, comunidad, facturación, archivos y claves.
+El esquema actual incorpora perfiles y membresías de centro y aplica el tenant
+resuelto por el servidor a las áreas operativas principales. `primary` se
+conserva como compatibilidad, no como prueba de que el sistema siga limitado a
+un único centro.
+
+La promoción disponible sigue sirviendo para inventariar una instancia SQLite
+completa y preparar su traslado a una base PostgreSQL vacía; no fusiona varios
+clientes ni ejecuta transferencias. Antes de usarla con datos reales se debe
+validar el esquema PostgreSQL, la separación de cada categoría, las claves y
+adjuntos asociados, los recuentos, la restauración y los rechazos
+cross-facility en el destino autorizado.
