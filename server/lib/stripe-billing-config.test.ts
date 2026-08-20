@@ -20,11 +20,12 @@ describe("Stripe billing configuration", () => {
       webhookSecret: "whsec_example",
       prices: { monthly: "price_monthly", annual: "price_annual" },
       portalConfigurationId: null,
+      mode: "test",
       liveMode: false,
     });
   });
 
-  it("rejects live and unrestricted keys", () => {
+  it("requires an explicit production mode for live keys", () => {
     expect(() =>
       resolveStripeBillingConfiguration({
         ...configuredEnvironment,
@@ -34,8 +35,34 @@ describe("Stripe billing configuration", () => {
     expect(() =>
       resolveStripeBillingConfiguration({
         ...configuredEnvironment,
+        STRIPE_BILLING_MODE: "live",
+        STRIPE_RESTRICTED_API_KEY: "rk_live_example",
+      }),
+    ).toThrow("requires NODE_ENV=production");
+    expect(
+      resolveStripeBillingConfiguration({
+        ...configuredEnvironment,
+        NODE_ENV: "production",
+        STRIPE_BILLING_MODE: "live",
+        STRIPE_RESTRICTED_API_KEY: "rk_live_example",
+      }),
+    ).toMatchObject({ mode: "live", liveMode: true });
+  });
+
+  it("rejects unrestricted and mode-mismatched keys", () => {
+    expect(() =>
+      resolveStripeBillingConfiguration({
+        ...configuredEnvironment,
         STRIPE_RESTRICTED_API_KEY: "sk_test_example",
       }),
     ).toThrow("restricted Stripe test key");
+    expect(() =>
+      resolveStripeBillingConfiguration({
+        ...configuredEnvironment,
+        NODE_ENV: "production",
+        STRIPE_BILLING_MODE: "live",
+        STRIPE_RESTRICTED_API_KEY: "rk_test_example",
+      }),
+    ).toThrow("restricted Stripe live key");
   });
 });

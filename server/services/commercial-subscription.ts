@@ -74,24 +74,44 @@ function planFromMetadata(
   priceId: string | null,
   configuration: StripeBillingConfiguration,
 ): CommercialPlanKey | null {
-  if (value === "monthly" || value === "annual") return value;
   if (priceId === configuration.prices.monthly) return "monthly";
   if (priceId === configuration.prices.annual) return "annual";
+  if (priceId !== null) return null;
+  if (value === "monthly" || value === "annual") return value;
   return null;
+}
+
+function trustedClientOrigin(
+  configuration: StripeBillingConfiguration,
+): string {
+  const origin = getAllowedClientOrigins()[0];
+  if (!origin) throw new Error("A trusted client origin is required");
+  if (configuration.liveMode && new URL(origin).protocol !== "https:") {
+    throw requestError(
+      "Stripe Live billing requires an HTTPS client origin",
+      "STRIPE_LIVE_ORIGIN_INSECURE",
+      503,
+    );
+  }
+  return origin;
 }
 
 export async function getCommercialSubscriptionOverview(facilityId: string) {
   const configuration = resolveStripeBillingConfiguration();
-  const subscription = await db
-    .selectFrom("facilityCommercialSubscriptions")
-    .selectAll()
-    .where("facilityId", "=", facilityId)
-    .executeTakeFirst();
+  const subscription = configuration
+    ? await db
+        .selectFrom("facilityCommercialSubscriptions")
+        .selectAll()
+        .where("facilityId", "=", facilityId)
+        .where("stripeLivemode", "=", configuration.liveMode ? 1 : 0)
+        .executeTakeFirst()
+    : null;
   const entitlements = await getCommercialEntitlements(facilityId);
 
   return {
     configured: configuration !== null,
     testMode: configuration?.liveMode === false,
+    mode: configuration?.mode ?? "disabled",
     plans: {
       monthly: Boolean(configuration?.prices.monthly),
       annual: Boolean(configuration?.prices.annual),
@@ -119,13 +139,20 @@ async function ensureStripeCustomer(input: {
   facilityId: string;
   email: string;
   gateway: StripeBillingGateway;
+  configuration: StripeBillingConfiguration;
 }): Promise<string> {
   const existing = await db
     .selectFrom("facilityCommercialSubscriptions")
-    .select(["stripeCustomerId", "status"])
+    .select(["stripeCustomerId", "status", "stripeLivemode"])
     .where("facilityId", "=", input.facilityId)
     .executeTakeFirst();
-  if (existing?.stripeCustomerId) return existing.stripeCustomerId;
+  const stripeLivemode = input.configuration.liveMode ? 1 : 0;
+  if (
+    existing?.stripeCustomerId &&
+    existing.stripeLivemode === stripeLivemode
+  ) {
+    return existing.stripeCustomerId;
+  }
 
   const facility = await db
     .selectFrom("facilityProfiles")
@@ -136,13 +163,14 @@ async function ensureStripeCustomer(input: {
     email: input.email,
     name: facility.name,
     facilityId: input.facilityId,
-    idempotencyKey: `forge-customer-${input.facilityId}`,
+    idempotencyKey: `forge-customer-${input.configuration.mode}-${input.facilityId}`,
   });
   const now = Date.now();
   await db
     .insertInto("facilityCommercialSubscriptions")
     .values({
       facilityId: input.facilityId,
+      stripeLivemode,
       stripeCustomerId: customer.id,
       stripeSubscriptionId: null,
       stripeCheckoutSessionId: null,
@@ -158,7 +186,17 @@ async function ensureStripeCustomer(input: {
     })
     .onConflict((conflict) =>
       conflict.column("facilityId").doUpdateSet({
+        stripeLivemode,
         stripeCustomerId: customer.id,
+        stripeSubscriptionId: null,
+        stripeCheckoutSessionId: null,
+        stripePriceId: null,
+        planKey: null,
+        status: "inactive",
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: 0,
+        lastStripeEventCreatedAt: null,
+        lastStripeEventId: null,
         updatedAt: now,
       }),
     )
@@ -172,11 +210,13 @@ export async function createCommercialCheckout(input: {
   plan: CommercialPlanKey;
 }) {
   const configuration = requireConfiguration();
+  const origin = trustedClientOrigin(configuration);
   const gateway = gatewayFactory(configuration);
   const existing = await db
     .selectFrom("facilityCommercialSubscriptions")
     .select("status")
     .where("facilityId", "=", input.facilityId)
+    .where("stripeLivemode", "=", configuration.liveMode ? 1 : 0)
     .executeTakeFirst();
   if (existing && ["active", "trialing"].includes(existing.status)) {
     throw requestError(
@@ -190,9 +230,8 @@ export async function createCommercialCheckout(input: {
     facilityId: input.facilityId,
     email: input.email,
     gateway,
+    configuration,
   });
-  const origin = getAllowedClientOrigins()[0];
-  if (!origin) throw new Error("A trusted client origin is required");
   const idempotencyWindow = Math.floor(Date.now() / (5 * 60 * 1000));
   const session = await gateway.createCheckoutSession({
     customerId,
@@ -201,7 +240,7 @@ export async function createCommercialCheckout(input: {
     priceId: configuration.prices[input.plan],
     successUrl: `${origin}/admin/subscription?checkout=success`,
     cancelUrl: `${origin}/admin/subscription?checkout=cancelled`,
-    idempotencyKey: `forge-checkout-${input.facilityId}-${input.plan}-${idempotencyWindow}`,
+    idempotencyKey: `forge-checkout-${configuration.mode}-${input.facilityId}-${input.plan}-${idempotencyWindow}`,
   });
   if (!session.url) throw new Error("Stripe did not return a Checkout URL");
 
@@ -209,12 +248,14 @@ export async function createCommercialCheckout(input: {
     .updateTable("facilityCommercialSubscriptions")
     .set({
       planKey: input.plan,
+      stripeSubscriptionId: null,
       stripeCheckoutSessionId: session.id,
       stripePriceId: configuration.prices[input.plan],
       status: "checkout_pending",
       updatedAt: Date.now(),
     })
     .where("facilityId", "=", input.facilityId)
+    .where("stripeLivemode", "=", configuration.liveMode ? 1 : 0)
     .where("stripeCustomerId", "=", customerId)
     .executeTakeFirstOrThrow();
   return { url: session.url };
@@ -226,6 +267,7 @@ export async function createCommercialPortal(facilityId: string) {
     .selectFrom("facilityCommercialSubscriptions")
     .select("stripeCustomerId")
     .where("facilityId", "=", facilityId)
+    .where("stripeLivemode", "=", configuration.liveMode ? 1 : 0)
     .executeTakeFirst();
   if (!subscription?.stripeCustomerId) {
     throw requestError(
@@ -234,8 +276,7 @@ export async function createCommercialPortal(facilityId: string) {
       409,
     );
   }
-  const origin = getAllowedClientOrigins()[0];
-  if (!origin) throw new Error("A trusted client origin is required");
+  const origin = trustedClientOrigin(configuration);
   const session = await gatewayFactory(configuration).createPortalSession({
     customerId: subscription.stripeCustomerId,
     returnUrl: `${origin}/admin/subscription`,
@@ -258,10 +299,10 @@ export function constructStripeWebhookEvent(
 
 export async function ingestStripeWebhookEvent(event: Stripe.Event) {
   const configuration = requireConfiguration();
-  if (event.livemode) {
+  if (event.livemode !== configuration.liveMode) {
     throw requestError(
-      "Live Stripe events are not accepted by this test-mode integration",
-      "STRIPE_LIVE_EVENT_REJECTED",
+      "The Stripe event mode does not match this billing environment",
+      "STRIPE_EVENT_MODE_MISMATCH",
       400,
     );
   }
@@ -299,7 +340,10 @@ export async function ingestStripeWebhookEvent(event: Stripe.Event) {
     event.type === "customer.subscription.updated" ||
     event.type === "customer.subscription.deleted"
   ) {
-    const subscription = event.data.object;
+    const eventSubscription = event.data.object;
+    const subscription = await gatewayFactory(
+      configuration,
+    ).retrieveSubscription(eventSubscription.id);
     facilityId = subscription.metadata.facility_id ?? null;
     customerId = stripeObjectId(subscription.customer);
     subscriptionId = subscription.id;
@@ -313,7 +357,9 @@ export async function ingestStripeWebhookEvent(event: Stripe.Event) {
     status =
       event.type === "customer.subscription.deleted"
         ? "canceled"
-        : subscriptionStatus(subscription.status);
+        : plan === null
+          ? "incomplete"
+          : subscriptionStatus(subscription.status);
     currentPeriodEnd = item?.current_period_end
       ? item.current_period_end * 1000
       : null;
@@ -333,6 +379,8 @@ export async function ingestStripeWebhookEvent(event: Stripe.Event) {
         .selectFrom("facilityCommercialSubscriptions")
         .select([
           "stripeCustomerId",
+          "stripeLivemode",
+          "stripeSubscriptionId",
           "stripeCheckoutSessionId",
           "status",
           "lastStripeEventCreatedAt",
@@ -345,9 +393,15 @@ export async function ingestStripeWebhookEvent(event: Stripe.Event) {
         event.type === "checkout.session.expired";
       const currentCheckout =
         !checkoutEvent || local?.stripeCheckoutSessionId === checkoutSessionId;
+      const currentSubscription =
+        checkoutEvent ||
+        local?.stripeSubscriptionId === subscriptionId ||
+        (local?.stripeSubscriptionId === null && plan !== null);
       const trustedMapping =
         local?.stripeCustomerId === customerId &&
+        local.stripeLivemode === (configuration.liveMode ? 1 : 0) &&
         currentCheckout &&
+        currentSubscription &&
         (checkoutEvent ||
           local.lastStripeEventCreatedAt === null ||
           eventCreatedAt >= local.lastStripeEventCreatedAt);

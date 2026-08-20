@@ -1080,6 +1080,7 @@ export type CommercialSubscriptionStatus =
 
 interface FacilityCommercialSubscription {
   facilityId: string;
+  stripeLivemode: number;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   stripeCheckoutSessionId: string | null;

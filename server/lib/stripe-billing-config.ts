@@ -5,7 +5,8 @@ export interface StripeBillingConfiguration {
   webhookSecret: string;
   prices: Record<CommercialPlanKey, string>;
   portalConfigurationId: string | null;
-  liveMode: false;
+  mode: "test" | "live";
+  liveMode: boolean;
 }
 
 function requiredValue(environment: NodeJS.ProcessEnv, name: string): string {
@@ -29,10 +30,18 @@ export function resolveStripeBillingConfiguration(
   const annualPrice = requiredValue(environment, "STRIPE_PRICE_FORGE_ANNUAL");
   const portalConfigurationId =
     environment.STRIPE_PORTAL_CONFIGURATION_ID?.trim() || null;
+  const mode = environment.STRIPE_BILLING_MODE?.trim() || "test";
 
-  if (!restrictedApiKey.startsWith("rk_test_")) {
+  if (mode !== "test" && mode !== "live") {
+    throw new Error("STRIPE_BILLING_MODE must be test or live");
+  }
+  if (mode === "live" && environment.NODE_ENV !== "production") {
+    throw new Error("Stripe Live billing requires NODE_ENV=production");
+  }
+  const expectedKeyPrefix = mode === "live" ? "rk_live_" : "rk_test_";
+  if (!restrictedApiKey.startsWith(expectedKeyPrefix)) {
     throw new Error(
-      "STRIPE_RESTRICTED_API_KEY must be a restricted Stripe test key",
+      `STRIPE_RESTRICTED_API_KEY must be a restricted Stripe ${mode} key`,
     );
   }
   if (!webhookSecret.startsWith("whsec_")) {
@@ -57,6 +66,7 @@ export function resolveStripeBillingConfiguration(
     webhookSecret,
     prices: { monthly: monthlyPrice, annual: annualPrice },
     portalConfigurationId,
-    liveMode: false,
+    mode,
+    liveMode: mode === "live",
   };
 }

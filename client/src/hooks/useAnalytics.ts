@@ -148,6 +148,13 @@ export interface AnalyticsOverview {
     liveEvents: number;
     previousPeriod: { from: number; to: number };
   };
+  centreBaseline: {
+    activeMembers: number;
+    newMembers: number;
+    engagedMembers: number;
+    participationRate: number | null;
+    cancellationRate: number | null;
+  } | null;
 }
 
 export interface BookingEventFunnel {

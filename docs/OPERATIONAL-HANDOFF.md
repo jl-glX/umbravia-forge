@@ -19,10 +19,15 @@ historial de trabajo.
   backfills actuales sin destino usan `legacy-import-quarantine`, también
   cerrado. Antes de trasladar esos datos debe revisarse su propiedad; ninguno
   de esos ámbitos es un tenant operativo ni una vía de autorización.
-- La base de Stripe sigue limitada a Test. Checkout, portal y webhooks firmados
-  están implementados; el ciclo registra la sesión vigente y descarta cambios
-  procedentes de intentos antiguos. No se han configurado Prices, impuestos,
-  credenciales ni endpoints Live desde el repositorio.
+- La base de Stripe admite un modo Test o Live explícito. Separa los Customers
+  por modo, exige producción y HTTPS para Live, registra la sesión vigente y
+  falla cerrado ante eventos o Prices ajenos. La preparación del código no
+  demuestra que existan Prices, impuestos, credenciales o endpoints Live en el
+  entorno operativo.
+- Forge Analytics incorpora una línea base administrativa por centro con
+  membresías activas, altas, participación y cancelación en el periodo. Esa
+  vista permanece aislada por tenant y no se entrega al contrato del
+  entrenador.
 - Las migraciones y pruebas del repositorio no demuestran que una base
   PostgreSQL externa se haya migrado. Siguen pendientes la copia/restauración y
   la validación cruzada en un entorno autorizado antes de producción.
@@ -75,6 +80,11 @@ Al empezar una tarea que pueda afectar al código o a producción:
    servicio, su salud, la release activa y los mecanismos de actualización.
 5. Si afecta a datos, comprobar el motor seleccionado y el esquema real de cada
    base implicada antes de editar migraciones.
+
+Para activar Stripe Live, verificar además Product y Prices activos, portal,
+endpoint y eventos Live, permisos mínimos de la clave restringida, secreto de
+firma, origen HTTPS y recorrido completo de pago, renovación, fallo y
+cancelación. Nunca reutilizar objetos ni Customers de Test.
 
 El hostname configurado dentro de Linux y el nombre del recurso en el panel del
 proveedor son identificadores diferentes. Ambos pueden ser válidos y deben

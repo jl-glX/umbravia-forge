@@ -111,6 +111,51 @@ export function AdminAnalyticsDashboardPage() {
               />
             </div>
 
+            {data.centreBaseline && (
+              <section>
+                <div className="mb-4">
+                  <h2 className="text-xl font-bold text-slate-950">
+                    {t("analytics.centreBaselineTitle")}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {t("analytics.centreBaselineDescription")}
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <MetricCard
+                    title={t("analytics.activeMembers")}
+                    value={data.centreBaseline.activeMembers}
+                    subtitle={t("analytics.currentActiveMembers")}
+                  />
+                  <MetricCard
+                    title={t("analytics.newMembersInPeriod")}
+                    value={data.centreBaseline.newMembers}
+                    subtitle={t(`analytics.period.${period}`)}
+                  />
+                  <MetricCard
+                    title={t("analytics.participationRate")}
+                    value={
+                      data.centreBaseline.participationRate === null
+                        ? "—"
+                        : `${data.centreBaseline.participationRate}%`
+                    }
+                    subtitle={t("analytics.participationRateHint", {
+                      count: data.centreBaseline.engagedMembers,
+                    })}
+                  />
+                  <MetricCard
+                    title={t("analytics.cancellationRate")}
+                    value={
+                      data.centreBaseline.cancellationRate === null
+                        ? "—"
+                        : `${data.centreBaseline.cancellationRate}%`
+                    }
+                    subtitle={t("analytics.cancellationRateHint")}
+                  />
+                </div>
+              </section>
+            )}
+
             <AnalyticsDataQuality quality={data.dataQuality} />
             <AnalyticsSurveyManagement />
             <AnalyticsSurveyResults />

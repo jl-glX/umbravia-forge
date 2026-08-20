@@ -20,8 +20,8 @@ export interface CommercialEntitlements {
 export async function getCommercialEntitlements(
   facilityId: string,
 ): Promise<CommercialEntitlements> {
-  const enforcementEnabled = resolveStripeBillingConfiguration() !== null;
-  if (!enforcementEnabled) {
+  const configuration = resolveStripeBillingConfiguration();
+  if (!configuration) {
     return {
       enforcementEnabled: false,
       source: "billing_disabled",
@@ -33,6 +33,7 @@ export async function getCommercialEntitlements(
     .selectFrom("facilityCommercialSubscriptions")
     .select("status")
     .where("facilityId", "=", facilityId)
+    .where("stripeLivemode", "=", configuration.liveMode ? 1 : 0)
     .executeTakeFirst();
   if (subscription && PAID_STATUSES.has(subscription.status)) {
     return {
