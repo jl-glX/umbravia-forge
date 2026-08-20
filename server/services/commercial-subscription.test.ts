@@ -11,10 +11,13 @@ describe("commercial subscriptions", () => {
   let service: typeof import("./commercial-subscription.js");
   const checkoutInputs: Array<Record<string, unknown>> = [];
   const portalInputs: Array<Record<string, unknown>> = [];
+  let currentSubscription: Stripe.Subscription | null = null;
 
   const gateway: StripeBillingGateway = {
     async createCustomer(input) {
-      expect(input.idempotencyKey).toBe(`forge-customer-${input.facilityId}`);
+      expect(input.idempotencyKey).toMatch(
+        new RegExp(`^forge-customer-(test|live)-${input.facilityId}$`),
+      );
       return { id: `cus_${input.facilityId.replaceAll("-", "_")}` };
     },
     async createCheckoutSession(input) {
@@ -27,6 +30,12 @@ describe("commercial subscriptions", () => {
     async createPortalSession(input) {
       portalInputs.push(input);
       return { url: "https://billing.stripe.test/portal" };
+    },
+    async retrieveSubscription(subscriptionId) {
+      if (!currentSubscription || currentSubscription.id !== subscriptionId) {
+        throw new Error("Missing current Stripe subscription test fixture");
+      }
+      return currentSubscription;
     },
     constructWebhookEvent() {
       throw new Error("not used by this service test");
@@ -63,6 +72,17 @@ describe("commercial subscriptions", () => {
     service = await import("./commercial-subscription.js");
     service.setStripeBillingGatewayFactoryForTests(() => gateway);
   });
+
+  async function ingest(
+    event: Stripe.Event,
+    retrievedSubscription?: Stripe.Subscription,
+  ) {
+    if (event.type.startsWith("customer.subscription.")) {
+      currentSubscription =
+        retrievedSubscription ?? (event.data.object as Stripe.Subscription);
+    }
+    return service.ingestStripeWebhookEvent(event);
+  }
 
   afterAll(async () => {
     service.setStripeBillingGatewayFactoryForTests(null);
@@ -122,11 +142,11 @@ describe("commercial subscriptions", () => {
         },
       },
     } as unknown as Stripe.Event;
-    expect(await service.ingestStripeWebhookEvent(event)).toEqual({
+    expect(await ingest(event)).toEqual({
       accepted: true,
       duplicate: false,
     });
-    expect(await service.ingestStripeWebhookEvent(event)).toEqual({
+    expect(await ingest(event)).toEqual({
       accepted: true,
       duplicate: true,
     });
@@ -143,7 +163,7 @@ describe("commercial subscriptions", () => {
       capabilities: { analytics: true, crm: true },
     });
 
-    await service.ingestStripeWebhookEvent({
+    await ingest({
       id: "evt_checkout_delivered_late",
       type: "checkout.session.completed",
       created: 1_900_000_000,
@@ -168,6 +188,149 @@ describe("commercial subscriptions", () => {
     ).toEqual({
       status: "active",
       currentPeriodEnd: 1_802_592_000_000,
+    });
+
+    await ingest({
+      id: "evt_subscription_price_change",
+      type: "customer.subscription.updated",
+      created: 1_900_000_001,
+      livemode: false,
+      data: {
+        object: {
+          id: "sub_facility_alpha",
+          object: "subscription",
+          customer: "cus_facility_alpha",
+          metadata: { facility_id: "facility-alpha", plan_key: "monthly" },
+          status: "active",
+          cancel_at_period_end: false,
+          items: {
+            data: [
+              {
+                price: { id: "price_annual" },
+                current_period_end: 1_834_128_000,
+              },
+            ],
+          },
+        },
+      },
+    } as unknown as Stripe.Event);
+    await expect(
+      database.db
+        .selectFrom("facilityCommercialSubscriptions")
+        .select(["planKey", "stripePriceId"])
+        .where("facilityId", "=", "facility-alpha")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      planKey: "annual",
+      stripePriceId: "price_annual",
+    });
+
+    const latestSubscription = currentSubscription;
+    if (!latestSubscription) throw new Error("Expected subscription fixture");
+    await ingest(
+      {
+        id: "evt_subscription_same_second_stale",
+        type: "customer.subscription.updated",
+        created: 1_900_000_001,
+        livemode: false,
+        data: {
+          object: {
+            ...latestSubscription,
+            status: "past_due",
+            metadata: { facility_id: "facility-alpha", plan_key: "monthly" },
+            items: {
+              data: [
+                {
+                  price: { id: "price_monthly" },
+                  current_period_end: 1_802_592_000,
+                },
+              ],
+            },
+          },
+        },
+      } as unknown as Stripe.Event,
+      latestSubscription,
+    );
+    await expect(
+      database.db
+        .selectFrom("facilityCommercialSubscriptions")
+        .select(["status", "planKey", "stripePriceId"])
+        .where("facilityId", "=", "facility-alpha")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      status: "active",
+      planKey: "annual",
+      stripePriceId: "price_annual",
+    });
+  });
+
+  it("rejects webhook events from the other Stripe mode", async () => {
+    await expect(
+      ingest({
+        id: "evt_live_in_test",
+        type: "customer.subscription.updated",
+        created: 1_900_000_002,
+        livemode: true,
+        data: { object: {} },
+      } as unknown as Stripe.Event),
+    ).rejects.toMatchObject({
+      code: "STRIPE_EVENT_MODE_MISMATCH",
+      statusCode: 400,
+    });
+  });
+
+  it("creates a separate Customer binding when production moves to Live", async () => {
+    const now = Date.now();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "facility-live",
+        slug: "facility-live",
+        name: "Facility Live",
+        logoDataUrl: "",
+        accentColor: "#2563eb",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CLIENT_ORIGIN", "https://app.umbraviaforge.test");
+    vi.stubEnv("STRIPE_BILLING_MODE", "live");
+    vi.stubEnv("STRIPE_RESTRICTED_API_KEY", "rk_live_example");
+    try {
+      await service.createCommercialCheckout({
+        facilityId: "facility-live",
+        email: "live@example.com",
+        plan: "annual",
+      });
+      await expect(
+        database.db
+          .selectFrom("facilityCommercialSubscriptions")
+          .select(["stripeLivemode", "status", "stripeCustomerId"])
+          .where("facilityId", "=", "facility-live")
+          .executeTakeFirstOrThrow(),
+      ).resolves.toEqual({
+        stripeLivemode: 1,
+        status: "checkout_pending",
+        stripeCustomerId: "cus_facility_live",
+      });
+      await expect(
+        service.getCommercialSubscriptionOverview("facility-live"),
+      ).resolves.toMatchObject({ mode: "live", testMode: false });
+    } finally {
+      vi.stubEnv("NODE_ENV", "test");
+      vi.stubEnv("CLIENT_ORIGIN", "http://localhost:3000");
+      vi.stubEnv("STRIPE_BILLING_MODE", "test");
+      vi.stubEnv("STRIPE_RESTRICTED_API_KEY", "rk_test_example");
+    }
+
+    await expect(
+      service.getCommercialSubscriptionOverview("facility-live"),
+    ).resolves.toMatchObject({
+      mode: "test",
+      subscription: { status: "inactive", canOpenPortal: false },
     });
   });
 
@@ -203,7 +366,7 @@ describe("commercial subscriptions", () => {
         },
       }) as unknown as Stripe.Event;
 
-    await service.ingestStripeWebhookEvent(
+    await ingest(
       event({
         id: "evt_old",
         created: 1_700_000_000,
@@ -211,7 +374,7 @@ describe("commercial subscriptions", () => {
         status: "canceled",
       }),
     );
-    await service.ingestStripeWebhookEvent(
+    await ingest(
       event({
         id: "evt_foreign",
         created: 1_900_000_000,
@@ -255,7 +418,7 @@ describe("commercial subscriptions", () => {
       plan: "annual",
     });
 
-    await service.ingestStripeWebhookEvent({
+    await ingest({
       id: "evt_checkout_expired",
       type: "checkout.session.expired",
       created: 1_900_000_100,

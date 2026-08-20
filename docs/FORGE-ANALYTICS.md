@@ -21,6 +21,9 @@ segunda fuente de verdad.
   respeta el centro seleccionado y, para entrenadores, solo incluye sus clases.
 - Genera señales operativas mediante reglas transparentes. Las señales no
   aplican cambios ni se presentan como causalidad demostrada.
+- Añade para administración una línea base del centro con membresías activas,
+  altas dentro del periodo, socios con al menos una reserva confirmada, tasa de
+  participación y tasa de cancelación. Los entrenadores no reciben este bloque.
 
 La lista de espera operativa sigue representando demanda actualmente pendiente.
 La infraestructura histórica añade eventos de reserva, promoción, expiración,
@@ -91,7 +94,7 @@ resultados sigue sin demostrar por sí sola la causa del comportamiento.
 ## Frontera comercial
 
 Stripe Billing ya es la autoridad técnica del cobro de la suscripción SaaS en
-modo Test. El servicio separado de permisos comerciales traduce estados
+el modo configurado. El servicio separado de permisos comerciales traduce estados
 firmados de suscripción o una prueba comercial vigente a capacidades del
 centro; Analytics y CRM no conceden ni revocan productos.
 
@@ -106,8 +109,9 @@ Una división inicial razonable es:
 No se debe simular una suscripción activa. Checkout selecciona Prices del
 servidor, el portal delega la gestión al Customer de Stripe y los webhooks son
 firmados e idempotentes. La aplicación efectiva de barreras a rutas concretas
-continúa siendo una decisión de producto; impuestos automáticos, Live,
-reembolsos y cobros a socios siguen fuera del alcance actual.
+continúa siendo una decisión de producto; la preparación Live del código no
+equivale a una activación operativa. Impuestos automáticos, reembolsos y cobros
+a socios siguen fuera del alcance actual.
 
 ## Evolución prevista
 

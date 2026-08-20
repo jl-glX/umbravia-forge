@@ -28,7 +28,10 @@
 </p>
 
 > [!IMPORTANT]
-> Umbravia Forge está en desarrollo activo. La instancia pública permite validar el producto, pero el proyecto todavía no se considera listo para operar pagos reales ni para un lanzamiento comercial general.
+> Umbravia Forge está en desarrollo activo. El código puede operar Stripe en
+> Test o Live de forma explícita, pero una instancia no debe aceptar pagos
+> reales hasta completar precios, fiscalidad, secretos, webhooks y la prueba de
+> extremo a extremo del entorno autorizado.
 
 ## Una plataforma, cada centro con su propio espacio
 
@@ -160,7 +163,7 @@ automatizados están en [AGENTS.md](./AGENTS.md).
 
 ## Límites actuales
 
-- Stripe permanece separado del libro operativo interno. La suscripción SaaS del centro dispone de Checkout, portal y webhooks en modo Test; todavía no se aceptan claves o eventos Live ni se procesan reembolsos o cobros del centro a sus socios.
+- Stripe permanece separado del libro operativo interno. La suscripción SaaS del centro dispone de Checkout, portal y webhooks firmados en modos Test y Live aislados; la disponibilidad del código no demuestra que Prices, credenciales o webhooks Live estén configurados. No se procesan reembolsos ni cobros del centro a sus socios.
 - La entregabilidad del correo depende también de DNS, reputación, recepción, rebotes y proveedores externos; una aceptación SMTP no equivale por sí sola a entrega en la bandeja de entrada.
 - Las copias cifradas, la restauración y las migraciones de PostgreSQL deben comprobarse en cada entorno autorizado antes de un lanzamiento comercial.
 - Los textos legales y fiscales requieren completar los datos reales y una revisión profesional.

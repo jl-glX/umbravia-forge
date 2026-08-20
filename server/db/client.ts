@@ -2368,6 +2368,7 @@ async function initializeSqliteSchema(
 
     CREATE TABLE IF NOT EXISTS facilityCommercialSubscriptions (
       facilityId TEXT PRIMARY KEY,
+      stripeLivemode INTEGER NOT NULL DEFAULT 0 CHECK(stripeLivemode IN (0, 1)),
       stripeCustomerId TEXT UNIQUE,
       stripeSubscriptionId TEXT UNIQUE,
       stripeCheckoutSessionId TEXT UNIQUE,
@@ -2415,6 +2416,11 @@ async function initializeSqliteSchema(
     );
     sqliteDb.exec(
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_facilityCommercialSubscriptions_checkout ON facilityCommercialSubscriptions(stripeCheckoutSessionId)",
+    );
+  }
+  if (!subscriptionColumns.some((column) => column.name === "stripeLivemode")) {
+    sqliteDb.exec(
+      "ALTER TABLE facilityCommercialSubscriptions ADD COLUMN stripeLivemode INTEGER NOT NULL DEFAULT 0 CHECK(stripeLivemode IN (0, 1))",
     );
   }
 

@@ -138,6 +138,14 @@ export interface AnalyticsHistory {
   previousPeriod: { from: number; to: number };
 }
 
+export interface CentreAnalyticsBaseline {
+  activeMembers: number;
+  newMembers: number;
+  engagedMembers: number;
+  participationRate: number | null;
+  cancellationRate: number | null;
+}
+
 export interface AnalyticsOverview {
   consumer: AnalyticsConsumer;
   period: AnalyticsPeriod;
@@ -149,6 +157,7 @@ export interface AnalyticsOverview {
   recommendations: AnalyticsRecommendation[];
   dataQuality: AnalyticsDataQuality;
   history: AnalyticsHistory;
+  centreBaseline: CentreAnalyticsBaseline | null;
 }
 
 interface AnalyticsOverviewInput extends AnalyticsPeriod {
@@ -424,6 +433,21 @@ export async function getAnalyticsOverview(
           ])
           .where("bookings.activitySessionId", "in", activitySessionIds)
           .execute();
+  const activeMemberRows =
+    input.consumer === "administration"
+      ? await db
+          .selectFrom("facilityMemberships")
+          .innerJoin("users", "users.id", "facilityMemberships.userId")
+          .select([
+            "facilityMemberships.userId",
+            "facilityMemberships.createdAt",
+          ])
+          .where("facilityMemberships.facilityId", "=", input.facilityId)
+          .where("facilityMemberships.role", "=", "member")
+          .where("facilityMemberships.status", "=", "active")
+          .where("users.accountStatus", "=", "active")
+          .execute()
+      : [];
 
   const activities = new Map<string, ActivityAccumulator>();
   const timeSlots = new Map<string, ActivityTimeSlotAccumulator>();
@@ -432,6 +456,7 @@ export async function getAnalyticsOverview(
     { bookingCount: number; classCount: number }
   >();
   const members = new Map<string, MemberAccumulator>();
+  const engagedMemberIds = new Set<string>();
 
   for (const activitySession of classes) {
     const existing = activities.get(activitySession.name) ?? {
@@ -553,6 +578,7 @@ export async function getAnalyticsOverview(
     };
     if (booking.status === "confirmed") {
       member.bookedSessions += 1;
+      engagedMemberIds.add(booking.userId);
       member.activityCounts.set(
         activitySession.name,
         (member.activityCounts.get(activitySession.name) ?? 0) + 1,
@@ -654,6 +680,26 @@ export async function getAnalyticsOverview(
     attendanceRate: percentage(attended, attended + absent),
     noShowRate: percentage(absent, attended + absent),
   };
+  const centreBaseline =
+    input.consumer === "administration"
+      ? {
+          activeMembers: activeMemberRows.length,
+          newMembers: activeMemberRows.filter(
+            (membership) =>
+              membership.createdAt >= input.from &&
+              membership.createdAt < input.to,
+          ).length,
+          engagedMembers: engagedMemberIds.size,
+          participationRate: percentage(
+            engagedMemberIds.size,
+            activeMemberRows.length,
+          ),
+          cancellationRate: percentage(
+            cancellations,
+            confirmedBookings + cancellations,
+          ),
+        }
+      : null;
 
   return {
     consumer: input.consumer,
@@ -679,6 +725,7 @@ export async function getAnalyticsOverview(
       currentWaitlistOnly: true,
       historyCoverage: "baseline_and_live",
     },
+    centreBaseline,
     history: {
       current: buildBookingEventFunnel(currentEvents),
       previous: buildBookingEventFunnel(previousEvents),

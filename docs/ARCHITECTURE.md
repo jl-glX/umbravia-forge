@@ -82,8 +82,11 @@ Known demo classes are localized at display time. User-created names and descrip
 - Keep the centre-to-member billing ledger separate from Stripe Billing. The
   ledger records operational status and does not move money; Stripe Checkout,
   the customer portal and signed webhooks now manage the centre's SaaS
-  subscription in test mode. Commercial entitlements are derived by a separate
-  service and never by Analytics or CRM.
+  subscription in an explicitly selected Test or Live mode. Local billing
+  records separate both modes and reject mismatched events or unconfigured
+  Prices. Commercial entitlements are derived by a separate service and never
+  by Analytics or CRM. Live-capable code does not prove that Live account
+  objects, secrets or end-to-end payments are configured.
 - Invoice details, archived records and custom billing cycles belong to Umbravia Forge's financial domain. The visible interface does not expose App-ProTrack as a product name.
 - Facility profile settings store the centre name, logo and accent colour separately from Umbravia Forge's product identity. Logo updates are admin-only and accept PNG, JPEG or WebP images up to 512 KB.
 - There is no implicit or privileged compatibility facility. Every operational

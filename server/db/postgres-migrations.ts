@@ -2148,6 +2148,15 @@ BEGIN
 END $$;
 `,
   },
+  {
+    version: 34,
+    name: "stripe-test-live-boundary",
+    sql: String.raw`
+ALTER TABLE "facilityCommercialSubscriptions"
+  ADD COLUMN IF NOT EXISTS "stripeLivemode" INTEGER NOT NULL DEFAULT 0
+  CHECK ("stripeLivemode" IN (0, 1));
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

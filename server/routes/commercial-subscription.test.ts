@@ -27,6 +27,9 @@ describe("commercial subscription API", () => {
     async createPortalSession(input) {
       return { url: `https://billing.stripe.test/${input.customerId}` };
     },
+    async retrieveSubscription() {
+      throw new Error("not used by this route test");
+    },
     constructWebhookEvent(body) {
       return JSON.parse(body.toString("utf8")) as Stripe.Event;
     },

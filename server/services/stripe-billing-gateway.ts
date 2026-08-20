@@ -25,6 +25,7 @@ export interface StripeBillingGateway {
     returnUrl: string;
     portalConfigurationId: string | null;
   }): Promise<{ url: string }>;
+  retrieveSubscription(subscriptionId: string): Promise<Stripe.Subscription>;
   constructWebhookEvent(
     body: Buffer,
     signature: string,
@@ -105,6 +106,10 @@ export class OfficialStripeBillingGateway implements StripeBillingGateway {
         ? { configuration: input.portalConfigurationId }
         : {}),
     });
+  }
+
+  async retrieveSubscription(subscriptionId: string) {
+    return this.stripe.subscriptions.retrieve(subscriptionId);
   }
 
   constructWebhookEvent(body: Buffer, signature: string, secret: string) {

@@ -477,6 +477,13 @@ describe("analytics tenant isolation", () => {
         causalExplanation: "survey_required",
         currentWaitlistOnly: true,
       },
+      centreBaseline: {
+        activeMembers: 1,
+        newMembers: 1,
+        engagedMembers: 1,
+        participationRate: 100,
+        cancellationRate: 0,
+      },
       history: {
         current: {
           observedBookings: 3,
@@ -539,6 +546,7 @@ describe("analytics tenant isolation", () => {
         baselineEvents: 2,
         liveEvents: 0,
       },
+      centreBaseline: null,
     });
     expect(response.body.activities).toEqual([
       expect.objectContaining({ activityName: "Trainer analytics class" }),
