@@ -2490,6 +2490,15 @@ async function initializeSqliteSchema(
     CREATE INDEX IF NOT EXISTS idx_umfSupportAccessRequests_status
       ON umfSupportAccessRequests(status, createdAt DESC);
 
+    CREATE TABLE IF NOT EXISTS umfSupportAccessCredentials (
+      requestId TEXT PRIMARY KEY,
+      passwordHash TEXT NOT NULL,
+      activationKind TEXT NOT NULL CHECK(activationKind IN ('staff', 'designated_head')),
+      createdAt INTEGER NOT NULL,
+      expiresAt INTEGER NOT NULL,
+      FOREIGN KEY(requestId) REFERENCES umfSupportAccessRequests(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS umfSupportTickets (
       id TEXT PRIMARY KEY,
       publicId TEXT NOT NULL UNIQUE,

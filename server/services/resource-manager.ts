@@ -17,6 +17,7 @@ import {
 import { auditSupportSla } from "./support.js";
 import { purgeExpiredOpaqueE2eeAttachments } from "./e2ee-attachments.js";
 import { runEncryptionManagerAudit } from "./encryption-manager.js";
+import { cleanupExpiredEmailChangeChallenges } from "./email-change.js";
 import {
   getManagerCoordinationStatus,
   ManagerCoordinationConflictError,
@@ -243,6 +244,7 @@ async function cleanupExpiredAuthenticationData(): Promise<number> {
       .deleteFrom("emailVerificationChallenges")
       .where("expiresAt", "<", now)
       .executeTakeFirst(),
+    cleanupExpiredEmailChangeChallenges(now),
     db
       .deleteFrom("accountRecoveryChallenges")
       .where("expiresAt", "<", now)
@@ -253,10 +255,10 @@ async function cleanupExpiredAuthenticationData(): Promise<number> {
       .executeTakeFirst(),
   ]);
 
-  return results.reduce(
-    (total, result) => total + Number(result.numDeletedRows),
-    0,
-  );
+  return results.reduce<number>((total, result) => {
+    if (typeof result === "number") return total + result;
+    return total + Number(result.numDeletedRows);
+  }, 0);
 }
 
 async function optimizeSqlitePlanner(): Promise<void> {
@@ -339,6 +341,7 @@ registerTask({
       "authChallenges",
       "webauthnChallenges",
       "emailVerificationChallenges",
+      "emailChangeChallenges",
       "accountRecoveryChallenges",
     ] as const;
     let count = 0;

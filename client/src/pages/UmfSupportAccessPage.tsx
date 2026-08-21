@@ -23,6 +23,7 @@ import {
   type UmfSupportDistribution,
 } from "../lib/umf-support";
 import { authFetch } from "../lib/api";
+import { isPasswordWithinHashLimit } from "../lib/passwordPolicy";
 
 type Mode = "login" | "request" | "activate";
 
@@ -35,6 +36,7 @@ export function UmfSupportAccessPage() {
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [code, setCode] = useState("");
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaCode, setMfaCode] = useState("");
@@ -111,15 +113,30 @@ export function UmfSupportAccessPage() {
         }
         await finishSupportLogin();
       } else if (mode === "request") {
+        if (password !== confirmPassword) {
+          throw new Error("UMF_SUPPORT_PASSWORD_MISMATCH");
+        }
+        if (
+          password.length < 12 ||
+          !isPasswordWithinHashLimit(password) ||
+          !/[a-z]/.test(password) ||
+          !/[A-Z]/.test(password) ||
+          !/[0-9]/.test(password)
+        ) {
+          throw new Error("UMF_SUPPORT_PASSWORD_POLICY");
+        }
         await requestAccess({
           email,
           name,
           lastName,
+          password,
           locale: i18n.resolvedLanguage ?? "es",
           captchaToken,
         });
         setNotice(t("umfSupportAccess.requestAccepted"));
         setMode("activate");
+        setPassword("");
+        setConfirmPassword("");
         setCaptchaToken("");
         setCaptchaResetSignal((value) => value + 1);
       } else {
@@ -140,8 +157,17 @@ export function UmfSupportAccessPage() {
         setCaptchaToken("");
         setCaptchaResetSignal((value) => value + 1);
       }
+      const errorKey = cause instanceof Error ? cause.message : "";
+      const translatedErrors: Record<string, string> = {
+        UMF_SUPPORT_PASSWORD_MISMATCH: t("umfSupportAccess.passwordMismatch"),
+        UMF_SUPPORT_PASSWORD_POLICY: t("auth.passwordPolicy"),
+        UMF_SUPPORT_ACTIVATION_INVALID: t("umfSupportAccess.activationInvalid"),
+      };
       setError(
-        cause instanceof Error ? cause.message : t("umfSupportAccess.error"),
+        translatedErrors[errorKey] ||
+          (cause instanceof Error
+            ? cause.message
+            : t("umfSupportAccess.error")),
       );
     } finally {
       setWorking(false);
@@ -153,6 +179,7 @@ export function UmfSupportAccessPage() {
     setError("");
     setNotice("");
     setPassword("");
+    setConfirmPassword("");
     setCode("");
     setMfaRequired(false);
     setMfaCode("");
@@ -307,19 +334,41 @@ export function UmfSupportAccessPage() {
                   />
                 </div>
               ) : (
-                mode !== "request" && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="umf-password">{t("common.password")}</Label>
-                    <PasswordInput
-                      id="umf-password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      minLength={mode === "activate" ? 12 : 1}
-                      maxLength={128}
-                      required
-                    />
-                  </div>
-                )
+                <div className="space-y-1.5">
+                  <Label htmlFor="umf-password">{t("common.password")}</Label>
+                  <PasswordInput
+                    id="umf-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete={
+                      mode === "request" ? "new-password" : "current-password"
+                    }
+                    minLength={mode === "login" ? 1 : 12}
+                    maxLength={128}
+                    required
+                  />
+                  {mode === "request" && (
+                    <p className="text-xs leading-5 text-slate-500">
+                      {t("auth.passwordPolicy")}
+                    </p>
+                  )}
+                </div>
+              )}
+              {mode === "request" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="umf-confirm-password">
+                    {t("auth.confirmPassword")}
+                  </Label>
+                  <PasswordInput
+                    id="umf-confirm-password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    autoComplete="new-password"
+                    minLength={12}
+                    maxLength={128}
+                    required
+                  />
+                </div>
               )}
               {mode === "activate" && (
                 <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">

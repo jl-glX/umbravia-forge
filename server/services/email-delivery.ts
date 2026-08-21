@@ -357,6 +357,7 @@ export function buildEmailChangeVerificationMessage(
   name: string,
   code: string,
   locale: SupportedLocale,
+  validityHours: number,
 ): VerificationMessage {
   const messages: Record<
     SupportedLocale,
@@ -367,31 +368,27 @@ export function buildEmailChangeVerificationMessage(
       greeting: `Hola, ${name}:`,
       instruction:
         "Usa este código para verificar el nuevo correo de tu cuenta:",
-      expiry:
-        "El código caduca en 15 minutos. Si no has solicitado el cambio, no lo compartas y revisa la seguridad de tu cuenta.",
+      expiry: `El código caduca en ${validityHours} horas. Si no has solicitado el cambio, no lo compartas y revisa la seguridad de tu cuenta.`,
     },
     en: {
       subject: "Confirm your new Umbravia Forge email",
       greeting: `Hello, ${name}:`,
       instruction: "Use this code to verify your account's new email address:",
-      expiry:
-        "The code expires in 15 minutes. If you did not request this change, do not share it and review your account security.",
+      expiry: `The code expires in ${validityHours} hours. If you did not request this change, do not share it and review your account security.`,
     },
     de: {
       subject: "Neue E-Mail-Adresse für Umbravia Forge bestätigen",
       greeting: `Hallo, ${name}:`,
       instruction:
         "Verwenden Sie diesen Code, um die neue E-Mail-Adresse Ihres Kontos zu bestätigen:",
-      expiry:
-        "Der Code läuft in 15 Minuten ab. Wenn Sie diese Änderung nicht angefordert haben, geben Sie ihn nicht weiter und überprüfen Sie die Kontosicherheit.",
+      expiry: `Der Code läuft in ${validityHours} Stunden ab. Wenn Sie diese Änderung nicht angefordert haben, geben Sie ihn nicht weiter und überprüfen Sie die Kontosicherheit.`,
     },
     "de-CH": {
       subject: "Neue E-Mail-Adresse für Umbravia Forge bestätigen",
       greeting: `Hallo, ${name}:`,
       instruction:
         "Verwenden Sie diesen Code, um die neue E-Mail-Adresse Ihres Kontos zu bestätigen:",
-      expiry:
-        "Der Code läuft in 15 Minuten ab. Wenn Sie diese Änderung nicht angefordert haben, geben Sie ihn nicht weiter und überprüfen Sie die Kontosicherheit.",
+      expiry: `Der Code läuft in ${validityHours} Stunden ab. Wenn Sie diese Änderung nicht angefordert haben, geben Sie ihn nicht weiter und überprüfen Sie die Kontosicherheit.`,
     },
   };
   const message = messages[locale] ?? messages.es;
@@ -406,6 +403,49 @@ export function buildEmailChangeVerificationMessage(
       expiry: message.expiry,
       includeHeader: false,
     }),
+  };
+}
+
+export function buildEmailChangeAttemptNoticeMessage(input: {
+  name: string;
+  locale: SupportedLocale;
+  recoveryUrl: string;
+}): VerificationMessage {
+  const content: Record<
+    SupportedLocale,
+    { subject: string; greeting: string; notice: string; action: string }
+  > = {
+    es: {
+      subject: "Intento de cambio de correo en tu cuenta",
+      greeting: `Hola, ${input.name}:`,
+      notice: "Ha habido un intento de cambio de correo de tu cuenta.",
+      action: "Si no has sido tú, recupera tu cuenta",
+    },
+    en: {
+      subject: "Attempt to change your account email",
+      greeting: `Hello, ${input.name}:`,
+      notice: "There has been an attempt to change your account email.",
+      action: "If this was not you, recover your account",
+    },
+    de: {
+      subject: "Versuch, die E-Mail-Adresse Ihres Kontos zu ändern",
+      greeting: `Hallo, ${input.name}:`,
+      notice: "Es wurde versucht, die E-Mail-Adresse Ihres Kontos zu ändern.",
+      action: "Wenn Sie das nicht waren, stellen Sie Ihr Konto wieder her",
+    },
+    "de-CH": {
+      subject: "Versuch, die E-Mail-Adresse Ihres Kontos zu ändern",
+      greeting: `Hallo, ${input.name}:`,
+      notice: "Es wurde versucht, die E-Mail-Adresse Ihres Kontos zu ändern.",
+      action: "Wenn Sie das nicht waren, stellen Sie Ihr Konto wieder her",
+    },
+  };
+  const message = content[input.locale] ?? content.es;
+  const safeRecoveryUrl = escapeHtml(input.recoveryUrl);
+  return {
+    subject: message.subject,
+    text: `${message.greeting}\n\n${message.notice}\n\n${message.action}: ${input.recoveryUrl}`,
+    html: `<p>${escapeHtml(message.greeting)}</p><p>${escapeHtml(message.notice)}</p><p><a href="${safeRecoveryUrl}">${escapeHtml(message.action)}</a></p>`,
   };
 }
 
@@ -782,11 +822,13 @@ export async function queueEmailChangeVerification(input: {
   code: string;
   locale: SupportedLocale;
   expiresAt: number;
+  validityHours: number;
 }): Promise<string> {
   const message = buildEmailChangeVerificationMessage(
     input.name,
     input.code,
     input.locale,
+    input.validityHours,
   );
   return queueEncryptedDelivery({
     userId: input.userId,
@@ -802,12 +844,39 @@ export async function queueEmailChangeVerification(input: {
   });
 }
 
+export async function queueEmailChangeAttemptNotice(input: {
+  userId: string;
+  currentEmail: string;
+  name: string;
+  locale: SupportedLocale;
+  recoveryUrl: string;
+}): Promise<string> {
+  const message = buildEmailChangeAttemptNoticeMessage({
+    name: input.name,
+    locale: input.locale,
+    recoveryUrl: input.recoveryUrl,
+  });
+  return queueEncryptedDelivery({
+    userId: input.userId,
+    kind: "security_notice",
+    recipient: input.currentEmail,
+    locale: input.locale,
+    payload: {
+      email: input.currentEmail,
+      locale: input.locale,
+      ...message,
+    },
+    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+  });
+}
+
 export async function queueEmailChangedNotice(input: {
   userId: string;
   oldEmail: string;
   newEmail: string;
   name: string;
   locale: SupportedLocale;
+  recoveryUrl: string;
 }): Promise<string> {
   const content: Record<
     SupportedLocale,
@@ -818,14 +887,14 @@ export async function queueEmailChangedNotice(input: {
       title: `Hola, ${input.name}:`,
       explanation: `El correo de acceso de tu cuenta se ha cambiado a ${input.newEmail}. Se han cerrado las demás sesiones.`,
       action:
-        "Si no has realizado este cambio, inicia la recuperación de la cuenta y contacta con soporte de inmediato.",
+        "Si no has realizado este cambio, recupera tu cuenta de inmediato.",
     },
     en: {
       subject: "Your account email has changed",
       title: `Hello, ${input.name}:`,
       explanation: `Your account sign-in email was changed to ${input.newEmail}. Your other sessions have been closed.`,
       action:
-        "If you did not make this change, start account recovery and contact support immediately.",
+        "If you did not make this change, recover your account immediately.",
     },
     de: {
       subject: "Die E-Mail-Adresse Ihres Kontos wurde geändert",
@@ -843,6 +912,7 @@ export async function queueEmailChangedNotice(input: {
     },
   };
   const message = content[input.locale] ?? content.es;
+  const safeRecoveryUrl = escapeHtml(input.recoveryUrl);
   return queueEncryptedDelivery({
     userId: input.userId,
     kind: "security_notice",
@@ -852,8 +922,8 @@ export async function queueEmailChangedNotice(input: {
       email: input.oldEmail,
       locale: input.locale,
       subject: message.subject,
-      text: `${message.title}\n\n${message.explanation}\n\n${message.action}`,
-      html: `<p>${escapeHtml(message.title)}</p><p>${escapeHtml(message.explanation)}</p><p><strong>${escapeHtml(message.action)}</strong></p>`,
+      text: `${message.title}\n\n${message.explanation}\n\n${message.action}: ${input.recoveryUrl}`,
+      html: `<p>${escapeHtml(message.title)}</p><p>${escapeHtml(message.explanation)}</p><p><a href="${safeRecoveryUrl}"><strong>${escapeHtml(message.action)}</strong></a></p>`,
     },
     expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
   });

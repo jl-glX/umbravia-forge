@@ -2347,6 +2347,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS "idx_emailChangeChallenges_new_email"
   ON "emailChangeChallenges" ("newEmail");
 `,
   },
+  {
+    version: 40,
+    name: "umf-support-preapproval-credentials",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "umfSupportAccessCredentials" (
+  "requestId" TEXT PRIMARY KEY REFERENCES "umfSupportAccessRequests" ("id") ON DELETE CASCADE,
+  "passwordHash" TEXT NOT NULL,
+  "activationKind" TEXT NOT NULL CHECK ("activationKind" IN ('staff', 'designated_head')),
+  "createdAt" BIGINT NOT NULL,
+  "expiresAt" BIGINT NOT NULL
+);
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

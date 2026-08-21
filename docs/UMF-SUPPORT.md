@@ -26,13 +26,18 @@ un modo sin conexión; véase
 
 - inicio de sesión específico en el portal `support`, incluido el segundo
   factor cuando la cuenta lo tiene activo;
-- inicialización única de la jefatura desde una cuenta activa, con correo
-  verificado y designada fuera del repositorio mediante el SHA-256 de su
-  correo normalizado;
-- solicitud pública de acceso protegida frente a abuso;
+- inicialización única de la jefatura desde una prealta corporativa cuyo correo
+  está designado fuera del repositorio mediante el SHA-256 normalizado;
+- solicitud pública de acceso protegida frente a abuso, con creación y
+  confirmación local de una contraseña fuerte;
 - aprobación o rechazo manual por dirección;
 - código numérico de activación de un solo uso, válido durante 24 horas, con
   cinco intentos como máximo y persistido únicamente como hash;
+- contraseña de prealta persistida únicamente como hash Argon2id en una tabla
+  separada, válida durante siete días y eliminada al activar, rechazar, caducar
+  o agotar los intentos;
+- activación condicionada a que coincidan el correo, la contraseña de la
+  solicitud y el código enviado al buzón;
 - creación de cuenta solo después de consumir una solicitud aprobada y aceptar
   expresamente términos y privacidad;
 - personal corporativo con roles `director` y `agent`, revocable sin alterar
@@ -62,13 +67,16 @@ un modo sin conexión; véase
 Los operadores activos de `platformOperators` son la autoridad de dirección.
 No se fija en el código el nombre, el correo ni una contraseña de una persona
 concreta. Mientras no haya existido nunca personal, operador ni reclamación de
-jefatura, la cuenta designada por
-`UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256` puede iniciar sesión y completar
-automáticamente la inicialización. Debe estar activa, tener el correo ya
-verificado y usar una sesión creada en los últimos cinco minutos. Una fila
-singleton en `corporateBootstrapState` cierra para siempre esta excepción,
-incluso si después se revocan o eliminan roles. Las incorporaciones posteriores
-necesitan aprobación y no pueden autoasignarse dirección.
+jefatura, la solicitud cuyo correo coincida con
+`UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256` queda aprobada automáticamente y
+recibe el código de activación en ese buzón. Consumirlo exige volver a escribir
+el mismo correo y la misma contraseña de la prealta; entonces se crean la
+identidad, la dirección de soporte, la jefatura y el operador en el flujo
+controlado. Una fila singleton en `corporateBootstrapState` cierra para siempre
+esta excepción, incluso si después se revocan o eliminan roles. Las
+incorporaciones posteriores necesitan aprobación y no pueden autoasignarse
+dirección. El arranque desde una cuenta activa y verificada se conserva solo
+como compatibilidad y recuperación controlada.
 
 El modelo separa cuenta, pertenencia, cargo y permiso. Esta frontera sigue el
 patrón habitual de mesas de ayuda con agentes habilitados, equipos, roles y
@@ -99,11 +107,16 @@ trazabilidad, revoca sus asignaciones técnicas activas y retira sus delegacione
 pendientes o aceptadas; los módulos vuelven entonces a la cobertura vacante.
 La jefatura inicial no puede modificarse desde este flujo ordinario.
 
-La vía normal de primera incorporación es automática al iniciar sesión con la
-cuenta designada. Como recuperación operativa controlada se conserva el
-comando sobre una cuenta existente, activa y con correo verificado. Es una
-simulación mientras no se añada `--apply`, exige repetir el mismo correo y
-falla si detecta otra persona activa en la plantilla:
+La vía normal de primera incorporación parte de `Solicitar`: crea la contraseña
+de prealta y, para el correo designado, envía directamente el código. `Activar`
+exige el correo, esa misma contraseña y el código. La identidad resultante no
+recibe ningún registro en `facilityMemberships`; compartir infraestructura de
+sesiones no la convierte en cuenta de un centro.
+
+Como recuperación operativa controlada se conserva el comando sobre una cuenta
+existente, activa y con correo verificado. Es una simulación mientras no se
+añada `--apply`, exige repetir el mismo correo y falla si detecta otra persona
+activa en la plantilla:
 
 ```text
 npm run company:provision-head -- --email <cuenta> --confirm-email <cuenta>

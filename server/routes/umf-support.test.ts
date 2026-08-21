@@ -180,6 +180,7 @@ describe("UMF Support corporate API", () => {
         email: "new-agent@example.com",
         name: "New",
         lastName: "Agent",
+        password: "NewAgentPassword123",
         locale: "es",
       })
       .expect(202);
@@ -208,6 +209,26 @@ describe("UMF Support corporate API", () => {
     expect(stored.activationCodeHash).not.toContain(approved.body.code);
     expect(stored.status).toBe("approved");
 
+    const storedCredential = await database.db
+      .selectFrom("umfSupportAccessCredentials")
+      .select("passwordHash")
+      .where("requestId", "=", pending.body.requests[0].id)
+      .executeTakeFirstOrThrow();
+    expect(storedCredential.passwordHash).toMatch(/^\$argon2id\$/);
+    expect(storedCredential.passwordHash).not.toContain("NewAgentPassword123");
+
+    await request(app)
+      .post("/api/umf-support/activate")
+      .send({
+        email: "new-agent@example.com",
+        code: approved.body.code,
+        password: "DifferentPassword123",
+        countryCode: "ES",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+      })
+      .expect(400);
+
     const activated = await request(app)
       .post("/api/umf-support/activate")
       .send({
@@ -220,6 +241,20 @@ describe("UMF Support corporate API", () => {
       })
       .expect(201);
     expect(activated.body.user.email).toBe("new-agent@example.com");
+    await expect(
+      database.db
+        .selectFrom("umfSupportAccessCredentials")
+        .select("requestId")
+        .where("requestId", "=", pending.body.requests[0].id)
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
+    await expect(
+      database.db
+        .selectFrom("facilityMemberships")
+        .select("userId")
+        .where("userId", "=", activated.body.user.id)
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
 
     await request(app)
       .post("/api/umf-support/activate")
@@ -264,6 +299,50 @@ describe("UMF Support corporate API", () => {
         "umf_support_account_activated",
       ]),
     );
+  });
+
+  it("expires an unattended pre-enrolment credential before approval", async () => {
+    await request(app)
+      .post("/api/umf-support/access-requests")
+      .send({
+        email: "expired-agent@example.com",
+        name: "Expired",
+        lastName: "Agent",
+        password: "ExpiredAgentPassword123",
+        locale: "es",
+      })
+      .expect(202);
+    const pending = await database.db
+      .selectFrom("umfSupportAccessRequests")
+      .select("id")
+      .where("email", "=", "expired-agent@example.com")
+      .executeTakeFirstOrThrow();
+    await database.db
+      .updateTable("umfSupportAccessCredentials")
+      .set({ expiresAt: Date.now() - 1 })
+      .where("requestId", "=", pending.id)
+      .execute();
+
+    await request(app)
+      .post(`/api/umf-support/access-requests/${pending.id}/approve`)
+      .set("Cookie", directorCookie)
+      .send({})
+      .expect(400);
+
+    await expect(
+      database.db
+        .selectFrom("umfSupportAccessRequests")
+        .select("status")
+        .where("id", "=", pending.id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ status: "expired" });
+    await expect(
+      database.db
+        .selectFrom("umfSupportAccessCredentials")
+        .select("requestId")
+        .where("requestId", "=", pending.id)
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
   });
 
   it("allows company roles to be rejected, accepted, renounced and self-enabled", async () => {

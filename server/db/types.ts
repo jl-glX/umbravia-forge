@@ -951,6 +951,14 @@ interface UmfSupportAccessRequest {
   updatedAt: number;
 }
 
+interface UmfSupportAccessCredential {
+  requestId: string;
+  passwordHash: string;
+  activationKind: "staff" | "designated_head";
+  createdAt: number;
+  expiresAt: number;
+}
+
 export type UmfSupportTicketStatus =
   "open" | "in_progress" | "waiting_on_requester" | "resolved" | "closed";
 export type UmfSupportTicketPriority = "low" | "normal" | "high" | "urgent";
@@ -1325,6 +1333,7 @@ export interface Database {
   companyStaffProfiles: CompanyStaffProfile;
   umfSupportStaff: UmfSupportStaff;
   umfSupportAccessRequests: UmfSupportAccessRequest;
+  umfSupportAccessCredentials: UmfSupportAccessCredential;
   umfSupportTickets: UmfSupportTicket;
   umfSupportMessages: UmfSupportMessage;
   corporateRoleAssignments: CorporateRoleAssignment;

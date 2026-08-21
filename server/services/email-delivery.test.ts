@@ -3,6 +3,8 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildAccountDeletionPreparationMessage,
+  buildEmailChangeAttemptNoticeMessage,
+  buildEmailChangeVerificationMessage,
   buildEmailVerificationMessage,
   buildAccountRecoveryMessage,
   resetEmailTransportForTests,
@@ -238,6 +240,32 @@ describe("email delivery configuration", () => {
     expect(message.text).toContain("654321");
     expect(message.html).toContain("&lt;img");
     expect(message.html).not.toContain("<img");
+  });
+
+  it("builds the six-hour email-change verification and old-address security notice", () => {
+    const verification = buildEmailChangeVerificationMessage(
+      "Member",
+      "123456",
+      "es",
+      6,
+    );
+    expect(verification.text).toContain("6 horas");
+
+    const warning = buildEmailChangeAttemptNoticeMessage({
+      name: "<script>alert(1)</script>",
+      locale: "es",
+      recoveryUrl: "https://www.umbraviaforge.com/recover-account",
+    });
+    expect(warning.text).toContain(
+      "Ha habido un intento de cambio de correo de tu cuenta.",
+    );
+    expect(warning.text).toContain("Si no has sido tú, recupera tu cuenta");
+    expect(warning.text).toContain("/recover-account");
+    expect(warning.html).toContain("&lt;script&gt;");
+    expect(warning.html).not.toContain("<script>");
+    expect(warning.html).toContain(
+      'href="https://www.umbraviaforge.com/recover-account"',
+    );
   });
 
   it("preserves technical account-closure details while adding the optional survey", () => {

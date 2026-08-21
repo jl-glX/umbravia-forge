@@ -45,14 +45,18 @@ historial de trabajo.
   de un código temporal de un solo uso. Una cuenta administradora de centro no
   recibe acceso corporativo por su rol.
 - La plantilla empresarial usa `companyStaffProfiles` y queda separada de los
-  permisos. La excepción de alta inicial solo acepta una cuenta activa y con
-  correo verificado cuyo hash coincida con
-  `UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256`; crea transaccionalmente una única
-  jefatura, dirección de soporte y operador global. El marcador permanente
-  `corporateBootstrapState` impide reabrir la excepción aunque después se
-  eliminen roles. El comando con correo repetido y `--apply` se conserva como
-  recuperación controlada y consume el mismo marcador. Los módulos vacantes
-  quedan bajo cobertura automática de la
+  permisos. La solicitud de UMF Support crea una contraseña de prealta guardada
+  solo como hash Argon2id separado y durante siete días. La activación exige el
+  mismo correo, esa contraseña y el código de un solo uso; al activar, rechazar,
+  caducar o bloquear la solicitud se elimina el hash. Las altas ordinarias
+  necesitan aprobación manual. La excepción inicial autoaprueba únicamente el
+  correo cuyo hash coincide con
+  `UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256`, envía allí el código y crea una
+  única jefatura, dirección de soporte y operador global sin añadir una
+  membresía de centro. El marcador permanente `corporateBootstrapState` impide
+  reabrir la excepción aunque después se eliminen roles. El comando con correo
+  repetido y `--apply` se conserva como recuperación controlada y consume el
+  mismo marcador. Los módulos vacantes quedan bajo cobertura automática de la
   jefatura; una asignación activa o delegación pendiente la suspende solo para
   ese módulo. Aceptación, rechazo, renuncia y revocación son estados auditables.
   Las cuentas aprobadas de soporte se incorporan expresamente a la plantilla;
@@ -60,10 +64,14 @@ historial de trabajo.
   módulos sin responsable a la cobertura de la jefatura.
 - El correo de una cuenta activa ya no puede cambiarse desde la administración
   de un centro. El flujo propio exige contraseña, verifica el nuevo buzón con
-  un código temporal, cierra las demás sesiones, invalida retos anteriores y
-  avisa al correo sustituido. La interfaz está disponible en la vista de
-  plantilla de UMF Support y en `Cuenta > Seguridad` para cualquier cuenta
-  activa y verificada.
+  un código temporal válido durante seis horas y mantiene el correo original
+  hasta consumirlo. El correo actual recibe inmediatamente un aviso con enlace
+  a recuperación. La caducidad cancela la solicitud mediante la limpieza de
+  autenticación cada 30 minutos o al intentar confirmar; también puede
+  cancelarse desde la interfaz. Al completar, cierra las demás sesiones,
+  invalida retos anteriores y vuelve a avisar al correo sustituido. La interfaz
+  pertenece a `Cuenta > Seguridad` para cualquier cuenta activa y verificada;
+  no forma parte de la plantilla de UMF Support.
 - UMF Support incorpora tickets, bandejas de entrada y salida, mensajes
   cifrados, categoría de privacidad y un webhook de correo firmado. El código
   y sus pruebas no demuestran que el buzón, DNS, Worker, SMTP, rebotes o
@@ -81,12 +89,14 @@ historial de trabajo.
   equipo Windows limpio antes de distribuirlo de forma general. GitHub Actions
   conserva el ZIP como artefacto temporal cuando la validación es favorable.
 - La auditoría integral del cambio se conserva en
-  `docs/UMF-SUPPORT-READINESS-AUDIT-2026-08-21.md`. La puerta local
-  `npm run ci:validate` terminó favorablemente con 113 archivos de prueba, 553
-  pruebas favorables y una omitida. El empaquetado de despliegue de la revisión
-  anterior auditó 297 archivos; no se ha repetido en este cambio. Estas cifras
-  describen el checkout y no sustituyen la validación humana ni la comprobación
-  del entorno desplegado.
+  `docs/UMF-SUPPORT-READINESS-AUDIT-2026-08-21.md`; la revisión específica de
+  la credencial previa está en
+  `docs/UMF-SUPPORT-PREAUTH-CREDENTIAL-AUDIT-2026-08-21.md`. La puerta local
+  `npm run ci:validate` terminó favorablemente con 115 archivos de prueba, 559
+  pruebas favorables y una omitida. También completó las compilaciones, el
+  paquete Windows y la auditoría de dependencias. Estas cifras describen el
+  checkout y no sustituyen la validación humana ni la comprobación del entorno
+  desplegado.
 
 ## Fuentes y orden de autoridad
 

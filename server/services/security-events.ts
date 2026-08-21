@@ -67,6 +67,8 @@ export type SecurityEventType =
   | "company_staff_updated"
   | "company_head_bootstrapped"
   | "email_change_requested"
+  | "email_change_cancelled"
+  | "email_change_expired"
   | "email_changed";
 
 export async function recordSecurityEvent(

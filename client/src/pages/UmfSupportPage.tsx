@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
-import { AccountEmailChangeCard } from "../components/AccountEmailChangeCard";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -1086,7 +1085,6 @@ export function UmfSupportPage() {
 
           {view === "company" && (
             <div className="space-y-5">
-              <AccountEmailChangeCard />
               {capabilities?.canManageCompanyRoles &&
                 staff.some(
                   (member) =>

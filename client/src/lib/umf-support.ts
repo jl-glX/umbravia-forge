@@ -157,6 +157,7 @@ export function requestAccess(input: {
   email: string;
   name: string;
   lastName: string;
+  password: string;
   locale: string;
   captchaToken: string;
 }) {

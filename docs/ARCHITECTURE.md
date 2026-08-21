@@ -79,11 +79,15 @@ support membership. This portal does not select a facility context and cannot
 be reached merely by holding the global account role `admin`.
 
 The only exception is the one-time company-head bootstrap. Before any
-corporate identity has ever been established, an active, email-verified
-account whose normalized email matches the SHA-256 configured outside the
-repository may create the initial platform operator, support director and
-company-head records in one transaction. A persistent singleton marker keeps
-that path closed after the first claim even if roles are later removed.
+corporate identity has ever been established, a support pre-enrolment whose
+normalized email matches the SHA-256 configured outside the repository is
+approved automatically. Activation still requires the same email, the
+Argon2id-verified password created with the request and the bounded code sent
+to that mailbox. It creates the initial platform operator, support director
+and company-head records without creating a facility membership. A persistent
+singleton marker keeps that path closed after the first claim even if roles
+are later removed. Existing verified identities remain a controlled recovery
+path rather than the normal onboarding route.
 
 The visible company directory is a separate module. `companyStaffProfiles`
 models reporting lines and business positions, `umfSupportStaff` scopes support

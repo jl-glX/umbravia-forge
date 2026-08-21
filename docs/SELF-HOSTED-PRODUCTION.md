@@ -138,11 +138,12 @@ STRIPE_PORTAL_CONFIGURATION_ID=<configuracion Live opcional del portal>
 ```
 
 El hash de la jefatura inicial no es una contraseña ni concede acceso por sí
-solo: únicamente limita qué cuenta activa y ya verificada puede consumir la
-excepción de arranque de UMF Support. Debe calcularse fuera del repositorio,
-incorporarse al entorno protegido antes del primer acceso y retirarse después
-de comprobar que `corporateBootstrapState` quedó registrado. Retirarlo no
-reabre la inicialización.
+solo: únicamente limita qué dirección puede recibir la aprobación automática
+de su primera solicitud de UMF Support. Debe calcularse fuera del repositorio,
+incorporarse al entorno protegido antes de enviar esa solicitud y retirarse
+después de comprobar que `corporateBootstrapState` quedó registrado. La
+activación todavía exige el mismo correo, la contraseña ligada a la solicitud
+y el código recibido en el buzón; retirar el hash no reabre la inicialización.
 
 `DATABASE_SSL=false` solo corresponde a PostgreSQL en el mismo servidor y
 limitado a `localhost`. Si la base está en otra máquina, debe usarse TLS con

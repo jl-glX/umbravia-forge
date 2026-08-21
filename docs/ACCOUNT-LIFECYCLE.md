@@ -27,8 +27,10 @@ The current implementation can demonstrate:
   and versioned acknowledgements;
 - hashed, expiring email-verification challenges with attempt limits;
 - verified email changes requiring the current password and a separate,
-  hashed challenge sent to the new inbox; completion revokes other sessions
-  and obsolete temporary challenges and queues a notice to the old address;
+  hashed six-hour challenge sent to the new inbox; the original address stays
+  active and receives an immediate recovery warning, while expiry cancels the
+  request automatically; completion revokes other sessions and obsolete
+  temporary challenges and queues a second notice to the old address;
 - a confirmed-compromise action that revokes secondary sessions and pending
   challenges, marks the account for review and rotates the support alias;
 - a recovery centre with passkey access and an email-code password-reset flow:
@@ -74,6 +76,21 @@ scoped to the user, stored as hashes, expire after 15 minutes and stop after
 five failures. Production rejects a configuration that disables this control
 or lacks SMTP and queue encryption.
 
+## Corporate support pre-enrolment
+
+UMF Support does not use the sports-centre signup path. Its public request
+collects a name, email address and password with local confirmation, but
+persists that password only as a separate Argon2id hash. The pre-enrolment
+credential expires after seven days and is removed on rejection, activation,
+expiry or lockout. Approval never exposes the hash.
+
+Activation requires the same normalized email, the same password and the
+bounded code sent after approval. The designated first company head receives
+that code automatically only while no corporate initialization has ever
+existed; every later account requires manual review. A successful activation
+marks the mailbox as verified because the code was delivered there, creates
+the corporate support membership and creates no `facilityMemberships` row.
+
 ## Reported account compromise
 
 The authenticated security panel can begin a security review after password
@@ -83,6 +100,27 @@ other sessions, invalidating pending authentication challenges, rotating the
 public support ID and recording security events. It does not silently remove
 passkeys because the user still needs to review which authenticators are
 legitimate.
+
+## Verified account email changes
+
+The authenticated account-security screen accepts a new sign-in address only
+after confirming the current password. It stores a hashed six-digit challenge
+for six hours and sends the code exclusively to the new inbox. The account
+continues to use the original verified address until that challenge is
+consumed successfully.
+
+Starting the process immediately queues a warning to the current address with
+a link to `/recover-account`. If the code is not verified in time, the enabled
+authentication cleanup removes the challenge within its 30-minute cycle and
+erases any still-pending verification delivery; attempting to use an expired
+code also performs the same cleanup. The owner can cancel the pending request
+from the screen, with the same preservation of the original address.
+
+Successful verification changes the address once, revokes every other session,
+invalidates obsolete authentication and recovery challenges, and queues a
+second warning to the previous address. These repository guarantees do not by
+themselves demonstrate live SMTP delivery or a running cleanup manager in a
+deployed environment.
 
 ## Recovery foundation
 

@@ -44,6 +44,7 @@ import {
   removePasskeys,
 } from "../services/passkeys.js";
 import {
+  cancelEmailChange,
   confirmEmailChange,
   requestEmailChange,
 } from "../services/email-change.js";
@@ -103,6 +104,25 @@ accountSecurityRouter.post(
       res.json(
         await confirmEmailChange(auth.userId, auth.sessionId, req.body.code),
       );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+accountSecurityRouter.delete(
+  "/email-change",
+  authenticationLimiter,
+  async (_req, res, next) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      const cancelled = await cancelEmailChange(auth.userId);
+      res.status(cancelled ? 200 : 204);
+      if (cancelled) {
+        res.json({ cancelled: true });
+      } else {
+        res.end();
+      }
     } catch (error) {
       next(error);
     }

@@ -34,6 +34,15 @@ function isDesignatedBootstrapEmail(email: string): boolean {
   return timingSafeEqual(actual, Buffer.from(configured, "hex"));
 }
 
+export async function canRequestCompanyHeadBootstrap(
+  email: string,
+): Promise<boolean> {
+  return (
+    isDesignatedBootstrapEmail(email) &&
+    !(await hasAnyCorporateInitialization())
+  );
+}
+
 export async function canBootstrapCompanyHead(
   userId: string,
 ): Promise<boolean> {
@@ -50,7 +59,10 @@ export async function canBootstrapCompanyHead(
   );
 }
 
-export async function bootstrapCompanyHead(userId: string): Promise<void> {
+export async function bootstrapCompanyHead(
+  userId: string,
+  accessRequestId?: string,
+): Promise<void> {
   const now = Date.now();
   try {
     await db.transaction().execute(async (transaction) => {
@@ -130,6 +142,15 @@ export async function bootstrapCompanyHead(userId: string): Promise<void> {
           revokedAt: null,
         })
         .execute();
+      const openRequests = await transaction
+        .selectFrom("umfSupportAccessRequests")
+        .select("id")
+        .where("email", "=", user.email)
+        .where("status", "in", ["pending", "approved"])
+        .$if(Boolean(accessRequestId), (query) =>
+          query.where("id", "=", accessRequestId!),
+        )
+        .execute();
       await transaction
         .updateTable("umfSupportAccessRequests")
         .set({
@@ -143,7 +164,16 @@ export async function bootstrapCompanyHead(userId: string): Promise<void> {
         })
         .where("email", "=", user.email)
         .where("status", "in", ["pending", "approved"])
+        .$if(Boolean(accessRequestId), (query) =>
+          query.where("id", "=", accessRequestId!),
+        )
         .execute();
+      for (const request of openRequests) {
+        await transaction
+          .deleteFrom("umfSupportAccessCredentials")
+          .where("requestId", "=", request.id)
+          .execute();
+      }
       await transaction
         .insertInto("securityEvents")
         .values({
@@ -151,7 +181,11 @@ export async function bootstrapCompanyHead(userId: string): Promise<void> {
           userId,
           type: "company_head_bootstrapped",
           createdAt: now,
-          metadata: JSON.stringify({ mode: "designated_verified_account" }),
+          metadata: JSON.stringify({
+            mode: accessRequestId
+              ? "designated_support_activation"
+              : "designated_verified_account",
+          }),
         })
         .execute();
     });

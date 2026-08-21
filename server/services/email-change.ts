@@ -6,13 +6,17 @@ import {
 } from "node:crypto";
 import { db } from "../db/client.js";
 import {
+  EMAIL_CHANGE_CHALLENGE_DURATION_MS,
+  EMAIL_CHANGE_VALIDITY_HOURS,
+} from "../lib/email-change-policy.js";
+import {
   deliverQueuedEmail,
   queueEmailChangedNotice,
+  queueEmailChangeAttemptNotice,
   queueEmailChangeVerification,
 } from "./email-delivery.js";
 import { recordSecurityEvent } from "./security-events.js";
 
-const CHALLENGE_DURATION_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 
 export class EmailChangeError extends Error {
@@ -52,8 +56,113 @@ function supportedLocale(value: string): "es" | "en" | "de" | "de-CH" {
     : "es";
 }
 
+function recoveryUrl(): string {
+  const configured = process.env.CLIENT_ORIGIN?.split(",")[0]?.trim();
+  if (configured) return new URL("/recover-account", configured).toString();
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("CLIENT_ORIGIN is required for email change notices");
+  }
+  return "http://127.0.0.1:3000/recover-account";
+}
+
+async function supersedeDeliveries(ids: string[], now = Date.now()) {
+  if (ids.length === 0) return;
+  await db
+    .updateTable("emailDeliveries")
+    .set({
+      status: "superseded",
+      recipient: "",
+      payloadEncrypted: "",
+      updatedAt: now,
+    })
+    .where("id", "in", ids)
+    .where("status", "in", ["queued", "retry"])
+    .execute();
+}
+
+export async function cleanupExpiredEmailChangeChallenges(
+  now = Date.now(),
+): Promise<number> {
+  const expired = await db
+    .selectFrom("emailChangeChallenges")
+    .select(["id", "userId", "newEmail", "expiresAt"])
+    .where("expiresAt", "<=", now)
+    .execute();
+  const cancelledUserIds: string[] = [];
+  await db.transaction().execute(async (transaction) => {
+    for (const challenge of expired) {
+      const deleted = await transaction
+        .deleteFrom("emailChangeChallenges")
+        .where("id", "=", challenge.id)
+        .where("expiresAt", "<=", now)
+        .executeTakeFirst();
+      if (Number(deleted.numDeletedRows) !== 1) continue;
+      cancelledUserIds.push(challenge.userId);
+      await transaction
+        .updateTable("emailDeliveries")
+        .set({
+          status: "superseded",
+          recipient: "",
+          payloadEncrypted: "",
+          updatedAt: now,
+        })
+        .where("userId", "=", challenge.userId)
+        .where("recipient", "=", challenge.newEmail)
+        .where("kind", "=", "security_notice")
+        .where("expiresAt", "<=", challenge.expiresAt)
+        .where("status", "in", ["queued", "retry"])
+        .execute();
+    }
+  });
+  await Promise.all(
+    cancelledUserIds.map((userId) =>
+      recordSecurityEvent("email_change_expired", userId),
+    ),
+  );
+  return cancelledUserIds.length;
+}
+
+export async function cancelEmailChange(userId: string): Promise<boolean> {
+  const challenge = await db
+    .selectFrom("emailChangeChallenges")
+    .select(["id", "newEmail", "expiresAt"])
+    .where("userId", "=", userId)
+    .executeTakeFirst();
+  if (!challenge) return false;
+
+  const now = Date.now();
+  let cancelled = false;
+  await db.transaction().execute(async (transaction) => {
+    const deleted = await transaction
+      .deleteFrom("emailChangeChallenges")
+      .where("id", "=", challenge.id)
+      .where("userId", "=", userId)
+      .executeTakeFirst();
+    if (Number(deleted.numDeletedRows) !== 1) return;
+    cancelled = true;
+    await transaction
+      .updateTable("emailDeliveries")
+      .set({
+        status: "superseded",
+        recipient: "",
+        payloadEncrypted: "",
+        updatedAt: now,
+      })
+      .where("userId", "=", userId)
+      .where("recipient", "=", challenge.newEmail)
+      .where("kind", "=", "security_notice")
+      .where("expiresAt", "<=", challenge.expiresAt)
+      .where("status", "in", ["queued", "retry"])
+      .execute();
+  });
+  if (cancelled) await recordSecurityEvent("email_change_cancelled", userId);
+  return cancelled;
+}
+
 export async function requestEmailChange(userId: string, value: string) {
   const newEmail = normalizeEmail(value);
+  const now = Date.now();
+  await cleanupExpiredEmailChangeChallenges(now);
   const user = await db
     .selectFrom("users")
     .select(["email", "name", "locale", "accountStatus", "emailVerifiedAt"])
@@ -90,14 +199,34 @@ export async function requestEmailChange(userId: string, value: string) {
   }
 
   const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
-  const now = Date.now();
-  const expiresAt = now + CHALLENGE_DURATION_MS;
+  const expiresAt = now + EMAIL_CHANGE_CHALLENGE_DURATION_MS;
   try {
     await db.transaction().execute(async (transaction) => {
+      const previous = await transaction
+        .selectFrom("emailChangeChallenges")
+        .select(["newEmail", "expiresAt"])
+        .where("userId", "=", userId)
+        .executeTakeFirst();
       await transaction
         .deleteFrom("emailChangeChallenges")
         .where("userId", "=", userId)
         .execute();
+      if (previous) {
+        await transaction
+          .updateTable("emailDeliveries")
+          .set({
+            status: "superseded",
+            recipient: "",
+            payloadEncrypted: "",
+            updatedAt: now,
+          })
+          .where("userId", "=", userId)
+          .where("recipient", "=", previous.newEmail)
+          .where("kind", "=", "security_notice")
+          .where("expiresAt", "<=", previous.expiresAt)
+          .where("status", "in", ["queued", "retry"])
+          .execute();
+      }
       await transaction
         .insertInto("emailChangeChallenges")
         .values({
@@ -122,22 +251,51 @@ export async function requestEmailChange(userId: string, value: string) {
     }
     throw error;
   }
-  const deliveryId = await queueEmailChangeVerification({
-    userId,
-    email: newEmail,
-    name: user.name,
-    code,
-    locale: supportedLocale(user.locale),
-    expiresAt,
-  });
-  const delivered = await deliverQueuedEmail(deliveryId).catch(() => false);
+  const locale = supportedLocale(user.locale);
+  const deliveryIds: string[] = [];
+  let verificationDeliveryId: string;
+  let securityNoticeDeliveryId: string;
+  try {
+    verificationDeliveryId = await queueEmailChangeVerification({
+      userId,
+      email: newEmail,
+      name: user.name,
+      code,
+      locale,
+      expiresAt,
+      validityHours: EMAIL_CHANGE_VALIDITY_HOURS,
+    });
+    deliveryIds.push(verificationDeliveryId);
+    securityNoticeDeliveryId = await queueEmailChangeAttemptNotice({
+      userId,
+      currentEmail: user.email,
+      name: user.name,
+      locale,
+      recoveryUrl: recoveryUrl(),
+    });
+    deliveryIds.push(securityNoticeDeliveryId);
+  } catch (error) {
+    await db
+      .deleteFrom("emailChangeChallenges")
+      .where("userId", "=", userId)
+      .where("newEmail", "=", newEmail)
+      .execute();
+    await supersedeDeliveries(deliveryIds, now);
+    throw error;
+  }
+  const [verificationDelivered, securityNoticeDelivered] = await Promise.all([
+    deliverQueuedEmail(verificationDeliveryId).catch(() => false),
+    deliverQueuedEmail(securityNoticeDeliveryId).catch(() => false),
+  ]);
   await recordSecurityEvent("email_change_requested", userId, {
-    delivered,
+    verificationDelivered,
+    securityNoticeDelivered,
   });
   return {
     expiresAt,
-    delivered,
-    queued: !delivered,
+    delivered: verificationDelivered,
+    queued: !verificationDelivered,
+    securityNoticeQueued: true,
     demoVerificationCode: process.env.NODE_ENV === "test" ? code : undefined,
   };
 }
@@ -153,6 +311,9 @@ export async function confirmEmailChange(
     .where("userId", "=", userId)
     .executeTakeFirst();
   const now = Date.now();
+  if (challenge && challenge.expiresAt <= now) {
+    await cleanupExpiredEmailChangeChallenges(now);
+  }
   if (
     !challenge ||
     challenge.expiresAt <= now ||
@@ -264,6 +425,7 @@ export async function confirmEmailChange(
     newEmail: challenge.newEmail,
     name: user.name,
     locale: supportedLocale(user.locale),
+    recoveryUrl: recoveryUrl(),
   }).catch(() => null);
   if (noticeId) await deliverQueuedEmail(noticeId).catch(() => false);
   await recordSecurityEvent("email_changed", userId, {

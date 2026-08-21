@@ -113,12 +113,15 @@ session controls, rate limiting and monitoring remain independent layers.
   end-to-end encrypted.
 - Forge Support authorization, private attachments, staff-only notes and an
   auditable ticket event history.
-- UMF Support corporate authorization, manually approved account activation,
-  hashed single-use codes with bounded attempts, MFA-compatible sign-in,
-  encrypted message bodies, HMAC-authenticated inbound email and security
-  events for access approval, rejection, activation and staff changes. Its
-  corporate message operations fail closed in production when private-content
-  encryption is not active.
+- UMF Support corporate authorization with a separate, seven-day Argon2id
+  pre-enrolment credential, manually approved account activation for ordinary
+  staff, a designated one-time head exception, hashed single-use codes and a
+  combined email-password-code check with bounded attempts. Rejection,
+  activation, expiry or lockout removes the pre-enrolment hash. MFA-compatible
+  sign-in, encrypted message bodies, HMAC-authenticated inbound email and
+  security events remain independent controls. Corporate activation creates no
+  facility membership, and message operations fail closed in production when
+  private-content encryption is not active.
 - A Windows test launcher that contains no credentials, runs without
   elevation, uses the canonical HTTPS origin and delegates authentication and
   session handling to the same server controls as the browser application.

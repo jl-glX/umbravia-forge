@@ -8,11 +8,19 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 
-async function accountSecurityRequest<T>(path: string, body: unknown) {
+async function accountSecurityRequest<T>(
+  path: string,
+  body?: unknown,
+  method = "POST",
+) {
   const response = await authFetch(`/api/account/security${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    method,
+    ...(body === undefined
+      ? {}
+      : {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }),
   });
   const payload = (await response.json().catch(() => ({}))) as T & {
     error?: string;
@@ -38,7 +46,7 @@ export function AccountEmailChangeCard() {
   if (!user) return null;
 
   const errorMessage = (cause: unknown) => {
-    if (!(cause instanceof Error)) return t("umfSupport.emailChange.error");
+    if (!(cause instanceof Error)) return t("accountEmailChange.error");
     const keys: Record<string, string> = {
       INVALID_SECURITY_CONFIRMATION: "passwordInvalid",
       EMAIL_ALREADY_IN_USE: "inUse",
@@ -47,9 +55,7 @@ export function AccountEmailChangeCard() {
       EMAIL_CHANGE_STATE_CONFLICT: "conflict",
     };
     const key = keys[cause.message];
-    return key
-      ? t(`umfSupport.emailChange.${key}`)
-      : t("umfSupport.emailChange.error");
+    return key ? t(`accountEmailChange.${key}`) : t("accountEmailChange.error");
   };
 
   const requestChange = async (event: FormEvent) => {
@@ -58,13 +64,23 @@ export function AccountEmailChangeCard() {
     setError("");
     setNotice("");
     try {
-      await accountSecurityRequest("/email-change/request", {
-        email: newEmail,
-        password,
-      });
+      const result = await accountSecurityRequest<{ expiresAt: number }>(
+        "/email-change/request",
+        {
+          email: newEmail,
+          password,
+        },
+      );
       setPassword("");
       setVerificationPending(true);
-      setNotice(t("umfSupport.emailChange.codeSent"));
+      setNotice(
+        t("accountEmailChange.codeSent", {
+          time: new Intl.DateTimeFormat(undefined, {
+            dateStyle: "short",
+            timeStyle: "short",
+          }).format(result.expiresAt),
+        }),
+      );
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -83,7 +99,24 @@ export function AccountEmailChangeCard() {
       setCode("");
       setNewEmail("");
       setVerificationPending(false);
-      setNotice(t("umfSupport.emailChange.completed"));
+      setNotice(t("accountEmailChange.completed"));
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const cancelChange = async () => {
+    setWorking(true);
+    setError("");
+    setNotice("");
+    try {
+      await accountSecurityRequest("/email-change", undefined, "DELETE");
+      setVerificationPending(false);
+      setCode("");
+      setNewEmail("");
+      setNotice(t("accountEmailChange.cancelled"));
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -97,10 +130,10 @@ export function AccountEmailChangeCard() {
         <MailCheck className="mt-0.5 shrink-0 text-slate-600" size={20} />
         <div>
           <h3 className="font-semibold text-slate-950">
-            {t("umfSupport.emailChange.title")}
+            {t("accountEmailChange.title")}
           </h3>
           <p className="mt-1 text-sm leading-5 text-slate-600">
-            {t("umfSupport.emailChange.description")}
+            {t("accountEmailChange.description")}
           </p>
         </div>
       </div>
@@ -121,13 +154,13 @@ export function AccountEmailChangeCard() {
         >
           <div>
             <Label htmlFor="account-current-email">
-              {t("umfSupport.emailChange.current")}
+              {t("accountEmailChange.current")}
             </Label>
             <Input id="account-current-email" value={user.email} disabled />
           </div>
           <div>
             <Label htmlFor="account-new-email">
-              {t("umfSupport.emailChange.new")}
+              {t("accountEmailChange.new")}
             </Label>
             <Input
               id="account-new-email"
@@ -141,7 +174,7 @@ export function AccountEmailChangeCard() {
           </div>
           <div>
             <Label htmlFor="account-email-password">
-              {t("umfSupport.emailChange.password")}
+              {t("accountEmailChange.password")}
             </Label>
             <PasswordInput
               id="account-email-password"
@@ -154,7 +187,7 @@ export function AccountEmailChangeCard() {
           </div>
           <div className="flex items-end">
             <Button type="submit" disabled={working} className="w-full">
-              {t("umfSupport.emailChange.sendCode")}
+              {t("accountEmailChange.sendCode")}
             </Button>
           </div>
         </form>
@@ -165,7 +198,7 @@ export function AccountEmailChangeCard() {
         >
           <div className="flex-1">
             <Label htmlFor="account-email-code">
-              {t("umfSupport.emailChange.code")}
+              {t("accountEmailChange.code")}
             </Label>
             <Input
               id="account-email-code"
@@ -180,19 +213,15 @@ export function AccountEmailChangeCard() {
             />
           </div>
           <Button type="submit" disabled={working}>
-            {t("umfSupport.emailChange.confirm")}
+            {t("accountEmailChange.confirm")}
           </Button>
           <Button
             type="button"
             variant="outline"
             disabled={working}
-            onClick={() => {
-              setVerificationPending(false);
-              setCode("");
-              setNotice("");
-            }}
+            onClick={cancelChange}
           >
-            {t("common.cancel")}
+            {t("accountEmailChange.cancel")}
           </Button>
         </form>
       )}
