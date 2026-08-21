@@ -57,6 +57,16 @@ describe("PostgreSQL migrations", () => {
     expect(migration).toContain('"idx_emailDeliveries_scope_due"');
   });
 
+  it("separates support role requests from account credentials", () => {
+    const migration = postgresMigrationSql().find((sql) =>
+      sql.includes('ADD COLUMN IF NOT EXISTS "requestedRole"'),
+    );
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS "activationKind"');
+    expect(migration).toContain('FROM "umfSupportAccessCredentials"');
+    expect(migration).toContain("'director', 'agent'");
+    expect(migration).toContain("'staff', 'designated_head'");
+  });
+
   it("keeps legacy activity identifiers out of the resulting schema", () => {
     const activityMigration =
       postgresMigrationSql().find((sql) =>

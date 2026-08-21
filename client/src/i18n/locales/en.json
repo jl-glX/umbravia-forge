@@ -40,6 +40,11 @@
     "de": "Deutsch",
     "deCH": "Deutsch (Schweiz)"
   },
+  "releaseRecovery": {
+    "title": "The application needs to be updated",
+    "description": "This tab kept files from an earlier version. Reload the page to continue with the current version.",
+    "reload": "Reload the application"
+  },
   "roles": { "member": "Member", "trainer": "Trainer", "admin": "Admin" },
   "nav": {
     "home": "Home",
@@ -1562,7 +1567,7 @@
     }
   },
   "errors": {
-    "facilityMembershipRequired": "This account does not currently belong to an active facility. You need an active membership to view classes, bookings, payments, and orders.",
+    "facilityMembershipRequired": "This account does not currently belong to an active facility. You need an active membership to use classes, bookings, payments, orders, and the facility help area.",
     "fetchClasses": "Failed to fetch classes",
     "fetchTrainerClasses": "Failed to fetch trainer classes",
     "fetchAttendees": "Failed to fetch attendees",
@@ -2092,26 +2097,35 @@
     },
     "request": {
       "eyebrow": "Manual approval",
-      "title": "Request an account",
-      "description": "Create the corporate pre-enrolment password. The designated first head can receive the code automatically; all other onboarding requires review.",
-      "action": "Submit request"
+      "title": "Request a role",
+      "description": "Provide your identity, email address and requested role. No account or password is created until the request is approved.",
+      "action": "Request role"
     },
     "activate": {
       "eyebrow": "One-time code",
       "title": "Create the approved account",
-      "description": "Enter the email, the same password created with the request and the code received after approval.",
+      "description": "Enter the approved email, create the definitive password and use the code received in that inbox.",
       "action": "Activate account"
     },
+    "fullName": "Full name",
     "lastName": "Last name",
+    "requestedRole": "Requested role",
+    "roles": {
+      "agent": "Support agent",
+      "director": "Support director"
+    },
+    "roleApprovalNotice": "The requested role is granted only after review; entering a name neither proves identity nor grants permissions.",
+    "roleInvalid": "The requested role does not exist or is unavailable through this process.",
     "activationCode": "Activation code",
     "mfaCode": "Authentication code",
     "countryCode": "Country",
     "acceptTerms": "I accept the",
     "terms": "terms and conditions",
     "acceptPrivacy": "I have read the",
-    "requestAccepted": "Request recorded. The designated first head receives the code directly; all other applicants receive it after approval.",
+    "requestAccepted": "Role request recorded. The code will be sent to the supplied email after approval; the password is created only during activation.",
     "passwordMismatch": "The passwords do not match.",
-    "activationInvalid": "The email, password or activation code is invalid, expired, or the request must be submitted again.",
+    "activationInvalid": "The email or activation code does not match an approved request, or the code has expired or exhausted its attempts.",
+    "invalidCredentials": "The UMF Support email or password is incorrect. Commercial Umbravia Forge credentials cannot access this corporate account.",
     "restrictedNotice": "Account, membership, position and permissions are managed separately",
     "passkeyLogin": "Sign in with a corporate passkey",
     "privacy": "Privacy",

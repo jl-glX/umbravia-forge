@@ -2560,6 +2560,8 @@ async function initializeSqliteSchema(
       email TEXT NOT NULL,
       name TEXT NOT NULL,
       lastName TEXT NOT NULL,
+      requestedRole TEXT NOT NULL DEFAULT 'agent' CHECK(requestedRole IN ('director', 'agent')),
+      activationKind TEXT NOT NULL DEFAULT 'staff' CHECK(activationKind IN ('staff', 'designated_head')),
       locale TEXT NOT NULL CHECK(locale IN ('es', 'en', 'de', 'de-CH')),
       status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected', 'activated', 'expired')),
       activationCodeHash TEXT,
@@ -2682,6 +2684,31 @@ async function initializeSqliteSchema(
     CREATE INDEX IF NOT EXISTS idx_stripeWebhookEvents_received
       ON stripeWebhookEvents(receivedAt DESC);
   `);
+
+  const accessRequestColumns = sqliteDb
+    .prepare("PRAGMA table_info(umfSupportAccessRequests)")
+    .all() as Array<{ name: string }>;
+  const accessRequestColumnNames = accessRequestColumns.map(
+    (column) => column.name,
+  );
+  if (!accessRequestColumnNames.includes("requestedRole")) {
+    sqliteDb.exec(
+      "ALTER TABLE umfSupportAccessRequests ADD COLUMN requestedRole TEXT NOT NULL DEFAULT 'agent' CHECK(requestedRole IN ('director', 'agent'))",
+    );
+  }
+  if (!accessRequestColumnNames.includes("activationKind")) {
+    sqliteDb.exec(
+      "ALTER TABLE umfSupportAccessRequests ADD COLUMN activationKind TEXT NOT NULL DEFAULT 'staff' CHECK(activationKind IN ('staff', 'designated_head'))",
+    );
+    sqliteDb.exec(`
+      UPDATE umfSupportAccessRequests
+      SET activationKind = COALESCE(
+        (SELECT activationKind FROM umfSupportAccessCredentials
+         WHERE umfSupportAccessCredentials.requestId = umfSupportAccessRequests.id),
+        'staff'
+      )
+    `);
+  }
 
   const subscriptionColumns = sqliteDb
     .prepare("PRAGMA table_info(facilityCommercialSubscriptions)")

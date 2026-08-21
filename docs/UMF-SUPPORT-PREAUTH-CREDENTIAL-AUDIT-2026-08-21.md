@@ -1,5 +1,12 @@
 # Auditoría de la credencial previa de UMF Support, 2026-08-21
 
+> Nota de continuidad, 22 de agosto de 2026: este documento conserva la
+> evidencia histórica del modelo con contraseña de prealta. El flujo vigente
+> solicita nombre, apellidos, correo y rol sin contraseña; la credencial
+> definitiva se crea al activar con el código del buzón. Véanse
+> [UMF-SUPPORT.md](./UMF-SUPPORT.md) y
+> [ACCOUNT-LIFECYCLE.md](./ACCOUNT-LIFECYCLE.md).
+
 Esta auditoría conserva el alcance y las conclusiones del cambio revisado en
 esta fecha. La descripción vigente del producto está en
 [`UMF-SUPPORT.md`](./UMF-SUPPORT.md), y el código, las migraciones y las pruebas

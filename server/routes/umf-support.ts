@@ -168,7 +168,7 @@ umfSupportRouter.post(
         "email",
         "name",
         "lastName",
-        "password",
+        "requestedRole",
         "locale",
         "captchaToken",
       ]);

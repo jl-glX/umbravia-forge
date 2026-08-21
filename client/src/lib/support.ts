@@ -86,13 +86,27 @@ export interface SupportCapabilities {
   canManageTeam: boolean;
 }
 
+export class SupportRequestError extends Error {
+  constructor(readonly code?: string) {
+    super("Forge Support request failed");
+    this.name = "SupportRequestError";
+  }
+}
+
 async function supportRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await authFetch(`${API_BASE}/api/support${path}`, init);
   const payload = (await response.json().catch(() => ({}))) as {
+    code?: string;
     error?: string;
   } & T;
-  if (!response.ok)
-    throw new Error(payload.error || "Forge Support request failed");
+  if (!response.ok) {
+    const code =
+      payload.code === "FACILITY_MEMBERSHIP_REQUIRED" ||
+      payload.error === "An active facility membership is required"
+        ? "FACILITY_MEMBERSHIP_REQUIRED"
+        : payload.code;
+    throw new SupportRequestError(code);
+  }
   return payload;
 }
 

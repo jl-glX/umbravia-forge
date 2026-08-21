@@ -113,6 +113,41 @@ describe("SQLite identity realm migration", () => {
         'support@example.test', 'requester@example.test', 'encrypted',
         'legacy-support-delivery', 1
       );
+      CREATE TABLE umfSupportAccessRequests (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        name TEXT NOT NULL,
+        lastName TEXT NOT NULL,
+        locale TEXT NOT NULL,
+        status TEXT NOT NULL,
+        activationCodeHash TEXT,
+        activationAttempts INTEGER NOT NULL DEFAULT 0,
+        activationExpiresAt INTEGER,
+        reviewedByUserId TEXT,
+        reviewedAt INTEGER,
+        activatedUserId TEXT,
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL
+      );
+      INSERT INTO umfSupportAccessRequests (
+        id, email, name, lastName, locale, status, activationAttempts,
+        createdAt, updatedAt
+      ) VALUES (
+        'legacy-head-request', 'head@example.test', 'Legacy', 'Head', 'es',
+        'pending', 0, 1, 1
+      );
+      CREATE TABLE umfSupportAccessCredentials (
+        requestId TEXT PRIMARY KEY,
+        passwordHash TEXT NOT NULL,
+        activationKind TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        expiresAt INTEGER NOT NULL
+      );
+      INSERT INTO umfSupportAccessCredentials (
+        requestId, passwordHash, activationKind, createdAt, expiresAt
+      ) VALUES (
+        'legacy-head-request', 'legacy-hash', 'designated_head', 1, 100
+      );
     `);
     legacy.close();
 
@@ -184,5 +219,18 @@ describe("SQLite identity realm migration", () => {
       { id: "legacy-commercial-delivery", platformScope: "commercial" },
       { id: "legacy-support-delivery", platformScope: "support" },
     ]);
+  });
+
+  it("moves legacy pre-enrolment metadata onto the role request", async () => {
+    await expect(
+      database.db
+        .selectFrom("umfSupportAccessRequests")
+        .select(["requestedRole", "activationKind"])
+        .where("id", "=", "legacy-head-request")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      requestedRole: "agent",
+      activationKind: "designated_head",
+    });
   });
 });

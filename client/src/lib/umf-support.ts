@@ -64,6 +64,7 @@ export interface UmfSupportAccessRequest {
   email: string;
   name: string;
   lastName: string;
+  requestedRole: UmfSupportRole;
   locale: string;
   status: "pending" | "approved" | "rejected" | "activated" | "expired";
   activationExpiresAt: number | null;
@@ -167,7 +168,7 @@ export function requestAccess(input: {
   email: string;
   name: string;
   lastName: string;
-  password: string;
+  requestedRole: UmfSupportRole;
   locale: string;
   captchaToken: string;
 }) {

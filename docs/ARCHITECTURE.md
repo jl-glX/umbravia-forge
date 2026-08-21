@@ -89,11 +89,10 @@ corporate-only tables and server authorization; sharing a PostgreSQL service
 does not make a commercial account a corporate identity.
 
 The only exception is the one-time company-head bootstrap. Before any
-corporate identity has ever been established, a support pre-enrolment whose
+corporate identity has ever been established, a support role request whose
 normalized email matches the SHA-256 configured outside the repository is
-approved automatically. Activation still requires the same email, the
-Argon2id-verified password created with the request and the bounded code sent
-to that mailbox. It creates the initial support director and company-head
+approved automatically. Activation requires the same email, a new strong
+password and the bounded code sent to that mailbox. It creates the initial support director and company-head
 records without creating a facility membership or commercial operator. A
 persistent singleton marker keeps that path closed after the first claim even if roles
 are later removed. Existing verified identities remain a controlled recovery

@@ -23,6 +23,7 @@ import {
   verifySupportMfa,
 } from "../lib/umf-support";
 import { isPasswordWithinHashLimit } from "../lib/passwordPolicy";
+import { localizedApiErrorCodeMessage } from "../lib/api-error";
 import {
   browserSupportsWebAuthn,
   platformAuthenticatorIsAvailable,
@@ -41,6 +42,9 @@ export function UmfSupportAccessPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [requestedRole, setRequestedRole] = useState<"agent" | "director">(
+    "agent",
+  );
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [code, setCode] = useState("");
@@ -92,6 +96,21 @@ export function UmfSupportAccessPage() {
         }
         await finishSupportLogin();
       } else if (mode === "request") {
+        await requestAccess({
+          email,
+          name,
+          lastName,
+          requestedRole,
+          locale: i18n.resolvedLanguage ?? "es",
+          captchaToken,
+        });
+        setNotice(t("umfSupportAccess.requestAccepted"));
+        setMode("activate");
+        setPassword("");
+        setConfirmPassword("");
+        setCaptchaToken("");
+        setCaptchaResetSignal((value) => value + 1);
+      } else {
         if (password !== confirmPassword) {
           throw new Error("UMF_SUPPORT_PASSWORD_MISMATCH");
         }
@@ -104,21 +123,6 @@ export function UmfSupportAccessPage() {
         ) {
           throw new Error("UMF_SUPPORT_PASSWORD_POLICY");
         }
-        await requestAccess({
-          email,
-          name,
-          lastName,
-          password,
-          locale: i18n.resolvedLanguage ?? "es",
-          captchaToken,
-        });
-        setNotice(t("umfSupportAccess.requestAccepted"));
-        setMode("activate");
-        setPassword("");
-        setConfirmPassword("");
-        setCaptchaToken("");
-        setCaptchaResetSignal((value) => value + 1);
-      } else {
         await activateAccount({
           email,
           code,
@@ -140,12 +144,15 @@ export function UmfSupportAccessPage() {
         UMF_SUPPORT_PASSWORD_MISMATCH: t("umfSupportAccess.passwordMismatch"),
         UMF_SUPPORT_PASSWORD_POLICY: t("auth.passwordPolicy"),
         UMF_SUPPORT_ACTIVATION_INVALID: t("umfSupportAccess.activationInvalid"),
+        UMF_SUPPORT_ROLE_INVALID: t("umfSupportAccess.roleInvalid"),
       };
       setError(
         translatedErrors[errorKey] ||
-          (cause instanceof Error
-            ? cause.message
-            : t("umfSupportAccess.error")),
+          localizedApiErrorCodeMessage(
+            errorKey,
+            t("umfSupportAccess.error"),
+            t,
+          ),
       );
     } finally {
       setWorking(false);
@@ -178,7 +185,11 @@ export function UmfSupportAccessPage() {
       await finishSupportLogin();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : t("umfSupportAccess.error"),
+        localizedApiErrorCodeMessage(
+          cause instanceof Error ? cause.message : "",
+          t("umfSupportAccess.error"),
+          t,
+        ),
       );
     } finally {
       setWorking(false);
@@ -244,7 +255,9 @@ export function UmfSupportAccessPage() {
               {mode === "request" && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="umf-name">{t("common.name")}</Label>
+                    <Label htmlFor="umf-name">
+                      {t("umfSupportAccess.fullName")}
+                    </Label>
                     <Input
                       id="umf-name"
                       value={name}
@@ -265,6 +278,34 @@ export function UmfSupportAccessPage() {
                       required
                     />
                   </div>
+                </div>
+              )}
+              {mode === "request" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="umf-requested-role">
+                    {t("umfSupportAccess.requestedRole")}
+                  </Label>
+                  <select
+                    id="umf-requested-role"
+                    value={requestedRole}
+                    onChange={(event) =>
+                      setRequestedRole(
+                        event.target.value as "agent" | "director",
+                      )
+                    }
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    required
+                  >
+                    <option value="agent">
+                      {t("umfSupportAccess.roles.agent")}
+                    </option>
+                    <option value="director">
+                      {t("umfSupportAccess.roles.director")}
+                    </option>
+                  </select>
+                  <p className="text-xs leading-5 text-slate-500">
+                    {t("umfSupportAccess.roleApprovalNotice")}
+                  </p>
                 </div>
               )}
               <div className="space-y-1.5">
@@ -330,7 +371,7 @@ export function UmfSupportAccessPage() {
                     required
                   />
                 </div>
-              ) : (
+              ) : mode !== "request" ? (
                 <div className="space-y-1.5">
                   <Label htmlFor="umf-password">{t("common.password")}</Label>
                   <PasswordInput
@@ -338,20 +379,20 @@ export function UmfSupportAccessPage() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete={
-                      mode === "request" ? "new-password" : "current-password"
+                      mode === "activate" ? "new-password" : "current-password"
                     }
                     minLength={mode === "login" ? 1 : 12}
                     maxLength={128}
                     required
                   />
-                  {mode === "request" && (
+                  {mode === "activate" && (
                     <p className="text-xs leading-5 text-slate-500">
                       {t("auth.passwordPolicy")}
                     </p>
                   )}
                 </div>
-              )}
-              {mode === "request" && (
+              ) : null}
+              {mode === "activate" && (
                 <div className="space-y-1.5">
                   <Label htmlFor="umf-confirm-password">
                     {t("auth.confirmPassword")}

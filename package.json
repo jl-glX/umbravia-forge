@@ -22,6 +22,7 @@
     "dev": "tsx scripts/dev.ts",
     "platform:managers": "tsx scripts/platform-manager-admin.ts",
     "company:provision-head": "tsx scripts/provision-company-head.ts",
+    "company:resume-head-activation": "tsx scripts/resume-company-head-activation.ts",
     "build": "node scripts/run-project-scripts.mjs build:client build:server build:support-email-worker",
     "build:client": "vite build",
     "build:server": "tsc --project tsconfig.server.json",

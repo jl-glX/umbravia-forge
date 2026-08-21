@@ -45,18 +45,17 @@ decisión explícita, firma y nueva validación humana; véase
 
 - inicio de sesión específico en el portal `support`, incluido el segundo
   factor cuando la cuenta lo tiene activo;
-- inicialización única de la jefatura desde una prealta corporativa cuyo correo
+- inicialización única de la jefatura desde una solicitud de rol cuyo correo
   está designado fuera del repositorio mediante el SHA-256 normalizado;
-- solicitud pública de acceso protegida frente a abuso, con creación y
-  confirmación local de una contraseña fuerte;
+- solicitud pública de rol protegida frente a abuso, con nombre, apellidos,
+  correo y rol solicitado, sin crear aún una cuenta ni aceptar una contraseña;
 - aprobación o rechazo manual por dirección;
 - código numérico de activación de un solo uso, válido durante 24 horas, con
   cinco intentos como máximo y persistido únicamente como hash;
-- contraseña de prealta persistida únicamente como hash Argon2id en una tabla
-  separada, válida durante siete días y eliminada al activar, rechazar, caducar
-  o agotar los intentos;
-- activación condicionada a que coincidan el correo, la contraseña de la
-  solicitud y el código enviado al buzón;
+- creación y confirmación de la contraseña definitiva exclusivamente durante
+  la activación, una vez aprobado el rol;
+- activación condicionada a que el correo y el código correspondan a la misma
+  solicitud aprobada; el código recibido en el buzón verifica su control;
 - creación de cuenta solo después de consumir una solicitud aprobada y aceptar
   expresamente términos y privacidad;
 - personal corporativo con roles `director` y `agent`, revocable sin alterar
@@ -92,7 +91,7 @@ una persona concreta. Mientras no haya existido nunca personal ni reclamación
 de jefatura, la solicitud cuyo correo coincida con
 `UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256` queda aprobada automáticamente y
 recibe el código de activación en ese buzón. Consumirlo exige volver a escribir
-el mismo correo y la misma contraseña de la prealta; entonces se crean la
+el mismo correo, crear una contraseña definitiva y escribir el código; entonces se crean la
 identidad corporativa, la dirección de soporte y la jefatura en el flujo
 controlado. Una fila singleton en `corporateBootstrapState` cierra para siempre
 esta excepción, incluso si después se revocan o eliminan roles. Las
@@ -150,11 +149,20 @@ trazabilidad, revoca sus asignaciones técnicas activas y retira sus delegacione
 pendientes o aceptadas; los módulos vuelven entonces a la cobertura vacante.
 La jefatura inicial no puede modificarse desde este flujo ordinario.
 
-La vía normal de primera incorporación parte de `Solicitar`: crea la contraseña
-de prealta y, para el correo designado, envía directamente el código. `Activar`
-exige el correo, esa misma contraseña y el código. La identidad resultante no
+La vía normal de incorporación parte de `Solicitar`: registra nombre,
+apellidos, correo y el rol pedido, sin contraseña. Tras la aprobación,
+`Activar` exige el correo, una contraseña nueva confirmada y el código enviado
+al buzón. El nombre declarado permite relacionar la solicitud con el rol, pero
+no sustituye la prueba de control del correo ni concede permisos. La identidad resultante no
 recibe ningún registro en `facilityMemberships`; compartir infraestructura de
 sesiones no la convierte en cuenta de un centro.
+
+La migración PostgreSQL 45 y la migración equivalente de SQLite trasladan
+`requestedRole` y `activationKind` a la solicitud. La tabla
+`umfSupportAccessCredentials` queda únicamente como compatibilidad transitoria
+para prealtas antiguas no consumidas: las solicitudes nuevas no escriben en
+ella y su hash anterior no decide la contraseña final. El rechazo, el consumo
+o la limpieza eliminan cualquier fila heredada que todavía exista.
 
 Como recuperación operativa controlada se conserva el comando sobre una cuenta
 existente, activa y con correo verificado. Es una simulación mientras no se
@@ -172,6 +180,20 @@ crea cuentas ni contraseñas, no imprime secretos y no usa el cargo empresarial
 como fuente de autorización.
 Tanto la vía web como el comando consumen el marcador permanente de
 inicialización.
+
+Si ya existe una solicitud pendiente del correo designado pero la autoridad de
+jefatura sigue ligada por error a una identidad comercial histórica, el flujo
+de recuperación se comprueba primero sin cambios y solo después se aplica:
+
+```text
+npm run company:resume-head-activation -- --email <correo-corporativo> --confirm-email <correo-corporativo>
+npm run company:resume-head-activation -- --email <correo-corporativo> --confirm-email <correo-corporativo> --apply
+```
+
+El comando no crea contraseñas ni muestra el código; renueva la aprobación,
+encola el código al correo corporativo y la interfaz web completa la activación.
+La migración de autoridad se produce únicamente al consumir correctamente ese
+código y no modifica el realm de la cuenta comercial de origen.
 
 ## Flujo de una solicitud de privacidad
 

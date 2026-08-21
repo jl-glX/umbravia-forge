@@ -30,14 +30,14 @@ describe("UMF Support designated head onboarding", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  it("rejects a weak password before creating a corporate pre-enrolment", async () => {
+  it("rejects an unknown role before creating a corporate role request", async () => {
     await request(app)
       .post("/api/umf-support/access-requests")
       .send({
         email: "other@example.com",
         name: "Other",
         lastName: "Applicant",
-        password: "weak",
+        requestedRole: "platform_head",
         locale: "es",
       })
       .expect(400);
@@ -51,14 +51,14 @@ describe("UMF Support designated head onboarding", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("requires the designated email, original password and activation code", async () => {
+  it("requires the designated email and code, then creates the definitive password", async () => {
     const submitted = await request(app)
       .post("/api/umf-support/access-requests")
       .send({
         email: "head@example.com",
         name: "Platform",
         lastName: "Head",
-        password: "HeadOnboardingPassword123",
+        requestedRole: "director",
         locale: "es",
       })
       .expect(202);
@@ -69,31 +69,27 @@ describe("UMF Support designated head onboarding", () => {
 
     const pending = await database.db
       .selectFrom("umfSupportAccessRequests")
-      .innerJoin(
-        "umfSupportAccessCredentials",
-        "umfSupportAccessCredentials.requestId",
-        "umfSupportAccessRequests.id",
-      )
-      .select([
-        "umfSupportAccessRequests.id",
-        "umfSupportAccessRequests.status",
-        "umfSupportAccessCredentials.passwordHash",
-        "umfSupportAccessCredentials.activationKind",
-      ])
-      .where("umfSupportAccessRequests.email", "=", "head@example.com")
+      .select(["id", "status", "requestedRole", "activationKind"])
+      .where("email", "=", "head@example.com")
       .executeTakeFirstOrThrow();
     expect(pending).toMatchObject({
       status: "approved",
+      requestedRole: "director",
       activationKind: "designated_head",
     });
-    expect(pending.passwordHash).toMatch(/^\$argon2id\$/);
-    expect(pending.passwordHash).not.toContain("HeadOnboardingPassword123");
+    await expect(
+      database.db
+        .selectFrom("umfSupportAccessCredentials")
+        .select("requestId")
+        .where("requestId", "=", pending.id)
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
 
     await request(app)
       .post("/api/umf-support/activate")
       .send({
         email: "head@example.com",
-        password: "WrongOnboardingPassword123",
+        password: "weak",
         code: submitted.body.demoActivationCode,
         countryCode: "ES",
         acceptedTerms: true,
@@ -105,7 +101,7 @@ describe("UMF Support designated head onboarding", () => {
       .post("/api/umf-support/activate")
       .send({
         email: "head@example.com",
-        password: "HeadOnboardingPassword123",
+        password: "DefinitiveHeadPassword123",
         code: submitted.body.demoActivationCode,
         countryCode: "ES",
         acceptedTerms: true,
@@ -163,7 +159,7 @@ describe("UMF Support designated head onboarding", () => {
 
     const login = await request(app).post("/api/umf-support/login").send({
       email: "head@example.com",
-      password: "HeadOnboardingPassword123",
+      password: "DefinitiveHeadPassword123",
       rememberDevice: false,
     });
     expect(login.status).toBe(200);

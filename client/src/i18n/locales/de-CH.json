@@ -40,6 +40,11 @@
     "de": "Deutsch",
     "deCH": "Deutsch (Schweiz)"
   },
+  "releaseRecovery": {
+    "title": "Die Anwendung muss aktualisiert werden",
+    "description": "Dieser Tab enthielt noch Dateien einer frueheren Version. Laden Sie die Seite neu, um mit der aktuellen Version fortzufahren.",
+    "reload": "Anwendung neu laden"
+  },
   "roles": {
     "member": "Mitglied",
     "trainer": "Trainer",
@@ -1663,7 +1668,7 @@
     }
   },
   "errors": {
-    "facilityMembershipRequired": "Dieses Konto gehört derzeit keinem aktiven Studio an. Du benötigst eine aktive Mitgliedschaft, um Kurse, Buchungen, Zahlungen und Bestellungen zu sehen.",
+    "facilityMembershipRequired": "Dieses Konto gehört derzeit keinem aktiven Studio an. Du benötigst eine aktive Mitgliedschaft, um Kurse, Buchungen, Zahlungen, Bestellungen und den Hilfebereich des Studios zu nutzen.",
     "fetchAttendees": "Teilnehmer konnten nicht abgerufen werden",
     "fetchClasses": "Klassen konnten nicht abgerufen werden",
     "fetchUsers": "Benutzer konnten nicht abgerufen werden",

@@ -1,6 +1,6 @@
 # Índice de documentación
 
-Estado revisado contra el código y las pruebas del cambio activo el 21 de agosto
+Estado revisado contra el código y las pruebas del cambio activo el 22 de agosto
 de 2026. El índice evita fijar un SHA que quede obsoleto con cada actualización:
 la sincronización se comprueba en el diff y en la validación del commit que se
 publica. Esta referencia describe el repositorio; no demuestra por sí sola el
@@ -32,7 +32,7 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Forge Support](./FORGE-SUPPORT.md)
 - [UMF Support corporativo](./UMF-SUPPORT.md), incluida la plantilla separada,
   las delegaciones modulares, la inicialización única de jefatura, la
-  credencial previa ligada a la activación, los realms independientes y el
+  solicitud de rol sin contraseña previa, los realms independientes y el
   correo operativo de plataforma
 - [Forge Notify](./FORGE-NOTIFY.md), incluida la separación persistente de
   entregas y señales entre `commercial` y `support`
@@ -75,6 +75,7 @@ estado actual hay que volver a los documentos vigentes anteriores.
 - [Auditoría del acceso inicial y cambio de correo de UMF Support, 2026-08-21](./UMF-SUPPORT-ACCESS-AUDIT-2026-08-21.md)
 - [Auditoría de la credencial previa de UMF Support, 2026-08-21](./UMF-SUPPORT-PREAUTH-CREDENTIAL-AUDIT-2026-08-21.md)
 - [Auditoría de separación de identidades y plano de gestores, 2026-08-21](./IDENTITY-REALM-AND-MANAGER-BOUNDARY-AUDIT-2026-08-21.md)
+- [Auditoría del flujo de rol y activación de UMF Support, 2026-08-22](./UMF-SUPPORT-ROLE-ACTIVATION-AUDIT-2026-08-22.md)
 - [Paquete histórico de prueba de aplicaciones web para Windows](./WINDOWS-WEB-APP-PACKAGE.md)
 - [Auditoría de neutralización del dominio, 2026-08-16](./ACTIVITY-DOMAIN-MIGRATION-AUDIT-2026-08-16.md)
 - [Auditoría de la base comercial, 2026-08-03](./COMMERCIAL-FOUNDATION-AUDIT.md)

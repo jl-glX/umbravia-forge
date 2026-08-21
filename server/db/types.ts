@@ -942,6 +942,8 @@ interface UmfSupportAccessRequest {
   email: string;
   name: string;
   lastName: string;
+  requestedRole: UmfSupportRole;
+  activationKind: "staff" | "designated_head";
   locale: "es" | "en" | "de" | "de-CH";
   status: "pending" | "approved" | "rejected" | "activated" | "expired";
   activationCodeHash: string | null;

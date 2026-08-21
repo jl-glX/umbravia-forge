@@ -42,14 +42,9 @@ import {
 } from "./email-delivery.js";
 import {
   createCorporateSupportAccount,
-  hashPassword,
   isStrongPassword,
   type AuthResult,
 } from "./auth.js";
-import {
-  performDummyPasswordVerification,
-  verifyPasswordHash,
-} from "../lib/password-hashing.js";
 import { isPasswordWithinHashLimit } from "../lib/password-policy.js";
 import {
   bootstrapCompanyHead,
@@ -60,7 +55,6 @@ import { recordSecurityEvent } from "./security-events.js";
 
 const ACCESS_CODE_DURATION_MS = 24 * 60 * 60 * 1000;
 const ACCESS_CODE_MAX_ATTEMPTS = 5;
-const ACCESS_CREDENTIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 const priorities = new Set<UmfSupportTicketPriority>([
   "low",
   "normal",
@@ -196,24 +190,22 @@ async function cleanupExpiredAccessCredentials(now = Date.now()) {
     .execute();
   if (expired.length === 0) return 0;
   const requestIds = expired.map((entry) => entry.requestId);
-  await db.transaction().execute(async (transaction) => {
-    await transaction
-      .updateTable("umfSupportAccessRequests")
-      .set({
-        status: "expired",
-        activationCodeHash: null,
-        activationExpiresAt: null,
-        updatedAt: now,
-      })
-      .where("id", "in", requestIds)
-      .where("status", "in", ["pending", "approved"])
-      .execute();
-    await transaction
-      .deleteFrom("umfSupportAccessCredentials")
-      .where("requestId", "in", requestIds)
-      .execute();
-  });
+  await db
+    .deleteFrom("umfSupportAccessCredentials")
+    .where("requestId", "in", requestIds)
+    .execute();
   return requestIds.length;
+}
+
+function requestedSupportRole(value: unknown): UmfSupportRole {
+  const role = requiredText(value ?? "agent", "requestedRole", 16);
+  if (role !== "agent" && role !== "director") {
+    throw new UmfSupportValidationError(
+      "requestedRole is invalid",
+      "UMF_SUPPORT_ROLE_INVALID",
+    );
+  }
+  return role;
 }
 
 function protectMessage(value: string, messageId: string): string {
@@ -327,19 +319,12 @@ export async function requestUmfSupportAccess(input: Record<string, unknown>) {
   await cleanupExpiredAccessCredentials();
   const name = requiredText(input.name, "name", 100);
   const lastName = requiredText(input.lastName, "lastName", 100);
-  const password = requiredPassword(input.password);
-  if (!isStrongPassword(password)) {
-    throw new UmfSupportValidationError(
-      "Password does not meet the security requirements",
-      "UMF_SUPPORT_PASSWORD_POLICY",
-    );
-  }
+  const requestedRole = requestedSupportRole(input.requestedRole);
   const locale = requiredText(input.locale ?? "es", "locale", 5) as
     "es" | "en" | "de" | "de-CH";
   if (!new Set(["es", "en", "de", "de-CH"]).has(locale)) {
     throw new UmfSupportValidationError("locale is invalid");
   }
-  const passwordHash = await hashPassword(password);
   const [existingUser, openRequest, designatedHead] = await Promise.all([
     db
       .selectFrom("users")
@@ -374,6 +359,8 @@ export async function requestUmfSupportAccess(input: Record<string, unknown>) {
             email,
             name,
             lastName,
+            requestedRole: designatedHead ? "director" : requestedRole,
+            activationKind: designatedHead ? "designated_head" : "staff",
             locale,
             status: designatedHead ? "approved" : "pending",
             activationCodeHash: activationCode
@@ -386,16 +373,6 @@ export async function requestUmfSupportAccess(input: Record<string, unknown>) {
             activatedUserId: null,
             createdAt: now,
             updatedAt: now,
-          })
-          .execute();
-        await transaction
-          .insertInto("umfSupportAccessCredentials")
-          .values({
-            requestId,
-            passwordHash,
-            activationKind: designatedHead ? "designated_head" : "staff",
-            createdAt: now,
-            expiresAt: now + ACCESS_CREDENTIAL_DURATION_MS,
           })
           .execute();
       });
@@ -436,6 +413,87 @@ export async function requestUmfSupportAccess(input: Record<string, unknown>) {
   };
 }
 
+export async function resumeDesignatedCompanyHeadActivation(
+  emailInput: string,
+) {
+  const email = normalizedEmail(emailInput);
+  const now = Date.now();
+  await cleanupExpiredAccessCredentials(now);
+  if (!(await canRequestCompanyHeadBootstrap(email))) {
+    throw new UmfSupportValidationError(
+      "The designated company head activation cannot be resumed",
+      "COMPANY_HEAD_ACTIVATION_UNAVAILABLE",
+    );
+  }
+
+  const request = await db
+    .selectFrom("umfSupportAccessRequests")
+    .select(["id", "name", "locale", "status"])
+    .where("email", "=", email)
+    .where("status", "in", ["pending", "approved"])
+    .orderBy("updatedAt", "desc")
+    .executeTakeFirst();
+  if (!request) {
+    throw new UmfSupportValidationError(
+      "No company head role request is available",
+      "COMPANY_HEAD_PRE_ENROLMENT_UNAVAILABLE",
+    );
+  }
+
+  const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
+  const expiresAt = now + ACCESS_CODE_DURATION_MS;
+  await db.transaction().execute(async (transaction) => {
+    const updated = await transaction
+      .updateTable("umfSupportAccessRequests")
+      .set({
+        status: "approved",
+        requestedRole: "director",
+        activationKind: "designated_head",
+        activationCodeHash: hashCode(code),
+        activationAttempts: 0,
+        activationExpiresAt: expiresAt,
+        reviewedByUserId: null,
+        reviewedAt: now,
+        updatedAt: now,
+      })
+      .where("id", "=", request.id)
+      .where("status", "in", ["pending", "approved"])
+      .executeTakeFirst();
+    if (Number(updated.numUpdatedRows) !== 1) {
+      throw new UmfSupportValidationError(
+        "The company head role request changed during recovery",
+        "COMPANY_HEAD_ACTIVATION_UNAVAILABLE",
+      );
+    }
+    await transaction
+      .updateTable("umfSupportAccessCredentials")
+      .set({ activationKind: "designated_head" })
+      .where("requestId", "=", request.id)
+      .execute();
+  });
+
+  const deliveryId = await queueUmfSupportAccessCodeEmail({
+    email,
+    name: request.name,
+    code,
+    locale: request.locale,
+    expiresAt,
+  });
+  const delivered = await deliverQueuedEmail(deliveryId).catch(() => false);
+  await recordSecurityEvent("umf_support_access_approved", null, {
+    requestId: request.id,
+    delivered,
+    resumedDesignatedHeadActivation: true,
+  });
+  return {
+    requestId: request.id,
+    expiresAt,
+    delivered,
+    queued: !delivered,
+    demoActivationCode: process.env.NODE_ENV === "test" ? code : undefined,
+  };
+}
+
 export async function listUmfSupportAccessRequests(auth: AuthenticatedUser) {
   await requireDirector(auth);
   return db
@@ -445,6 +503,7 @@ export async function listUmfSupportAccessRequests(auth: AuthenticatedUser) {
       "email",
       "name",
       "lastName",
+      "requestedRole",
       "locale",
       "status",
       "activationExpiresAt",
@@ -474,19 +533,6 @@ export async function approveUmfSupportAccess(
   if (!request) throw new UmfSupportNotFoundError("Access request not found");
   if (request.status !== "pending") {
     throw new UmfSupportValidationError("Access request is not pending");
-  }
-  const credential = await db
-    .selectFrom("umfSupportAccessCredentials")
-    .select("requestId")
-    .where("requestId", "=", request.id)
-    .where("activationKind", "=", "staff")
-    .where("expiresAt", ">", now)
-    .executeTakeFirst();
-  if (!credential) {
-    throw new UmfSupportValidationError(
-      "Access request must be submitted again before approval",
-      "UMF_SUPPORT_REQUEST_REQUIRES_PASSWORD",
-    );
   }
   const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
   const expiresAt = now + ACCESS_CODE_DURATION_MS;
@@ -563,10 +609,16 @@ export async function activateUmfSupportAccount(
   const now = Date.now();
   await cleanupExpiredAccessCredentials(now);
   const password = requiredPassword(input.password);
+  if (!isStrongPassword(password)) {
+    throw new UmfSupportValidationError(
+      "Password does not meet the security requirements",
+      "UMF_SUPPORT_PASSWORD_POLICY",
+    );
+  }
   const code = requiredText(input.code, "code", 6);
   if (!/^\d{6}$/.test(code)) {
     throw new UmfSupportValidationError(
-      "Email, password or activation code is invalid or expired",
+      "Email or activation code is invalid or expired",
       "UMF_SUPPORT_ACTIVATION_INVALID",
     );
   }
@@ -577,13 +629,6 @@ export async function activateUmfSupportAccount(
     .where("status", "=", "approved")
     .orderBy("updatedAt", "desc")
     .executeTakeFirst();
-  const credential = request
-    ? await db
-        .selectFrom("umfSupportAccessCredentials")
-        .selectAll()
-        .where("requestId", "=", request.id)
-        .executeTakeFirst()
-    : null;
   const requestUsable = Boolean(
     request?.activationCodeHash &&
     request.activationExpiresAt &&
@@ -594,30 +639,13 @@ export async function activateUmfSupportAccount(
     code,
     request?.activationCodeHash ?? DUMMY_ACCESS_CODE_HASH,
   );
-  let passwordMatches = false;
-  if (credential) {
-    passwordMatches = await verifyPasswordHash(
-      password,
-      credential.passwordHash,
-    );
-  } else {
-    await performDummyPasswordVerification(password);
-  }
-  if (
-    !request ||
-    !credential ||
-    !requestUsable ||
-    credential.expiresAt <= now ||
-    !activationCodeMatches ||
-    !passwordMatches
-  ) {
+  if (!request || !requestUsable || !activationCodeMatches) {
     if (request) {
       const nextAttempts = request.activationAttempts + 1;
       const closeRequest =
         !request.activationExpiresAt ||
         request.activationExpiresAt <= now ||
-        nextAttempts >= ACCESS_CODE_MAX_ATTEMPTS ||
-        !credential;
+        nextAttempts >= ACCESS_CODE_MAX_ATTEMPTS;
       await db.transaction().execute(async (transaction) => {
         await transaction
           .updateTable("umfSupportAccessRequests")
@@ -645,10 +673,10 @@ export async function activateUmfSupportAccount(
     }
     await recordSecurityEvent("umf_support_activation_failed", null, {
       emailFingerprint: emailFingerprint(email),
-      reason: "credential_or_code_mismatch",
+      reason: "activation_code_mismatch",
     });
     throw new UmfSupportValidationError(
-      "Email, password or activation code is invalid or expired",
+      "Email or activation code is invalid or expired",
       "UMF_SUPPORT_ACTIVATION_INVALID",
     );
   }
@@ -674,7 +702,7 @@ export async function activateUmfSupportAccount(
     },
   );
   try {
-    if (credential.activationKind === "designated_head") {
+    if (request.activationKind === "designated_head") {
       await bootstrapCompanyHead(result.user.id, request.id);
     } else {
       await db.transaction().execute(async (transaction) => {
@@ -697,13 +725,12 @@ export async function activateUmfSupportAccount(
         await transaction
           .deleteFrom("umfSupportAccessCredentials")
           .where("requestId", "=", request.id)
-          .where("passwordHash", "=", credential.passwordHash)
           .execute();
         await transaction
           .insertInto("umfSupportStaff")
           .values({
             userId: result.user.id,
-            role: "agent",
+            role: request.requestedRole,
             status: "active",
             approvedByUserId: request.reviewedByUserId,
             createdAt: now,
@@ -720,10 +747,11 @@ export async function activateUmfSupportAccount(
   await recordSecurityEvent("umf_support_account_activated", result.user.id, {
     requestId: request.id,
     approvedByUserId:
-      credential.activationKind === "designated_head"
+      request.activationKind === "designated_head"
         ? result.user.id
         : (request.reviewedByUserId ?? "unknown"),
-    activationKind: credential.activationKind,
+    activationKind: request.activationKind,
+    requestedRole: request.requestedRole,
   });
   return result;
 }

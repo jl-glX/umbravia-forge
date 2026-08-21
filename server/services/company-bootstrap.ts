@@ -23,7 +23,7 @@ async function hasAnyCorporateInitialization(): Promise<boolean> {
   return Boolean(state || supportStaff || companyStaff);
 }
 
-function isDesignatedBootstrapEmail(email: string): boolean {
+export function isDesignatedBootstrapEmail(email: string): boolean {
   const configured =
     process.env.UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256?.trim().toLowerCase();
   if (!configured || !/^[a-f0-9]{64}$/.test(configured)) return false;
@@ -48,17 +48,13 @@ async function findFusedCompanyHead(email: string) {
     .select(["users.id", "users.email", "users.identityRealm"])
     .where("corporateBootstrapState.id", "=", "company_head")
     .executeTakeFirst();
-  if (
-    !state ||
-    state.identityRealm !== "commercial" ||
-    state.email.trim().toLowerCase() !== email.trim().toLowerCase()
-  ) {
+  if (!state || state.identityRealm !== "commercial") {
     return null;
   }
   const corporateIdentity = await db
     .selectFrom("users")
     .select("id")
-    .where("email", "=", state.email)
+    .where("email", "=", email.trim().toLowerCase())
     .where("identityRealm", "=", "corporate_support")
     .executeTakeFirst();
   return corporateIdentity ? null : state;
@@ -118,6 +114,15 @@ export async function bootstrapCompanyHead(
           .executeTakeFirst(),
       ]);
       if (state || supportStaff || companyStaff) {
+        const accessRequest = accessRequestId
+          ? await transaction
+              .selectFrom("umfSupportAccessRequests")
+              .select("id")
+              .where("id", "=", accessRequestId)
+              .where("email", "=", user.email)
+              .where("status", "=", "approved")
+              .executeTakeFirst()
+          : null;
         const fusedSource = await transaction
           .selectFrom("corporateBootstrapState")
           .innerJoin(
@@ -129,10 +134,9 @@ export async function bootstrapCompanyHead(
           .where("corporateBootstrapState.id", "=", "company_head")
           .executeTakeFirst();
         if (
-          !accessRequestId ||
+          !accessRequest ||
           !fusedSource ||
-          fusedSource.identityRealm !== "commercial" ||
-          fusedSource.email !== user.email
+          fusedSource.identityRealm !== "commercial"
         ) {
           throw new CompanyBootstrapUnavailableError();
         }

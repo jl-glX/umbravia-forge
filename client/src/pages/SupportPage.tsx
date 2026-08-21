@@ -18,6 +18,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import { useAuth } from "../hooks/useAuth";
+import { localizedApiErrorCodeMessage } from "../lib/api-error";
 import {
   addSupportMessage,
   createSupportTicket,
@@ -30,6 +31,7 @@ import {
   KnowledgeArticle,
   saveKnowledgeArticle,
   saveSupportAgent,
+  SupportRequestError,
   SupportAgent,
   SupportCapabilities,
   supportAttachmentUrl,
@@ -71,6 +73,15 @@ function formatBytes(value: number) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function supportErrorMessage(
+  error: unknown,
+  fallback: string,
+  translate: (key: string) => string,
+) {
+  const code = error instanceof SupportRequestError ? error.code : undefined;
+  return localizedApiErrorCodeMessage(code, fallback, translate);
 }
 
 export function SupportPage() {
@@ -141,11 +152,7 @@ export function SupportPage() {
       ]);
       if (selected) setSelected(await fetchSupportTicket(selected.id));
     } catch (currentError) {
-      setError(
-        currentError instanceof Error
-          ? currentError.message
-          : t("support.errors.load"),
-      );
+      setError(supportErrorMessage(currentError, t("support.errors.load"), t));
     } finally {
       setLoading(false);
     }
@@ -165,11 +172,7 @@ export function SupportPage() {
       setSelected(await fetchSupportTicket(ticketId));
       setShowCreate(false);
     } catch (currentError) {
-      setError(
-        currentError instanceof Error
-          ? currentError.message
-          : t("support.errors.load"),
-      );
+      setError(supportErrorMessage(currentError, t("support.errors.load"), t));
     } finally {
       setWorking(false);
     }
@@ -199,9 +202,7 @@ export function SupportPage() {
       await selectTicket(created.id);
     } catch (currentError) {
       setError(
-        currentError instanceof Error
-          ? currentError.message
-          : t("support.errors.create"),
+        supportErrorMessage(currentError, t("support.errors.create"), t),
       );
     } finally {
       setWorking(false);
@@ -225,11 +226,7 @@ export function SupportPage() {
       await loadTickets();
       setNotice(t("support.notices.replySaved"));
     } catch (currentError) {
-      setError(
-        currentError instanceof Error
-          ? currentError.message
-          : t("support.errors.reply"),
-      );
+      setError(supportErrorMessage(currentError, t("support.errors.reply"), t));
     } finally {
       setWorking(false);
     }
@@ -248,9 +245,7 @@ export function SupportPage() {
       await loadTickets();
     } catch (currentError) {
       setError(
-        currentError instanceof Error
-          ? currentError.message
-          : t("support.errors.update"),
+        supportErrorMessage(currentError, t("support.errors.update"), t),
       );
     } finally {
       setWorking(false);
@@ -267,9 +262,7 @@ export function SupportPage() {
       setNotice(t("support.notices.attachmentSaved"));
     } catch (currentError) {
       setError(
-        currentError instanceof Error
-          ? currentError.message
-          : t("support.errors.attachment"),
+        supportErrorMessage(currentError, t("support.errors.attachment"), t),
       );
     } finally {
       setWorking(false);
@@ -287,9 +280,11 @@ export function SupportPage() {
       setAttachmentToDelete(null);
     } catch (currentError) {
       setError(
-        currentError instanceof Error
-          ? currentError.message
-          : t("support.errors.attachmentDelete"),
+        supportErrorMessage(
+          currentError,
+          t("support.errors.attachmentDelete"),
+          t,
+        ),
       );
     } finally {
       setWorking(false);
@@ -317,9 +312,7 @@ export function SupportPage() {
       setNotice(t("support.notices.articleSaved"));
     } catch (currentError) {
       setError(
-        currentError instanceof Error
-          ? currentError.message
-          : t("support.errors.article"),
+        supportErrorMessage(currentError, t("support.errors.article"), t),
       );
     } finally {
       setWorking(false);
@@ -340,11 +333,7 @@ export function SupportPage() {
       setAgents(await fetchSupportAgents());
       setNotice(t("support.notices.agentSaved"));
     } catch (currentError) {
-      setError(
-        currentError instanceof Error
-          ? currentError.message
-          : t("support.errors.agent"),
-      );
+      setError(supportErrorMessage(currentError, t("support.errors.agent"), t));
     } finally {
       setWorking(false);
     }

@@ -99,20 +99,27 @@ scoped to the user, stored as hashes, expire after 15 minutes and stop after
 five failures. Production rejects a configuration that disables this control
 or lacks SMTP and queue encryption.
 
-## Corporate support pre-enrolment
+## Corporate support role request and activation
 
 UMF Support does not use the sports-centre signup path. Its public request
-collects a name, email address and password with local confirmation, but
-persists that password only as a separate Argon2id hash. The pre-enrolment
-credential expires after seven days and is removed on rejection, activation,
-expiry or lockout. Approval never exposes the hash.
+collects the applicant's name, surname, email address and requested support
+role. It creates neither an account nor a password. A director reviews the
+declared identity and requested role before a bounded code is sent to the
+supplied mailbox. The name fields associate a person with the request; they do
+not verify ownership of the address or grant authority.
 
-Activation requires the same normalized email, the same password and the
-bounded code sent after approval. The designated first company head receives
-that code automatically only while no corporate initialization has ever
-existed; every later account requires manual review. A successful activation
-marks the mailbox as verified because the code was delivered there, creates
-the corporate support membership and creates no `facilityMemberships` row.
+Activation requires the same normalized email, a newly created strong password
+with local confirmation and the bounded code sent after approval. The
+designated first company head receives that code automatically only through
+the externally configured address; every later account requires manual review.
+A successful activation marks the mailbox as verified because the code was
+delivered there, creates the approved corporate support role and creates no
+`facilityMemberships` row.
+
+Migration 45 keeps old pending pre-enrolments usable by copying their activation
+kind to the role request. Their former password hash is transitional legacy
+data only: it is not compared with the new password and is removed when the
+request is consumed, rejected or cleaned up.
 
 ## Reported account compromise
 

@@ -116,11 +116,11 @@ session controls, rate limiting and monitoring remain independent layers.
   end-to-end encrypted.
 - Forge Support authorization, private attachments, staff-only notes and an
   auditable ticket event history.
-- UMF Support corporate authorization with a separate, seven-day Argon2id
-  pre-enrolment credential, manually approved account activation for ordinary
-  staff, a designated one-time head exception, hashed single-use codes and a
-  combined email-password-code check with bounded attempts. Rejection,
-  activation, expiry or lockout removes the pre-enrolment hash. MFA-compatible
+- UMF Support corporate authorization with a role request that contains no
+  password, manually approved activation for ordinary staff, a designated
+  one-time head exception, hashed single-use mailbox codes and a new strong
+  password created only during activation. Legacy pre-enrolment hashes remain
+  readable solely for migration and are deleted without authorizing access. MFA-compatible
   sign-in, encrypted message bodies, HMAC-authenticated inbound email and
   security events remain independent controls. Corporate activation creates no
   facility membership, and message operations fail closed in production when

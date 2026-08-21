@@ -9,17 +9,17 @@ de claves.
 El estado vivo prevalece siempre sobre este documento y sobre cualquier
 historial de trabajo.
 
-## Continuidad del cambio activo — 21 de agosto de 2026
+## Continuidad del cambio activo — 22 de agosto de 2026
 
 - El código activo ya no crea ni reconoce un centro implícito o privilegiado.
   Las rutas de tenant exigen un perfil y una membresía activos; los permisos de
   plataforma usan `platformOperators`, aprovisionado de forma controlada.
 - Las rutas que necesitan un centro devuelven el código estable
   `FACILITY_MEMBERSHIP_REQUIRED` cuando la cuenta no tiene una membresía
-  activa. Clases, reservas y pagos lo traducen a una explicación equivalente en
-  los cuatro catálogos, sin mostrar el texto técnico inglés del servidor. Un rol
-  insuficiente conserva el código general `FORBIDDEN` y no se confunde con la
-  ausencia de centro.
+  activa. Clases, reservas, pagos y Forge Support del centro lo traducen a una
+  explicación equivalente en los cuatro catálogos, sin mostrar el texto técnico
+  inglés del servidor. Un rol insuficiente conserva el código general
+  `FORBIDDEN` y no se confunde con la ausencia de centro.
 - Los perfiles de compatibilidad heredados quedan cerrados y con sus membresías
   suspendidas, conservando el identificador original para trazabilidad. Los
   backfills actuales sin destino usan `legacy-import-quarantine`, también
@@ -66,10 +66,10 @@ historial de trabajo.
   elimina una cuenta comercial y confirma que la cuenta de UMF Support con el
   mismo correo permanece activa y puede iniciar sesión.
 - La plantilla empresarial usa `companyStaffProfiles` y queda separada de los
-  permisos. La solicitud de UMF Support crea una contraseña de prealta guardada
-  solo como hash Argon2id separado y durante siete días. La activación exige el
-  mismo correo, esa contraseña y el código de un solo uso; al activar, rechazar,
-  caducar o bloquear la solicitud se elimina el hash. Las altas ordinarias
+  permisos. La solicitud de UMF Support registra nombre, apellidos, correo y
+  rol pedido, sin crear cuenta ni aceptar contraseña. La activación exige el
+  mismo correo, una contraseña nueva y el código de un solo uso enviado al
+  buzón; el nombre declarado no verifica por sí solo la identidad. Las altas ordinarias
   necesitan aprobación manual. La excepción inicial autoaprueba únicamente el
   correo cuyo hash coincide con
   `UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256`, envía allí el código y crea una
@@ -77,7 +77,10 @@ historial de trabajo.
   membresía de centro. El marcador permanente `corporateBootstrapState` impide
   reabrir la excepción aunque después se eliminen roles. El comando con correo
   repetido y `--apply` se conserva como recuperación controlada y consume el
-  mismo marcador. Los módulos vacantes quedan bajo cobertura automática de la
+  mismo marcador. La migración PostgreSQL 45 conserva las solicitudes antiguas
+  trasladando el tipo de activación a la propia solicitud; cualquier hash de
+  prealta heredado queda sin autoridad y se elimina al consumir o cerrar el
+  proceso. Los módulos vacantes quedan bajo cobertura automática de la
   jefatura; una asignación activa o delegación pendiente la suspende solo para
   ese módulo. Aceptación, rechazo, renuncia y revocación son estados auditables.
   Las cuentas aprobadas de soporte se incorporan expresamente a la plantilla;
@@ -125,21 +128,28 @@ historial de trabajo.
   `installer: null` y no anuncia una descarga. La aplicación principal mantiene
   por separado su paquete portable. Cualquier reapertura del instalador
   corporativo exige una decisión explícita, firma y nueva validación humana.
+- El HTML del cliente se sirve con `no-store` y los recursos con hash son
+  inmutables. Una pestaña que permanece abierta durante un despliegue puede
+  conservar el índice JavaScript anterior e intentar cargar después un módulo
+  que ya no pertenece a la release activa. El arranque del cliente escucha
+  `vite:preloadError`, realiza como máximo una recarga automática por ruta y
+  minuto y deja una pantalla de recuperación traducida si el fallo persiste;
+  así una transición de release no debe terminar en una pantalla en blanco ni
+  en un bucle de recarga.
 - La auditoría integral del cambio se conserva en
   `docs/UMF-SUPPORT-READINESS-AUDIT-2026-08-21.md`; la revisión específica de
   la credencial previa está en
   `docs/UMF-SUPPORT-PREAUTH-CREDENTIAL-AUDIT-2026-08-21.md`. La separación de
   identidades, gestores y correo se audita en
-  `docs/IDENTITY-REALM-AND-MANAGER-BOUNDARY-AUDIT-2026-08-21.md`. Las pruebas
-  focalizadas más recientes abarcan nueve archivos y 72 pruebas. En el checkout
-  final, portabilidad de 48 archivos, formato, lint y los tres `typecheck`
-  fueron favorables. El supervisor paralelo de Vitest terminó en Windows sin
-  resumen; la repetición completa en un solo proceso pasó 112 archivos y 548
-  pruebas, sin fallos y con una prueba de sintaxis POSIX no aplicable en
-  Windows. Las tres compilaciones, el paquete Windows y la auditoría de
-  dependencias también fueron favorables. Quedan la revisión final del diff y
-  GitHub Actions; el resultado local no sustituye la comprobación del entorno
-  desplegado.
+  `docs/IDENTITY-REALM-AND-MANAGER-BOUNDARY-AUDIT-2026-08-21.md`; el cambio de
+  solicitudes de rol está en
+  `docs/UMF-SUPPORT-ROLE-ACTIVATION-AUDIT-2026-08-22.md`. La tanda focalizada
+  más reciente pasó ocho archivos y 30 pruebas. La puerta integral revisó 49
+  archivos de portabilidad y pasó formato, lint, los tres `typecheck`, 114
+  archivos de pruebas con 556 pruebas favorables y una prueba POSIX omitida por
+  ejecutarse en Windows, las tres compilaciones, el paquete Windows y la
+  auditoría de dependencias. La validación remota de cada publicación y la
+  comprobación del entorno desplegado siguen siendo controles independientes.
 
 ## Fuentes y orden de autoridad
 

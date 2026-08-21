@@ -183,7 +183,7 @@ describe("UMF Support corporate API", () => {
         email: "new-agent@example.com",
         name: "New",
         lastName: "Agent",
-        password: "NewAgentPassword123",
+        requestedRole: "agent",
         locale: "es",
       })
       .expect(202);
@@ -194,6 +194,7 @@ describe("UMF Support corporate API", () => {
       .expect(200);
     expect(pending.body.requests).toHaveLength(1);
     expect(pending.body.requests[0].status).toBe("pending");
+    expect(pending.body.requests[0].requestedRole).toBe("agent");
     await expect(
       database.db
         .selectFrom("users")
@@ -230,30 +231,17 @@ describe("UMF Support corporate API", () => {
 
     const storedCredential = await database.db
       .selectFrom("umfSupportAccessCredentials")
-      .select("passwordHash")
+      .select("requestId")
       .where("requestId", "=", pending.body.requests[0].id)
-      .executeTakeFirstOrThrow();
-    expect(storedCredential.passwordHash).toMatch(/^\$argon2id\$/);
-    expect(storedCredential.passwordHash).not.toContain("NewAgentPassword123");
-
-    await request(app)
-      .post("/api/umf-support/activate")
-      .send({
-        email: "new-agent@example.com",
-        code: approved.body.code,
-        password: "DifferentPassword123",
-        countryCode: "ES",
-        acceptedTerms: true,
-        acceptedPrivacy: true,
-      })
-      .expect(400);
+      .executeTakeFirst();
+    expect(storedCredential).toBeUndefined();
 
     const activated = await request(app)
       .post("/api/umf-support/activate")
       .send({
         email: "new-agent@example.com",
         code: approved.body.code,
-        password: "NewAgentPassword123",
+        password: "DifferentPassword123",
         countryCode: "ES",
         acceptedTerms: true,
         acceptedPrivacy: true,
@@ -289,7 +277,7 @@ describe("UMF Support corporate API", () => {
 
     const login = await request(app).post("/api/umf-support/login").send({
       email: "new-agent@example.com",
-      password: "NewAgentPassword123",
+      password: "DifferentPassword123",
       rememberDevice: false,
     });
     expect(login.status).toBe(200);
@@ -319,14 +307,14 @@ describe("UMF Support corporate API", () => {
     );
   });
 
-  it("expires an unattended pre-enrolment credential before approval", async () => {
+  it("keeps the role request valid when a legacy credential expires", async () => {
     await request(app)
       .post("/api/umf-support/access-requests")
       .send({
         email: "expired-agent@example.com",
         name: "Expired",
         lastName: "Agent",
-        password: "ExpiredAgentPassword123",
+        requestedRole: "agent",
         locale: "es",
       })
       .expect(202);
@@ -336,16 +324,21 @@ describe("UMF Support corporate API", () => {
       .where("email", "=", "expired-agent@example.com")
       .executeTakeFirstOrThrow();
     await database.db
-      .updateTable("umfSupportAccessCredentials")
-      .set({ expiresAt: Date.now() - 1 })
-      .where("requestId", "=", pending.id)
+      .insertInto("umfSupportAccessCredentials")
+      .values({
+        requestId: pending.id,
+        passwordHash: "legacy-preapproval-hash",
+        activationKind: "staff",
+        createdAt: Date.now() - 2,
+        expiresAt: Date.now() - 1,
+      })
       .execute();
 
     await request(app)
       .post(`/api/umf-support/access-requests/${pending.id}/approve`)
       .set("Cookie", directorCookie)
       .send({})
-      .expect(400);
+      .expect(200);
 
     await expect(
       database.db
@@ -353,7 +346,7 @@ describe("UMF Support corporate API", () => {
         .select("status")
         .where("id", "=", pending.id)
         .executeTakeFirstOrThrow(),
-    ).resolves.toEqual({ status: "expired" });
+    ).resolves.toEqual({ status: "approved" });
     await expect(
       database.db
         .selectFrom("umfSupportAccessCredentials")
@@ -391,7 +384,7 @@ describe("UMF Support corporate API", () => {
     });
     const login = await request(app).post("/api/umf-support/login").send({
       email: "new-agent@example.com",
-      password: "NewAgentPassword123",
+      password: "DifferentPassword123",
       rememberDevice: false,
     });
     expect(login.status).toBe(200);

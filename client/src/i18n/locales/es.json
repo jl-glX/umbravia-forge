@@ -40,6 +40,11 @@
     "de": "Alemán",
     "deCH": "Alemán (Suiza)"
   },
+  "releaseRecovery": {
+    "title": "La aplicación necesita actualizarse",
+    "description": "Esta pestaña conservaba archivos de una versión anterior. Recarga la página para continuar con la versión actual.",
+    "reload": "Recargar la aplicación"
+  },
   "roles": {
     "member": "Socio",
     "trainer": "Entrenador",
@@ -1578,7 +1583,7 @@
     }
   },
   "errors": {
-    "facilityMembershipRequired": "Esta cuenta no pertenece actualmente a ningún centro activo. Necesitas una membresía vigente para ver clases, reservas, pagos y pedidos.",
+    "facilityMembershipRequired": "Esta cuenta no pertenece actualmente a ningún centro activo. Necesitas una membresía vigente para utilizar clases, reservas, pagos, pedidos y la ayuda del centro.",
     "fetchClasses": "No se han podido cargar las clases",
     "fetchTrainerClasses": "No se han podido cargar las clases del entrenador",
     "fetchAttendees": "No se han podido cargar los asistentes",
@@ -2108,26 +2113,35 @@
     },
     "request": {
       "eyebrow": "Aprobación manual",
-      "title": "Solicitar una cuenta",
-      "description": "Crea la contraseña de la prealta corporativa. La primera jefatura designada puede recibir el código automáticamente; las demás incorporaciones requieren revisión.",
-      "action": "Enviar solicitud"
+      "title": "Solicitar un rol",
+      "description": "Indica tu identidad, correo y el rol que solicitas. No se crea ninguna cuenta ni contraseña hasta que la solicitud sea aprobada.",
+      "action": "Solicitar rol"
     },
     "activate": {
       "eyebrow": "Código de un solo uso",
       "title": "Crear la cuenta aprobada",
-      "description": "Introduce el correo, la misma contraseña creada al solicitar y el código recibido tras la aprobación.",
+      "description": "Introduce el correo aprobado, crea la contraseña definitiva y usa el código recibido en ese buzón.",
       "action": "Activar cuenta"
     },
+    "fullName": "Nombre completo",
     "lastName": "Apellidos",
+    "requestedRole": "Rol solicitado",
+    "roles": {
+      "agent": "Agente de soporte",
+      "director": "Dirección de soporte"
+    },
+    "roleApprovalNotice": "El rol solicitado solo se concede tras revisión; escribir un nombre no acredita identidad ni otorga permisos.",
+    "roleInvalid": "El rol solicitado no existe o no está disponible para este proceso.",
     "activationCode": "Código de activación",
     "mfaCode": "Código de autenticación",
     "countryCode": "País",
     "acceptTerms": "Acepto los",
     "terms": "términos y condiciones",
     "acceptPrivacy": "He leído la",
-    "requestAccepted": "Solicitud registrada. Si corresponde a la primera jefatura designada, recibirás el código directamente; en los demás casos llegará después de la aprobación.",
+    "requestAccepted": "Solicitud de rol registrada. El código llegará al correo indicado cuando se apruebe; la contraseña se creará únicamente durante la activación.",
     "passwordMismatch": "Las contraseñas no coinciden.",
-    "activationInvalid": "El correo, la contraseña o el código de activación no son válidos, han caducado o la solicitud necesita repetirse.",
+    "activationInvalid": "El correo o el código de activación no coinciden con una solicitud aprobada, el código ha caducado o ha agotado sus intentos.",
+    "invalidCredentials": "El correo o la contraseña de UMF Support no son correctos. Las credenciales de Umbravia Forge comercial no permiten entrar en esta cuenta corporativa.",
     "restrictedNotice": "Cuenta, pertenencia, cargo y permisos se gestionan por separado",
     "passkeyLogin": "Entrar con una passkey corporativa",
     "privacy": "Privacidad",

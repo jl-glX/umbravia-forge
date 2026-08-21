@@ -1029,7 +1029,8 @@ export function UmfSupportPage() {
                     </p>
                     <p className="mt-1 text-xs text-slate-400">
                       {formatDate(request.createdAt, i18n.language)} ·{" "}
-                      {t(`umfSupport.accessStatus.${request.status}`)}
+                      {t(`umfSupport.accessStatus.${request.status}`)} ·{" "}
+                      {t(`umfSupport.role.${request.requestedRole}`)}
                     </p>
                   </div>
                   {request.status === "pending" && (

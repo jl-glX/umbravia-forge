@@ -119,7 +119,7 @@ describe("UMF Support identity separation migration", () => {
         email: "shared@example.com",
         name: "Corporate",
         lastName: "Head",
-        password: "CorporatePassword123",
+        requestedRole: "director",
         locale: "es",
       })
       .expect(202);

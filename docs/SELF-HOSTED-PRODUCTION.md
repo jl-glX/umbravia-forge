@@ -84,6 +84,23 @@ módulos nativos se resuelven para la plataforma donde se ejecuta `npm ci`.
 Antes de activar la versión se ejecuta
 `deploy/check-linux-readiness.sh` con el archivo de entorno definitivo.
 
+### Continuidad de pestañas durante un despliegue
+
+`index.html` se entrega con `Cache-Control: no-store`; los módulos Vite con hash
+se entregan como inmutables. Una pestaña abierta antes del cambio atómico puede
+seguir ejecutando el índice anterior y solicitar por primera vez un módulo
+diferido que ya no está en la release activa. El cliente trata
+`vite:preloadError` como una señal de cambio de release y recarga una sola vez.
+El marcador temporal de `sessionStorage` impide bucles; si la nueva carga sigue
+fallando, una barrera de errores presenta una acción de recarga traducida en
+lugar de dejar el documento vacío.
+
+Una pantalla en blanco tras un despliegue se diagnostica contrastando el
+`script[src]` de la pestaña y el módulo que aparece en la consola con los
+recursos de la release activa. Una recarga completa recupera una pestaña creada
+antes de incorporar esta defensa, pero no sustituye la revisión del servicio,
+la salud y el commit activo.
+
 ## Variables mínimas
 
 ```text
@@ -145,8 +162,26 @@ solo: únicamente limita qué dirección puede recibir la aprobación automátic
 de su primera solicitud de UMF Support. Debe calcularse fuera del repositorio,
 incorporarse al entorno protegido antes de enviar esa solicitud y retirarse
 después de comprobar que `corporateBootstrapState` quedó registrado. La
-activación todavía exige el mismo correo, la contraseña ligada a la solicitud
-y el código recibido en el buzón; retirar el hash no reabre la inicialización.
+activación exige el mismo correo, una contraseña nueva y el código recibido en
+el buzón; `Solicitar` no acepta ni conserva una contraseña. Retirar el hash no
+reabre la inicialización.
+
+Si el despliegue procede de una versión que creó una prealta con contraseña,
+la migración PostgreSQL 45 traslada el rol y el tipo de activación a la
+solicitud. El hash antiguo no se usa para autorizar ni para elegir la contraseña
+definitiva. Para renovar de forma controlada una solicitud pendiente de la
+jefatura designada, comprobar primero el plan y aplicar después sobre el mismo
+correo repetido:
+
+```text
+npm run company:resume-head-activation -- --email <correo-corporativo> --confirm-email <correo-corporativo>
+npm run company:resume-head-activation -- --email <correo-corporativo> --confirm-email <correo-corporativo> --apply
+```
+
+El segundo comando encola un código nuevo sin imprimirlo. Hay que verificar su
+entrega real y completar `/umf-support/access` antes de afirmar que la autoridad
+se trasladó; hasta entonces la solicitud y la migración de jefatura no están
+consumadas.
 
 `UMF_MANAGER_ADMIN_LINUX_USERS` no concede por sí sola autoridad de aplicación.
 El comando local comprueba primero Linux, el rechazo de `root` y la allowlist;

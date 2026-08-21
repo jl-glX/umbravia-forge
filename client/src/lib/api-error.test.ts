@@ -1,12 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { localizedApiErrorMessage } from "./api-error.js";
+import {
+  localizedApiErrorCodeMessage,
+  localizedApiErrorMessage,
+} from "./api-error.js";
 
 const messages: Record<string, string> = {
   "errors.facilityMembershipRequired": "translated membership explanation",
+  "umfSupportAccess.invalidCredentials": "translated corporate credentials",
 };
 const translate = (key: string) => messages[key] ?? key;
 
 describe("localizedApiErrorMessage", () => {
+  it("translates a stable error code already parsed by an API client", () => {
+    expect(
+      localizedApiErrorCodeMessage(
+        "FACILITY_MEMBERSHIP_REQUIRED",
+        "fallback",
+        translate,
+      ),
+    ).toBe("translated membership explanation");
+  });
+
+  it("translates the corporate invalid-credentials code", () => {
+    expect(
+      localizedApiErrorCodeMessage(
+        "INVALID_CREDENTIALS",
+        "fallback",
+        translate,
+      ),
+    ).toBe("translated corporate credentials");
+  });
+
   it("translates the stable missing-membership code", async () => {
     const response = Response.json(
       {

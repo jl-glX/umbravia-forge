@@ -2200,6 +2200,8 @@ CREATE TABLE IF NOT EXISTS "umfSupportAccessRequests" (
   "email" TEXT NOT NULL,
   "name" TEXT NOT NULL,
   "lastName" TEXT NOT NULL,
+  "requestedRole" TEXT NOT NULL DEFAULT 'agent' CHECK ("requestedRole" IN ('director', 'agent')),
+  "activationKind" TEXT NOT NULL DEFAULT 'staff' CHECK ("activationKind" IN ('staff', 'designated_head')),
   "locale" TEXT NOT NULL CHECK ("locale" IN ('es', 'en', 'de', 'de-CH')),
   "status" TEXT NOT NULL DEFAULT 'pending' CHECK ("status" IN ('pending', 'approved', 'rejected', 'activated', 'expired')),
   "activationCodeHash" TEXT,
@@ -2433,6 +2435,30 @@ WHERE delivery."id" IN (
 );
 CREATE INDEX IF NOT EXISTS "idx_emailDeliveries_scope_due"
   ON "emailDeliveries" ("platformScope", "status", "nextAttemptAt");
+`,
+  },
+  {
+    version: 45,
+    name: "separate-support-role-request-from-account-credentials",
+    sql: String.raw`
+ALTER TABLE "umfSupportAccessRequests"
+  ADD COLUMN IF NOT EXISTS "requestedRole" TEXT NOT NULL DEFAULT 'agent';
+ALTER TABLE "umfSupportAccessRequests"
+  ADD COLUMN IF NOT EXISTS "activationKind" TEXT NOT NULL DEFAULT 'staff';
+UPDATE "umfSupportAccessRequests" AS request
+SET "activationKind" = credential."activationKind"
+FROM "umfSupportAccessCredentials" AS credential
+WHERE credential."requestId" = request."id";
+ALTER TABLE "umfSupportAccessRequests"
+  DROP CONSTRAINT IF EXISTS "umfSupportAccessRequests_requestedRole_check";
+ALTER TABLE "umfSupportAccessRequests"
+  ADD CONSTRAINT "umfSupportAccessRequests_requestedRole_check"
+  CHECK ("requestedRole" IN ('director', 'agent'));
+ALTER TABLE "umfSupportAccessRequests"
+  DROP CONSTRAINT IF EXISTS "umfSupportAccessRequests_activationKind_check";
+ALTER TABLE "umfSupportAccessRequests"
+  ADD CONSTRAINT "umfSupportAccessRequests_activationKind_check"
+  CHECK ("activationKind" IN ('staff', 'designated_head'));
 `,
   },
 ];

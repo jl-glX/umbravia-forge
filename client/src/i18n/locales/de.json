@@ -40,6 +40,11 @@
     "de": "Deutsch",
     "deCH": "Deutsch (Schweiz)"
   },
+  "releaseRecovery": {
+    "title": "Die Anwendung muss aktualisiert werden",
+    "description": "Dieser Tab enthielt noch Dateien einer frueheren Version. Laden Sie die Seite neu, um mit der aktuellen Version fortzufahren.",
+    "reload": "Anwendung neu laden"
+  },
   "roles": {
     "member": "Mitglied",
     "trainer": "Trainer",
@@ -1665,7 +1670,7 @@
     }
   },
   "errors": {
-    "facilityMembershipRequired": "Dieses Konto gehört derzeit keinem aktiven Studio an. Du benötigst eine aktive Mitgliedschaft, um Kurse, Buchungen, Zahlungen und Bestellungen zu sehen.",
+    "facilityMembershipRequired": "Dieses Konto gehört derzeit keinem aktiven Studio an. Du benötigst eine aktive Mitgliedschaft, um Kurse, Buchungen, Zahlungen, Bestellungen und den Hilfebereich des Studios zu nutzen.",
     "fetchAttendees": "Teilnehmer konnten nicht abgerufen werden",
     "fetchClasses": "Klassen konnten nicht abgerufen werden",
     "fetchUsers": "Benutzer konnten nicht abgerufen werden",
@@ -2103,26 +2108,35 @@
     },
     "request": {
       "eyebrow": "Manuelle Genehmigung",
-      "title": "Konto beantragen",
-      "description": "Erstellen Sie das Passwort für die Unternehmensvoranmeldung. Die festgelegte erste Leitung kann den Code automatisch erhalten; alle weiteren Aufnahmen werden geprüft.",
-      "action": "Antrag senden"
+      "title": "Rolle beantragen",
+      "description": "Geben Sie Identität, E-Mail-Adresse und gewünschte Rolle an. Konto und Passwort werden erst nach der Genehmigung erstellt.",
+      "action": "Rolle beantragen"
     },
     "activate": {
       "eyebrow": "Einmalcode",
       "title": "Genehmigtes Konto erstellen",
-      "description": "Geben Sie die E-Mail-Adresse, dasselbe bei der Beantragung erstellte Passwort und den nach der Genehmigung erhaltenen Code ein.",
+      "description": "Geben Sie die genehmigte E-Mail-Adresse ein, erstellen Sie das endgültige Passwort und verwenden Sie den an dieses Postfach gesendeten Code.",
       "action": "Konto aktivieren"
     },
+    "fullName": "Vollständiger Vorname",
     "lastName": "Nachname",
+    "requestedRole": "Beantragte Rolle",
+    "roles": {
+      "agent": "Supportmitarbeiter",
+      "director": "Supportleitung"
+    },
+    "roleApprovalNotice": "Die beantragte Rolle wird erst nach Prüfung vergeben; die Eingabe eines Namens weist keine Identität nach und gewährt keine Rechte.",
+    "roleInvalid": "Die beantragte Rolle existiert nicht oder ist für diesen Vorgang nicht verfügbar.",
     "activationCode": "Aktivierungscode",
     "mfaCode": "Authentifizierungscode",
     "countryCode": "Land",
     "acceptTerms": "Ich akzeptiere die",
     "terms": "Nutzungsbedingungen",
     "acceptPrivacy": "Ich habe die folgende Erklärung gelesen:",
-    "requestAccepted": "Der Antrag wurde erfasst. Die festgelegte erste Leitung erhält den Code direkt; alle anderen erhalten ihn nach der Genehmigung.",
+    "requestAccepted": "Der Rollenantrag wurde erfasst. Nach der Genehmigung wird der Code an die angegebene E-Mail-Adresse gesendet; das Passwort wird erst bei der Aktivierung erstellt.",
     "passwordMismatch": "Die Passwörter stimmen nicht überein.",
-    "activationInvalid": "E-Mail-Adresse, Passwort oder Aktivierungscode sind ungültig, abgelaufen oder der Antrag muss erneut gestellt werden.",
+    "activationInvalid": "E-Mail-Adresse oder Aktivierungscode stimmen nicht mit einem genehmigten Antrag überein, oder der Code ist abgelaufen beziehungsweise hat alle Versuche aufgebraucht.",
+    "invalidCredentials": "E-Mail-Adresse oder Passwort von UMF Support sind nicht korrekt. Zugangsdaten von Umbravia Forge Commercial gewähren keinen Zugriff auf dieses Unternehmenskonto.",
     "restrictedNotice": "Konto, Zugehörigkeit, Position und Berechtigungen werden getrennt verwaltet",
     "passkeyLogin": "Mit einem Unternehmens-Passkey anmelden",
     "privacy": "Datenschutz",
