@@ -38,7 +38,16 @@ describe("Stripe billing configuration", () => {
         STRIPE_BILLING_MODE: "live",
         STRIPE_RESTRICTED_API_KEY: "rk_live_example",
       }),
-    ).toThrow("requires NODE_ENV=production");
+    ).toThrow("requires the production deployment profile");
+    expect(() =>
+      resolveStripeBillingConfiguration({
+        ...configuredEnvironment,
+        NODE_ENV: "production",
+        APP_ENV: "staging",
+        STRIPE_BILLING_MODE: "live",
+        STRIPE_RESTRICTED_API_KEY: "rk_live_example",
+      }),
+    ).toThrow("requires the production deployment profile");
     expect(
       resolveStripeBillingConfiguration({
         ...configuredEnvironment,
@@ -64,5 +73,14 @@ describe("Stripe billing configuration", () => {
         STRIPE_RESTRICTED_API_KEY: "rk_test_example",
       }),
     ).toThrow("restricted Stripe live key");
+  });
+
+  it("requires independent monthly and annual Prices", () => {
+    expect(() =>
+      resolveStripeBillingConfiguration({
+        ...configuredEnvironment,
+        STRIPE_PRICE_FORGE_ANNUAL: "price_monthly",
+      }),
+    ).toThrow(/must be different/i);
   });
 });

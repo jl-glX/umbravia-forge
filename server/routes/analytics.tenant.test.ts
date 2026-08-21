@@ -581,4 +581,51 @@ describe("analytics tenant isolation", () => {
     ).expect(400);
     expect(response.body.code).toBe("ANALYTICS_PERIOD_INVALID");
   });
+
+  it("enforces the paid Analytics capability when Stripe enforcement is enabled", async () => {
+    vi.stubEnv("STRIPE_BILLING_ENABLED", "true");
+    vi.stubEnv("STRIPE_RESTRICTED_API_KEY", "rk_test_example");
+    vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_example");
+    vi.stubEnv("STRIPE_PRICE_FORGE_MONTHLY", "price_monthly");
+    vi.stubEnv("STRIPE_PRICE_FORGE_ANNUAL", "price_annual");
+    try {
+      const denied = await secondary(
+        request(app).get("/api/analytics/members"),
+      ).expect(402);
+      expect(denied.body).toMatchObject({
+        code: "COMMERCIAL_CAPABILITY_REQUIRED",
+        capability: "analytics",
+      });
+
+      await database.db
+        .insertInto("facilityCommercialSubscriptions")
+        .values({
+          facilityId: "analytics-secondary",
+          stripeLivemode: 0,
+          stripeCustomerId: "cus_analytics_secondary",
+          stripeSubscriptionId: "sub_analytics_secondary",
+          stripeCheckoutSessionId: null,
+          stripePriceId: "price_monthly",
+          planKey: "monthly",
+          status: "active",
+          currentPeriodEnd: now + 30 * 24 * 60 * 60 * 1_000,
+          cancelAtPeriodEnd: 0,
+          billingAttention: "none",
+          lastInvoiceEventAt: null,
+          lastReconciledAt: now,
+          lastStripeEventCreatedAt: now,
+          lastStripeEventId: "evt_analytics_entitlement",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .execute();
+      await secondary(request(app).get("/api/analytics/members")).expect(200);
+    } finally {
+      await database.db
+        .deleteFrom("facilityCommercialSubscriptions")
+        .where("facilityId", "=", "analytics-secondary")
+        .execute();
+      vi.stubEnv("STRIPE_BILLING_ENABLED", "false");
+    }
+  });
 });

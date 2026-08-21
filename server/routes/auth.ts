@@ -74,8 +74,27 @@ import { emailVerificationIsEnabled } from "../lib/account-verification-mode.js"
 import { ManagerCoordinationConflictError } from "../services/manager-coordinator.js";
 import { listFacilityContexts } from "../services/facility-context.js";
 import { finalizeAdministratorSignup } from "../services/commercial-trial.js";
+import { commercialTrialProvisioningIsEnabled } from "../lib/commercial-trial.js";
 
 export const authRouter = express.Router();
+
+function requireAdministratorProvisioningEnabled(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+) {
+  if (
+    req.body?.accountType === "administrator" &&
+    !commercialTrialProvisioningIsEnabled()
+  ) {
+    res.status(503).json({
+      error: "Commercial trial provisioning is not enabled",
+      code: "COMMERCIAL_TRIALS_DISABLED",
+    });
+    return;
+  }
+  next();
+}
 
 authRouter.get("/captcha-status", (_req, res) => {
   res.json({
@@ -202,6 +221,7 @@ authRouter.post(
   signupLimiter,
   observeSecurityRisk("signup"),
   signupValidation,
+  requireAdministratorProvisioningEnabled,
   requireCaptcha("signup"),
   async (req: express.Request, res: express.Response) => {
     let createdUserId: string | null = null;

@@ -83,7 +83,11 @@ sudo UMBRAVIA_ENV_FILE=/etc/umbravia-forge/umbravia-forge.env \
 
 No se continúa si el comprobador detecta una versión incompatible, artefactos
 incompletos, dependencias ausentes, marcadores de ejemplo, permisos inseguros o
-configuraciones inválidas de Caddy y `systemd`.
+configuraciones inválidas de Caddy y `systemd`. Si se habilita Stripe Billing,
+el modo Test o Live debe coincidir con el perfil, la clave debe ser restringida,
+el secreto debe pertenecer al webhook y los Prices mensual y anual deben ser
+distintos. El comprobador valida la forma sin mostrar secretos; no sustituye la
+prueba humana del Checkout, portal, renovación, fallo y recuperación de cobro.
 
 ## 5. Activación y comprobación
 

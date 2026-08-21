@@ -23,11 +23,31 @@ de este bloque.
   metadatos antiguos que puedan quedar tras usar el portal;
 - estado comercial y permisos derivados en un servicio independiente de Forge
   Analytics y del CRM;
-- interfaz administrativa en `/admin/subscription`.
+- interfaz administrativa en `/admin/subscription`;
+- alertas comerciales mínimas para fallo de pago, autenticación requerida y
+  fallo de finalización de factura, sin copiar el contenido financiero;
+- reconciliación administrativa bajo demanda contra la suscripción vigente de
+  Stripe;
+- barreras de servidor para Analytics y CRM cuando la aplicación de permisos
+  comerciales está activa.
 
 Stripe es la autoridad del cobro. Volver desde Checkout con una URL de éxito no
 activa capacidades: la aplicación espera un evento firmado de suscripción. No
 se almacenan números de tarjeta ni cuerpos completos de webhook.
+
+## Frontera Stripe / Umbravia Forge
+
+Stripe gestiona el movimiento del dinero: métodos de pago, tarjetas,
+autenticaciones, facturas alojadas, renovaciones, reintentos, cancelaciones y
+operaciones de reembolso o disputa autorizadas. Umbravia Forge no replica ese
+libro financiero.
+
+Umbravia Forge conserva únicamente el vínculo necesario para decidir qué tiene
+contratado el centro: `facility_id`, modo, Customer, Subscription, Price,
+modalidad, estado, final del periodo, cancelación programada, identificador del
+Checkout vigente, eventos mínimos para idempotencia y una alerta operativa sin
+importe ni datos de pago. Una reconciliación lee la suscripción actual desde
+Stripe y actualiza ese estado local; no crea cargos, facturas ni reembolsos.
 
 ## Configuración del servidor
 
@@ -35,8 +55,10 @@ La integración permanece cerrada mientras `STRIPE_BILLING_ENABLED` no sea
 `true`. `STRIPE_BILLING_MODE` selecciona `test` o `live`; si no se declara,
 conserva `test` como valor seguro y compatible. Cada modo exige su propia clave
 restringida, Prices, secreto de webhook y Customer. Una clave secreta general,
-una clave del modo contrario o Live fuera de `NODE_ENV=production` provocan un
-fallo de configuración. Live exige además un `CLIENT_ORIGIN` HTTPS.
+una clave del modo contrario, dos modalidades enlazadas al mismo Price o Live
+fuera del perfil `APP_ENV=production` provocan un fallo de configuración. El
+arranque de staging/producción comprueba esta configuración cuando Billing está
+activo. Live exige además un `CLIENT_ORIGIN` HTTPS.
 
 Variables necesarias, sin incluir aquí ningún valor:
 
@@ -51,8 +73,10 @@ Variables necesarias, sin incluir aquí ningún valor:
 | `STRIPE_PORTAL_CONFIGURATION_ID` | configuración `bpc_…` del portal; es opcional            |
 | `CLIENT_ORIGIN`                  | origen confiable usado para retornos; nunca llega del UI |
 
-Las credenciales y sus plantillas operativas no pertenecen al repositorio. Se
-deben introducir mediante el mecanismo de secretos autorizado del entorno.
+Las credenciales no pertenecen al repositorio. `.env.example`, las plantillas
+de staging/producción y `deploy/umbravia-forge.env.template` documentan los
+nombres con Billing desactivado y valores vacíos; los valores reales se deben
+introducir mediante el mecanismo de secretos autorizado del entorno.
 
 ## Preparación de cada modo en Stripe
 
@@ -74,7 +98,14 @@ deben introducir mediante el mecanismo de secretos autorizado del entorno.
    - `checkout.session.async_payment_failed`;
    - `customer.subscription.created`;
    - `customer.subscription.updated`;
-   - `customer.subscription.deleted`.
+   - `customer.subscription.deleted`;
+   - `invoice.paid`;
+   - `invoice.payment_succeeded`;
+   - `invoice.payment_failed`;
+   - `invoice.payment_action_required`;
+   - `invoice.finalization_failed`;
+   - `invoice.overdue`;
+   - `invoice.marked_uncollectible`.
 6. Introducir las variables del modo correspondiente en el servidor
    autorizado, reiniciar de forma controlada y ejecutar el recorrido completo.
 
@@ -100,8 +131,9 @@ La migración 32 añade:
 
 La migración 33 añade el identificador de la Checkout Session vigente. La
 migración 34 añade el modo del Customer y de la suscripción a la frontera local.
-Los
-eventos de Checkout solo mantienen el intento pendiente o lo cierran como
+La migración 35 añade exclusivamente la alerta comercial mínima, la fecha del
+último evento de factura y la fecha del último contraste directo con Stripe.
+Los eventos de Checkout solo mantienen el intento pendiente o lo cierran como
 fallido; nunca conceden capacidades de pago. La activación continúa dependiendo
 de un evento firmado de suscripción, incluso si el navegador vuelve por la URL
 de éxito.
@@ -113,6 +145,19 @@ catálogo configurado falla cerrado y no concede capacidades. El borrado de un
 centro elimina su estado comercial y anonimiza la referencia retenida del
 evento.
 
+Los eventos de factura no convierten la base local en un libro contable. Se usa
+su referencia de suscripción para consultar el estado actual en Stripe y se
+guarda únicamente si el modo, centro, Customer, Subscription y Price coinciden
+con el vínculo local. Un pago correcto limpia la alerta; un fallo, una
+autenticación pendiente o una factura no finalizada se muestran al centro para
+que actúe dentro del portal de Stripe.
+
+Las actualizaciones de suscripción y los eventos de factura conservan relojes
+de ordenación separados. Así, un webhook de factura retrasado no queda
+descartado solo porque Stripe haya emitido después una actualización de la
+suscripción; dentro de cada secuencia, un evento más antiguo no puede restaurar
+un aviso o estado ya superado.
+
 ## Estados y degradación
 
 `trialing` y `active` conceden las capacidades comerciales de pago. Una prueba
@@ -120,12 +165,26 @@ comercial vigente también puede concederlas. `past_due`, `unpaid`, `paused`,
 `canceled`, `incomplete` e `incomplete_expired` no se convierten en acceso de
 pago.
 
+Un centro con una Subscription recuperable —por ejemplo `past_due`, `unpaid`,
+`paused` o `incomplete`— debe resolverla en el portal y no puede abrir otro
+Checkout paralelo. Una sesión Checkout pendiente también bloquea otro intento
+hasta que el evento de expiración la cierre. Solo los estados terminales
+`canceled` e `incomplete_expired` permiten iniciar una nueva contratación.
+
 Si Stripe Billing no está activado, el proyecto conserva el comportamiento
 previo y declara la aplicación de permisos deshabilitada. Esto permite preparar
 la integración sin bloquear instalaciones existentes. Cuando está activado,
 el servicio de permisos separa `operationalCore` de las capacidades de
-analítica y CRM; la conexión de cada ruta a esta política debe revisarse como
-una decisión de producto antes de un lanzamiento.
+analítica y CRM. Las rutas de Analytics y CRM consultan esa política en el
+servidor: una suscripción o prueba comercial válida concede la capacidad y la
+ausencia de derecho responde con `COMMERCIAL_CAPABILITY_REQUIRED`. Cuando
+Stripe Billing está desactivado, la aplicación conserva de forma explícita el
+comportamiento compatible sin aplicar la barrera.
+
+La página de suscripción permite contrastar bajo demanda la Subscription local
+con Stripe. Esta operación exige una sesión administrativa del centro y una
+verificación reciente de formulario; solo lee Stripe y actualiza el estado
+comercial local. No sustituye la observación de entregas fallidas del webhook.
 
 ## Activación y validación de Live
 
@@ -141,6 +200,8 @@ de activar cobros reales se debe:
 - ejecutar pagos, renovaciones, fallos, cancelaciones y descarga de factura de
   extremo a extremo en un entorno autorizado;
 - observar reintentos y orden alterado de webhooks;
+- comprobar alertas de pago fallido, autenticación requerida y finalización de
+  factura, junto con los correos y reintentos configurados en Stripe;
 - comprobar que una notificación antigua se reconcilia con la suscripción
   actual consultada a Stripe y no restaura permisos obsoletos;
 - verificar el comportamiento durante una indisponibilidad de Stripe;
@@ -150,6 +211,13 @@ No se debe crear un Price ni activar el Product sin una decisión comercial
 explícita sobre importe y moneda. Tampoco se activa `automatic_tax` hasta que
 exista un registro fiscal real confirmado.
 
+Antes del primer cobro debe existir además un procedimiento operativo para
+cancelaciones, reembolsos, disputas y correcciones de factura. Puede ejecutarse
+inicialmente por una persona autorizada desde Stripe; no requiere construir un
+procesador propio ni almacenar datos financieros en Umbravia Forge. La decisión
+fiscal, el código tributario del producto y el comportamiento fiscal del Price
+deben confirmarse fuera del código antes de habilitar impuestos automáticos.
+
 Stripe Connect, reparto de pagos, onboarding de cuentas conectadas, cobros a
-socios, reembolsos operativos y conciliación del libro interno son una fase
-posterior y no deben confundirse con esta suscripción SaaS.
+socios, automatización propia de reembolsos y conciliación de un libro financiero
+interno son una fase posterior y no deben confundirse con esta suscripción SaaS.

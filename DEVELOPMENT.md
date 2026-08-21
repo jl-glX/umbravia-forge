@@ -96,6 +96,13 @@ Copy `.env.example` to `.env` to override defaults.
 | `SUPPORT_NOTIFICATION_EMAIL`                 | Optional internal destination for new-ticket notifications.      |
 | `SUPPORT_ATTACHMENT_MAX_BYTES`               | Private attachment limit; defaults to 5 MiB and is capped at 10. |
 | `SUPPORT_MUTATION_RATE_LIMIT_MAX_REQUESTS`   | Per-window mutation budget for Forge Support.                    |
+| `STRIPE_BILLING_ENABLED`                     | Explicitly enables the centre SaaS subscription integration.     |
+| `STRIPE_BILLING_MODE`                        | Selects isolated Stripe `test` or `live` objects.                |
+| `STRIPE_RESTRICTED_API_KEY`                  | Mode-matched restricted server key; never exposed to the client. |
+| `STRIPE_WEBHOOK_SECRET`                      | Signs the exact raw Stripe webhook body.                         |
+| `STRIPE_PRICE_FORGE_MONTHLY`                 | Server-authorized monthly recurring Price.                       |
+| `STRIPE_PRICE_FORGE_ANNUAL`                  | Independent server-authorized annual recurring Price.            |
+| `STRIPE_PORTAL_CONFIGURATION_ID`             | Optional explicit Customer Portal configuration.                 |
 
 Protected authentication actions use an explicitly rendered Cloudflare
 Turnstile widget. The client sends the short-lived token to the API, which
@@ -106,6 +113,12 @@ Use Cloudflare's documented test keys only in local development; production
 configuration rejects them.
 
 Never commit `.env`, databases, tokens or real customer data.
+
+Stripe Billing remains disabled by default. Production startup validates the
+complete Stripe configuration when it is enabled, and a staging profile cannot
+load Live keys. The deployable templates contain names and safe disabled
+defaults only; actual provider values stay in the authorized secret mechanism.
+See `docs/STRIPE-BILLING.md` for the payment boundary and activation procedure.
 
 ### Protected security configuration
 

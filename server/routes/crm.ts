@@ -18,6 +18,13 @@ import {
   updateCrmFollowUp,
   updateCrmMemberProfile,
 } from "../services/crm.js";
+import { requireCommercialCapability } from "../middleware/commercial-capability.js";
+import {
+  crmFollowUpCreateValidation,
+  crmFollowUpUpdateValidation,
+  crmMemberProfileValidation,
+  emptyRequestValidation,
+} from "../middleware/validation.js";
 
 export const crmRouter = express.Router();
 crmRouter.use(
@@ -25,6 +32,7 @@ crmRouter.use(
   selectFacilityContext,
   requireFacility("owner", "admin"),
 );
+crmRouter.use(requireCommercialCapability("crm"));
 
 function handleCrmError(error: unknown, res: express.Response): void {
   if (error instanceof CrmError) {
@@ -49,6 +57,7 @@ function optionalTimestamp(value: unknown): number | null {
 
 crmRouter.get(
   "/workspace",
+  emptyRequestValidation,
   async (_req: express.Request, res: express.Response) => {
     try {
       res.json(await getCrmWorkspace(getFacilityContext(res).id));
@@ -60,6 +69,7 @@ crmRouter.get(
 
 crmRouter.patch(
   "/members/:memberUserId",
+  crmMemberProfileValidation,
   async (req: express.Request, res: express.Response) => {
     const body = req.body as {
       manualSegment?: CrmMemberSegment | null;
@@ -85,6 +95,7 @@ crmRouter.patch(
 
 crmRouter.post(
   "/follow-ups",
+  crmFollowUpCreateValidation,
   async (req: express.Request, res: express.Response) => {
     const body = req.body as {
       memberUserId?: string;
@@ -111,6 +122,7 @@ crmRouter.post(
 
 crmRouter.patch(
   "/follow-ups/:followUpId",
+  crmFollowUpUpdateValidation,
   async (req: express.Request, res: express.Response) => {
     const body = req.body as {
       assignedToUserId?: string | null;

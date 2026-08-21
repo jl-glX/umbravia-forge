@@ -406,7 +406,10 @@ export const accountRecoveryResetValidation = validateRequest([
   body("newPassword")
     .isString()
     .isLength({ min: 12, max: 128 })
-    .custom(enforcePasswordHashLimit),
+    .custom(enforcePasswordHashLimit)
+    .matches(/[a-z]/)
+    .matches(/[A-Z]/)
+    .matches(/[0-9]/),
 ]);
 
 export const accountMfaConfirmationValidation = validateRequest([
@@ -445,7 +448,18 @@ export const passwordConfirmationValidation = validateRequest([
 export const passkeyAuthenticationOptionsValidation = validateRequest([
   strictBody(["identifier", "accessPortal", "rememberDevice", "captchaToken"]),
   body("captchaToken").optional().isString().isLength({ min: 1, max: 2048 }),
-  body("identifier").isString().trim().isLength({ min: 3, max: 254 }),
+  body("identifier")
+    .isString()
+    .trim()
+    .isLength({ min: 3, max: 254 })
+    .custom((value) => {
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      const isPhone = /^\+?[0-9\s()-]{7,20}$/.test(value);
+      if (!isEmail && !isPhone) {
+        throw new Error("Identifier must be an email address or phone number");
+      }
+      return true;
+    }),
   body("accessPortal").isIn(["member", "staff"]),
   body("rememberDevice").optional().isBoolean(),
 ]);
@@ -1066,6 +1080,59 @@ export const bulkDeleteUsersValidation = validateRequest([
     .isArray({ min: 1, max: 100 })
     .withMessage("userIds must contain between 1 and 100 identifiers"),
   body("userIds.*").isString().matches(ID_PATTERN),
+]);
+
+const crmMemberSegments = [
+  "onboarding",
+  "engaged",
+  "attention",
+  "reengagement",
+];
+const crmFollowUpKinds = ["onboarding", "check_in", "retention", "service"];
+const crmFollowUpStatuses = ["open", "completed", "dismissed"];
+
+const optionalCrmAssigneeValidation = () =>
+  body("assignedToUserId")
+    .optional({ nullable: true })
+    .isString()
+    .matches(ID_PATTERN);
+
+export const crmMemberProfileValidation = validateRequest([
+  param("memberUserId").isString().matches(ID_PATTERN),
+  strictBody(["manualSegment", "assignedToUserId", "nextFollowUpAt"], true),
+  body("manualSegment").optional({ nullable: true }).isIn(crmMemberSegments),
+  optionalCrmAssigneeValidation(),
+  body("nextFollowUpAt")
+    .optional({ nullable: true })
+    .isInt({ min: 0, max: Number.MAX_SAFE_INTEGER })
+    .toInt(),
+]);
+
+export const crmFollowUpCreateValidation = validateRequest([
+  strictBody(["memberUserId", "assignedToUserId", "kind", "dueAt"]),
+  body("memberUserId").isString().matches(ID_PATTERN),
+  optionalCrmAssigneeValidation(),
+  body("kind").isIn(crmFollowUpKinds),
+  body("dueAt").isInt({ min: 0, max: Number.MAX_SAFE_INTEGER }).toInt(),
+]);
+
+export const crmFollowUpUpdateValidation = validateRequest([
+  param("followUpId").isString().matches(ID_PATTERN),
+  strictBody(["assignedToUserId", "status", "dueAt"]),
+  optionalCrmAssigneeValidation(),
+  body("status").isIn(crmFollowUpStatuses),
+  body("dueAt").isInt({ min: 0, max: Number.MAX_SAFE_INTEGER }).toInt(),
+]);
+
+export const commercialSubscriptionCheckoutValidation = validateRequest([
+  strictBody(["plan"]),
+  query().custom(emptyObjectOrMissing),
+  body("plan").isIn(["monthly", "annual"]),
+]);
+
+export const emptyRequestValidation = validateRequest([
+  body().custom(emptyObjectOrMissing),
+  query().custom(emptyObjectOrMissing),
 ]);
 
 export const monthValidation = validateRequest([

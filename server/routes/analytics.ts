@@ -23,6 +23,7 @@ import {
   type SurveyQuestionInput,
 } from "../services/analytics-surveys.js";
 import type { AnalyticsSurveyPrivacyMode } from "../db/types.js";
+import { requireCommercialCapability } from "../middleware/commercial-capability.js";
 import { monthValidation, validateId } from "../middleware/validation.js";
 import {
   authenticate,
@@ -35,6 +36,7 @@ import {
 
 export const analyticsRouter = express.Router();
 analyticsRouter.use(authenticate, selectFacilityContext, requireFacility());
+analyticsRouter.use(requireCommercialCapability("analytics"));
 
 const MAX_ANALYTICS_PERIOD_MS = 93 * 24 * 60 * 60 * 1_000;
 

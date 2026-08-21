@@ -6,6 +6,13 @@ export const COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_HOURS = 6;
 export const COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS =
   COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_HOURS * 60 * 60 * 1000;
 
+export function commercialTrialProvisioningIsEnabled(): boolean {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.COMMERCIAL_TRIALS_ENABLED === "true"
+  );
+}
+
 export const commercialFacilityTypes: CommercialFacilityType[] = [
   "traditional_gym",
   "crossfit",

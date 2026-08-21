@@ -13,6 +13,7 @@ describe("commercial subscription API", () => {
   let app: typeof import("../index.js").app;
   let adminCookie: string;
   let memberCookie: string;
+  let currentSubscription: Stripe.Subscription | null = null;
 
   const gateway: StripeBillingGateway = {
     async createCustomer(input) {
@@ -27,8 +28,11 @@ describe("commercial subscription API", () => {
     async createPortalSession(input) {
       return { url: `https://billing.stripe.test/${input.customerId}` };
     },
-    async retrieveSubscription() {
-      throw new Error("not used by this route test");
+    async retrieveSubscription(subscriptionId) {
+      if (!currentSubscription || currentSubscription.id !== subscriptionId) {
+        throw new Error("Missing current Stripe subscription test fixture");
+      }
+      return currentSubscription;
     },
     constructWebhookEvent(body) {
       return JSON.parse(body.toString("utf8")) as Stripe.Event;
@@ -145,11 +149,19 @@ describe("commercial subscription API", () => {
   });
 
   it("uses the selected centre and a server-side plan", async () => {
-    const response = await request(app)
+    const rejected = await request(app)
       .post("/api/commercial-subscription/checkout")
       .set("Cookie", adminCookie)
       .set("X-Facility-Id", "subscription-secondary")
       .send({ plan: "annual", priceId: "price_attacker" })
+      .expect(400);
+    expect(rejected.body.code).toBe("VALIDATION_ERROR");
+
+    const response = await request(app)
+      .post("/api/commercial-subscription/checkout")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "subscription-secondary")
+      .send({ plan: "annual" })
       .expect(201);
     expect(response.body).toEqual({
       url: "https://checkout.stripe.test/subscription-secondary",
@@ -164,6 +176,13 @@ describe("commercial subscription API", () => {
       facilityId: "subscription-secondary",
       stripePriceId: "price_annual",
     });
+
+    await request(app)
+      .post("/api/commercial-subscription/reconcile")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "subscription-secondary")
+      .send({ subscriptionId: "sub_attacker" })
+      .expect(400);
   });
 
   it("requires a signature header and accepts the exact raw webhook body", async () => {
@@ -198,5 +217,38 @@ describe("commercial subscription API", () => {
       .send(JSON.stringify(event))
       .expect(200)
       .expect({ accepted: true, duplicate: false });
+
+    currentSubscription = {
+      id: "sub_subscription-secondary",
+      object: "subscription",
+      livemode: false,
+      customer: "cus_subscription-secondary",
+      metadata: {
+        facility_id: "subscription-secondary",
+        plan_key: "annual",
+      },
+      status: "active",
+      cancel_at_period_end: false,
+      items: {
+        data: [
+          {
+            price: { id: "price_annual" },
+            current_period_end: 1_934_128_000,
+          },
+        ],
+      },
+    } as unknown as Stripe.Subscription;
+    const reconciliation = await request(app)
+      .post("/api/commercial-subscription/reconcile")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "subscription-secondary")
+      .expect(200);
+    expect(reconciliation.body).toMatchObject({
+      subscription: {
+        status: "active",
+        plan: "annual",
+        lastReconciledAt: expect.any(Number),
+      },
+    });
   });
 });

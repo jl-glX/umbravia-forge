@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "../components/ui/button";
@@ -10,6 +10,11 @@ import { ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { isPasswordWithinHashLimit } from "../lib/passwordPolicy";
 import { CaptchaWidget } from "../components/CaptchaWidget";
+
+const API_BASE =
+  typeof window !== "undefined" && window.location.hostname === "localhost"
+    ? "http://localhost:3001"
+    : "";
 
 export function SignupPage() {
   const navigate = useNavigate();
@@ -32,7 +37,24 @@ export function SignupPage() {
   const [step, setStep] = useState<1 | 2>(1);
   const [validationError, setValidationError] = useState("");
   const [captchaResetSignal, setCaptchaResetSignal] = useState(0);
+  const [administratorSignupEnabled, setAdministratorSignupEnabled] =
+    useState(false);
   const { t, i18n } = useTranslation();
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/commercial`)
+      .then(async (response) => {
+        if (!response.ok)
+          throw new Error("commercial capabilities unavailable");
+        return (await response.json()) as {
+          trialProvisioningEnabled?: boolean;
+        };
+      })
+      .then((result) =>
+        setAdministratorSignupEnabled(result.trialProvisioningEnabled === true),
+      )
+      .catch(() => setAdministratorSignupEnabled(false));
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
@@ -43,6 +65,13 @@ export function SignupPage() {
 
   const continueToPreferences = () => {
     setValidationError("");
+    if (
+      formData.accountType === "administrator" &&
+      !administratorSignupEnabled
+    ) {
+      setValidationError(t("auth.administratorSignupUnavailable"));
+      return;
+    }
     if (
       !formData.email ||
       !formData.name ||
@@ -64,6 +93,14 @@ export function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError("");
+
+    if (
+      formData.accountType === "administrator" &&
+      !administratorSignupEnabled
+    ) {
+      setValidationError(t("auth.administratorSignupUnavailable"));
+      return;
+    }
 
     if (
       !formData.countryCode ||
@@ -178,6 +215,11 @@ export function SignupPage() {
                         formData.accountType === accountType
                           ? "border-blue-500 bg-blue-50 text-blue-950"
                           : "border-slate-200 bg-white text-slate-700"
+                      } ${
+                        accountType === "administrator" &&
+                        !administratorSignupEnabled
+                          ? "cursor-not-allowed opacity-50"
+                          : "cursor-pointer"
                       }`}
                     >
                       <input
@@ -185,6 +227,10 @@ export function SignupPage() {
                         type="radio"
                         name="accountType"
                         value={accountType}
+                        disabled={
+                          accountType === "administrator" &&
+                          !administratorSignupEnabled
+                        }
                         checked={formData.accountType === accountType}
                         onChange={() =>
                           setFormData((current) => ({
@@ -197,6 +243,11 @@ export function SignupPage() {
                     </label>
                   ))}
                 </div>
+                {!administratorSignupEnabled && (
+                  <p className="text-xs leading-5 text-amber-700">
+                    {t("auth.administratorSignupUnavailable")}
+                  </p>
+                )}
               </fieldset>
 
               {formData.accountType === "administrator" ? (
@@ -216,7 +267,9 @@ export function SignupPage() {
                       name="facilityName"
                       value={formData.facilityName}
                       onChange={handleChange}
+                      minLength={2}
                       maxLength={120}
+                      required
                       disabled={isLoading}
                     />
                   </div>
@@ -282,6 +335,8 @@ export function SignupPage() {
                   name="email"
                   placeholder="your@email.com"
                   value={formData.email}
+                  maxLength={254}
+                  required
                   onChange={handleChange}
                   disabled={isLoading}
                   className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 focus-visible:bg-white"
@@ -298,6 +353,8 @@ export function SignupPage() {
                   name="lastName"
                   autoComplete="family-name"
                   value={formData.lastName}
+                  maxLength={100}
+                  required
                   onChange={handleChange}
                   disabled={isLoading}
                 />
@@ -311,8 +368,9 @@ export function SignupPage() {
                   id="name"
                   type="text"
                   name="name"
-                  placeholder="John Doe"
                   value={formData.name}
+                  maxLength={100}
+                  required
                   onChange={handleChange}
                   disabled={isLoading}
                   className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 focus-visible:bg-white"
@@ -328,7 +386,9 @@ export function SignupPage() {
                   name="password"
                   placeholder="••••••••"
                   value={formData.password}
-                  maxLength={256}
+                  minLength={12}
+                  maxLength={128}
+                  required
                   onChange={handleChange}
                   disabled={isLoading}
                   className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 focus-visible:bg-white"
@@ -344,7 +404,9 @@ export function SignupPage() {
                   name="confirmPassword"
                   placeholder="••••••••"
                   value={formData.confirmPassword}
-                  maxLength={256}
+                  minLength={12}
+                  maxLength={128}
+                  required
                   onChange={handleChange}
                   disabled={isLoading}
                   className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 focus-visible:bg-white"

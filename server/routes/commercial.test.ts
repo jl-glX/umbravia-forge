@@ -109,6 +109,7 @@ describe("commercial foundation API", () => {
       productName: "Umbravia Forge",
       principle: "Producto primero, conversación después.",
       trialDays: 31,
+      trialProvisioningEnabled: true,
       contactPolicy: {
         automaticContact: false,
         unsolicitedCalls: false,
@@ -151,6 +152,12 @@ describe("commercial foundation API", () => {
     try {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("COMMERCIAL_TRIALS_ENABLED", "false");
+      await request(app)
+        .get("/api/commercial")
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.trialProvisioningEnabled).toBe(false);
+        });
       await request(app)
         .post("/api/commercial/trial")
         .set("Cookie", adminCookie)

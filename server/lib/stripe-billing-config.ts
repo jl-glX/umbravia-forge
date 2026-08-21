@@ -1,3 +1,5 @@
+import { resolveDeploymentProfile } from "./deployment-profile.js";
+
 export type CommercialPlanKey = "monthly" | "annual";
 
 export interface StripeBillingConfiguration {
@@ -35,8 +37,14 @@ export function resolveStripeBillingConfiguration(
   if (mode !== "test" && mode !== "live") {
     throw new Error("STRIPE_BILLING_MODE must be test or live");
   }
-  if (mode === "live" && environment.NODE_ENV !== "production") {
-    throw new Error("Stripe Live billing requires NODE_ENV=production");
+  if (
+    mode === "live" &&
+    (environment.NODE_ENV !== "production" ||
+      resolveDeploymentProfile(environment) !== "production")
+  ) {
+    throw new Error(
+      "Stripe Live billing requires the production deployment profile",
+    );
   }
   const expectedKeyPrefix = mode === "live" ? "rk_live_" : "rk_test_";
   if (!restrictedApiKey.startsWith(expectedKeyPrefix)) {
@@ -54,6 +62,11 @@ export function resolveStripeBillingConfiguration(
     if (!value.startsWith("price_")) {
       throw new Error(`${name} must be a Stripe Price identifier`);
     }
+  }
+  if (monthlyPrice === annualPrice) {
+    throw new Error(
+      "STRIPE_PRICE_FORGE_MONTHLY and STRIPE_PRICE_FORGE_ANNUAL must be different",
+    );
   }
   if (portalConfigurationId && !portalConfigurationId.startsWith("bpc_")) {
     throw new Error(

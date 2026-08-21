@@ -9,9 +9,14 @@ import {
 } from "../middleware/authorization.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
 import {
+  commercialSubscriptionCheckoutValidation,
+  emptyRequestValidation,
+} from "../middleware/validation.js";
+import {
   createCommercialCheckout,
   createCommercialPortal,
   getCommercialSubscriptionOverview,
+  reconcileCommercialSubscription,
 } from "../services/commercial-subscription.js";
 
 export const commercialSubscriptionRouter = express.Router();
@@ -24,6 +29,7 @@ commercialSubscriptionRouter.use(
 
 commercialSubscriptionRouter.get(
   "/",
+  emptyRequestValidation,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(
@@ -38,15 +44,9 @@ commercialSubscriptionRouter.get(
 commercialSubscriptionRouter.post(
   "/checkout",
   requireRecentFormVerification,
+  commercialSubscriptionCheckoutValidation,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (req.body?.plan !== "monthly" && req.body?.plan !== "annual") {
-        res.status(400).json({
-          error: "Plan must be monthly or annual",
-          code: "INVALID_SUBSCRIPTION_PLAN",
-        });
-        return;
-      }
       res.status(201).json(
         await createCommercialCheckout({
           facilityId: getFacilityContext(res).id,
@@ -61,8 +61,24 @@ commercialSubscriptionRouter.post(
 );
 
 commercialSubscriptionRouter.post(
+  "/reconcile",
+  requireRecentFormVerification,
+  emptyRequestValidation,
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(
+        await reconcileCommercialSubscription(getFacilityContext(res).id),
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+commercialSubscriptionRouter.post(
   "/portal",
   requireRecentFormVerification,
+  emptyRequestValidation,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(await createCommercialPortal(getFacilityContext(res).id));

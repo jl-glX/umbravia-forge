@@ -191,6 +191,8 @@ export function AccountContinuityPage() {
               {t("accountContinuity.identifierLabel")}
               <input
                 required
+                maxLength={19}
+                pattern="GT-U-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}"
                 value={supportIdentifier}
                 onChange={(event) =>
                   setSupportIdentifier(event.target.value.toUpperCase())

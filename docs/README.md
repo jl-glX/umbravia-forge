@@ -1,6 +1,6 @@
 # Índice de documentación
 
-Estado revisado contra el código y las pruebas del cambio activo el 20 de agosto
+Estado revisado contra el código y las pruebas del cambio activo el 21 de agosto
 de 2026. El índice evita fijar un SHA que quede obsoleto con cada actualización:
 la sincronización se comprueba en el diff y en la validación del commit que se
 publica. Esta referencia describe el repositorio; no demuestra por sí sola el
@@ -65,6 +65,7 @@ estado actual hay que volver a los documentos vigentes anteriores.
 - [Auditoría de seguridad del gestor, 2026-08-15](./MANAGER-CONSOLE-SECURITY-AUDIT-2026-08-15.md)
 - [Auditoría de migración de eventos Analytics, 2026-08-12](./ANALYTICS-EVENT-MIGRATION-AUDIT-2026-08-12.md)
 - [Auditoría de CRM y encuestas, 2026-08-16](./FORGE-CRM-AND-SURVEYS-FOUNDATION-AUDIT-2026-08-16.md)
+- [Auditoría integral de preparación del cambio, 2026-08-21](./INTEGRAL-READINESS-AUDIT-2026-08-21.md)
 - [Auditoría de neutralización del dominio, 2026-08-16](./ACTIVITY-DOMAIN-MIGRATION-AUDIT-2026-08-16.md)
 - [Auditoría de la base comercial, 2026-08-03](./COMMERCIAL-FOUNDATION-AUDIT.md)
 - [Decisiones comerciales 22-38, 2026-08-04](./COMMERCIAL-POINTS-22-38.md)

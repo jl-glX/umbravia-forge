@@ -303,12 +303,14 @@ export function AdminCrmPage() {
                 <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_15rem]">
                   <input
                     type="search"
+                    aria-label={t("crm.searchPlaceholder")}
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder={t("crm.searchPlaceholder")}
                     className="rounded-xl border border-slate-200 px-3 py-2.5"
                   />
                   <select
+                    aria-label={t("crm.segment")}
                     value={segmentFilter}
                     onChange={(event) =>
                       setSegmentFilter(

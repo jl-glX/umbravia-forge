@@ -44,6 +44,8 @@ Umbravia Forge reúne en una misma base técnica la actividad diaria de un centr
 - **Personas:** experiencias diferenciadas para socios, entrenadores y administradores.
 - **Comunidad:** perfiles sociales, contactos, canales de centro o clase, mensajería y moderación con límites de acceso explícitos.
 - **Forge Analytics:** ocupación, asistencia, cancelaciones, demanda y comparativas por actividad, franja horaria y centro.
+- **Forge CRM:** segmentación operativa, responsables y seguimientos por centro, sin mezclar datos entre tenants.
+- **Suscripción SaaS:** Checkout, portal y señales firmadas de Stripe separados del libro administrativo de cobros a socios.
 - **Forge Support:** tickets, conversaciones privadas, notas internas, adjuntos protegidos, SLA y base de conocimiento.
 - **Cuentas y continuidad:** verificación de correo, recuperación de acceso, MFA, passkeys, sesiones revocables y cierre reversible de cuenta.
 - **Forge Notify:** cola transaccional cifrada, reintentos acotados, trazabilidad, saneamiento periódico y transporte de correo desacoplado.
@@ -77,14 +79,14 @@ Las decisiones y fronteras completas están documentadas en [Arquitectura](./doc
 
 ## Tecnologías
 
-| Capa      | Tecnologías principales                                                              |
-| --------- | ------------------------------------------------------------------------------------ |
-| Interfaz  | React 19, TypeScript 7 nativo, Vite 8, Tailwind CSS 4, i18next                       |
-| API       | Node.js 24 LTS, Express 5, validación y middleware de autorización                   |
-| Datos     | Kysely, PostgreSQL, SQLite para entornos aislados                                    |
-| Seguridad | Argon2id, WebAuthn/passkeys, TOTP, AES-256-GCM y XChaCha20-Poly1305 según el dominio |
-| Calidad   | Vitest, ESLint, Prettier, auditoría de dependencias y GitHub Actions                 |
-| Edge      | Cloudflare Turnstile y Worker de entrada de correo de soporte                        |
+| Capa      | Tecnologías principales                                                                                            |
+| --------- | ------------------------------------------------------------------------------------------------------------------ |
+| Interfaz  | React 19, TypeScript 7 nativo, Vite 8, Tailwind CSS 4, i18next                                                     |
+| API       | Node.js 24 LTS, Express 5, validación y middleware de autorización                                                 |
+| Datos     | Kysely, PostgreSQL, SQLite para entornos aislados                                                                  |
+| Seguridad | Argon2id, WebAuthn/passkeys, TOTP y AES-256-GCM versionado; lectura legacy XChaCha20-Poly1305 durante la migración |
+| Calidad   | Vitest, ESLint, Prettier, auditoría de dependencias y GitHub Actions                                               |
+| Edge      | Cloudflare Turnstile y Worker de entrada de correo de soporte                                                      |
 
 La interfaz está disponible en español, inglés, alemán y alemán suizo, con formatos regionales mediante `Intl`.
 
@@ -163,7 +165,7 @@ automatizados están en [AGENTS.md](./AGENTS.md).
 
 ## Límites actuales
 
-- Stripe permanece separado del libro operativo interno. La suscripción SaaS del centro dispone de Checkout, portal y webhooks firmados en modos Test y Live aislados; la disponibilidad del código no demuestra que Prices, credenciales o webhooks Live estén configurados. No se procesan reembolsos ni cobros del centro a sus socios.
+- Stripe permanece separado del libro operativo interno. La suscripción SaaS del centro dispone de Checkout, portal, webhooks firmados, alertas mínimas de factura y reconciliación explícita en modos Test y Live aislados. Analytics y CRM comprueban su capacidad comercial en el servidor cuando se activa el control de suscripciones. La disponibilidad del código no demuestra que Prices, credenciales o webhooks Live estén configurados. Umbravia Forge no procesa reembolsos ni mueve dinero entre el centro y sus socios.
 - La entregabilidad del correo depende también de DNS, reputación, recepción, rebotes y proveedores externos; una aceptación SMTP no equivale por sí sola a entrega en la bandeja de entrada.
 - Las copias cifradas, la restauración y las migraciones de PostgreSQL deben comprobarse en cada entorno autorizado antes de un lanzamiento comercial.
 - Los textos legales y fiscales requieren completar los datos reales y una revisión profesional.

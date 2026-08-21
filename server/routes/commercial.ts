@@ -5,6 +5,7 @@ import {
   commercialFoundation,
   commercialTemplates,
   COMMERCIAL_TRIAL_DAYS,
+  commercialTrialProvisioningIsEnabled,
 } from "../lib/commercial-trial.js";
 import {
   authenticate,
@@ -40,10 +41,7 @@ function requireCommercialProvisioningEnabled(
   res: Response,
   next: NextFunction,
 ) {
-  if (
-    process.env.NODE_ENV === "production" &&
-    process.env.COMMERCIAL_TRIALS_ENABLED !== "true"
-  ) {
+  if (!commercialTrialProvisioningIsEnabled()) {
     res.status(503).json({
       error: "Commercial trial provisioning is not enabled",
       code: "COMMERCIAL_TRIALS_DISABLED",
@@ -58,6 +56,7 @@ commercialRouter.get("/", (_req, res) => {
   res.json({
     ...commercialFoundation,
     trialDays: COMMERCIAL_TRIAL_DAYS,
+    trialProvisioningEnabled: commercialTrialProvisioningIsEnabled(),
     facilityTypes: commercialFacilityTypes,
     templates: commercialTemplates,
     contactPolicy: {

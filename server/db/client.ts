@@ -2380,6 +2380,12 @@ async function initializeSqliteSchema(
       )),
       currentPeriodEnd INTEGER,
       cancelAtPeriodEnd INTEGER NOT NULL DEFAULT 0 CHECK(cancelAtPeriodEnd IN (0, 1)),
+      billingAttention TEXT NOT NULL DEFAULT 'none' CHECK(billingAttention IN (
+        'none', 'payment_failed', 'payment_action_required',
+        'invoice_finalization_failed'
+      )),
+      lastInvoiceEventAt INTEGER,
+      lastReconciledAt INTEGER,
       lastStripeEventCreatedAt INTEGER,
       lastStripeEventId TEXT,
       createdAt INTEGER NOT NULL,
@@ -2421,6 +2427,27 @@ async function initializeSqliteSchema(
   if (!subscriptionColumns.some((column) => column.name === "stripeLivemode")) {
     sqliteDb.exec(
       "ALTER TABLE facilityCommercialSubscriptions ADD COLUMN stripeLivemode INTEGER NOT NULL DEFAULT 0 CHECK(stripeLivemode IN (0, 1))",
+    );
+  }
+  if (
+    !subscriptionColumns.some((column) => column.name === "billingAttention")
+  ) {
+    sqliteDb.exec(
+      "ALTER TABLE facilityCommercialSubscriptions ADD COLUMN billingAttention TEXT NOT NULL DEFAULT 'none' CHECK(billingAttention IN ('none', 'payment_failed', 'payment_action_required', 'invoice_finalization_failed'))",
+    );
+  }
+  if (
+    !subscriptionColumns.some((column) => column.name === "lastInvoiceEventAt")
+  ) {
+    sqliteDb.exec(
+      "ALTER TABLE facilityCommercialSubscriptions ADD COLUMN lastInvoiceEventAt INTEGER",
+    );
+  }
+  if (
+    !subscriptionColumns.some((column) => column.name === "lastReconciledAt")
+  ) {
+    sqliteDb.exec(
+      "ALTER TABLE facilityCommercialSubscriptions ADD COLUMN lastReconciledAt INTEGER",
     );
   }
 

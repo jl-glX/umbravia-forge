@@ -65,11 +65,17 @@
     "description": "Subscribe and manage your centre through Stripe's secure environment. Charges to members remain separate from this subscription.",
     "loadError": "The subscription status could not be loaded.",
     "actionError": "Stripe could not be opened. Refresh the status and try again.",
+    "reconcileError": "The subscription could not be checked against Stripe. Try again or review the customer portal.",
+    "reconcile": "Check against Stripe",
+    "reconciling": "Checking…",
+    "lastReconciled": "Last direct check against Stripe: {{date}}",
+    "lastInvoiceEvent": "Latest billing signal received: {{date}}",
     "checkoutSuccess": "Stripe has received the process. Access will update when the signed confirmation arrives; you can refresh the status here.",
     "checkoutCancelled": "The subscription was not completed and your access has not changed.",
     "notConfiguredTitle": "Payments are not configured yet",
-    "notConfiguredDescription": "The feature is ready, but the server does not yet have an active test-mode Stripe configuration.",
+    "notConfiguredDescription": "The feature is ready, but this server does not have an active Stripe billing configuration.",
     "testMode": "Test mode: this environment does not accept Stripe Live events or keys.",
+    "liveMode": "Live mode: this environment accepts only authorised Stripe Live objects and events for this installation.",
     "current": "Current status",
     "renewsOn": "Renews on",
     "endsOn": "Ends on",
@@ -78,6 +84,20 @@
     "choosePlan": "Choose a plan",
     "priceNotice": "Stripe will show the price, currency and terms before confirmation.",
     "continueToCheckout": "Continue to Stripe",
+    "attention": {
+      "payment_failed": {
+        "title": "Stripe could not complete a charge",
+        "description": "Review the payment method and invoice status in Stripe's secure portal. Umbravia Forge does not manage or store the card."
+      },
+      "payment_action_required": {
+        "title": "The payment needs authentication",
+        "description": "Complete the action requested by Stripe so the charge can continue."
+      },
+      "invoice_finalization_failed": {
+        "title": "Stripe could not finalise an invoice",
+        "description": "Review the invoice and billing configuration in Stripe. Having access does not prove that the invoice is ready to be charged."
+      }
+    },
     "plan": {
       "monthly": "Monthly plan",
       "annual": "Annual plan"
@@ -630,7 +650,8 @@
     "staffSignInDescription": "Reserved for administrators, facility managers and authorised trainers.",
     "emailAddress": "Email address",
     "emailRequired": "Email and password are required",
-    "centerIdentifier": "Centre email or phone number",
+    "centerIdentifier": "Professional account email or phone number",
+    "accountIdentifier": "Account email or phone number",
     "credentialsRequired": "Identifier and password are required",
     "verificationRequired": "Verification is required",
     "invalidCredentials": "The email, phone number or password is incorrect",
@@ -678,11 +699,12 @@
     "accountDetailsTitle": "Account details",
     "accountDetailsDescription": "Now complete the details of the person who will administer the facility.",
     "administratorTrialNotice": "The facility and its 31-day trial are created only after email verification. Until then they do not occupy a tenant or count as real activity.",
-    "fullName": "Full name",
+    "administratorSignupUnavailable": "New centre creation is not enabled in this environment. Member signup remains available.",
+    "fullName": "First name",
     "confirmPassword": "Confirm password",
     "allRequired": "All fields are required",
     "passwordMismatch": "Passwords do not match",
-    "passwordPolicy": "Password must contain at least 12 characters, use no more than 1024 bytes, and include uppercase, lowercase and a number",
+    "passwordPolicy": "Password must contain 12 to 128 characters, use no more than 1024 bytes, and include uppercase, lowercase and a number",
     "createAccount": "Create account",
     "creatingAccount": "Creating account...",
     "hasAccount": "Already have an account?",
@@ -1143,6 +1165,8 @@
     "admins": "Admins",
     "newUser": "New user",
     "noUsers": "No users found",
+    "selectAllUsers": "Select all visible users",
+    "selectUser": "Select {{name}}",
     "deleteSelected": "Delete {{count}}",
     "deleteUserConfirm": "Are you sure you want to delete this user?",
     "deleteUsersConfirm": "Delete {{count}} users?",

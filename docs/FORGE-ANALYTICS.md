@@ -108,10 +108,14 @@ Una división inicial razonable es:
 
 No se debe simular una suscripción activa. Checkout selecciona Prices del
 servidor, el portal delega la gestión al Customer de Stripe y los webhooks son
-firmados e idempotentes. La aplicación efectiva de barreras a rutas concretas
-continúa siendo una decisión de producto; la preparación Live del código no
-equivale a una activación operativa. Impuestos automáticos, reembolsos y cobros
-a socios siguen fuera del alcance actual.
+firmados e idempotentes. Las rutas de Analytics y CRM aplican sus capacidades
+en el servidor cuando Stripe Billing está habilitado. Una suscripción o prueba
+comercial vigente concede acceso; sin derecho comercial la API responde con
+`COMMERCIAL_CAPABILITY_REQUIRED`. Cuando Billing está deshabilitado se conserva
+el comportamiento compatible anterior. La preparación Live del código no
+equivale a una activación operativa. Impuestos automáticos y cobros a socios
+siguen fuera del alcance actual; los reembolsos de la suscripción SaaS se
+resuelven operativamente en Stripe, no con un libro financiero propio.
 
 ## Evolución prevista
 
@@ -119,8 +123,8 @@ a socios siguen fuera del alcance actual.
    piloto.
 2. Validar y observar la historia transaccional y los umbrales de privacidad en
    un PostgreSQL autorizado antes de ampliar los periodos disponibles.
-3. Conectar cada ruta comercial aprobada al servicio de permisos independiente
-   ya disponible y validar la degradación con Stripe indisponible.
+3. Validar la degradación de capacidades y la reconciliación comercial con
+   Stripe indisponible, eventos retrasados y estados de impago.
 4. Separar cargas pesadas en un almacén de lectura antes de habilitar
    históricos largos, cohortes, soporte técnico y Crashnalytics.
 

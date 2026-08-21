@@ -352,19 +352,31 @@ export function AccountSecurityPage() {
             </div>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <PasswordInput
-              value={compromisePassword}
-              maxLength={256}
-              autoComplete="current-password"
-              placeholder={t("security.confirmPassword")}
-              onChange={(event) => setCompromisePassword(event.target.value)}
-            />
-            <Input
-              value={compromiseCode}
-              autoComplete="one-time-code"
-              placeholder={t("security.compromiseCodeOptional")}
-              onChange={(event) => setCompromiseCode(event.target.value)}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="compromise-password">
+                {t("security.confirmPassword")}
+              </Label>
+              <PasswordInput
+                id="compromise-password"
+                value={compromisePassword}
+                maxLength={128}
+                autoComplete="current-password"
+                onChange={(event) => setCompromisePassword(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="compromise-code">
+                {t("security.compromiseCodeOptional")}
+              </Label>
+              <Input
+                id="compromise-code"
+                value={compromiseCode}
+                maxLength={13}
+                pattern="(?:[0-9]{6}|[A-Fa-f0-9]{6}-?[A-Fa-f0-9]{6})"
+                autoComplete="one-time-code"
+                onChange={(event) => setCompromiseCode(event.target.value)}
+              />
+            </div>
           </div>
           <Button
             className="mt-4"
@@ -405,7 +417,7 @@ export function AccountSecurityPage() {
                   id="setup-password"
                   autoComplete="current-password"
                   value={password}
-                  maxLength={256}
+                  maxLength={128}
                   onChange={(event) => setPassword(event.target.value)}
                 />
                 <Button
@@ -441,6 +453,8 @@ export function AccountSecurityPage() {
                       inputMode="numeric"
                       autoComplete="one-time-code"
                       value={code}
+                      maxLength={6}
+                      pattern="[0-9]{6}"
                       onChange={(event) => setCode(event.target.value)}
                       placeholder="123456"
                     />
@@ -477,7 +491,7 @@ export function AccountSecurityPage() {
                       className="mt-2"
                       autoComplete="current-password"
                       value={password}
-                      maxLength={256}
+                      maxLength={128}
                       onChange={(event) => setPassword(event.target.value)}
                     />
                   </div>
@@ -490,6 +504,8 @@ export function AccountSecurityPage() {
                       className="mt-2"
                       autoComplete="one-time-code"
                       value={code}
+                      maxLength={13}
+                      pattern="(?:[0-9]{6}|[A-Fa-f0-9]{6}-?[A-Fa-f0-9]{6})"
                       onChange={(event) => setCode(event.target.value)}
                     />
                   </div>
@@ -578,7 +594,7 @@ export function AccountSecurityPage() {
                 id="passkey-password"
                 autoComplete="current-password"
                 value={passkeyPassword}
-                maxLength={256}
+                maxLength={128}
                 onChange={(event) => setPasskeyPassword(event.target.value)}
               />
               {overview?.passkeys.enabled ? (
