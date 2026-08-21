@@ -19,7 +19,7 @@ void i18n
       es: { translation: es },
     },
     fallbackLng: {
-      "de-CH": [],
+      "de-CH": ["de"],
       de: [],
       default: ["es"],
     },

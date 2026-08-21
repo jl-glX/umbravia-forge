@@ -52,7 +52,13 @@ export type SecurityEventType =
   | "e2ee_identity_change_rejected"
   | "e2ee_attachment_uploaded"
   | "e2ee_attachment_downloaded"
-  | "e2ee_attachment_deleted";
+  | "e2ee_attachment_deleted"
+  | "umf_support_access_requested"
+  | "umf_support_access_approved"
+  | "umf_support_access_rejected"
+  | "umf_support_activation_failed"
+  | "umf_support_account_activated"
+  | "umf_support_staff_changed";
 
 export async function recordSecurityEvent(
   type: SecurityEventType,

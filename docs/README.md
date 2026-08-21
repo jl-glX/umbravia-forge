@@ -30,10 +30,12 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Núcleo de gestores](./MANAGER-CORE.md)
 - [Forge Analytics](./FORGE-ANALYTICS.md)
 - [Forge Support](./FORGE-SUPPORT.md)
+- [UMF Support corporativo](./UMF-SUPPORT.md)
 - [Forge Notify](./FORGE-NOTIFY.md)
 - [Gestor de bases y entornos](./DATABASE-ENVIRONMENT-MANAGER.md)
 - [Política de dependencias](./dependency-policy.md)
 - [Suscripciones y facturación con Stripe](./STRIPE-BILLING.md)
+- [Política de privacidad](./PRIVACY-POLICY.md)
 
 ## Seguridad, cifrado y comunicaciones
 
@@ -50,6 +52,7 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Preparación para producción propia](./SELF-HOSTED-PRODUCTION.md)
 - [Despliegue protegido](../deploy/README.md)
 - [Despliegue portable en Linux](../deploy/LINUX.md)
+- [Paquete de prueba de aplicaciones web para Windows](./WINDOWS-WEB-APP-PACKAGE.md)
 - [Entorno aislado de la terminal corporativa](../deploy/manager-terminal-sandbox/README.md)
 
 ## Auditorías y puntos históricos
@@ -66,6 +69,7 @@ estado actual hay que volver a los documentos vigentes anteriores.
 - [Auditoría de migración de eventos Analytics, 2026-08-12](./ANALYTICS-EVENT-MIGRATION-AUDIT-2026-08-12.md)
 - [Auditoría de CRM y encuestas, 2026-08-16](./FORGE-CRM-AND-SURVEYS-FOUNDATION-AUDIT-2026-08-16.md)
 - [Auditoría integral de preparación del cambio, 2026-08-21](./INTEGRAL-READINESS-AUDIT-2026-08-21.md)
+- [Auditoría integral de UMF Support, 2026-08-21](./UMF-SUPPORT-READINESS-AUDIT-2026-08-21.md)
 - [Auditoría de neutralización del dominio, 2026-08-16](./ACTIVITY-DOMAIN-MIGRATION-AUDIT-2026-08-16.md)
 - [Auditoría de la base comercial, 2026-08-03](./COMMERCIAL-FOUNDATION-AUDIT.md)
 - [Decisiones comerciales 22-38, 2026-08-04](./COMMERCIAL-POINTS-22-38.md)

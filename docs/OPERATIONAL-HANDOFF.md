@@ -39,6 +39,30 @@ historial de trabajo.
 - Las migraciones y pruebas del repositorio no demuestran que una base
   PostgreSQL externa se haya migrado. Siguen pendientes la copia/restauración y
   la validación cruzada en un entorno autorizado antes de producción.
+- UMF Support es una aplicación web corporativa distinta del soporte de cada
+  centro. Los operadores de plataforma actúan como dirección; el resto del
+  personal solo puede crear su cuenta después de aprobación manual y consumo
+  de un código temporal de un solo uso. Una cuenta administradora de centro no
+  recibe acceso corporativo por su rol.
+- UMF Support incorpora tickets, bandejas de entrada y salida, mensajes
+  cifrados, categoría de privacidad y un webhook de correo firmado. El código
+  y sus pruebas no demuestran que el buzón, DNS, Worker, SMTP, rebotes o
+  entregabilidad estén configurados en el entorno vivo.
+- La política de privacidad mantenida está en `docs/PRIVACY-POLICY.md`, pero
+  sigue pendiente completar el canal verificado, el domicilio publicable, el
+  inventario de encargados y transferencias, los criterios de conservación y
+  la revisión jurídica antes de un despliegue abierto.
+- `npm run package:windows-web-apps` prepara un ZIP de prueba con lanzadores web
+  separados para UMF Support y la aplicación principal. No contiene secretos
+  ni servidor, no requiere elevación y todavía necesita firma de código y una
+  prueba humana en un equipo Windows limpio. GitHub Actions conserva el ZIP
+  como artefacto temporal cuando la validación es favorable.
+- La auditoría integral del cambio se conserva en
+  `docs/UMF-SUPPORT-READINESS-AUDIT-2026-08-21.md`. La puerta local
+  `npm run ci:validate` terminó favorablemente con 111 archivos de prueba, 545
+  pruebas favorables y una omitida; el empaquetado de despliegue auditó 297
+  archivos. Estas cifras describen el checkout del cambio y no sustituyen la
+  validación humana ni la comprobación del entorno desplegado.
 
 ## Fuentes y orden de autoridad
 

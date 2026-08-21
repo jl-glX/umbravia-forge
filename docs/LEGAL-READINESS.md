@@ -21,7 +21,12 @@ execution by itself.
 - Product name: Umbravia Forge.
 - Current stage: proprietary software under development in a public source
   repository; not a general commercial service.
-- Commercial payments: not enabled.
+- A maintained technical privacy-policy draft exists in
+  [PRIVACY-POLICY.md](./PRIVACY-POLICY.md), and new acceptances record its
+  current draft version.
+- The repository contains Live-capable Stripe code but does not prove that
+  commercial payments, a public service or the external providers are enabled
+  in an operational environment.
 
 ## Complete before public or commercial release
 
@@ -31,7 +36,9 @@ execution by itself.
 - Final service description and territories.
 - Prices, taxes, billing periods and renewal rules.
 - Cancellation, withdrawal and refund conditions.
-- Privacy policy identifying purposes, legal bases, recipients, retention and rights.
+- Complete the maintained privacy-policy draft with the verified privacy
+  contact, professional address, provider inventory, transfers and approved
+  retention criteria.
 - Cookie policy and consent mechanism if non-essential cookies are introduced.
 - Processor agreements with hosting, email, analytics and payment providers.
 - Stripe-specific responsibilities and customer-facing payment disclosures.

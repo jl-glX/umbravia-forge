@@ -27,6 +27,7 @@
     "build:support-email-worker": "node scripts/build-support-email-worker.mjs",
     "start": "node scripts/start-production.mjs",
     "deploy:package": "node scripts/validate-deployment-build.mjs && node scripts/run-project-scripts.mjs build && node scripts/prepare-deployment-package.mjs && node scripts/audit-deployment-package.mjs",
+    "package:windows-web-apps": "node scripts/prepare-windows-web-apps-package.mjs",
     "db:postgres:validate-config": "tsx scripts/validate-postgres-config.ts",
     "mail:dns:check": "tsx server/bin/check-mail-dns.ts",
     "mail:dkim:generate-replacement": "node scripts/generate-dkim-replacement.mjs",
@@ -44,7 +45,7 @@
     "security:probe": "node scripts/security/local-black-box.mjs",
     "security:password-resilience": "node scripts/security/password-resilience.mjs",
     "audit:ci": "node scripts/audit-ci.mjs",
-    "check": "node scripts/run-project-scripts.mjs portability:check format:check lint typecheck test build",
+    "check": "node scripts/run-project-scripts.mjs portability:check format:check lint typecheck test build package:windows-web-apps",
     "ci:validate": "node scripts/run-project-scripts.mjs check audit:ci",
     "ci": "node scripts/run-ci.mjs",
     "CI": "node scripts/run-ci.mjs"

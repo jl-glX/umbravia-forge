@@ -78,7 +78,7 @@ export interface SessionMetadata {
   userAgent?: string;
 }
 
-export type AccessPortal = "member" | "staff";
+export type AccessPortal = "member" | "staff" | "support";
 
 export interface SignupProfile {
   lastName: string;
@@ -315,12 +315,30 @@ export async function login(
         )
         .executeTakeFirst()
     : null;
+  const supportMembership = user
+    ? await db
+        .selectFrom("umfSupportStaff")
+        .select("userId")
+        .where("userId", "=", user.id)
+        .where("status", "=", "active")
+        .executeTakeFirst()
+    : null;
+  const supportOperator = user
+    ? await db
+        .selectFrom("platformOperators")
+        .select("userId")
+        .where("userId", "=", user.id)
+        .where("status", "=", "active")
+        .executeTakeFirst()
+    : null;
   const portalMatches =
     user &&
-    (portalMembership !== undefined ||
-      (accessPortal === "member"
-        ? user.role === "member"
-        : user.role === "trainer" || user.role === "admin"));
+    (accessPortal === "support"
+      ? Boolean(supportMembership || supportOperator)
+      : portalMembership !== undefined ||
+        (accessPortal === "member"
+          ? user.role === "member"
+          : user.role === "trainer" || user.role === "admin"));
 
   if (!user || !portalMatches) {
     await performDummyPasswordVerification(password);

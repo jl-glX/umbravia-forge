@@ -37,6 +37,9 @@ Development uses a single launcher for Vite and Express. Production builds the c
 - Umbravia Forge financial records adapted internally from App-ProTrack's budget and transaction domain.
 - Internationalized user interface.
 - Public legal information.
+- A corporate UMF Support application for platform incidents, privacy mail and
+  manually approved staff. Its platform authority and tables remain separate
+  from each facility's tenant-scoped Forge Support module.
 - Account identity, reversible closure scheduling and draft-only data-retention
   policies.
 - Coordinated account, security, resource, environment, email, notification and
@@ -69,6 +72,11 @@ account is not permission to read another facility.
 Authentication proves the current identity. Server-side facility resolution,
 membership checks and capability middleware decide what that identity may do;
 hiding an action in React is never an authorization control.
+
+UMF Support uses a third authentication portal named `support`. Access is
+granted only by an active `platformOperators` record or an active corporate
+support membership. This portal does not select a facility context and cannot
+be reached merely by holding the global account role `admin`.
 
 ## Localization
 

@@ -888,6 +888,76 @@ interface PlatformOperator {
   revokedAt: number | null;
 }
 
+export type UmfSupportRole = "director" | "agent";
+
+interface UmfSupportStaff {
+  userId: string;
+  role: UmfSupportRole;
+  status: "active" | "revoked";
+  approvedByUserId: string | null;
+  createdAt: number;
+  updatedAt: number;
+  revokedAt: number | null;
+}
+
+interface UmfSupportAccessRequest {
+  id: string;
+  email: string;
+  name: string;
+  lastName: string;
+  locale: "es" | "en" | "de" | "de-CH";
+  status: "pending" | "approved" | "rejected" | "activated" | "expired";
+  activationCodeHash: string | null;
+  activationAttempts: number;
+  activationExpiresAt: number | null;
+  reviewedByUserId: string | null;
+  reviewedAt: number | null;
+  activatedUserId: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type UmfSupportTicketStatus =
+  "open" | "in_progress" | "waiting_on_requester" | "resolved" | "closed";
+export type UmfSupportTicketPriority = "low" | "normal" | "high" | "urgent";
+
+interface UmfSupportTicket {
+  id: string;
+  publicId: string;
+  requesterUserId: string | null;
+  requesterEmail: string;
+  requesterName: string;
+  organizationName: string;
+  assigneeUserId: string | null;
+  subject: string;
+  category:
+    "account" | "billing" | "privacy" | "technical" | "security" | "general";
+  priority: UmfSupportTicketPriority;
+  status: UmfSupportTicketStatus;
+  source: "web" | "email" | "internal";
+  firstResponseDueAt: number;
+  resolutionDueAt: number;
+  firstRespondedAt: number | null;
+  resolvedAt: number | null;
+  closedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface UmfSupportMessage {
+  id: string;
+  ticketId: string;
+  authorUserId: string | null;
+  direction: "inbound" | "outbound" | "internal";
+  channel: "web" | "email";
+  sender: string;
+  recipient: string;
+  body: string;
+  deliveryId: string | null;
+  inboundMessageIdHash: string | null;
+  createdAt: number;
+}
+
 export type CorporateManagerProfileId =
   | "manager-core"
   | "manager-coordinator"
@@ -1204,6 +1274,10 @@ export interface Database {
   facilityProfiles: FacilityProfile;
   facilityMemberships: FacilityMembership;
   platformOperators: PlatformOperator;
+  umfSupportStaff: UmfSupportStaff;
+  umfSupportAccessRequests: UmfSupportAccessRequest;
+  umfSupportTickets: UmfSupportTicket;
+  umfSupportMessages: UmfSupportMessage;
   corporateRoleAssignments: CorporateRoleAssignment;
   managerOrganizationalUnits: ManagerOrganizationalUnit;
   managerOrganizationalMemberships: ManagerOrganizationalMembership;

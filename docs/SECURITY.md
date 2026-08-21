@@ -56,12 +56,14 @@ security audit or a future legally required record.
 
 ## Authentication portals
 
-Umbravia Forge presents members and centre staff with separate sign-in portals. The
-member portal accepts only member accounts. The staff portal accepts trainer
-and administrator accounts and can identify the professional user account by
-its email address or registered phone number. This separation is enforced
-by the API as well as the interface; choosing a different portal cannot elevate
-an account's role or permissions.
+Umbravia Forge presents members, centre staff and corporate UMF Support with
+three separate sign-in portals. The member portal accepts member accounts. The
+facility staff portal accepts trainer and administrator accounts. The corporate
+portal accepts only active platform operators or personnel approved in UMF
+Support. A centre administrator is not corporate support staff, and corporate
+support membership grants no facility context. This separation is enforced by
+the API as well as the interface; choosing a different portal cannot elevate an
+account's role or permissions.
 
 ## Human verification
 
@@ -108,6 +110,15 @@ session controls, rate limiting and monitoring remain independent layers.
   end-to-end encrypted.
 - Forge Support authorization, private attachments, staff-only notes and an
   auditable ticket event history.
+- UMF Support corporate authorization, manually approved account activation,
+  hashed single-use codes with bounded attempts, MFA-compatible sign-in,
+  encrypted message bodies, HMAC-authenticated inbound email and security
+  events for access approval, rejection, activation and staff changes. Its
+  corporate message operations fail closed in production when private-content
+  encryption is not active.
+- A Windows test launcher that contains no credentials, runs without
+  elevation, uses the canonical HTTPS origin and delegates authentication and
+  session handling to the same server controls as the browser application.
 - Small configurable request bodies and centralized error handling.
 - Input validation and automated security tests.
 - Local databases and environment files excluded from version control.
@@ -127,6 +138,8 @@ session controls, rate limiting and monitoring remain independent layers.
 - Expansion of audit coverage for every sensitive administrative operation.
 - Monitoring, alerting and a documented incident-response process.
 - Secret management outside local `.env` files.
+- Code signing, SmartScreen and clean-device validation for the Windows test
+  package before it can be presented as a stable distribution.
 
 ## Reporting a vulnerability
 

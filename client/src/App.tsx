@@ -80,6 +80,10 @@ const ConditionsOfUsePage = lazyPage(
   () => import("./pages/LegalPage"),
   "ConditionsOfUsePage",
 );
+const PrivacyPolicyPage = lazyPage(
+  () => import("./pages/PrivacyPolicyPage"),
+  "PrivacyPolicyPage",
+);
 const AccountSecurityPage = lazyPage(
   () => import("./pages/AccountSecurityPage"),
   "AccountSecurityPage",
@@ -176,6 +180,14 @@ const ManagerConsolePage = lazyPage(
   () => import("./pages/ManagerConsolePage"),
   "ManagerConsolePage",
 );
+const UmfSupportAccessPage = lazyPage(
+  () => import("./pages/UmfSupportAccessPage"),
+  "UmfSupportAccessPage",
+);
+const UmfSupportPage = lazyPage(
+  () => import("./pages/UmfSupportPage"),
+  "UmfSupportPage",
+);
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -263,7 +275,9 @@ function AppContent() {
       "/legal-notice",
       "/terms-and-conditions",
       "/conditions-of-use",
-    ].includes(pathname);
+      "/privacy",
+    ].includes(pathname) ||
+    pathname.startsWith("/umf-support");
 
   if (isInitializing) {
     return (
@@ -284,6 +298,12 @@ function AppContent() {
         }
       >
         <Routes>
+          <Route
+            path="/umf-support/access"
+            element={<UmfSupportAccessPage />}
+          />
+          <Route path="/umf-support" element={<UmfSupportPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route
             path="/"
             element={

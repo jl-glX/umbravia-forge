@@ -820,6 +820,103 @@ export async function queueSupportStaffNotificationEmail(input: {
   return id;
 }
 
+export async function queueUmfSupportAccessCodeEmail(input: {
+  email: string;
+  name: string;
+  code: string;
+  locale: SupportedLocale;
+  expiresAt: number;
+}): Promise<string> {
+  const content: Record<
+    SupportedLocale,
+    { subject: string; intro: string; expiry: string }
+  > = {
+    es: {
+      subject: "Acceso aprobado a UMF Support",
+      intro:
+        "Tu solicitud ha sido aprobada. Usa este código de un solo uso para crear tu cuenta de UMF Support:",
+      expiry:
+        "El código caduca en 24 horas y queda invalidado después del primer uso.",
+    },
+    en: {
+      subject: "UMF Support access approved",
+      intro:
+        "Your request was approved. Use this one-time code to create your UMF Support account:",
+      expiry:
+        "The code expires in 24 hours and is invalid after its first use.",
+    },
+    de: {
+      subject: "Zugang zu UMF Support genehmigt",
+      intro:
+        "Ihr Antrag wurde genehmigt. Verwenden Sie diesen Einmalcode, um Ihr UMF-Support-Konto zu erstellen:",
+      expiry:
+        "Der Code läuft nach 24 Stunden ab und ist nach der ersten Verwendung ungültig.",
+    },
+    "de-CH": {
+      subject: "Zugang zu UMF Support genehmigt",
+      intro:
+        "Ihr Antrag wurde genehmigt. Verwenden Sie diesen Einmalcode, um Ihr UMF-Support-Konto zu erstellen:",
+      expiry:
+        "Der Code läuft nach 24 Stunden ab und ist nach der ersten Verwendung ungültig.",
+    },
+  };
+  const message = content[input.locale] ?? content.es;
+  const id = await queueEncryptedDelivery({
+    userId: null,
+    kind: "support_update",
+    recipient: input.email,
+    locale: input.locale,
+    expiresAt: input.expiresAt,
+    payload: {
+      email: input.email,
+      locale: input.locale,
+      subject: message.subject,
+      text: `${input.name}\n\n${message.intro}\n\n${input.code}\n\n${message.expiry}`,
+      html: `<p>${escapeHtml(input.name)}</p><p>${escapeHtml(message.intro)}</p><p style="font-size:28px;font-weight:700;letter-spacing:0.2em">${escapeHtml(input.code)}</p><p>${escapeHtml(message.expiry)}</p>`,
+    },
+  });
+  publishManagerSignal(
+    "email",
+    "info",
+    "UMF_SUPPORT_ACCESS_QUEUED",
+    "An approved UMF Support access code was queued for delivery.",
+  );
+  return id;
+}
+
+export async function queueUmfSupportReplyEmail(input: {
+  email: string;
+  locale: SupportedLocale;
+  ticketPublicId: string;
+  subject: string;
+  message: string;
+  replyTo?: string;
+}): Promise<string> {
+  const title = `[${input.ticketPublicId}] ${input.subject}`;
+  const id = await queueEncryptedDelivery({
+    userId: null,
+    kind: "support_update",
+    recipient: input.email,
+    locale: input.locale,
+    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    payload: {
+      email: input.email,
+      locale: input.locale,
+      subject: title,
+      text: `${input.ticketPublicId}\n\n${input.message}`,
+      html: `<p><strong>${escapeHtml(input.ticketPublicId)}</strong></p><p>${escapeHtml(input.message).replace(/\n/g, "<br>")}</p>`,
+      replyTo: input.replyTo,
+    },
+  });
+  publishManagerSignal(
+    "email",
+    "info",
+    "UMF_SUPPORT_REPLY_QUEUED",
+    "A UMF Support reply was queued for delivery.",
+  );
+  return id;
+}
+
 export async function queueAccountInactivityReviewEmail(input: {
   userId: string;
   email: string;

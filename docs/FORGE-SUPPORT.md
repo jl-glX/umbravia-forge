@@ -1,5 +1,11 @@
 # Forge Support
 
+> [!IMPORTANT]
+> Este documento describe el soporte que cada centro presta dentro de su
+> propio tenant. El soporte corporativo de la plataforma es una aplicación,
+> una autoridad y un almacén separados; se documenta en
+> [UMF Support](./UMF-SUPPORT.md).
+
 ## Propósito
 
 Forge Support es el módulo de atención y conocimiento de Umbravia Forge. Su

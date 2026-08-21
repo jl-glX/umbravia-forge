@@ -2171,6 +2171,92 @@ ALTER TABLE "facilityCommercialSubscriptions"
   ADD COLUMN IF NOT EXISTS "lastReconciledAt" BIGINT;
 `,
   },
+  {
+    version: 36,
+    name: "umf-support-corporate-application",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "umfSupportStaff" (
+  "userId" TEXT PRIMARY KEY REFERENCES "users" ("id") ON DELETE CASCADE,
+  "role" TEXT NOT NULL CHECK ("role" IN ('director', 'agent')),
+  "status" TEXT NOT NULL DEFAULT 'active' CHECK ("status" IN ('active', 'revoked')),
+  "approvedByUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  "revokedAt" BIGINT
+);
+CREATE INDEX IF NOT EXISTS "idx_umfSupportStaff_status"
+  ON "umfSupportStaff" ("status", "role", "userId");
+
+CREATE TABLE IF NOT EXISTS "umfSupportAccessRequests" (
+  "id" TEXT PRIMARY KEY,
+  "email" TEXT NOT NULL,
+  "name" TEXT NOT NULL,
+  "lastName" TEXT NOT NULL,
+  "locale" TEXT NOT NULL CHECK ("locale" IN ('es', 'en', 'de', 'de-CH')),
+  "status" TEXT NOT NULL DEFAULT 'pending' CHECK ("status" IN ('pending', 'approved', 'rejected', 'activated', 'expired')),
+  "activationCodeHash" TEXT,
+  "activationAttempts" INTEGER NOT NULL DEFAULT 0 CHECK ("activationAttempts" >= 0),
+  "activationExpiresAt" BIGINT,
+  "reviewedByUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "reviewedAt" BIGINT,
+  "activatedUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_umfSupportAccessRequests_open_email"
+  ON "umfSupportAccessRequests" ("email")
+  WHERE "status" IN ('pending', 'approved');
+CREATE INDEX IF NOT EXISTS "idx_umfSupportAccessRequests_status"
+  ON "umfSupportAccessRequests" ("status", "createdAt" DESC);
+
+CREATE TABLE IF NOT EXISTS "umfSupportTickets" (
+  "id" TEXT PRIMARY KEY,
+  "publicId" TEXT NOT NULL UNIQUE,
+  "requesterUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "requesterEmail" TEXT NOT NULL,
+  "requesterName" TEXT NOT NULL,
+  "organizationName" TEXT NOT NULL DEFAULT '',
+  "assigneeUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "subject" TEXT NOT NULL,
+  "category" TEXT NOT NULL CHECK ("category" IN ('account', 'billing', 'privacy', 'technical', 'security', 'general')),
+  "priority" TEXT NOT NULL CHECK ("priority" IN ('low', 'normal', 'high', 'urgent')),
+  "status" TEXT NOT NULL CHECK ("status" IN ('open', 'in_progress', 'waiting_on_requester', 'resolved', 'closed')),
+  "source" TEXT NOT NULL CHECK ("source" IN ('web', 'email', 'internal')),
+  "firstResponseDueAt" BIGINT NOT NULL,
+  "resolutionDueAt" BIGINT NOT NULL,
+  "firstRespondedAt" BIGINT,
+  "resolvedAt" BIGINT,
+  "closedAt" BIGINT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_umfSupportTickets_queue"
+  ON "umfSupportTickets" ("status", "priority", "updatedAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_umfSupportTickets_requester"
+  ON "umfSupportTickets" ("requesterEmail", "updatedAt" DESC);
+
+CREATE TABLE IF NOT EXISTS "umfSupportMessages" (
+  "id" TEXT PRIMARY KEY,
+  "ticketId" TEXT NOT NULL REFERENCES "umfSupportTickets" ("id") ON DELETE CASCADE,
+  "authorUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "direction" TEXT NOT NULL CHECK ("direction" IN ('inbound', 'outbound', 'internal')),
+  "channel" TEXT NOT NULL CHECK ("channel" IN ('web', 'email')),
+  "sender" TEXT NOT NULL,
+  "recipient" TEXT NOT NULL,
+  "body" TEXT NOT NULL,
+  "deliveryId" TEXT REFERENCES "emailDeliveries" ("id") ON DELETE SET NULL,
+  "inboundMessageIdHash" TEXT,
+  "createdAt" BIGINT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_umfSupportMessages_inbound_id"
+  ON "umfSupportMessages" ("inboundMessageIdHash")
+  WHERE "inboundMessageIdHash" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "idx_umfSupportMessages_mailbox"
+  ON "umfSupportMessages" ("direction", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_umfSupportMessages_ticket"
+  ON "umfSupportMessages" ("ticketId", "createdAt");
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

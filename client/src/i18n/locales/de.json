@@ -2226,6 +2226,209 @@
     "privacyTitle": "Datenschutzgrenze",
     "privacyDescription": "Das CRM zeigt keine individuellen Umfrageantworten und kombiniert keine Daten verschiedener Zentren. Umfragen bleiben anonym und werden nur aggregiert dargestellt."
   },
+  "privacyPolicy": {
+    "eyebrow": "Transparenz und Datenschutz",
+    "title": "Datenschutzerklärung von Umbravia Forge",
+    "updated": "Technische Fassung geprüft am 21. August 2026",
+    "pendingTitle": "Pflichtangaben sind noch offen.",
+    "pendingBody": "Vor dem öffentlichen Start müssen der geprüfte Datenschutzkanal, die veröffentlichungsfähige Geschäftsanschrift, die erforderliche Identifikation sowie das endgültige Verzeichnis der Auftragsverarbeiter und Übermittlungen veröffentlicht werden. Diese Angaben wurden nicht erfunden.",
+    "introduction": "Diese Erklärung beschreibt die Verarbeitung personenbezogener Daten in Umbravia Forge und UMF Support. Sie wurde mit aktuellem Code, Migrationen und Tests abgeglichen; sie belegt nicht, dass ein externer Anbieter oder Server aktiv ist.",
+    "sections": {
+      "controller": {
+        "title": "1. Verantwortlicher und Kontakt",
+        "body": "Verantwortlicher für die eigenen Verarbeitungen der Plattform ist Javier López Díaz, Inhaber von Umbravia Forge. Ein geprüfter rechtlicher oder Datenschutzkontakt wird hier vor dem öffentlichen Start veröffentlicht. Bis zur Validierung wird keine Adresse angezeigt, die eine falsche Erreichbarkeit erwarten lässt."
+      },
+      "roles": {
+        "title": "2. Verantwortung von Plattform und Zentren",
+        "body": "Umbravia Forge verantwortet Plattformidentität, Sicherheit, vertragliche und vorvertragliche Beziehungen, Abonnements und Unternehmenssupport. Jedes Zentrum kann für Daten seiner Mitglieder und Mitarbeitenden eigenständig verantwortlich sein. Handelt Umbravia Forge im Auftrag eines Zentrums, ist ein Auftragsverarbeitungsvertrag erforderlich. UMF-Support-Rechte sind von Zentrumsrechten getrennt."
+      },
+      "data": {
+        "title": "3. Verarbeitete Daten",
+        "body": "Je nach Funktion: Identitäts- und Kontaktdaten; Passwort-Hashes, Sitzungen, MFA, Passkeys und Sicherheitsereignisse; Zentrum, Rolle, Kurse, Buchungen, Anwesenheit und Wartelisten; Community-Profile, Nachrichten, Anhänge und Moderation; minimale Stripe-Kennungen und Status ohne vollständige Kartennummern; Analysen, CRM und Umfragen; Supporttickets, E-Mail und Nachvollziehbarkeit; rechtliche Einwilligungen, Aufbewahrung und Kontoschliessung. Gesundheitsdaten oder andere besondere Kategorien dürfen nicht in Freitextfelder eingetragen werden."
+      },
+      "purposes": {
+        "title": "4. Zwecke und Rechtsgrundlagen",
+        "body": "Daten werden zur Erstellung und Absicherung von Konten, Erbringung vereinbarter Leistungen, Zahlungs- und Rechnungsabwicklung, Bearbeitung von Support und Rechten, Missbrauchsprävention, Kontinuität und Erfüllung gesetzlicher Pflichten verwendet. Grundlagen sind Vertrag oder vorvertragliche Massnahmen, rechtliche Pflichten, berechtigte Interessen an Sicherheit, Support und Verbesserung sowie Einwilligung bei optionalen Funktionen. Daten werden weder verkauft noch für fremde Werbung genutzt."
+      },
+      "sources": {
+        "title": "5. Herkunft und Pflichtangaben",
+        "body": "Daten stammen von der betroffenen Person, einem autorisierten Zentrum, der Plattformnutzung und notwendigen Anbietern wie Stripe. Ein Zentrum, das Daten Dritter einträgt, muss dazu befugt sein und die Person informieren. Pflichtfelder sind für Registrierung oder die gewünschte Funktion erforderlich; ohne sie kann diese Funktion nicht erbracht werden."
+      },
+      "recipients": {
+        "title": "6. Empfänger und Anbieter",
+        "body": "Zugriff können das gewählte Zentrum und sein autorisiertes Personal, Unternehmenspersonal mit minimalen Rechten, beauftragte Hosting-, Mail-, Netzwerk-, Sicherheits- oder Betriebsanbieter, Stripe für Zahlungen sowie Behörden bei gesetzlicher Pflicht erhalten. Das tatsächliche Verzeichnis von Auftragsverarbeitern, Zwecken und Standorten wird vor dem öffentlichen Start veröffentlicht."
+      },
+      "transfers": {
+        "title": "7. Internationale Übermittlungen",
+        "body": "Übermittlungen erfolgen nur bei Notwendigkeit und auf Grundlage eines gültigen Mechanismus, etwa Angemessenheitsbeschluss oder geeigneter Garantien. Die endgültige Erklärung nennt Anbieter ausserhalb des EWR und den Zugang zu Garantien. Integrationscode belegt keine Aktivierung."
+      },
+      "retention": {
+        "title": "8. Aufbewahrung und Kontoschliessung",
+        "body": "Daten werden während aktiver Konten, Mitgliedschaften, Verträge, Tickets oder Zwecke und danach nach steuerlichen, sicherheitsbezogenen, störungsbezogenen und rechtlichen Anforderungen aufbewahrt. Die Schliessung umfasst eine Frist und prüft Abhängigkeiten, Eigentum des Zentrums, Aufbewahrung und Sperren. Löschung entfernt nicht automatisch Daten, die aufzubewahren sind oder Rechte anderer betreffen. Konkrete Kriterien müssen vor dem öffentlichen Start genehmigt werden."
+      },
+      "rights": {
+        "title": "9. Rechte",
+        "body": "Betroffene können, soweit anwendbar, Auskunft, Berichtigung, Löschung, Widerspruch, Einschränkung und Datenübertragbarkeit verlangen, Einwilligung widerrufen und sich bei der spanischen Datenschutzbehörde beschweren. Kontofunktionen unterstützen mehrere Vorgänge. Das öffentliche Datenschutzpostfach wird an UMF Support angebunden und erst nach Prüfung von Empfang, Ticketerstellung, Antwort und Zustellung veröffentlicht. Zur Identitätsprüfung können notwendige Angaben verlangt werden."
+      },
+      "minors": {
+        "title": "10. Minderjährige",
+        "body": "Umbravia Forge ist nicht dafür vorgesehen, dass Minderjährige selbst eine direkte Vertragsbeziehung eingehen. Verarbeitet ein Zentrum Daten Minderjähriger, muss es Alter, Befugnis und Einwilligung bestimmen, Vertreter informieren und die verfügbaren Elternkontrollen verwenden."
+      },
+      "security": {
+        "title": "11. Sicherheit und Vertraulichkeit",
+        "body": "Zu den Kontrollen gehören serverseitige Berechtigungen, Trennung nach Zentrum, widerrufbare Sitzungen, optionale MFA und Passkeys, Missbrauchsgrenzen, Verschlüsselung privater Felder und Warteschlangen, Integritätsprüfungen und Nachvollziehbarkeit. Kein Schutz beseitigt jedes Risiko. UMF-Support-Codes sind einmalig, laufen ab und werden nur als Hash gespeichert; Unternehmenssupport teilt weder Rechte noch Tabellen mit dem Mitgliedersupport der Zentren."
+      },
+      "cookies": {
+        "title": "12. Cookies und lokaler Speicher",
+        "body": "Unbedingt notwendige Mechanismen dienen Sitzung, Sicherheit, Sprache und technischen Einstellungen. Cloudflare Turnstile kann Formulare schützen, wenn es konfiguriert ist. Nicht notwendige Werbe- oder Analyse-Cookies werden nicht ohne erforderliche Information und Einwilligung aktiviert."
+      },
+      "changes": {
+        "title": "13. Änderungen",
+        "body": "Das Datum wird nur nach Abgleich mit dem realen Dienst aktualisiert. Wesentliche Änderungen werden mitgeteilt; eine erneute Zustimmung wird eingeholt, wenn Rechtsgrundlage oder Umfang dies verlangen."
+      }
+    },
+    "officialSources": "Amtliche Quellen",
+    "aepdInformation": "Informationsrecht — AEPD"
+  },
+  "umfSupportAccess": {
+    "corporateProgram": "Unternehmensweites Supportprogramm",
+    "tabs": {
+      "login": "Anmelden",
+      "request": "Beantragen",
+      "activate": "Aktivieren"
+    },
+    "login": {
+      "eyebrow": "Geschützter Zugang",
+      "title": "Anmelden",
+      "description": "Nur für genehmigte Mitarbeitende von UMF Support.",
+      "action": "UMF Support öffnen"
+    },
+    "request": {
+      "eyebrow": "Manuelle Genehmigung",
+      "title": "Konto beantragen",
+      "description": "Die Leitung prüft jeden Antrag, bevor ein Konto erstellt werden kann.",
+      "action": "Antrag senden"
+    },
+    "activate": {
+      "eyebrow": "Einmalcode",
+      "title": "Genehmigtes Konto erstellen",
+      "description": "Geben Sie den nach der Genehmigung ausgestellten Code ein und wählen Sie ein sicheres Passwort.",
+      "action": "Konto aktivieren"
+    },
+    "lastName": "Nachname",
+    "activationCode": "Aktivierungscode",
+    "mfaCode": "Authentifizierungscode",
+    "countryCode": "Land",
+    "acceptTerms": "Ich akzeptiere die",
+    "terms": "Nutzungsbedingungen",
+    "acceptPrivacy": "Ich habe die folgende Erklärung gelesen:",
+    "requestAccepted": "Der Antrag wurde erfasst. Nach der Genehmigung erhalten Sie einen einmaligen Aktivierungscode.",
+    "restrictedNotice": "Die direkte Registrierung ist geschlossen und jedes Konto muss genehmigt werden",
+    "downloadWindowsTest": "Test-Webinstaller für Windows herunterladen (.zip)",
+    "privacy": "Datenschutz",
+    "error": "Der Vorgang konnte nicht abgeschlossen werden."
+  },
+  "umfSupport": {
+    "corporateOperations": "Unternehmensweiter Support für die Plattform",
+    "logout": "Abmelden",
+    "navigation": "Navigation in UMF Support",
+    "tabs": {
+      "tickets": "Tickets",
+      "inbox": "Eingang",
+      "outbox": "Gesendet",
+      "access": "Zugänge",
+      "team": "Team"
+    },
+    "headings": {
+      "tickets": "Ticket-Warteschlange",
+      "inbox": "Empfangene E-Mails",
+      "outbox": "Gesendete E-Mails",
+      "access": "Zugangsanträge",
+      "team": "Supportpersonal"
+    },
+    "descriptions": {
+      "tickets": "Plattformvorfälle getrennt vom eigenen Support der einzelnen Zentren.",
+      "inbox": "Nachrichten aus den konfigurierten Unternehmenskanälen.",
+      "outbox": "Vorbereitete Antworten und ihr Zustellstatus.",
+      "access": "Manuelle Genehmigung vor jeder Kontoerstellung.",
+      "team": "Unternehmensberechtigungen unabhängig von Rechten eines Zentrums."
+    },
+    "role": { "director": "Leitung", "agent": "Mitarbeiter" },
+    "staffStatus": { "active": "Aktiv", "revoked": "Widerrufen" },
+    "status": {
+      "open": "Offen",
+      "in_progress": "In Bearbeitung",
+      "waiting_on_requester": "Wartet auf Anfragenden",
+      "resolved": "Gelöst",
+      "closed": "Geschlossen"
+    },
+    "priority": {
+      "low": "Niedrig",
+      "normal": "Normal",
+      "high": "Hoch",
+      "urgent": "Dringend"
+    },
+    "categoryValue": {
+      "general": "Allgemein",
+      "account": "Konto",
+      "billing": "Abrechnung",
+      "privacy": "Datenschutz und Rechte",
+      "technical": "Technik",
+      "security": "Sicherheit"
+    },
+    "accessStatus": {
+      "pending": "Ausstehend",
+      "approved": "Genehmigt",
+      "rejected": "Abgelehnt",
+      "activated": "Aktiviert",
+      "expired": "Abgelaufen"
+    },
+    "activeTickets": "{{count}} aktive Tickets",
+    "urgentTickets": "{{count}} dringende Tickets",
+    "refresh": "Aktualisieren",
+    "search": "Nach Ticket, Betreff oder E-Mail suchen",
+    "allStatuses": "Alle Status",
+    "newTicket": "Neues Ticket",
+    "emptyTickets": "In dieser Ansicht gibt es keine Tickets.",
+    "createTitle": "Vorfall erfassen",
+    "requesterName": "Anfragende Person",
+    "organization": "Organisation oder Zentrum",
+    "subject": "Betreff",
+    "category": "Kategorie",
+    "statusLabel": "Status",
+    "priorityLabel": "Priorität",
+    "assignee": "Zuständige Person",
+    "unassigned": "Nicht zugewiesen",
+    "message": "Erste Nachricht",
+    "createAction": "Ticket erstellen",
+    "internal": "Interne Notiz",
+    "delivery": "Zustellung",
+    "reply": "Antwort",
+    "internalNote": "Als interne Notiz speichern",
+    "sendEmail": "Auch per E-Mail senden",
+    "saveReply": "Antwort speichern",
+    "selectTicket": "Wählen Sie ein Ticket aus, um den Verlauf zu prüfen.",
+    "emptyMailbox": "Dieses Postfach ist leer.",
+    "activationCode": "Einmalig angezeigter Code",
+    "activationCodeOnce": "Nur an die genehmigte Person weitergeben. Der Server speichert nur den Hash.",
+    "approve": "Genehmigen",
+    "reject": "Ablehnen",
+    "emptyRequests": "Es liegen keine Zugangsanträge vor.",
+    "revoke": "Widerrufen",
+    "restore": "Wiederherstellen",
+    "emailPending": "Die Oberfläche ist bereit; echter E-Mail-Empfang oder -Versand bleibt geschlossen, bis das Unternehmenspostfach konfiguriert und validiert wurde.",
+    "notices": {
+      "ticketCreated": "Ticket {{id}} erstellt.",
+      "replySaved": "Antwort gespeichert.",
+      "accessApprovedSent": "Zugang genehmigt und Code gesendet.",
+      "accessApprovedManual": "Zugang genehmigt. Die automatische Zustellung ist nicht verfügbar; verwenden Sie den angezeigten Code für eine sichere manuelle Übergabe.",
+      "accessRejected": "Antrag abgelehnt."
+    },
+    "errors": {
+      "load": "UMF Support konnte nicht geladen werden.",
+      "save": "Die Änderung konnte nicht gespeichert werden."
+    }
+  },
   "unauthorized": {
     "title": "Zugriff verweigert",
     "description": "Sie haben keine Berechtigung, auf diese Seite zuzugreifen. Ihre aktuelle Rolle erlaubt Ihnen nicht, diesen Inhalt anzuzeigen."

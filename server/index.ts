@@ -44,6 +44,8 @@ import { communityRouter } from "./routes/community.js";
 import { moderationRouter } from "./routes/moderation.js";
 import { supportRouter } from "./routes/support.js";
 import { supportEmailInboundRouter } from "./routes/support-email-inbound.js";
+import { umfSupportRouter } from "./routes/umf-support.js";
+import { umfSupportEmailInboundRouter } from "./routes/umf-support-email-inbound.js";
 import { stripeBillingWebhookRouter } from "./routes/stripe-billing-webhook.js";
 import { commercialSubscriptionRouter } from "./routes/commercial-subscription.js";
 import { e2eeRouter } from "./routes/e2ee.js";
@@ -130,6 +132,7 @@ app.use("/api", apiLimiter);
 // The Email Worker signs the exact JSON bytes. Mount its raw-body endpoint
 // before the general parsers while retaining the common API protections.
 app.use("/api/internal/support-email", supportEmailInboundRouter);
+app.use("/api/internal/umf-support-email", umfSupportEmailInboundRouter);
 app.use("/api/internal/stripe-billing", stripeBillingWebhookRouter);
 
 // Facility logos use a larger JSON allowance inside their authenticated router.
@@ -194,6 +197,7 @@ app.use("/api/commercial-subscription", commercialSubscriptionRouter);
 app.use("/api/community", communityRouter);
 app.use("/api/moderation", moderationRouter);
 app.use("/api/support", supportRouter);
+app.use("/api/umf-support", umfSupportRouter);
 app.use("/api/e2ee", e2eeRouter);
 
 if (process.env.NODE_ENV !== "production") {

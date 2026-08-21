@@ -32,7 +32,7 @@ function placeholders(value: string): string[] {
 describe("translation catalogues", () => {
   const english = flatten(readLocale("en"));
 
-  it.each(["es", "de", "de-CH"])(
+  it.each(["es", "de"])(
     "%s contains every translation key and preserves placeholders",
     (language) => {
       const locale = flatten(readLocale(language));
@@ -45,8 +45,18 @@ describe("translation catalogues", () => {
     },
   );
 
-  it("uses Swiss spelling in the de-CH catalogue", () => {
-    const swissGerman = Object.values(flatten(readLocale("de-CH"))).join("\n");
-    expect(swissGerman).not.toContain("ß");
+  it("combines the de-CH regional overrides with the complete German catalogue", () => {
+    const german = flatten(readLocale("de"));
+    const overrides = flatten(readLocale("de-CH"));
+    const swissGerman = { ...german, ...overrides };
+
+    expect(Object.keys(swissGerman).sort()).toEqual(
+      Object.keys(english).sort(),
+    );
+    expect(Object.keys(overrides).every((key) => key in german)).toBe(true);
+    for (const [key, value] of Object.entries(swissGerman)) {
+      expect(placeholders(value), key).toEqual(placeholders(english[key]));
+    }
+    expect(Object.values(swissGerman).join("\n")).not.toContain("ß");
   });
 });

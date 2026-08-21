@@ -2366,6 +2366,96 @@ async function initializeSqliteSchema(
     CREATE INDEX IF NOT EXISTS idx_platformOperators_status
       ON platformOperators(status, userId);
 
+    CREATE TABLE IF NOT EXISTS umfSupportStaff (
+      userId TEXT PRIMARY KEY,
+      role TEXT NOT NULL CHECK(role IN ('director', 'agent')),
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
+      approvedByUserId TEXT,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      revokedAt INTEGER,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(approvedByUserId) REFERENCES users(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_umfSupportStaff_status
+      ON umfSupportStaff(status, role, userId);
+
+    CREATE TABLE IF NOT EXISTS umfSupportAccessRequests (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      name TEXT NOT NULL,
+      lastName TEXT NOT NULL,
+      locale TEXT NOT NULL CHECK(locale IN ('es', 'en', 'de', 'de-CH')),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected', 'activated', 'expired')),
+      activationCodeHash TEXT,
+      activationAttempts INTEGER NOT NULL DEFAULT 0 CHECK(activationAttempts >= 0),
+      activationExpiresAt INTEGER,
+      reviewedByUserId TEXT,
+      reviewedAt INTEGER,
+      activatedUserId TEXT,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      FOREIGN KEY(reviewedByUserId) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY(activatedUserId) REFERENCES users(id) ON DELETE SET NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_umfSupportAccessRequests_open_email
+      ON umfSupportAccessRequests(email)
+      WHERE status IN ('pending', 'approved');
+    CREATE INDEX IF NOT EXISTS idx_umfSupportAccessRequests_status
+      ON umfSupportAccessRequests(status, createdAt DESC);
+
+    CREATE TABLE IF NOT EXISTS umfSupportTickets (
+      id TEXT PRIMARY KEY,
+      publicId TEXT NOT NULL UNIQUE,
+      requesterUserId TEXT,
+      requesterEmail TEXT NOT NULL,
+      requesterName TEXT NOT NULL,
+      organizationName TEXT NOT NULL DEFAULT '',
+      assigneeUserId TEXT,
+      subject TEXT NOT NULL,
+      category TEXT NOT NULL CHECK(category IN ('account', 'billing', 'privacy', 'technical', 'security', 'general')),
+      priority TEXT NOT NULL CHECK(priority IN ('low', 'normal', 'high', 'urgent')),
+      status TEXT NOT NULL CHECK(status IN ('open', 'in_progress', 'waiting_on_requester', 'resolved', 'closed')),
+      source TEXT NOT NULL CHECK(source IN ('web', 'email', 'internal')),
+      firstResponseDueAt INTEGER NOT NULL,
+      resolutionDueAt INTEGER NOT NULL,
+      firstRespondedAt INTEGER,
+      resolvedAt INTEGER,
+      closedAt INTEGER,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      FOREIGN KEY(requesterUserId) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY(assigneeUserId) REFERENCES users(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_umfSupportTickets_queue
+      ON umfSupportTickets(status, priority, updatedAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_umfSupportTickets_requester
+      ON umfSupportTickets(requesterEmail, updatedAt DESC);
+
+    CREATE TABLE IF NOT EXISTS umfSupportMessages (
+      id TEXT PRIMARY KEY,
+      ticketId TEXT NOT NULL,
+      authorUserId TEXT,
+      direction TEXT NOT NULL CHECK(direction IN ('inbound', 'outbound', 'internal')),
+      channel TEXT NOT NULL CHECK(channel IN ('web', 'email')),
+      sender TEXT NOT NULL,
+      recipient TEXT NOT NULL,
+      body TEXT NOT NULL,
+      deliveryId TEXT,
+      inboundMessageIdHash TEXT,
+      createdAt INTEGER NOT NULL,
+      FOREIGN KEY(ticketId) REFERENCES umfSupportTickets(id) ON DELETE CASCADE,
+      FOREIGN KEY(authorUserId) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY(deliveryId) REFERENCES emailDeliveries(id) ON DELETE SET NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_umfSupportMessages_inbound_id
+      ON umfSupportMessages(inboundMessageIdHash)
+      WHERE inboundMessageIdHash IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_umfSupportMessages_mailbox
+      ON umfSupportMessages(direction, createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_umfSupportMessages_ticket
+      ON umfSupportMessages(ticketId, createdAt);
+
     CREATE TABLE IF NOT EXISTS facilityCommercialSubscriptions (
       facilityId TEXT PRIMARY KEY,
       stripeLivemode INTEGER NOT NULL DEFAULT 0 CHECK(stripeLivemode IN (0, 1)),

@@ -207,7 +207,7 @@ export const loginValidation = validateRequest([
     .isString()
     .isLength({ min: 1, max: 128 })
     .custom(enforcePasswordHashLimit),
-  body("accessPortal").isIn(["member", "staff"]),
+  body("accessPortal").isIn(["member", "staff", "support"]),
   body("rememberDevice").optional().isBoolean(),
 ]);
 

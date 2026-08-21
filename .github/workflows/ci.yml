@@ -39,3 +39,13 @@ jobs:
         env:
           VITE_TURNSTILE_SITE_KEY: ci-only-public-site-key-not-for-deployment
         run: npm run deploy:package
+
+      - name: Publish the Windows test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: umbravia-forge-windows-web-apps-test
+          path: |
+            .artifacts/umbravia-forge-windows-web-apps-test.zip
+            .artifacts/umbravia-forge-windows-web-apps-test.zip.sha256
+          if-no-files-found: error
+          retention-days: 14

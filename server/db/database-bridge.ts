@@ -89,6 +89,10 @@ export const migrationTableGroups = {
     "supportAttachments",
     "supportEvents",
     "supportKnowledgeArticles",
+    "umfSupportStaff",
+    "umfSupportAccessRequests",
+    "umfSupportTickets",
+    "umfSupportMessages",
   ],
   feedback: ["feedback"],
 } as const;
@@ -213,6 +217,10 @@ export function buildSqliteToPostgresMigrationPlan(
       "supportAttachments",
       "supportEvents",
       "supportKnowledgeArticles",
+      "umfSupportStaff",
+      "umfSupportAccessRequests",
+      "umfSupportTickets",
+      "umfSupportMessages",
     ],
   };
 }

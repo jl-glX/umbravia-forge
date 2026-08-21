@@ -232,7 +232,7 @@ describe("persistent authentication sessions", () => {
       accountStatus: "pending_verification",
       emailVerifiedAt: null,
       termsVersion: "draft-2026-08-03",
-      privacyVersion: "draft-2026-08-03",
+      privacyVersion: "draft-2026-08-21",
       termsAcceptedAt: expect.any(Number),
       privacyAcceptedAt: expect.any(Number),
     });

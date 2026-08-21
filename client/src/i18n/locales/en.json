@@ -2215,6 +2215,209 @@
     "privacyTitle": "Privacy boundary",
     "privacyDescription": "The CRM does not expose individual survey responses or combine data across facilities. Surveys remain anonymous and are only shown in aggregate."
   },
+  "privacyPolicy": {
+    "eyebrow": "Transparency and data protection",
+    "title": "Umbravia Forge privacy policy",
+    "updated": "Technical version reviewed on 21 August 2026",
+    "pendingTitle": "Required details are still pending.",
+    "pendingBody": "Before public launch, the verified privacy channel, professional address, applicable identification and final processor and transfer inventory must be published. These details have not been invented.",
+    "introduction": "This policy explains how personal data is processed in Umbravia Forge and UMF Support. It was checked against current code, migrations and tests; it does not itself prove that an external provider or server is active.",
+    "sections": {
+      "controller": {
+        "title": "1. Controller and contact",
+        "body": "The controller for the platform's own processing is Javier López Díaz, owner of Umbravia Forge. A verified legal or privacy contact channel will be published here before public launch. Until it is validated, no address will be displayed that could create a false expectation of service."
+      },
+      "roles": {
+        "title": "2. Platform and facility responsibilities",
+        "body": "Umbravia Forge controls platform identity, security, contractual or pre-contractual relations, subscriptions and corporate support. Each facility may be an independent controller for its members' and staff data. A processing agreement is required where Umbravia Forge acts on a facility's instructions. UMF Support permissions are separate from facility permissions."
+      },
+      "data": {
+        "title": "3. Data processed",
+        "body": "Depending on the features used: identity and contact details; password hashes, sessions, MFA, passkeys and security events; facility, role, classes, bookings, attendance and waitlists; community profiles, messages, attachments and moderation; minimum Stripe identifiers and states, without full card numbers; analytics, CRM and surveys; support tickets, email and audit trail; legal acceptance, retention and account closure. Health data and other special categories must not be entered in free-text fields."
+      },
+      "purposes": {
+        "title": "4. Purposes and legal bases",
+        "body": "Data is used to create and secure accounts, provide contracted features, manage payment and billing, handle support and rights, prevent fraud and abuse, maintain continuity and comply with law. The bases are contract or pre-contractual steps, legal duties, legitimate interests in security, support and improvement, and consent where an optional feature requires it. Data is not sold or used for third-party advertising."
+      },
+      "sources": {
+        "title": "5. Sources and required data",
+        "body": "Data comes from the person, an authorised facility, platform use and necessary providers such as Stripe. A facility adding another person's data must have authority and inform that person. Required fields are needed for registration or the requested feature; failing to provide them may prevent that feature from being delivered."
+      },
+      "recipients": {
+        "title": "6. Recipients and providers",
+        "body": "Access may be given to the selected facility and authorised staff, corporate staff with minimum permissions, contracted hosting, mail, network, security or operations providers, Stripe for payments, and authorities where required. The effective list of processors, purposes and locations will be published before public launch."
+      },
+      "transfers": {
+        "title": "7. International transfers",
+        "body": "Transfers will occur only when necessary and supported by a valid mechanism, such as an adequacy decision or appropriate safeguards. The final policy will identify providers outside the EEA and how safeguards can be obtained. Code for an integration does not prove it is active."
+      },
+      "retention": {
+        "title": "8. Retention and account closure",
+        "body": "Data is retained while the account, membership, contract, ticket or purpose remains active and afterwards according to tax, security, incident and legal-claim requirements. Closure applies a grace period and reviews dependencies, facility ownership, retention and holds. Erasure does not automatically remove data that must be retained or affects others' rights. Specific criteria must be approved before public launch."
+      },
+      "rights": {
+        "title": "9. Rights",
+        "body": "People may request access, correction, erasure, objection, restriction and portability where applicable, withdraw consent and complain to the Spanish Data Protection Agency. Account controls support several operations. The public privacy mailbox will feed UMF Support and will be advertised only after inbound reception, ticket creation, reply and delivery are validated. Information may be requested to confirm identity."
+      },
+      "minors": {
+        "title": "10. Children",
+        "body": "Umbravia Forge is not designed for a child to enter a direct contractual relationship. A facility processing children's data must determine the applicable age, authority and consent, inform representatives and use the available parental controls."
+      },
+      "security": {
+        "title": "11. Security and confidentiality",
+        "body": "Controls include server-side authorisation, facility separation, revocable sessions, optional MFA and passkeys, abuse limits, encryption of private fields and queues, integrity checks and audit trails. No measure removes all risk. UMF Support codes are one-time, expire and are stored only as hashes; corporate support shares neither permissions nor tables with each facility's member support."
+      },
+      "cookies": {
+        "title": "12. Cookies and local storage",
+        "body": "Strictly necessary mechanisms support sessions, security, language and technical preferences. Cloudflare Turnstile may protect forms when configured. Non-essential advertising or analytics cookies will not be enabled without required information and consent."
+      },
+      "changes": {
+        "title": "13. Changes",
+        "body": "The date is updated only after checking the content against the real service. Material changes will be communicated and renewed acceptance requested where the legal basis or scope requires it."
+      }
+    },
+    "officialSources": "Official sources",
+    "aepdInformation": "Right to information — AEPD"
+  },
+  "umfSupportAccess": {
+    "corporateProgram": "Corporate support program",
+    "tabs": {
+      "login": "Sign in",
+      "request": "Request",
+      "activate": "Activate"
+    },
+    "login": {
+      "eyebrow": "Restricted access",
+      "title": "Sign in",
+      "description": "For approved UMF Support staff only.",
+      "action": "Open UMF Support"
+    },
+    "request": {
+      "eyebrow": "Manual approval",
+      "title": "Request an account",
+      "description": "Management reviews every request before an account can be created.",
+      "action": "Submit request"
+    },
+    "activate": {
+      "eyebrow": "One-time code",
+      "title": "Create the approved account",
+      "description": "Enter the code issued after approval and choose a secure password.",
+      "action": "Activate account"
+    },
+    "lastName": "Last name",
+    "activationCode": "Activation code",
+    "mfaCode": "Authentication code",
+    "countryCode": "Country",
+    "acceptTerms": "I accept the",
+    "terms": "terms and conditions",
+    "acceptPrivacy": "I have read the",
+    "requestAccepted": "Request recorded. Once approved, you will receive a one-time activation code.",
+    "restrictedNotice": "Direct registration is closed and every account requires approval",
+    "downloadWindowsTest": "Download the Windows test web installer (.zip)",
+    "privacy": "Privacy",
+    "error": "The operation could not be completed."
+  },
+  "umfSupport": {
+    "corporateOperations": "Corporate platform support operations",
+    "logout": "Sign out",
+    "navigation": "UMF Support navigation",
+    "tabs": {
+      "tickets": "Tickets",
+      "inbox": "Inbox",
+      "outbox": "Sent",
+      "access": "Access",
+      "team": "Team"
+    },
+    "headings": {
+      "tickets": "Ticket queue",
+      "inbox": "Received mail",
+      "outbox": "Sent mail",
+      "access": "Access requests",
+      "team": "Support staff"
+    },
+    "descriptions": {
+      "tickets": "Platform incidents kept separate from each facility's own support.",
+      "inbox": "Messages received through configured corporate channels.",
+      "outbox": "Prepared replies and their delivery state.",
+      "access": "Manual approval before any account is created.",
+      "team": "Corporate authority independent from facility permissions."
+    },
+    "role": { "director": "Director", "agent": "Agent" },
+    "staffStatus": { "active": "Active", "revoked": "Revoked" },
+    "status": {
+      "open": "Open",
+      "in_progress": "In progress",
+      "waiting_on_requester": "Waiting for requester",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    },
+    "priority": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "categoryValue": {
+      "general": "General",
+      "account": "Account",
+      "billing": "Billing",
+      "privacy": "Privacy and rights",
+      "technical": "Technical",
+      "security": "Security"
+    },
+    "accessStatus": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "activated": "Activated",
+      "expired": "Expired"
+    },
+    "activeTickets": "{{count}} active tickets",
+    "urgentTickets": "{{count}} urgent tickets",
+    "refresh": "Refresh",
+    "search": "Search by ticket, subject or email",
+    "allStatuses": "All statuses",
+    "newTicket": "New ticket",
+    "emptyTickets": "There are no tickets in this view.",
+    "createTitle": "Record an incident",
+    "requesterName": "Requester",
+    "organization": "Organization or facility",
+    "subject": "Subject",
+    "category": "Category",
+    "statusLabel": "Status",
+    "priorityLabel": "Priority",
+    "assignee": "Assignee",
+    "unassigned": "Unassigned",
+    "message": "Initial message",
+    "createAction": "Create ticket",
+    "internal": "Internal note",
+    "delivery": "Delivery",
+    "reply": "Reply",
+    "internalNote": "Save as an internal note",
+    "sendEmail": "Also send by email",
+    "saveReply": "Save reply",
+    "selectTicket": "Select a ticket to review its history.",
+    "emptyMailbox": "This mailbox is empty.",
+    "activationCode": "Code shown once",
+    "activationCodeOnce": "Share it only with the approved person. The server stores only its hash.",
+    "approve": "Approve",
+    "reject": "Reject",
+    "emptyRequests": "There are no access requests.",
+    "revoke": "Revoke",
+    "restore": "Restore",
+    "emailPending": "The panel is ready, but real inbound or outbound delivery remains closed until the corporate mailbox is configured and validated.",
+    "notices": {
+      "ticketCreated": "Ticket {{id}} created.",
+      "replySaved": "Reply saved.",
+      "accessApprovedSent": "Access approved and code sent.",
+      "accessApprovedManual": "Access approved. Automatic delivery is unavailable; use the displayed code for secure manual delivery.",
+      "accessRejected": "Request rejected."
+    },
+    "errors": {
+      "load": "UMF Support could not be loaded.",
+      "save": "The change could not be saved."
+    }
+  },
   "unauthorized": {
     "title": "Access denied",
     "description": "You don't have permission to access this page. Your current role doesn't allow you to view this content."
