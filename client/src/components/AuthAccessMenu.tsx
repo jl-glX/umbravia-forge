@@ -62,7 +62,7 @@ export function AuthAccessMenu({
       {isOpen && (
         <div
           role="menu"
-          className="absolute right-0 z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-900/15"
+          className="absolute right-0 z-30 mt-2 max-h-[calc(100vh-6rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-900/15"
         >
           <button
             type="button"
@@ -106,6 +106,7 @@ export function AuthAccessMenu({
           </Link>
           {[
             ["/legal-notice", t("legal.footer.notice")],
+            ["/privacy", t("legal.footer.privacy")],
             ["/terms-and-conditions", t("legal.footer.terms")],
             ["/conditions-of-use", t("legal.footer.use")],
           ].map(([to, label]) => (

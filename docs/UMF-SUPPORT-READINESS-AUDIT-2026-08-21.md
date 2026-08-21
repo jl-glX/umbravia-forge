@@ -128,6 +128,21 @@ base viva, destino vacío o controlado, copia restaurable y aprobación expresa.
 12. Se saneó la identidad visual suministrada, se comprobó su alfa real y se
     separó el logotipo completo de la variante sin letras usada por el paquete
     y el acceso de Windows.
+13. Tras una prueba real en Windows se corrigió el cierre inmediato del CMD:
+    ahora conserva el resultado visible, detecta una extracción incompleta y
+    abre la aplicación al terminar la instalación.
+14. La plantilla empresarial se separó de la autorización mediante
+    `companyStaffProfiles`. El alta inicial requiere una cuenta activa,
+    simulación previa, confirmación duplicada del correo, unicidad de plantilla
+    y aplicación explícita.
+15. Los módulos corporativos incorporaron delegación pendiente sin acceso,
+    aceptación o rechazo por la persona destinataria, renuncia posterior y
+    recuperación automática por la jefatura cuando no queda titular ni una
+    persona activa capaz de decidir.
+16. El directorio permite incorporar únicamente cuentas de soporte ya
+    aprobadas. Retirar a una persona conserva la trazabilidad, revoca sus
+    asignaciones activas y retira sus delegaciones para que la cobertura vacante
+    vuelva a la jefatura.
 
 ## Evidencia de validación del repositorio
 
@@ -141,7 +156,7 @@ base viva, destino vacío o controlado, copia restaurable y aprobación expresa.
 
 La puerta completa `npm run ci:validate` terminó favorablemente el 21 de agosto
 de 2026. Incluyó portabilidad, formato, lint, tipos de cliente, servidor y
-Worker, 111 archivos de prueba con 545 pruebas favorables y una omitida de
+Worker, 112 archivos de prueba con 549 pruebas favorables y una omitida de
 forma deliberada, las tres compilaciones, la generación del ZIP y la auditoría
 de dependencias sin vulnerabilidades fuera de las excepciones mantenidas.
 

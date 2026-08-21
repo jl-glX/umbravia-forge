@@ -31,6 +31,9 @@ export function LegalFooter({ variant = "dark" }: LegalFooterProps) {
           >
             {t("legal.footer.notice")}
           </Link>
+          <Link className="transition-colors hover:text-blue-500" to="/privacy">
+            {t("legal.footer.privacy")}
+          </Link>
           <Link
             className="transition-colors hover:text-blue-500"
             to="/terms-and-conditions"

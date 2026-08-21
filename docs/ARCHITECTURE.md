@@ -78,6 +78,19 @@ granted only by an active `platformOperators` record or an active corporate
 support membership. This portal does not select a facility context and cannot
 be reached merely by holding the global account role `admin`.
 
+The visible company directory is a separate module. `companyStaffProfiles`
+models reporting lines and business positions, `umfSupportStaff` scopes support
+operations, and `platformOperators` represents platform-wide authority. Module
+delegations require an explicit recipient decision before creating a corporate
+role assignment. The platform head covers unoccupied modules automatically,
+but an active assignment or actionable pending delegation suspends that
+fallback only for its module. Rejection, revocation, renunciation or removal
+restores the fallback when no active decision-maker remains.
+Approved support accounts join the company directory only through an explicit
+head action. Removing a person retains the audit record, revokes their active
+module assignments and withdraws their actionable delegations; a company
+position alone never grants technical access.
+
 ## Localization
 
 `i18next` manages interface text and language selection. Browser `Intl` handles locale-sensitive dates, time zones, numbers and currencies. Spanish, English and standard German catalogues live in `client/src/i18n/locales`; `de-CH` supplies Swiss Standard German spelling and regional overrides while inheriting the common German catalogue.

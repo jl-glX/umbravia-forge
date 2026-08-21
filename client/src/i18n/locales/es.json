@@ -1515,6 +1515,7 @@
     "footer": {
       "navigation": "Enlaces legales",
       "notice": "Aviso legal",
+      "privacy": "Política de privacidad",
       "terms": "Términos y condiciones",
       "use": "Condiciones de uso"
     },
@@ -2342,24 +2343,72 @@
       "inbox": "Entrada",
       "outbox": "Enviados",
       "access": "Altas",
-      "team": "Equipo"
+      "team": "Equipo",
+      "company": "Plantilla"
     },
     "headings": {
       "tickets": "Cola de tickets",
       "inbox": "Correo recibido",
       "outbox": "Correo enviado",
       "access": "Solicitudes de acceso",
-      "team": "Personal de soporte"
+      "team": "Personal de soporte",
+      "company": "Plantilla de la empresa"
     },
     "descriptions": {
       "tickets": "Incidencias de la plataforma separadas del soporte propio de cada centro.",
       "inbox": "Mensajes recibidos por los canales corporativos configurados.",
       "outbox": "Respuestas preparadas y estado de su entrega.",
       "access": "Aprobación manual previa a la creación de cualquier cuenta.",
-      "team": "Autoridad corporativa independiente de los permisos de los centros."
+      "team": "Autoridad corporativa independiente de los permisos de los centros.",
+      "company": "Cargos empresariales visibles, separados de los permisos técnicos."
     },
     "role": { "director": "Dirección", "agent": "Agente" },
+    "companyPosition": {
+      "platform_head": "Jefe de plataforma",
+      "area_head": "Responsable de área",
+      "team_lead": "Jefe de equipo",
+      "staff": "Personal",
+      "external_collaborator": "Colaborador externo"
+    },
     "staffStatus": { "active": "Activo", "revoked": "Revocado" },
+    "reportsTo": "Depende de {{name}}",
+    "unknownManager": "responsable no disponible",
+    "emptyCompanyStaff": "Todavía no hay personas incorporadas a la plantilla.",
+    "companyStaffCandidate": "Cuenta aprobada de soporte",
+    "companyStaffPosition": "Cargo en la empresa",
+    "selectSupportStaff": "Selecciona una cuenta activa",
+    "addCompanyStaff": "Incorporar a plantilla",
+    "removeCompanyStaff": "Retirar de plantilla",
+    "delegationRecipient": "Persona destinataria",
+    "delegationModule": "Módulo",
+    "selectCompanyStaff": "Selecciona una persona",
+    "delegateRole": "Ofrecer delegación",
+    "roleDelegations": "Delegaciones de módulos",
+    "acceptDelegation": "Aceptar",
+    "rejectDelegation": "Rechazar",
+    "renounceRole": "Renunciar al permiso",
+    "keepRoleAccess": "Habilitarme también",
+    "emptyDelegations": "No hay delegaciones registradas.",
+    "moduleProfile": {
+      "manager-core": "Núcleo de gestores",
+      "manager-coordinator": "Coordinación de gestores",
+      "manager-flow-administrator": "Administración de flujos",
+      "manager-account": "Cuentas",
+      "manager-security": "Seguridad",
+      "manager-resource": "Recursos",
+      "manager-encryption": "Cifrado",
+      "manager-environment": "Entornos",
+      "manager-email": "Correo",
+      "manager-notification": "Notificaciones",
+      "manager-support": "Soporte"
+    },
+    "delegationStatus": {
+      "pending": "Pendiente de decisión",
+      "accepted": "Aceptada",
+      "rejected": "Rechazada",
+      "withdrawn": "Retirada",
+      "renounced": "Renunciada"
+    },
     "status": {
       "open": "Abierto",
       "in_progress": "En curso",
@@ -2427,7 +2476,14 @@
       "replySaved": "Respuesta guardada.",
       "accessApprovedSent": "Acceso aprobado y código enviado.",
       "accessApprovedManual": "Acceso aprobado. La entrega automática no está disponible; usa el código mostrado para la entrega manual segura.",
-      "accessRejected": "Solicitud rechazada."
+      "accessRejected": "Solicitud rechazada.",
+      "roleDelegated": "Delegación ofrecida; todavía no concede acceso.",
+      "roleAccepted": "Delegación aceptada y permiso activado.",
+      "roleRejected": "Delegación rechazada sin conceder acceso.",
+      "roleRenounced": "Permiso renunciado y revocado.",
+      "roleSelfEnabled": "Acceso propio al módulo activado explícitamente.",
+      "companyStaffAdded": "Persona incorporada a la plantilla sin permisos técnicos automáticos.",
+      "companyStaffRevoked": "Persona retirada de la plantilla y módulos devueltos a la cobertura vacante."
     },
     "errors": {
       "load": "No se pudo cargar UMF Support.",

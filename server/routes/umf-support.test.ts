@@ -87,6 +87,19 @@ describe("UMF Support corporate API", () => {
         revokedAt: null,
       })
       .execute();
+    await database.db
+      .insertInto("companyStaffProfiles")
+      .values({
+        userId: "umf-director",
+        position: "platform_head",
+        reportsToUserId: null,
+        status: "active",
+        appointedByUserId: "umf-director",
+        createdAt: now,
+        updatedAt: now,
+        revokedAt: null,
+      })
+      .execute();
     app = (await import("../index.js")).app;
     const login = await request(app).post("/api/auth/login").send({
       identifier: "director@example.com",
@@ -112,6 +125,44 @@ describe("UMF Support corporate API", () => {
       testPackage: true,
       url: "https://downloads.example.com/umf-support-test.zip",
     });
+
+    const login = await request(app).post("/api/auth/login").send({
+      identifier: "tenant-admin@example.com",
+      password: "TenantAdminPassword123",
+      accessPortal: "support",
+      rememberDevice: false,
+    });
+    expect(login.status).toBe(401);
+  });
+
+  it("exposes company positions without deriving technical permissions from them", async () => {
+    const directory = await request(app)
+      .get("/api/umf-support/company-staff")
+      .set("Cookie", directorCookie)
+      .expect(200);
+    expect(directory.body.staff).toEqual([
+      expect.objectContaining({
+        userId: "umf-director",
+        position: "platform_head",
+        reportsToUserId: null,
+        status: "active",
+      }),
+    ]);
+
+    const tenantProfile = await database.db
+      .insertInto("companyStaffProfiles")
+      .values({
+        userId: "tenant-admin-only",
+        position: "area_head",
+        reportsToUserId: "umf-director",
+        status: "active",
+        appointedByUserId: "umf-director",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        revokedAt: null,
+      })
+      .executeTakeFirst();
+    expect(Number(tenantProfile.numInsertedOrUpdatedRows)).toBe(1);
 
     const login = await request(app).post("/api/auth/login").send({
       identifier: "tenant-admin@example.com",
@@ -213,6 +264,137 @@ describe("UMF Support corporate API", () => {
         "umf_support_account_activated",
       ]),
     );
+  });
+
+  it("allows company roles to be rejected, accepted, renounced and self-enabled", async () => {
+    const agent = await database.db
+      .selectFrom("users")
+      .select("id")
+      .where("email", "=", "new-agent@example.com")
+      .executeTakeFirstOrThrow();
+    await request(app)
+      .patch(`/api/umf-support/company-staff/${agent.id}`)
+      .set("Cookie", directorCookie)
+      .send({
+        position: "area_head",
+        reportsToUserId: "umf-director",
+        status: "active",
+      })
+      .expect(204);
+    expect(
+      await database.db
+        .selectFrom("companyStaffProfiles")
+        .select(["position", "reportsToUserId", "status"])
+        .where("userId", "=", agent.id)
+        .executeTakeFirst(),
+    ).toEqual({
+      position: "area_head",
+      reportsToUserId: "umf-director",
+      status: "active",
+    });
+    const login = await request(app).post("/api/auth/login").send({
+      identifier: "new-agent@example.com",
+      password: "NewAgentPassword123",
+      accessPortal: "support",
+      rememberDevice: false,
+    });
+    const agentCookie = login.headers["set-cookie"][0];
+
+    const offer = async () =>
+      request(app)
+        .post("/api/umf-support/company-delegations")
+        .set("Cookie", directorCookie)
+        .send({ profileId: "manager-support", recipientUserId: agent.id })
+        .expect(201);
+
+    const rejectedOffer = await offer();
+    await request(app)
+      .post(
+        `/api/umf-support/company-delegations/${rejectedOffer.body.id}/respond`,
+      )
+      .set("Cookie", agentCookie)
+      .send({ decision: "reject" })
+      .expect(200, { status: "rejected" });
+    expect(
+      await database.db
+        .selectFrom("corporateRoleAssignments")
+        .select("id")
+        .where("userId", "=", agent.id)
+        .where("profileId", "=", "manager-support")
+        .where("status", "=", "active")
+        .executeTakeFirst(),
+    ).toBeUndefined();
+
+    const acceptedOffer = await offer();
+    await request(app)
+      .post(
+        `/api/umf-support/company-delegations/${acceptedOffer.body.id}/respond`,
+      )
+      .set("Cookie", agentCookie)
+      .send({ decision: "accept" })
+      .expect(200, { status: "accepted" });
+    await request(app)
+      .post("/api/umf-support/company-roles/manager-support/renounce")
+      .set("Cookie", agentCookie)
+      .send({})
+      .expect(204);
+
+    await request(app)
+      .post("/api/umf-support/company-roles/manager-support/self-enable")
+      .set("Cookie", directorCookie)
+      .send({})
+      .expect(204);
+    expect(
+      await database.db
+        .selectFrom("corporateRoleAssignments")
+        .select("status")
+        .where("userId", "=", "umf-director")
+        .where("profileId", "=", "manager-support")
+        .where("status", "=", "active")
+        .executeTakeFirst(),
+    ).toEqual({ status: "active" });
+
+    const emailOffer = await request(app)
+      .post("/api/umf-support/company-delegations")
+      .set("Cookie", directorCookie)
+      .send({ profileId: "manager-email", recipientUserId: agent.id })
+      .expect(201);
+    await request(app)
+      .post(
+        `/api/umf-support/company-delegations/${emailOffer.body.id}/respond`,
+      )
+      .set("Cookie", agentCookie)
+      .send({ decision: "accept" })
+      .expect(200, { status: "accepted" });
+    await database.db
+      .updateTable("umfSupportStaff")
+      .set({ status: "revoked", revokedAt: Date.now() })
+      .where("userId", "=", agent.id)
+      .execute();
+    await request(app)
+      .patch(`/api/umf-support/company-staff/${agent.id}`)
+      .set("Cookie", directorCookie)
+      .send({
+        position: "area_head",
+        reportsToUserId: "umf-director",
+        status: "revoked",
+      })
+      .expect(204);
+    expect(
+      await database.db
+        .selectFrom("corporateRoleAssignments")
+        .select("status")
+        .where("userId", "=", agent.id)
+        .where("profileId", "=", "manager-email")
+        .executeTakeFirst(),
+    ).toEqual({ status: "revoked" });
+    expect(
+      await database.db
+        .selectFrom("corporateRoleDelegations")
+        .select("status")
+        .where("id", "=", emailOffer.body.id)
+        .executeTakeFirst(),
+    ).toEqual({ status: "withdrawn" });
   });
 
   it("keeps tickets and mailboxes inside the corporate application", async () => {

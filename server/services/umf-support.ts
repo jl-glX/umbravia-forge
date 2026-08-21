@@ -8,6 +8,8 @@ import {
 } from "node:crypto";
 import { db } from "../db/client.js";
 import type {
+  CompanyPosition,
+  CorporateManagerProfileId,
   UmfSupportRole,
   UmfSupportTicketPriority,
   UmfSupportTicketStatus,
@@ -64,6 +66,25 @@ const categories = new Set([
   "technical",
   "security",
   "general",
+]);
+const companyModuleProfiles = new Set<CorporateManagerProfileId>([
+  "manager-core",
+  "manager-coordinator",
+  "manager-flow-administrator",
+  "manager-account",
+  "manager-security",
+  "manager-resource",
+  "manager-encryption",
+  "manager-environment",
+  "manager-email",
+  "manager-notification",
+  "manager-support",
+]);
+const assignableCompanyPositions = new Set<CompanyPosition>([
+  "area_head",
+  "team_lead",
+  "staff",
+  "external_collaborator",
 ]);
 const slaByPriority: Record<
   UmfSupportTicketPriority,
@@ -197,6 +218,21 @@ async function requireDirector(auth: AuthenticatedUser): Promise<void> {
 
 export async function getUmfSupportCapabilities(auth: AuthenticatedUser) {
   const role = await requireStaff(auth);
+  const [companyHead, platformOperator] = await Promise.all([
+    db
+      .selectFrom("companyStaffProfiles")
+      .select("userId")
+      .where("userId", "=", auth.userId)
+      .where("position", "=", "platform_head")
+      .where("status", "=", "active")
+      .executeTakeFirst(),
+    db
+      .selectFrom("platformOperators")
+      .select("userId")
+      .where("userId", "=", auth.userId)
+      .where("status", "=", "active")
+      .executeTakeFirst(),
+  ]);
   const readiness = getEmailManagerReadiness();
   let inbound = false;
   let configurationValid = true;
@@ -209,6 +245,7 @@ export async function getUmfSupportCapabilities(auth: AuthenticatedUser) {
     role,
     canReviewAccess: role === "director",
     canManageTeam: role === "director",
+    canManageCompanyRoles: Boolean(companyHead && platformOperator),
     email: {
       outbound: readiness.capabilities.supportNotifications,
       inbound,
@@ -541,6 +578,457 @@ export async function listUmfSupportStaff(auth: AuthenticatedUser) {
       })),
     ...listed,
   ];
+}
+
+export async function listCompanyStaff(auth: AuthenticatedUser) {
+  await requireStaff(auth);
+  return db
+    .selectFrom("companyStaffProfiles")
+    .innerJoin("users", "users.id", "companyStaffProfiles.userId")
+    .leftJoin(
+      "users as manager",
+      "manager.id",
+      "companyStaffProfiles.reportsToUserId",
+    )
+    .select([
+      "companyStaffProfiles.userId",
+      "companyStaffProfiles.position",
+      "companyStaffProfiles.reportsToUserId",
+      "companyStaffProfiles.status",
+      "companyStaffProfiles.createdAt",
+      "users.name",
+      "users.lastName",
+      "users.email",
+      "manager.name as managerName",
+      "manager.lastName as managerLastName",
+    ])
+    .orderBy("companyStaffProfiles.position")
+    .orderBy("users.name")
+    .execute();
+}
+
+function assignableCompanyPosition(value: unknown): CompanyPosition {
+  const position = requiredText(value, "position", 32) as CompanyPosition;
+  if (!assignableCompanyPositions.has(position)) {
+    throw new UmfSupportValidationError("Company position is invalid");
+  }
+  return position;
+}
+
+export async function updateCompanyStaff(
+  auth: AuthenticatedUser,
+  userId: string,
+  input: Record<string, unknown>,
+) {
+  await requireCompanyHead(auth);
+  if (userId === auth.userId) {
+    throw new UmfSupportValidationError(
+      "The company head profile cannot be changed from the staff directory",
+    );
+  }
+  const position = assignableCompanyPosition(input.position);
+  const status = requiredText(input.status, "status", 16);
+  if (status !== "active" && status !== "revoked") {
+    throw new UmfSupportValidationError("Company staff status is invalid");
+  }
+  const reportsToUserId =
+    input.reportsToUserId === null || input.reportsToUserId === undefined
+      ? auth.userId
+      : requiredText(input.reportsToUserId, "reportsToUserId", 128);
+  if (reportsToUserId === userId) {
+    throw new UmfSupportValidationError(
+      "A company staff member cannot report to themselves",
+    );
+  }
+
+  const [supportMember, manager, existing] = await Promise.all([
+    db
+      .selectFrom("umfSupportStaff")
+      .select(["userId", "status"])
+      .where("userId", "=", userId)
+      .executeTakeFirst(),
+    db
+      .selectFrom("companyStaffProfiles")
+      .select("userId")
+      .where("userId", "=", reportsToUserId)
+      .where("status", "=", "active")
+      .executeTakeFirst(),
+    db
+      .selectFrom("companyStaffProfiles")
+      .select(["userId", "position"])
+      .where("userId", "=", userId)
+      .executeTakeFirst(),
+  ]);
+  if (
+    !supportMember ||
+    (status === "active" && supportMember.status !== "active")
+  ) {
+    throw new UmfSupportNotFoundError(
+      "An active UMF Support account is required before joining company staff",
+    );
+  }
+  if (!manager) {
+    throw new UmfSupportNotFoundError("Active company manager not found");
+  }
+  if (existing?.position === "platform_head") {
+    throw new UmfSupportValidationError(
+      "The company head profile cannot be reassigned",
+    );
+  }
+
+  const now = Date.now();
+  await db.transaction().execute(async (transaction) => {
+    await transaction
+      .insertInto("companyStaffProfiles")
+      .values({
+        userId,
+        position,
+        reportsToUserId,
+        status,
+        appointedByUserId: auth.userId,
+        createdAt: now,
+        updatedAt: now,
+        revokedAt: status === "revoked" ? now : null,
+      })
+      .onConflict((conflict) =>
+        conflict.column("userId").doUpdateSet({
+          position,
+          reportsToUserId,
+          status,
+          appointedByUserId: auth.userId,
+          updatedAt: now,
+          revokedAt: status === "revoked" ? now : null,
+        }),
+      )
+      .execute();
+    if (status === "revoked") {
+      await transaction
+        .updateTable("corporateRoleAssignments")
+        .set({ status: "revoked", revokedAt: now, updatedAt: now })
+        .where("userId", "=", userId)
+        .where("status", "=", "active")
+        .execute();
+      await transaction
+        .updateTable("corporateRoleDelegations")
+        .set({ status: "withdrawn", respondedAt: now, updatedAt: now })
+        .where("recipientUserId", "=", userId)
+        .where("status", "in", ["pending", "accepted"])
+        .execute();
+    }
+  });
+  await recordSecurityEvent("company_staff_updated", auth.userId, {
+    companyUserId: userId,
+    position,
+    status,
+    reportsToUserId,
+  });
+}
+
+function companyProfile(value: unknown): CorporateManagerProfileId {
+  const profileId = requiredText(
+    value,
+    "profileId",
+    64,
+  ) as CorporateManagerProfileId;
+  if (!companyModuleProfiles.has(profileId)) {
+    throw new UmfSupportValidationError("Company module profile is invalid");
+  }
+  return profileId;
+}
+
+async function requireCompanyHead(auth: AuthenticatedUser): Promise<void> {
+  await requireDirector(auth);
+  const [head, operator] = await Promise.all([
+    db
+      .selectFrom("companyStaffProfiles")
+      .select("userId")
+      .where("userId", "=", auth.userId)
+      .where("position", "=", "platform_head")
+      .where("status", "=", "active")
+      .executeTakeFirst(),
+    db
+      .selectFrom("platformOperators")
+      .select("userId")
+      .where("userId", "=", auth.userId)
+      .where("status", "=", "active")
+      .executeTakeFirst(),
+  ]);
+  if (!head || !operator) {
+    throw new UmfSupportAccessError(
+      "Active company head authority is required",
+    );
+  }
+}
+
+export async function listCompanyRoleDelegations(auth: AuthenticatedUser) {
+  await requireStaff(auth);
+  const [companyHead, platformOperator] = await Promise.all([
+    db
+      .selectFrom("companyStaffProfiles")
+      .select("userId")
+      .where("userId", "=", auth.userId)
+      .where("position", "=", "platform_head")
+      .where("status", "=", "active")
+      .executeTakeFirst(),
+    db
+      .selectFrom("platformOperators")
+      .select("userId")
+      .where("userId", "=", auth.userId)
+      .where("status", "=", "active")
+      .executeTakeFirst(),
+  ]);
+  let query = db
+    .selectFrom("corporateRoleDelegations")
+    .innerJoin(
+      "users as recipient",
+      "recipient.id",
+      "corporateRoleDelegations.recipientUserId",
+    )
+    .select([
+      "corporateRoleDelegations.id",
+      "corporateRoleDelegations.profileId",
+      "corporateRoleDelegations.recipientUserId",
+      "corporateRoleDelegations.status",
+      "corporateRoleDelegations.createdAt",
+      "corporateRoleDelegations.respondedAt",
+      "recipient.name as recipientName",
+      "recipient.lastName as recipientLastName",
+    ]);
+  if (!companyHead || !platformOperator) {
+    query = query.where(
+      "corporateRoleDelegations.recipientUserId",
+      "=",
+      auth.userId,
+    );
+  }
+  return query
+    .orderBy("corporateRoleDelegations.createdAt", "desc")
+    .limit(200)
+    .execute();
+}
+
+export async function delegateCompanyRole(
+  auth: AuthenticatedUser,
+  input: Record<string, unknown>,
+) {
+  await requireCompanyHead(auth);
+  const profileId = companyProfile(input.profileId);
+  const recipientUserId = requiredText(
+    input.recipientUserId,
+    "recipientUserId",
+    128,
+  );
+  if (recipientUserId === auth.userId) {
+    throw new UmfSupportValidationError(
+      "Use self-enable instead of delegating a role to yourself",
+    );
+  }
+  const recipient = await db
+    .selectFrom("companyStaffProfiles")
+    .innerJoin(
+      "umfSupportStaff",
+      "umfSupportStaff.userId",
+      "companyStaffProfiles.userId",
+    )
+    .select("companyStaffProfiles.userId")
+    .where("companyStaffProfiles.userId", "=", recipientUserId)
+    .where("companyStaffProfiles.status", "=", "active")
+    .where("umfSupportStaff.status", "=", "active")
+    .executeTakeFirst();
+  if (!recipient) {
+    throw new UmfSupportNotFoundError("Active company staff member not found");
+  }
+  const existingAssignment = await db
+    .selectFrom("corporateRoleAssignments")
+    .select("id")
+    .where("userId", "=", recipientUserId)
+    .where("profileId", "=", profileId)
+    .where("status", "=", "active")
+    .executeTakeFirst();
+  if (existingAssignment) {
+    throw new UmfSupportValidationError("Company role is already active");
+  }
+  const existing = await db
+    .selectFrom("corporateRoleDelegations")
+    .select("id")
+    .where("recipientUserId", "=", recipientUserId)
+    .where("profileId", "=", profileId)
+    .where("status", "=", "pending")
+    .executeTakeFirst();
+  if (existing) return { id: existing.id, pending: true };
+
+  const id = `corporate-delegation-${randomBytes(12).toString("hex")}`;
+  const now = Date.now();
+  await db
+    .insertInto("corporateRoleDelegations")
+    .values({
+      id,
+      profileId,
+      delegatedByUserId: auth.userId,
+      recipientUserId,
+      status: "pending",
+      assignmentId: null,
+      createdAt: now,
+      respondedAt: null,
+      updatedAt: now,
+    })
+    .execute();
+  await recordSecurityEvent("corporate_role_delegated", auth.userId, {
+    delegationId: id,
+    profileId,
+    recipientUserId,
+  });
+  return { id, pending: true };
+}
+
+export async function respondToCompanyRoleDelegation(
+  auth: AuthenticatedUser,
+  delegationId: string,
+  decision: unknown,
+) {
+  await requireStaff(auth);
+  const normalizedDecision = requiredText(decision, "decision", 16);
+  if (normalizedDecision !== "accept" && normalizedDecision !== "reject") {
+    throw new UmfSupportValidationError("Delegation decision is invalid");
+  }
+  const delegation = await db
+    .selectFrom("corporateRoleDelegations")
+    .selectAll()
+    .where("id", "=", delegationId)
+    .where("recipientUserId", "=", auth.userId)
+    .where("status", "=", "pending")
+    .executeTakeFirst();
+  if (!delegation) {
+    throw new UmfSupportNotFoundError(
+      "Pending company role delegation not found",
+    );
+  }
+  const activeStaff = await db
+    .selectFrom("companyStaffProfiles")
+    .select("userId")
+    .where("userId", "=", auth.userId)
+    .where("status", "=", "active")
+    .executeTakeFirst();
+  if (!activeStaff) {
+    throw new UmfSupportAccessError(
+      "Active company staff membership is required",
+    );
+  }
+
+  const now = Date.now();
+  let assignmentId: string | null = null;
+  await db.transaction().execute(async (transaction) => {
+    if (normalizedDecision === "accept") {
+      const existing = await transaction
+        .selectFrom("corporateRoleAssignments")
+        .select("id")
+        .where("userId", "=", auth.userId)
+        .where("profileId", "=", delegation.profileId)
+        .where("status", "=", "active")
+        .executeTakeFirst();
+      assignmentId =
+        existing?.id ?? `corporate-role-${randomBytes(12).toString("hex")}`;
+      if (!existing) {
+        await transaction
+          .insertInto("corporateRoleAssignments")
+          .values({
+            id: assignmentId,
+            userId: auth.userId,
+            profileId: delegation.profileId,
+            assignedByUserId: delegation.delegatedByUserId,
+            status: "active",
+            createdAt: now,
+            updatedAt: now,
+            revokedAt: null,
+          })
+          .execute();
+      }
+    }
+    await transaction
+      .updateTable("corporateRoleDelegations")
+      .set({
+        status: normalizedDecision === "accept" ? "accepted" : "rejected",
+        assignmentId,
+        respondedAt: now,
+        updatedAt: now,
+      })
+      .where("id", "=", delegation.id)
+      .where("status", "=", "pending")
+      .executeTakeFirstOrThrow();
+  });
+  await recordSecurityEvent(
+    normalizedDecision === "accept"
+      ? "corporate_role_accepted"
+      : "corporate_role_rejected",
+    auth.userId,
+    { delegationId: delegation.id, profileId: delegation.profileId },
+  );
+  return { status: normalizedDecision === "accept" ? "accepted" : "rejected" };
+}
+
+export async function renounceCompanyRole(
+  auth: AuthenticatedUser,
+  profileValue: unknown,
+) {
+  await requireStaff(auth);
+  const profileId = companyProfile(profileValue);
+  const now = Date.now();
+  const assignment = await db
+    .updateTable("corporateRoleAssignments")
+    .set({ status: "revoked", revokedAt: now, updatedAt: now })
+    .where("userId", "=", auth.userId)
+    .where("profileId", "=", profileId)
+    .where("status", "=", "active")
+    .returning("id")
+    .executeTakeFirst();
+  if (!assignment) {
+    throw new UmfSupportNotFoundError("Active company role not found");
+  }
+  await db
+    .updateTable("corporateRoleDelegations")
+    .set({ status: "renounced", respondedAt: now, updatedAt: now })
+    .where("assignmentId", "=", assignment.id)
+    .where("status", "=", "accepted")
+    .execute();
+  await recordSecurityEvent("corporate_role_renounced", auth.userId, {
+    assignmentId: assignment.id,
+    profileId,
+  });
+}
+
+export async function selfEnableCompanyRole(
+  auth: AuthenticatedUser,
+  profileValue: unknown,
+) {
+  await requireCompanyHead(auth);
+  const profileId = companyProfile(profileValue);
+  const existing = await db
+    .selectFrom("corporateRoleAssignments")
+    .select("id")
+    .where("userId", "=", auth.userId)
+    .where("profileId", "=", profileId)
+    .where("status", "=", "active")
+    .executeTakeFirst();
+  if (existing) return;
+  const now = Date.now();
+  const assignmentId = `corporate-role-${randomBytes(12).toString("hex")}`;
+  await db
+    .insertInto("corporateRoleAssignments")
+    .values({
+      id: assignmentId,
+      userId: auth.userId,
+      profileId,
+      assignedByUserId: auth.userId,
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+      revokedAt: null,
+    })
+    .execute();
+  await recordSecurityEvent("corporate_role_self_enabled", auth.userId, {
+    assignmentId,
+    profileId,
+  });
 }
 
 export async function updateUmfSupportStaff(

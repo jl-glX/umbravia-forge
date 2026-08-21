@@ -3,6 +3,24 @@ import { authFetch } from "./api";
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export type UmfSupportRole = "director" | "agent";
+export type CompanyPosition =
+  | "platform_head"
+  | "area_head"
+  | "team_lead"
+  | "staff"
+  | "external_collaborator";
+export type CorporateModuleProfile =
+  | "manager-core"
+  | "manager-coordinator"
+  | "manager-flow-administrator"
+  | "manager-account"
+  | "manager-security"
+  | "manager-resource"
+  | "manager-encryption"
+  | "manager-environment"
+  | "manager-email"
+  | "manager-notification"
+  | "manager-support";
 export type UmfTicketStatus =
   "open" | "in_progress" | "waiting_on_requester" | "resolved" | "closed";
 export type UmfTicketPriority = "low" | "normal" | "high" | "urgent";
@@ -13,6 +31,7 @@ export interface UmfSupportCapabilities {
   role: UmfSupportRole;
   canReviewAccess: boolean;
   canManageTeam: boolean;
+  canManageCompanyRoles: boolean;
   email: {
     outbound: boolean;
     inbound: boolean;
@@ -49,6 +68,30 @@ export interface UmfSupportStaffMember {
   role: UmfSupportRole;
   status: "active" | "revoked";
   createdAt: number;
+}
+
+export interface CompanyStaffMember {
+  userId: string;
+  name: string;
+  lastName: string;
+  email: string;
+  position: CompanyPosition;
+  reportsToUserId: string | null;
+  managerName: string | null;
+  managerLastName: string | null;
+  status: "active" | "revoked";
+  createdAt: number;
+}
+
+export interface CompanyRoleDelegation {
+  id: string;
+  profileId: CorporateModuleProfile;
+  recipientUserId: string;
+  recipientName: string;
+  recipientLastName: string;
+  status: "pending" | "accepted" | "rejected" | "withdrawn" | "renounced";
+  createdAt: number;
+  respondedAt: number | null;
 }
 
 export interface UmfSupportTicketSummary {
@@ -264,6 +307,81 @@ export function rejectAccess(requestId: string) {
 
 export async function fetchStaff() {
   return (await request<{ staff: UmfSupportStaffMember[] }>("/staff")).staff;
+}
+
+export async function fetchCompanyStaff() {
+  return (await request<{ staff: CompanyStaffMember[] }>("/company-staff"))
+    .staff;
+}
+
+export function updateCompanyStaff(
+  userId: string,
+  input: {
+    position: Exclude<CompanyPosition, "platform_head">;
+    reportsToUserId?: string | null;
+    status: "active" | "revoked";
+  },
+) {
+  return request<void>(`/company-staff/${encodeURIComponent(userId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchCompanyRoleDelegations() {
+  return (
+    await request<{ delegations: CompanyRoleDelegation[] }>(
+      "/company-delegations",
+    )
+  ).delegations;
+}
+
+export function delegateCompanyRole(input: {
+  profileId: CorporateModuleProfile;
+  recipientUserId: string;
+}) {
+  return request<{ id: string; pending: true }>("/company-delegations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function respondToCompanyRoleDelegation(
+  delegationId: string,
+  decision: "accept" | "reject",
+) {
+  return request<{ status: "accepted" | "rejected" }>(
+    `/company-delegations/${encodeURIComponent(delegationId)}/respond`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ decision }),
+    },
+  );
+}
+
+export function renounceCompanyRole(profileId: CorporateModuleProfile) {
+  return request<void>(
+    `/company-roles/${encodeURIComponent(profileId)}/renounce`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    },
+  );
+}
+
+export function selfEnableCompanyRole(profileId: CorporateModuleProfile) {
+  return request<void>(
+    `/company-roles/${encodeURIComponent(profileId)}/self-enable`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    },
+  );
 }
 
 export function updateStaff(

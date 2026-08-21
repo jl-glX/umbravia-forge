@@ -58,7 +58,13 @@ export type SecurityEventType =
   | "umf_support_access_rejected"
   | "umf_support_activation_failed"
   | "umf_support_account_activated"
-  | "umf_support_staff_changed";
+  | "umf_support_staff_changed"
+  | "corporate_role_delegated"
+  | "corporate_role_accepted"
+  | "corporate_role_rejected"
+  | "corporate_role_renounced"
+  | "corporate_role_self_enabled"
+  | "company_staff_updated";
 
 export async function recordSecurityEvent(
   type: SecurityEventType,

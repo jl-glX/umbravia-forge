@@ -14,16 +14,23 @@ import {
   activateUmfSupportAccount,
   approveUmfSupportAccess,
   createUmfSupportTicket,
+  delegateCompanyRole,
   getUmfSupportCapabilities,
   getUmfSupportDistribution,
   getUmfSupportTicket,
+  listCompanyStaff,
+  listCompanyRoleDelegations,
   listUmfSupportAccessRequests,
   listUmfSupportMailbox,
   listUmfSupportStaff,
   listUmfSupportTickets,
   rejectUmfSupportAccess,
+  renounceCompanyRole,
   replyToUmfSupportTicket,
   requestUmfSupportAccess,
+  respondToCompanyRoleDelegation,
+  selfEnableCompanyRole,
+  updateCompanyStaff,
   updateUmfSupportStaff,
   updateUmfSupportTicket,
 } from "../services/umf-support.js";
@@ -158,6 +165,115 @@ umfSupportRouter.get("/staff", async (_req, res, next) => {
     next(error);
   }
 });
+
+umfSupportRouter.get("/company-staff", async (_req, res, next) => {
+  try {
+    res.json({ staff: await listCompanyStaff(getAuthenticatedUser(res)) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+umfSupportRouter.patch(
+  "/company-staff/:userId",
+  supportMutationLimiter,
+  requireRecentFormVerification,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, ["position", "reportsToUserId", "status"]);
+      await updateCompanyStaff(
+        getAuthenticatedUser(res),
+        req.params.userId,
+        req.body,
+      );
+      res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.get("/company-delegations", async (_req, res, next) => {
+  try {
+    res.json({
+      delegations: await listCompanyRoleDelegations(getAuthenticatedUser(res)),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+umfSupportRouter.post(
+  "/company-delegations",
+  supportMutationLimiter,
+  requireRecentFormVerification,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, ["profileId", "recipientUserId"]);
+      res
+        .status(201)
+        .json(await delegateCompanyRole(getAuthenticatedUser(res), req.body));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.post(
+  "/company-delegations/:delegationId/respond",
+  supportMutationLimiter,
+  requireRecentFormVerification,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, ["decision"]);
+      res.json(
+        await respondToCompanyRoleDelegation(
+          getAuthenticatedUser(res),
+          req.params.delegationId,
+          req.body.decision,
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.post(
+  "/company-roles/:profileId/renounce",
+  supportMutationLimiter,
+  requireRecentFormVerification,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, []);
+      await renounceCompanyRole(
+        getAuthenticatedUser(res),
+        req.params.profileId,
+      );
+      res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.post(
+  "/company-roles/:profileId/self-enable",
+  supportMutationLimiter,
+  requireRecentFormVerification,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, []);
+      await selfEnableCompanyRole(
+        getAuthenticatedUser(res),
+        req.params.profileId,
+      );
+      res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 umfSupportRouter.patch(
   "/staff/:userId",

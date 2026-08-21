@@ -119,6 +119,161 @@ describe("corporate manager terminal security", () => {
     });
   });
 
+  it("returns delegated modules to the company head when assignments disappear", async () => {
+    const now = Date.now();
+    await database.db
+      .insertInto("users")
+      .values([
+        {
+          id: "company-platform-head",
+          email: "company-platform-head@example.test",
+          phone: null,
+          name: "Platform Head",
+          avatarDataUrl: "",
+          password: "not-used-by-this-test",
+          role: "admin",
+          sessionIdleTimeoutMinutes: 15,
+          createdAt: now,
+        },
+        {
+          id: "company-support-lead",
+          email: "company-support-lead@example.test",
+          phone: null,
+          name: "Support Lead",
+          avatarDataUrl: "",
+          password: "not-used-by-this-test",
+          role: "admin",
+          sessionIdleTimeoutMinutes: 15,
+          createdAt: now,
+        },
+      ])
+      .execute();
+    await database.db
+      .insertInto("companyStaffProfiles")
+      .values([
+        {
+          userId: "company-platform-head",
+          position: "platform_head",
+          reportsToUserId: null,
+          status: "active",
+          appointedByUserId: "company-platform-head",
+          createdAt: now,
+          updatedAt: now,
+          revokedAt: null,
+        },
+        {
+          userId: "company-support-lead",
+          position: "area_head",
+          reportsToUserId: "company-platform-head",
+          status: "active",
+          appointedByUserId: "company-platform-head",
+          createdAt: now,
+          updatedAt: now,
+          revokedAt: null,
+        },
+      ])
+      .execute();
+    await database.db
+      .insertInto("umfSupportStaff")
+      .values({
+        userId: "company-support-lead",
+        role: "agent",
+        status: "active",
+        approvedByUserId: "company-platform-head",
+        createdAt: now,
+        updatedAt: now,
+        revokedAt: null,
+      })
+      .execute();
+
+    const initial = await managerConsole.getCorporateConsoleAccess(
+      "company-platform-head",
+      true,
+    );
+    expect(initial).toMatchObject({ companyHead: true, enabled: true });
+    expect(initial.profileIds).toContain("manager-support");
+    expect(initial.automaticProfileIds).toContain("manager-support");
+
+    await database.db
+      .insertInto("corporateRoleDelegations")
+      .values({
+        id: "corporate-delegation-pending-support",
+        profileId: "manager-support",
+        delegatedByUserId: "company-platform-head",
+        recipientUserId: "company-support-lead",
+        status: "pending",
+        assignmentId: null,
+        createdAt: now,
+        respondedAt: null,
+        updatedAt: now,
+      })
+      .execute();
+    const awaitingDecision = await managerConsole.getCorporateConsoleAccess(
+      "company-platform-head",
+      true,
+    );
+    expect(awaitingDecision.profileIds).not.toContain("manager-support");
+
+    await database.db
+      .updateTable("umfSupportStaff")
+      .set({ status: "revoked", revokedAt: Date.now() })
+      .where("userId", "=", "company-support-lead")
+      .execute();
+    const unavailableRecipient = await managerConsole.getCorporateConsoleAccess(
+      "company-platform-head",
+      true,
+    );
+    expect(unavailableRecipient.profileIds).toContain("manager-support");
+    await database.db
+      .updateTable("umfSupportStaff")
+      .set({ status: "active", revokedAt: null })
+      .where("userId", "=", "company-support-lead")
+      .execute();
+
+    await database.db
+      .updateTable("corporateRoleDelegations")
+      .set({ status: "rejected", respondedAt: Date.now() })
+      .where("id", "=", "corporate-delegation-pending-support")
+      .execute();
+    const rejected = await managerConsole.getCorporateConsoleAccess(
+      "company-platform-head",
+      true,
+    );
+    expect(rejected.profileIds).toContain("manager-support");
+
+    await database.db
+      .insertInto("corporateRoleAssignments")
+      .values({
+        id: "corporate-role-delegated-support",
+        userId: "company-support-lead",
+        profileId: "manager-support",
+        assignedByUserId: "company-platform-head",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+        revokedAt: null,
+      })
+      .execute();
+    const delegated = await managerConsole.getCorporateConsoleAccess(
+      "company-platform-head",
+      true,
+    );
+    expect(delegated.profileIds).not.toContain("manager-support");
+    expect(delegated.profileIds).toContain("manager-email");
+
+    await database.db
+      .updateTable("corporateRoleAssignments")
+      .set({ status: "revoked", revokedAt: Date.now() })
+      .where("id", "=", "corporate-role-delegated-support")
+      .execute();
+    const restored = await managerConsole.getCorporateConsoleAccess(
+      "company-platform-head",
+      true,
+    );
+    expect(restored.profileIds).toContain("manager-support");
+    expect(restored.automaticProfileIds).toContain("manager-support");
+  });
+
   it("exposes an isolated Linux workspace without host or secret access", async () => {
     const userId = await createManager("safe-commands");
     const identity = await createExternalIdentity(userId);

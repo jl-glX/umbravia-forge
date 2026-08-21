@@ -44,6 +44,16 @@ historial de trabajo.
   personal solo puede crear su cuenta después de aprobación manual y consumo
   de un código temporal de un solo uso. Una cuenta administradora de centro no
   recibe acceso corporativo por su rol.
+- La plantilla empresarial usa `companyStaffProfiles` y queda separada de los
+  permisos. El alta inicial exige una cuenta existente, correo repetido y
+  `--apply`; falla si ya hay otra persona activa y crea una única jefatura de
+  plataforma, dirección de soporte y operador global sin fijar una identidad
+  en el código. Los módulos vacantes quedan bajo cobertura automática de la
+  jefatura; una asignación activa o delegación pendiente la suspende solo para
+  ese módulo. Aceptación, rechazo, renuncia y revocación son estados auditables.
+  Las cuentas aprobadas de soporte se incorporan expresamente a la plantilla;
+  retirarlas conserva el registro, revoca sus asignaciones y devuelve los
+  módulos sin responsable a la cobertura de la jefatura.
 - UMF Support incorpora tickets, bandejas de entrada y salida, mensajes
   cifrados, categoría de privacidad y un webhook de correo firmado. El código
   y sus pruebas no demuestran que el buzón, DNS, Worker, SMTP, rebotes o
@@ -54,12 +64,15 @@ historial de trabajo.
   la revisión jurídica antes de un despliegue abierto.
 - `npm run package:windows-web-apps` prepara un ZIP de prueba con lanzadores web
   separados para UMF Support y la aplicación principal. No contiene secretos
-  ni servidor, no requiere elevación y todavía necesita firma de código y una
-  prueba humana en un equipo Windows limpio. GitHub Actions conserva el ZIP
-  como artefacto temporal cuando la validación es favorable.
+  ni servidor y no requiere elevación. El instalador de UMF Support se ha
+  comprobado en un perfil Windows real: detecta paquetes incompletos, mantiene
+  el resultado visible, crea accesos en Escritorio e Inicio y abre la aplicación
+  web instalada. Todavía necesita firma de código y una prueba humana en un
+  equipo Windows limpio antes de distribuirlo de forma general. GitHub Actions
+  conserva el ZIP como artefacto temporal cuando la validación es favorable.
 - La auditoría integral del cambio se conserva en
   `docs/UMF-SUPPORT-READINESS-AUDIT-2026-08-21.md`. La puerta local
-  `npm run ci:validate` terminó favorablemente con 111 archivos de prueba, 545
+  `npm run ci:validate` terminó favorablemente con 112 archivos de prueba, 549
   pruebas favorables y una omitida; el empaquetado de despliegue auditó 297
   archivos. Estas cifras describen el checkout del cambio y no sustituyen la
   validación humana ni la comprobación del entorno desplegado.

@@ -1499,6 +1499,7 @@
     "footer": {
       "navigation": "Legal links",
       "notice": "Legal notice",
+      "privacy": "Privacy policy",
       "terms": "Terms and conditions",
       "use": "Conditions of use"
     },
@@ -2326,24 +2327,72 @@
       "inbox": "Inbox",
       "outbox": "Sent",
       "access": "Access",
-      "team": "Team"
+      "team": "Team",
+      "company": "Company"
     },
     "headings": {
       "tickets": "Ticket queue",
       "inbox": "Received mail",
       "outbox": "Sent mail",
       "access": "Access requests",
-      "team": "Support staff"
+      "team": "Support staff",
+      "company": "Company staff"
     },
     "descriptions": {
       "tickets": "Platform incidents kept separate from each facility's own support.",
       "inbox": "Messages received through configured corporate channels.",
       "outbox": "Prepared replies and their delivery state.",
       "access": "Manual approval before any account is created.",
-      "team": "Corporate authority independent from facility permissions."
+      "team": "Corporate authority independent from facility permissions.",
+      "company": "Visible company positions kept separate from technical permissions."
     },
     "role": { "director": "Director", "agent": "Agent" },
+    "companyPosition": {
+      "platform_head": "Head of platform",
+      "area_head": "Head of area",
+      "team_lead": "Team lead",
+      "staff": "Staff",
+      "external_collaborator": "External collaborator"
+    },
     "staffStatus": { "active": "Active", "revoked": "Revoked" },
+    "reportsTo": "Reports to {{name}}",
+    "unknownManager": "unavailable manager",
+    "emptyCompanyStaff": "No one has been added to the company staff yet.",
+    "companyStaffCandidate": "Approved support account",
+    "companyStaffPosition": "Company position",
+    "selectSupportStaff": "Select an active account",
+    "addCompanyStaff": "Add to company staff",
+    "removeCompanyStaff": "Remove from company staff",
+    "delegationRecipient": "Recipient",
+    "delegationModule": "Module",
+    "selectCompanyStaff": "Select a person",
+    "delegateRole": "Offer delegation",
+    "roleDelegations": "Module delegations",
+    "acceptDelegation": "Accept",
+    "rejectDelegation": "Reject",
+    "renounceRole": "Renounce permission",
+    "keepRoleAccess": "Enable me too",
+    "emptyDelegations": "No delegations have been recorded.",
+    "moduleProfile": {
+      "manager-core": "Manager core",
+      "manager-coordinator": "Manager coordination",
+      "manager-flow-administrator": "Flow administration",
+      "manager-account": "Accounts",
+      "manager-security": "Security",
+      "manager-resource": "Resources",
+      "manager-encryption": "Encryption",
+      "manager-environment": "Environments",
+      "manager-email": "Email",
+      "manager-notification": "Notifications",
+      "manager-support": "Support"
+    },
+    "delegationStatus": {
+      "pending": "Awaiting decision",
+      "accepted": "Accepted",
+      "rejected": "Rejected",
+      "withdrawn": "Withdrawn",
+      "renounced": "Renounced"
+    },
     "status": {
       "open": "Open",
       "in_progress": "In progress",
@@ -2411,7 +2460,14 @@
       "replySaved": "Reply saved.",
       "accessApprovedSent": "Access approved and code sent.",
       "accessApprovedManual": "Access approved. Automatic delivery is unavailable; use the displayed code for secure manual delivery.",
-      "accessRejected": "Request rejected."
+      "accessRejected": "Request rejected.",
+      "roleDelegated": "Delegation offered; it does not grant access yet.",
+      "roleAccepted": "Delegation accepted and permission enabled.",
+      "roleRejected": "Delegation rejected without granting access.",
+      "roleRenounced": "Permission renounced and revoked.",
+      "roleSelfEnabled": "Own access to the module explicitly enabled.",
+      "companyStaffAdded": "Person added to company staff without automatic technical permissions.",
+      "companyStaffRevoked": "Person removed from company staff and modules returned to vacancy coverage."
     },
     "errors": {
       "load": "UMF Support could not be loaded.",

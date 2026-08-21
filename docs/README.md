@@ -30,7 +30,8 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Núcleo de gestores](./MANAGER-CORE.md)
 - [Forge Analytics](./FORGE-ANALYTICS.md)
 - [Forge Support](./FORGE-SUPPORT.md)
-- [UMF Support corporativo](./UMF-SUPPORT.md)
+- [UMF Support corporativo](./UMF-SUPPORT.md), incluida la plantilla separada,
+  las delegaciones modulares y el correo operativo de plataforma
 - [Forge Notify](./FORGE-NOTIFY.md)
 - [Gestor de bases y entornos](./DATABASE-ENVIRONMENT-MANAGER.md)
 - [Política de dependencias](./dependency-policy.md)

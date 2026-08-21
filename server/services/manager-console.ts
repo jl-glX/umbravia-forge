@@ -42,6 +42,8 @@ export interface CorporateConsoleAccess {
   profileIds: CorporateManagerProfileId[];
   priority: number | null;
   temporaryProfileIds?: CorporateManagerProfileId[];
+  companyHead?: boolean;
+  automaticProfileIds?: CorporateManagerProfileId[];
 }
 
 export interface ManagerTerminalSessionIdentity {
@@ -215,6 +217,7 @@ function accessFromProfiles(
     .filter((profile): profile is CorporateConsoleProfile => Boolean(profile))
     .sort((left, right) => left.priority - right.priority)[0];
   return {
+    ...base,
     enabled: Boolean(authority),
     authorityProfileId: authority?.id ?? null,
     profileIds,
@@ -670,6 +673,75 @@ export async function getCorporateConsoleAccess(
   platformOperator = false,
 ): Promise<CorporateConsoleAccess> {
   if (platformOperator) {
+    const companyHead = await db
+      .selectFrom("companyStaffProfiles")
+      .select("userId")
+      .where("userId", "=", userId)
+      .where("position", "=", "platform_head")
+      .where("status", "=", "active")
+      .executeTakeFirst();
+    if (companyHead) {
+      const [assignments, pendingDelegations] = await Promise.all([
+        db
+          .selectFrom("corporateRoleAssignments")
+          .innerJoin(
+            "companyStaffProfiles",
+            "companyStaffProfiles.userId",
+            "corporateRoleAssignments.userId",
+          )
+          .select([
+            "corporateRoleAssignments.userId",
+            "corporateRoleAssignments.profileId",
+          ])
+          .where("corporateRoleAssignments.status", "=", "active")
+          .where("companyStaffProfiles.status", "=", "active")
+          .execute(),
+        db
+          .selectFrom("corporateRoleDelegations")
+          .innerJoin(
+            "companyStaffProfiles",
+            "companyStaffProfiles.userId",
+            "corporateRoleDelegations.recipientUserId",
+          )
+          .innerJoin(
+            "umfSupportStaff",
+            "umfSupportStaff.userId",
+            "corporateRoleDelegations.recipientUserId",
+          )
+          .select("corporateRoleDelegations.profileId")
+          .where("corporateRoleDelegations.status", "=", "pending")
+          .where("companyStaffProfiles.status", "=", "active")
+          .where("umfSupportStaff.status", "=", "active")
+          .execute(),
+      ]);
+      const delegated = new Set([
+        ...assignments.map((assignment) => assignment.profileId),
+        ...pendingDelegations.map((delegation) => delegation.profileId),
+      ]);
+      const explicit = new Set(
+        assignments
+          .filter((assignment) => assignment.userId === userId)
+          .map((assignment) => assignment.profileId),
+      );
+      const automaticProfileIds = [...assignmentProfileIds].filter(
+        (profileId) => !delegated.has(profileId),
+      );
+      const profileIds = [...new Set([...automaticProfileIds, ...explicit])];
+      const authority = profileIds
+        .map((id) => profileById(id))
+        .filter((profile): profile is CorporateConsoleProfile =>
+          Boolean(profile),
+        )
+        .sort((left, right) => left.priority - right.priority)[0];
+      return {
+        enabled: Boolean(authority),
+        authorityProfileId: authority?.id ?? null,
+        profileIds,
+        priority: authority?.priority ?? null,
+        companyHead: true,
+        automaticProfileIds,
+      };
+    }
     return {
       enabled: true,
       authorityProfileId: "umbravia-forge",
@@ -703,6 +775,15 @@ function canViewProfile(
   if (!access.enabled || access.priority === null) return false;
   if (access.priority === 0) return true;
   if (profile.id === "umbravia-forge") return true;
+  if (access.companyHead) {
+    if (
+      profile.id === "manager-cryptographic-material-replacement" &&
+      access.profileIds.includes("manager-encryption")
+    ) {
+      return true;
+    }
+    return access.profileIds.includes(profile.id as CorporateManagerProfileId);
+  }
   if (access.priority <= 3) return profile.priority >= access.priority;
   if (access.profileIds.includes(profile.id as CorporateManagerProfileId)) {
     return true;
@@ -722,6 +803,7 @@ function assertCanManageProfile(
       "The requested corporate profile is not assignable",
     );
   }
+  if (access.companyHead) return;
   const profile = profileById(profileId as CorporateManagerProfileId)!;
   if (
     !access.enabled ||

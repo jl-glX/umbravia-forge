@@ -17,7 +17,13 @@ Instalación:
 1. Extrae todo el ZIP en una carpeta nueva.
 2. Comprueba SHA256SUMS.txt si el archivo procede de una descarga.
 3. Ejecuta Instalar-UMF-Support.cmd o Instalar-Umbravia-Forge.cmd.
-4. Usa el acceso creado en el escritorio o en el menú Inicio.
+4. El instalador abre la aplicación y mantiene la ventana visible hasta que
+   confirmes el resultado. Después puedes usar el acceso creado en el
+   escritorio o en el menú Inicio.
+
+Si aparece el aviso de que faltan archivos, se está ejecutando directamente
+desde el visor del ZIP o se ha extraído solo el CMD. Extrae siempre el contenido
+completo en una carpeta antes de instalar.
 
 Desinstalación:
 

@@ -2257,6 +2257,71 @@ CREATE INDEX IF NOT EXISTS "idx_umfSupportMessages_ticket"
   ON "umfSupportMessages" ("ticketId", "createdAt");
 `,
   },
+  {
+    version: 37,
+    name: "company-staff-directory",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "companyStaffProfiles" (
+  "userId" TEXT PRIMARY KEY REFERENCES "users" ("id") ON DELETE CASCADE,
+  "position" TEXT NOT NULL CHECK ("position" IN (
+    'platform_head',
+    'area_head',
+    'team_lead',
+    'staff',
+    'external_collaborator'
+  )),
+  "reportsToUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "status" TEXT NOT NULL DEFAULT 'active' CHECK ("status" IN ('active', 'revoked')),
+  "appointedByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  "revokedAt" BIGINT,
+  CHECK ("reportsToUserId" IS NULL OR "reportsToUserId" <> "userId")
+);
+CREATE INDEX IF NOT EXISTS "idx_companyStaffProfiles_directory"
+  ON "companyStaffProfiles" ("status", "position", "userId");
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_companyStaffProfiles_active_head"
+  ON "companyStaffProfiles" ("position")
+  WHERE "position" = 'platform_head' AND "status" = 'active';
+`,
+  },
+  {
+    version: 38,
+    name: "corporate-role-delegations",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "corporateRoleDelegations" (
+  "id" TEXT PRIMARY KEY,
+  "profileId" TEXT NOT NULL CHECK ("profileId" IN (
+    'manager-core',
+    'manager-coordinator',
+    'manager-flow-administrator',
+    'manager-account',
+    'manager-security',
+    'manager-resource',
+    'manager-encryption',
+    'manager-environment',
+    'manager-email',
+    'manager-notification',
+    'manager-support'
+  )),
+  "delegatedByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "recipientUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "status" TEXT NOT NULL DEFAULT 'pending' CHECK ("status" IN (
+    'pending', 'accepted', 'rejected', 'withdrawn', 'renounced'
+  )),
+  "assignmentId" TEXT REFERENCES "corporateRoleAssignments" ("id") ON DELETE SET NULL,
+  "createdAt" BIGINT NOT NULL,
+  "respondedAt" BIGINT,
+  "updatedAt" BIGINT NOT NULL,
+  CHECK ("delegatedByUserId" <> "recipientUserId")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_corporateRoleDelegations_pending"
+  ON "corporateRoleDelegations" ("recipientUserId", "profileId")
+  WHERE "status" = 'pending';
+CREATE INDEX IF NOT EXISTS "idx_corporateRoleDelegations_recipient"
+  ON "corporateRoleDelegations" ("recipientUserId", "status", "createdAt" DESC);
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

@@ -34,6 +34,9 @@ un modo sin conexión; véase
   expresamente términos y privacidad;
 - personal corporativo con roles `director` y `agent`, revocable sin alterar
   las membresías de centros;
+- directorio de plantilla con cargos empresariales separados de la
+  autorización: jefe de plataforma, responsable de área, jefe de equipo,
+  personal y colaboración externa;
 - cola de tickets con categorías, prioridad, estado, asignación, objetivos de
   primera respuesta y resolución;
 - categoría propia de privacidad y derechos;
@@ -54,6 +57,44 @@ Los operadores activos de `platformOperators` son la autoridad de dirección
 inicial. No se fija en el código el nombre, el correo ni una contraseña de una
 persona concreta. Las incorporaciones posteriores necesitan la aprobación de
 esa autoridad y no pueden autoasignarse el rol de dirección.
+
+## Plantilla, módulos y delegaciones
+
+`companyStaffProfiles` describe el organigrama visible. El cargo empresarial no
+abre rutas, no selecciona centros y no concede acceso a gestores. La autoridad
+técnica se mantiene en `platformOperators`, el trabajo diario de soporte en
+`umfSupportStaff` y los módulos corporativos en `corporateRoleAssignments`.
+
+La jefatura de plataforma cubre automáticamente los módulos sin responsable.
+Una asignación activa o una delegación pendiente dirigida a personal activo
+detiene esa cobertura solo para el módulo correspondiente. La persona receptora
+puede aceptar o rechazar la delegación; después de aceptarla puede renunciar al
+permiso. Al revocar, rechazar, renunciar o eliminar legítimamente la asignación,
+el módulo vuelve a la cobertura automática si no existe otra persona capaz de
+decidir sobre una delegación pendiente. La jefatura puede habilitarse también
+de forma explícita en un módulo delegado.
+
+Una cuenta de soporte aprobada no entra por sí sola en la plantilla. La
+jefatura debe incorporarla desde el directorio y asignarle un cargo empresarial
+que, por sí mismo, no abre ningún módulo. Retirar a una persona conserva la
+trazabilidad, revoca sus asignaciones técnicas activas y retira sus delegaciones
+pendientes o aceptadas; los módulos vuelven entonces a la cobertura vacante.
+La jefatura inicial no puede modificarse desde este flujo ordinario.
+
+La primera incorporación se realiza de forma controlada sobre una cuenta ya
+existente y activa. El comando es una simulación mientras no se añada `--apply`,
+exige repetir el mismo correo y falla si detecta otra persona activa en la
+plantilla:
+
+```text
+npm run company:provision-head -- --email <cuenta> --confirm-email <cuenta>
+npm run company:provision-head -- --email <cuenta> --confirm-email <cuenta> --apply
+```
+
+El resultado inicial es una única persona con cargo visible `platform_head`,
+dirección de UMF Support y autoridad de operador de plataforma. El comando no
+crea cuentas ni contraseñas, no imprime secretos y no usa el cargo empresarial
+como fuente de autorización.
 
 ## Flujo de una solicitud de privacidad
 
@@ -127,6 +168,13 @@ POST   /api/umf-support/access-requests/:requestId/approve
 POST   /api/umf-support/access-requests/:requestId/reject
 GET    /api/umf-support/staff
 PATCH  /api/umf-support/staff/:userId
+GET    /api/umf-support/company-staff
+PATCH  /api/umf-support/company-staff/:userId
+GET    /api/umf-support/company-delegations
+POST   /api/umf-support/company-delegations
+POST   /api/umf-support/company-delegations/:delegationId/respond
+POST   /api/umf-support/company-roles/:profileId/renounce
+POST   /api/umf-support/company-roles/:profileId/self-enable
 GET    /api/umf-support/tickets
 POST   /api/umf-support/tickets
 GET    /api/umf-support/tickets/:ticketId

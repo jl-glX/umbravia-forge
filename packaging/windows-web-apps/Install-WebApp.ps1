@@ -10,6 +10,7 @@ param(
   [string]$InstallRoot = "",
 
   [switch]$TestMode,
+  [switch]$Launch,
   [switch]$Uninstall
 )
 
@@ -20,6 +21,9 @@ if ($customInstallRoot -and -not $TestMode) {
 }
 if ($TestMode -and $Uninstall) {
   throw "TestMode no puede combinarse con Uninstall."
+}
+if ($TestMode -and $Launch) {
+  throw "TestMode no puede combinarse con Launch."
 }
 $product = if ($Application -eq "umf-support") {
   @{
@@ -108,6 +112,7 @@ $manifest = [ordered]@{
   installedAt = (Get-Date).ToUniversalTime().ToString("o")
   storesCredentials = $false
   testPackage = $true
+  launchRequested = [bool]$Launch
 }
 $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $installDirectory "installation.json") -Encoding UTF8
 
@@ -133,3 +138,14 @@ foreach ($shortcutPath in @(
 
 Write-Host "$($product.Name) se ha instalado para el usuario actual."
 Write-Host "La aplicacion usa $url y no guarda credenciales dentro del paquete."
+if ($Launch) {
+  try {
+    Start-Process -FilePath $edgePath -ArgumentList @(
+      "--app=$url",
+      "--start-maximized"
+    )
+    Write-Host "$($product.Name) se ha abierto en Microsoft Edge."
+  } catch {
+    Write-Warning "La instalacion termino, pero no se pudo abrir la aplicacion. Usa el acceso directo creado."
+  }
+}

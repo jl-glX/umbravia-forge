@@ -890,6 +890,24 @@ interface PlatformOperator {
 
 export type UmfSupportRole = "director" | "agent";
 
+export type CompanyPosition =
+  | "platform_head"
+  | "area_head"
+  | "team_lead"
+  | "staff"
+  | "external_collaborator";
+
+interface CompanyStaffProfile {
+  userId: string;
+  position: CompanyPosition;
+  reportsToUserId: string | null;
+  status: "active" | "revoked";
+  appointedByUserId: string;
+  createdAt: number;
+  updatedAt: number;
+  revokedAt: number | null;
+}
+
 interface UmfSupportStaff {
   userId: string;
   role: UmfSupportRole;
@@ -980,6 +998,18 @@ interface CorporateRoleAssignment {
   createdAt: number;
   updatedAt: number;
   revokedAt: number | null;
+}
+
+interface CorporateRoleDelegation {
+  id: string;
+  profileId: CorporateManagerProfileId;
+  delegatedByUserId: string;
+  recipientUserId: string;
+  status: "pending" | "accepted" | "rejected" | "withdrawn" | "renounced";
+  assignmentId: string | null;
+  createdAt: number;
+  respondedAt: number | null;
+  updatedAt: number;
 }
 
 export type ManagerOrganizationalUnitKind = "department" | "workgroup";
@@ -1274,11 +1304,13 @@ export interface Database {
   facilityProfiles: FacilityProfile;
   facilityMemberships: FacilityMembership;
   platformOperators: PlatformOperator;
+  companyStaffProfiles: CompanyStaffProfile;
   umfSupportStaff: UmfSupportStaff;
   umfSupportAccessRequests: UmfSupportAccessRequest;
   umfSupportTickets: UmfSupportTicket;
   umfSupportMessages: UmfSupportMessage;
   corporateRoleAssignments: CorporateRoleAssignment;
+  corporateRoleDelegations: CorporateRoleDelegation;
   managerOrganizationalUnits: ManagerOrganizationalUnit;
   managerOrganizationalMemberships: ManagerOrganizationalMembership;
   managerTemporaryPermissions: ManagerTemporaryPermission;

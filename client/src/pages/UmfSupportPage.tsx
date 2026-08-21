@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
+  Building2,
   Check,
   ClipboardList,
   Inbox,
@@ -25,17 +26,28 @@ import { useAuth } from "../hooks/useAuth";
 import {
   approveAccess,
   createTicket,
+  delegateCompanyRole,
   fetchAccessRequests,
   fetchCapabilities,
+  fetchCompanyRoleDelegations,
+  fetchCompanyStaff,
   fetchMailbox,
   fetchStaff,
   fetchTicket,
   fetchTickets,
   rejectAccess,
+  renounceCompanyRole,
   replyTicket,
+  respondToCompanyRoleDelegation,
+  selfEnableCompanyRole,
+  updateCompanyStaff,
   updateStaff,
   updateTicket,
   type UmfMailboxMessage,
+  type CompanyStaffMember,
+  type CompanyRoleDelegation,
+  type CompanyPosition,
+  type CorporateModuleProfile,
   type UmfSupportAccessRequest,
   type UmfSupportCapabilities,
   type UmfSupportStaffMember,
@@ -46,7 +58,7 @@ import {
   type UmfTicketStatus,
 } from "../lib/umf-support";
 
-type View = "tickets" | "inbox" | "outbox" | "access" | "team";
+type View = "tickets" | "inbox" | "outbox" | "access" | "team" | "company";
 const statuses: UmfTicketStatus[] = [
   "open",
   "in_progress",
@@ -63,6 +75,21 @@ const categories: UmfTicketCategory[] = [
   "technical",
   "security",
 ];
+const corporateModuleProfiles: CorporateModuleProfile[] = [
+  "manager-core",
+  "manager-coordinator",
+  "manager-flow-administrator",
+  "manager-account",
+  "manager-security",
+  "manager-resource",
+  "manager-encryption",
+  "manager-environment",
+  "manager-email",
+  "manager-notification",
+  "manager-support",
+];
+const assignableCompanyPositions: Exclude<CompanyPosition, "platform_head">[] =
+  ["area_head", "team_lead", "staff", "external_collaborator"];
 
 function formatDate(value: number, locale: string) {
   return new Intl.DateTimeFormat(locale, {
@@ -83,6 +110,16 @@ export function UmfSupportPage() {
   const [mail, setMail] = useState<UmfMailboxMessage[]>([]);
   const [requests, setRequests] = useState<UmfSupportAccessRequest[]>([]);
   const [staff, setStaff] = useState<UmfSupportStaffMember[]>([]);
+  const [companyStaff, setCompanyStaff] = useState<CompanyStaffMember[]>([]);
+  const [companyDelegations, setCompanyDelegations] = useState<
+    CompanyRoleDelegation[]
+  >([]);
+  const [delegationRecipient, setDelegationRecipient] = useState("");
+  const [companyCandidate, setCompanyCandidate] = useState("");
+  const [companyPosition, setCompanyPosition] =
+    useState<Exclude<CompanyPosition, "platform_head">>("staff");
+  const [delegationProfile, setDelegationProfile] =
+    useState<CorporateModuleProfile>("manager-support");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -132,6 +169,16 @@ export function UmfSupportPage() {
         setRequests(await fetchAccessRequests());
       } else if (view === "team") {
         setStaff(await fetchStaff());
+      } else if (view === "company") {
+        const [currentCompanyStaff, currentDelegations, currentSupportStaff] =
+          await Promise.all([
+            fetchCompanyStaff(),
+            fetchCompanyRoleDelegations(),
+            fetchStaff(),
+          ]);
+        setCompanyStaff(currentCompanyStaff);
+        setCompanyDelegations(currentDelegations);
+        setStaff(currentSupportStaff);
       }
     } catch (cause) {
       setError(
@@ -279,6 +326,116 @@ export function UmfSupportPage() {
     [tickets],
   );
 
+  const refreshCompany = async () => {
+    const [currentCompanyStaff, currentDelegations, currentSupportStaff] =
+      await Promise.all([
+        fetchCompanyStaff(),
+        fetchCompanyRoleDelegations(),
+        fetchStaff(),
+      ]);
+    setCompanyStaff(currentCompanyStaff);
+    setCompanyDelegations(currentDelegations);
+    setStaff(currentSupportStaff);
+  };
+
+  const changeCompanyStaff = async (
+    userId: string,
+    position: Exclude<CompanyPosition, "platform_head">,
+    status: "active" | "revoked",
+  ) => {
+    setWorking(true);
+    setError("");
+    try {
+      await updateCompanyStaff(userId, { position, status });
+      await refreshCompany();
+      setCompanyCandidate("");
+      setNotice(
+        t(
+          status === "active"
+            ? "umfSupport.notices.companyStaffAdded"
+            : "umfSupport.notices.companyStaffRevoked",
+        ),
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
+      );
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const submitCompanyStaff = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!companyCandidate) return;
+    await changeCompanyStaff(companyCandidate, companyPosition, "active");
+  };
+
+  const submitDelegation = async (event: FormEvent) => {
+    event.preventDefault();
+    setWorking(true);
+    setError("");
+    try {
+      await delegateCompanyRole({
+        profileId: delegationProfile,
+        recipientUserId: delegationRecipient,
+      });
+      await refreshCompany();
+      setNotice(t("umfSupport.notices.roleDelegated"));
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
+      );
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const decideDelegation = async (
+    delegationId: string,
+    decision: "accept" | "reject",
+  ) => {
+    setWorking(true);
+    setError("");
+    try {
+      await respondToCompanyRoleDelegation(delegationId, decision);
+      await refreshCompany();
+      setNotice(
+        t(
+          decision === "accept"
+            ? "umfSupport.notices.roleAccepted"
+            : "umfSupport.notices.roleRejected",
+        ),
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
+      );
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const changeOwnCompanyRole = async (
+    operation: () => Promise<unknown>,
+    noticeKey:
+      "umfSupport.notices.roleRenounced" | "umfSupport.notices.roleSelfEnabled",
+  ) => {
+    setWorking(true);
+    setError("");
+    try {
+      await operation();
+      await refreshCompany();
+      setNotice(t(noticeKey));
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
+      );
+    } finally {
+      setWorking(false);
+    }
+  };
+
   if (isInitializing)
     return <p className="p-8 text-slate-600">{t("common.loading")}</p>;
   if (!user) return <Navigate to="/umf-support/access" replace />;
@@ -293,6 +450,7 @@ export function UmfSupportPage() {
       hidden: !capabilities?.canReviewAccess,
     },
     { id: "team", icon: Users },
+    { id: "company", icon: Building2 },
   ];
 
   return (
@@ -922,6 +1080,305 @@ export function UmfSupportPage() {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {view === "company" && (
+            <div className="space-y-5">
+              {capabilities?.canManageCompanyRoles &&
+                staff.some(
+                  (member) =>
+                    member.status === "active" &&
+                    member.userId !== user.id &&
+                    !companyStaff.some(
+                      (companyMember) =>
+                        companyMember.userId === member.userId &&
+                        companyMember.status === "active",
+                    ),
+                ) && (
+                  <form
+                    onSubmit={submitCompanyStaff}
+                    className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
+                  >
+                    <div>
+                      <Label htmlFor="company-staff-candidate">
+                        {t("umfSupport.companyStaffCandidate")}
+                      </Label>
+                      <select
+                        id="company-staff-candidate"
+                        required
+                        value={companyCandidate}
+                        onChange={(event) =>
+                          setCompanyCandidate(event.target.value)
+                        }
+                        className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                      >
+                        <option value="">
+                          {t("umfSupport.selectSupportStaff")}
+                        </option>
+                        {staff
+                          .filter(
+                            (member) =>
+                              member.status === "active" &&
+                              member.userId !== user.id &&
+                              !companyStaff.some(
+                                (companyMember) =>
+                                  companyMember.userId === member.userId &&
+                                  companyMember.status === "active",
+                              ),
+                          )
+                          .map((member) => (
+                            <option key={member.userId} value={member.userId}>
+                              {member.name} {member.lastName}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor="company-staff-position">
+                        {t("umfSupport.companyStaffPosition")}
+                      </Label>
+                      <select
+                        id="company-staff-position"
+                        value={companyPosition}
+                        onChange={(event) =>
+                          setCompanyPosition(
+                            event.target.value as Exclude<
+                              CompanyPosition,
+                              "platform_head"
+                            >,
+                          )
+                        }
+                        className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                      >
+                        {assignableCompanyPositions.map((position) => (
+                          <option key={position} value={position}>
+                            {t(`umfSupport.companyPosition.${position}`)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={working || !companyCandidate}
+                      className="bg-slate-900 hover:bg-slate-800"
+                    >
+                      {t("umfSupport.addCompanyStaff")}
+                    </Button>
+                  </form>
+                )}
+
+              <div className="overflow-hidden rounded-lg border border-slate-200">
+                {companyStaff.map((member) => (
+                  <div
+                    key={member.userId}
+                    className="flex flex-col gap-3 border-b border-slate-200 p-4 last:border-0 sm:flex-row sm:items-center"
+                  >
+                    <Building2 className="text-slate-400" size={20} />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">
+                        {member.name} {member.lastName}
+                      </p>
+                      <p className="truncate text-sm text-slate-500">
+                        {member.email}
+                      </p>
+                      {member.reportsToUserId && (
+                        <p className="mt-1 text-xs text-slate-400">
+                          {t("umfSupport.reportsTo", {
+                            name:
+                              `${member.managerName ?? ""} ${member.managerLastName ?? ""}`.trim() ||
+                              t("umfSupport.unknownManager"),
+                          })}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xs font-semibold text-slate-500">
+                      {t(`umfSupport.companyPosition.${member.position}`)} ·{" "}
+                      {t(`umfSupport.staffStatus.${member.status}`)}
+                    </span>
+                    {capabilities?.canManageCompanyRoles &&
+                      member.userId !== user.id &&
+                      member.status === "active" && (
+                        <Button
+                          variant="outline"
+                          disabled={working}
+                          onClick={() =>
+                            void changeCompanyStaff(
+                              member.userId,
+                              member.position as Exclude<
+                                CompanyPosition,
+                                "platform_head"
+                              >,
+                              "revoked",
+                            )
+                          }
+                        >
+                          {t("umfSupport.removeCompanyStaff")}
+                        </Button>
+                      )}
+                  </div>
+                ))}
+                {!loading && companyStaff.length === 0 && (
+                  <p className="p-8 text-center text-sm text-slate-500">
+                    {t("umfSupport.emptyCompanyStaff")}
+                  </p>
+                )}
+              </div>
+
+              {capabilities?.canManageCompanyRoles &&
+                companyStaff.some(
+                  (member) =>
+                    member.status === "active" && member.userId !== user.id,
+                ) && (
+                  <form
+                    onSubmit={submitDelegation}
+                    className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
+                  >
+                    <div>
+                      <Label htmlFor="company-delegation-recipient">
+                        {t("umfSupport.delegationRecipient")}
+                      </Label>
+                      <select
+                        id="company-delegation-recipient"
+                        required
+                        value={delegationRecipient}
+                        onChange={(event) =>
+                          setDelegationRecipient(event.target.value)
+                        }
+                        className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                      >
+                        <option value="">
+                          {t("umfSupport.selectCompanyStaff")}
+                        </option>
+                        {companyStaff
+                          .filter(
+                            (member) =>
+                              member.status === "active" &&
+                              member.userId !== user.id,
+                          )
+                          .map((member) => (
+                            <option key={member.userId} value={member.userId}>
+                              {member.name} {member.lastName}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor="company-delegation-profile">
+                        {t("umfSupport.delegationModule")}
+                      </Label>
+                      <select
+                        id="company-delegation-profile"
+                        value={delegationProfile}
+                        onChange={(event) =>
+                          setDelegationProfile(
+                            event.target.value as CorporateModuleProfile,
+                          )
+                        }
+                        className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                      >
+                        {corporateModuleProfiles.map((profile) => (
+                          <option key={profile} value={profile}>
+                            {t(`umfSupport.moduleProfile.${profile}`)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={working || !delegationRecipient}
+                      className="bg-slate-900 hover:bg-slate-800"
+                    >
+                      {t("umfSupport.delegateRole")}
+                    </Button>
+                  </form>
+                )}
+
+              <div className="overflow-hidden rounded-lg border border-slate-200">
+                <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                  <h2 className="font-semibold">
+                    {t("umfSupport.roleDelegations")}
+                  </h2>
+                </div>
+                {companyDelegations.map((delegation) => (
+                  <div
+                    key={delegation.id}
+                    className="flex flex-col gap-3 border-b border-slate-200 p-4 last:border-0 sm:flex-row sm:items-center"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">
+                        {t(`umfSupport.moduleProfile.${delegation.profileId}`)}
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        {delegation.recipientName}{" "}
+                        {delegation.recipientLastName}
+                      </p>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-500">
+                      {t(`umfSupport.delegationStatus.${delegation.status}`)}
+                    </span>
+                    {delegation.status === "pending" &&
+                      delegation.recipientUserId === user.id && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            disabled={working}
+                            onClick={() =>
+                              void decideDelegation(delegation.id, "reject")
+                            }
+                          >
+                            {t("umfSupport.rejectDelegation")}
+                          </Button>
+                          <Button
+                            disabled={working}
+                            className="bg-slate-900 hover:bg-slate-800"
+                            onClick={() =>
+                              void decideDelegation(delegation.id, "accept")
+                            }
+                          >
+                            {t("umfSupport.acceptDelegation")}
+                          </Button>
+                        </div>
+                      )}
+                    {delegation.status === "accepted" &&
+                      delegation.recipientUserId === user.id && (
+                        <Button
+                          variant="outline"
+                          disabled={working}
+                          onClick={() =>
+                            void changeOwnCompanyRole(
+                              () => renounceCompanyRole(delegation.profileId),
+                              "umfSupport.notices.roleRenounced",
+                            )
+                          }
+                        >
+                          {t("umfSupport.renounceRole")}
+                        </Button>
+                      )}
+                    {capabilities?.canManageCompanyRoles &&
+                      delegation.recipientUserId !== user.id &&
+                      ["pending", "accepted"].includes(delegation.status) && (
+                        <Button
+                          variant="outline"
+                          disabled={working}
+                          onClick={() =>
+                            void changeOwnCompanyRole(
+                              () => selfEnableCompanyRole(delegation.profileId),
+                              "umfSupport.notices.roleSelfEnabled",
+                            )
+                          }
+                        >
+                          {t("umfSupport.keepRoleAccess")}
+                        </Button>
+                      )}
+                  </div>
+                ))}
+                {!loading && companyDelegations.length === 0 && (
+                  <p className="p-8 text-center text-sm text-slate-500">
+                    {t("umfSupport.emptyDelegations")}
+                  </p>
+                )}
+              </div>
             </div>
           )}
 

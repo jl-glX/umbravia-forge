@@ -51,6 +51,12 @@ pero el paquete todavía no está firmado. Antes de distribuirlo como estable se
 necesita firma de código, publicación mediante HTTPS, hash verificable y una
 prueba en un equipo limpio.
 
+Los instaladores mantienen la consola visible hasta que la persona confirma el
+resultado y abren la aplicación después de crear los accesos. Si el CMD se
+ejecuta sin haber extraído el resto del ZIP, muestran una instrucción explícita
+en lugar de cerrar silenciosamente. Un fallo al abrir Edge no revierte una
+instalación ya completada: el acceso directo permanece disponible.
+
 ## Prueba controlada
 
 El instalador admite `-TestMode` y un directorio explícito para validar la

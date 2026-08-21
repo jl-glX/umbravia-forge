@@ -1514,6 +1514,7 @@
     "footer": {
       "notice": "Rechtlicher Hinweis",
       "navigation": "Rechtliche Links",
+      "privacy": "Datenschutzerklärung",
       "terms": "Geschäftsbedingungen",
       "use": "Nutzungsbedingungen"
     },
@@ -2337,24 +2338,72 @@
       "inbox": "Eingang",
       "outbox": "Gesendet",
       "access": "Zugänge",
-      "team": "Team"
+      "team": "Team",
+      "company": "Belegschaft"
     },
     "headings": {
       "tickets": "Ticket-Warteschlange",
       "inbox": "Empfangene E-Mails",
       "outbox": "Gesendete E-Mails",
       "access": "Zugangsanträge",
-      "team": "Supportpersonal"
+      "team": "Supportpersonal",
+      "company": "Unternehmensbelegschaft"
     },
     "descriptions": {
       "tickets": "Plattformvorfälle getrennt vom eigenen Support der einzelnen Zentren.",
       "inbox": "Nachrichten aus den konfigurierten Unternehmenskanälen.",
       "outbox": "Vorbereitete Antworten und ihr Zustellstatus.",
       "access": "Manuelle Genehmigung vor jeder Kontoerstellung.",
-      "team": "Unternehmensberechtigungen unabhängig von Rechten eines Zentrums."
+      "team": "Unternehmensberechtigungen unabhängig von Rechten eines Zentrums.",
+      "company": "Sichtbare Unternehmensfunktionen getrennt von technischen Berechtigungen."
     },
     "role": { "director": "Leitung", "agent": "Mitarbeiter" },
+    "companyPosition": {
+      "platform_head": "Plattformleitung",
+      "area_head": "Bereichsleitung",
+      "team_lead": "Teamleitung",
+      "staff": "Personal",
+      "external_collaborator": "Externe Mitarbeit"
+    },
     "staffStatus": { "active": "Aktiv", "revoked": "Widerrufen" },
+    "reportsTo": "Untersteht {{name}}",
+    "unknownManager": "nicht verfügbare Leitung",
+    "emptyCompanyStaff": "Der Unternehmensbelegschaft wurde noch niemand hinzugefügt.",
+    "companyStaffCandidate": "Genehmigtes Supportkonto",
+    "companyStaffPosition": "Unternehmensfunktion",
+    "selectSupportStaff": "Aktives Konto auswählen",
+    "addCompanyStaff": "Zur Belegschaft hinzufügen",
+    "removeCompanyStaff": "Aus der Belegschaft entfernen",
+    "delegationRecipient": "Empfangende Person",
+    "delegationModule": "Modul",
+    "selectCompanyStaff": "Person auswählen",
+    "delegateRole": "Delegation anbieten",
+    "roleDelegations": "Moduldelegationen",
+    "acceptDelegation": "Annehmen",
+    "rejectDelegation": "Ablehnen",
+    "renounceRole": "Berechtigung abgeben",
+    "keepRoleAccess": "Mich ebenfalls berechtigen",
+    "emptyDelegations": "Es wurden keine Delegationen erfasst.",
+    "moduleProfile": {
+      "manager-core": "Manager-Kern",
+      "manager-coordinator": "Manager-Koordination",
+      "manager-flow-administrator": "Ablaufverwaltung",
+      "manager-account": "Konten",
+      "manager-security": "Sicherheit",
+      "manager-resource": "Ressourcen",
+      "manager-encryption": "Verschlüsselung",
+      "manager-environment": "Umgebungen",
+      "manager-email": "E-Mail",
+      "manager-notification": "Benachrichtigungen",
+      "manager-support": "Support"
+    },
+    "delegationStatus": {
+      "pending": "Entscheidung ausstehend",
+      "accepted": "Angenommen",
+      "rejected": "Abgelehnt",
+      "withdrawn": "Zurückgezogen",
+      "renounced": "Abgegeben"
+    },
     "status": {
       "open": "Offen",
       "in_progress": "In Bearbeitung",
@@ -2422,7 +2471,14 @@
       "replySaved": "Antwort gespeichert.",
       "accessApprovedSent": "Zugang genehmigt und Code gesendet.",
       "accessApprovedManual": "Zugang genehmigt. Die automatische Zustellung ist nicht verfügbar; verwenden Sie den angezeigten Code für eine sichere manuelle Übergabe.",
-      "accessRejected": "Antrag abgelehnt."
+      "accessRejected": "Antrag abgelehnt.",
+      "roleDelegated": "Delegation angeboten; sie gewährt noch keinen Zugang.",
+      "roleAccepted": "Delegation angenommen und Berechtigung aktiviert.",
+      "roleRejected": "Delegation abgelehnt, ohne Zugang zu gewähren.",
+      "roleRenounced": "Berechtigung abgegeben und widerrufen.",
+      "roleSelfEnabled": "Eigener Modulzugang ausdrücklich aktiviert.",
+      "companyStaffAdded": "Person ohne automatische technische Berechtigungen zur Belegschaft hinzugefügt.",
+      "companyStaffRevoked": "Person aus der Belegschaft entfernt; Module fallen an die Leerstandsabdeckung zurück."
     },
     "errors": {
       "load": "UMF Support konnte nicht geladen werden.",
