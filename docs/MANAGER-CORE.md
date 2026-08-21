@@ -15,12 +15,29 @@ solo regula el tráfico entre gestores para:
 - permitir trabajo independiente mientras haya capacidad libre;
 - evitar inanición mediante envejecimiento gradual de prioridades;
 - deduplicar avisos no críticos repetidos y limitar únicamente avisos
-  informativos, sin descartar señales críticas.
+  informativos, sin descartar señales críticas ni deduplicar un aviso de
+  `commercial` contra otro de `support`.
 
 El coordinador mantiene el registro cerrado de conexiones compatibles, cifra
 los mensajes autorizados y distribuye las notificaciones. El administrador del
 núcleo no puede cambiar configuraciones de gestores, ejecutar sus tareas ni
 mutar secretos.
+
+## Ámbitos de plataforma obligatorios
+
+Los gestores son una infraestructura única compartida. No existen un núcleo
+comercial y otro de UMF Support. La separación se expresa en cada operación,
+orden y señal mediante `platformScope`, cuyo valor debe ser exactamente
+`commercial` o `support`.
+
+El ámbito forma parte de las operaciones activas y en cola, de los descriptores
+del canal prioritario, de las señales cifradas y de su clave de deduplicación.
+La interfaz administrativa filtra operaciones y señales antes de mostrarlas;
+una vista `commercial` no incorpora eventos `support` y viceversa. En la cola
+de correo el ámbito se persiste para conservarlo también durante reintentos,
+errores y trabajo programado. El ámbito dirige el flujo, pero no reemplaza la
+autorización del gestor de dominio ni convierte una identidad de una
+aplicación en identidad de la otra.
 
 ## Canal prioritario Coordinador a Núcleo
 
@@ -76,28 +93,50 @@ Este canal solo permite que Seguridad incorpore el estado criptográfico a su
 diagnóstico y priorice un hallazgo. No convierte al gestor de seguridad en
 propietario del cifrado.
 
-## Diagnóstico desde la consola de soporte
+## Administrador local Linux compartido
 
-La rama `manager-support` dispone de una comprobación de solo lectura para la
-sonda pública configurada. Un operador con autoridad superior debe entrar
-primero en esa rama; los demás gestores no pueden ejecutar el diagnóstico.
+Los doce perfiles de gestores se observan mediante un único administrador
+interno, `shared-internal-manager-administrator`. La interfaz se ejecuta en el
+servidor Linux con el comando mantenido `platform:managers`; no se publica en
+el navegador ni mediante una API remota.
+
+Antes de inicializar, abrir o migrar la base de datos, y por tanto antes de
+consultar la autoridad de aplicación, se aplica la barrera del sistema
+operativo:
+
+1. el proceso debe ejecutarse en Linux;
+2. `root` queda rechazado por UID y por nombre;
+3. el usuario local debe figurar expresamente en la lista exacta y
+   sensible a mayúsculas `UMF_MANAGER_ADMIN_LINUX_USERS`;
+4. la lista debe configurarse en el entorno operativo; sus valores reales no
+   se incorporan al repositorio.
+
+Después se aplica una autoridad distinta para el ámbito solicitado:
+
+- `commercial`: identidad comercial activa, correo verificado y relación
+  activa en `platformOperators`;
+- `support`: identidad `corporate_support` activa, correo verificado, rol
+  `director` activo en `umfSupportStaff` y cargo `platform_head` activo en
+  `companyStaffProfiles`.
+
+Una autoridad no puede abrir la vista del otro ámbito. El cargo corporativo,
+la pertenencia de soporte o una relación `platformOperators` aislada tampoco
+evitan la allowlist de Linux.
 
 ```text
-use profile:manager-support
-ufctl diagnose probe all
+npm run platform:managers -- --email <cuenta-autorizada> --scope commercial overview
+npm run platform:managers -- --email <cuenta-autorizada> --scope support profiles
+npm run platform:managers -- --email <cuenta-autorizada> --scope commercial profile manager-resource
 ```
 
-También se puede limitar la comprobación a `dns`, `tls`, `live` o `ready`. El
-comando usa un destino HTTPS fijado por la configuración del servidor, no
-acepta hosts ni rutas escritos por el operador y no sigue redirecciones. Solo
-muestra direcciones resueltas, versión y emisor públicos del certificado,
-estado HTTP y duración. No lee cuerpos de respuesta, cookies, claves,
-certificados privados ni archivos del host, y no puede cambiar Caddy,
-Cloudflare o DNS.
-
-El gestor de soporte ejecuta esta observación a través del coordinador con el
-ámbito cerrado `diagnostic-probe`. Así se evitan choques con otra comprobación
-del mismo ámbito sin convertir la terminal en una herramienta de red genérica.
+`--scope commercial|support` es obligatorio. `overview` muestra únicamente
+contadores del runtime del ámbito elegido; `profiles` enumera las vistas
+internas; y `profile` devuelve operaciones, señales y conexiones saneadas del
+perfil. La interfaz no muestra valores secretos, no muta material
+criptográfico, no ejecuta órdenes del host ni trabajo de dominio y no concede
+acceso web. La consola anterior, `ufctl`, el ejecutor remoto y el sandbox se
+retiran; este comando tampoco es una terminal genérica ni una herramienta de
+red.
 
 ## Admisión y retroceso
 
@@ -107,9 +146,11 @@ internas programadas usan la cola priorizada. Una tarea que supera el límite o
 el tiempo máximo falla de forma visible y conserva la responsabilidad en su
 gestor de origen.
 
-El núcleo no crea migraciones ni modifica datos persistentes. Para volver al
-comportamiento anterior basta con revertir su integración en código; no hay
-tablas, secretos ni unidades del sistema que restaurar.
+El núcleo mantiene operaciones y señales en memoria y no ejecuta migraciones.
+La cola de correo sí persiste `platformScope` para conservar la dirección de
+sus señales durante reintentos y recuperación del worker. Cualquier retroceso
+de esa columna debe tratarse como una migración de datos y no como una simple
+reversión de código. La terminal no crea secretos ni unidades del sistema.
 
 ## Comprobaciones
 
@@ -127,3 +168,24 @@ La validación debe demostrar:
 10. rechazo de prioridades rebajadas, extremos no autorizados y metadatos
     sensibles en el canal Coordinador a Núcleo;
 11. acuse protegido Núcleo a Coordinador sin exponer el resultado del trabajo.
+12. ámbito `commercial|support` obligatorio en operaciones, órdenes y señales;
+13. deduplicación y vistas separadas por ámbito incluso con mensajes iguales;
+14. rechazo de identidad o autoridad del ámbito contrario;
+15. allowlist local aplicada a ambos ámbitos, con rechazo de `root`, de
+    usuarios no permitidos y de sistemas no Linux;
+16. ausencia de rutas web/API, `ufctl`, ejecutor remoto y terminal de red
+    genérica.
+
+La validación focalizada más reciente terminó favorablemente con nueve archivos
+y 72 pruebas, incluida la barrera anterior a la base, el aislamiento de
+identidades, el cierre comercial independiente, la retención por ámbito y la
+cola de correo.
+
+En el checkout final, portabilidad de 48 archivos, formato, lint y los tres
+`typecheck` fueron favorables. Tras una terminación sin resumen del supervisor
+paralelo de Vitest en Windows, la suite completa en un solo proceso pasó 112
+archivos y 548 pruebas, sin fallos y con una prueba POSIX no aplicable en
+Windows. Las tres compilaciones, el paquete Windows y la auditoría de
+dependencias también fueron favorables. La auditoría del diff final y GitHub
+Actions se completan después de cerrar la documentación y publicar el commit
+autorizado.

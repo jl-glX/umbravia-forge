@@ -447,6 +447,7 @@ authRouter.post(
         req.body.response as AuthenticationResponseJSON,
         origin,
         rpID,
+        "member",
         { userAgent: req.get("User-Agent") },
       );
       clearPasskeyChallengeCookie(res);
@@ -504,9 +505,9 @@ authRouter.get(
         avatarDataUrl: session.avatarDataUrl,
         role: session.role,
         accountStatus: session.accountStatus,
+        identityRealm: session.identityRealm,
         facility: session.facility,
         platformOperator: session.platformOperator,
-        corporateConsole: session.corporateConsole,
       },
     });
   },

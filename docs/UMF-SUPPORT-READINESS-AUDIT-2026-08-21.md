@@ -1,5 +1,14 @@
 # Auditoría integral de UMF Support — 21 de agosto de 2026
 
+> **Evidencia histórica.** Esta auditoría precede a la separación posterior de
+> los realms `commercial` y `corporate_support`, sus cookies, credenciales,
+> recuperación y pertenencias. No debe usarse como descripción vigente del
+> acceso corporativo ni de los gestores compartidos. La continuidad actual se
+> documenta en
+> [IDENTITY-REALM-AND-MANAGER-BOUNDARY-AUDIT-2026-08-21.md](./IDENTITY-REALM-AND-MANAGER-BOUNDARY-AUDIT-2026-08-21.md),
+> [UMF-SUPPORT.md](./UMF-SUPPORT.md) y
+> [OPERATIONAL-HANDOFF.md](./OPERATIONAL-HANDOFF.md).
+
 ## Alcance y método
 
 Esta auditoría se realizó antes de la puerta completa de validación sobre el
@@ -168,6 +177,15 @@ CAPTCHA reservado a CI; no es una configuración válida para desplegar.
 `git diff --check`, la revisión final del diff y GitHub Actions se ejecutan
 después de cerrar este documento y deben quedar registrados en el relevo y en
 el historial publicado.
+
+Nota de continuidad: después de esta evidencia se retiraron las antiguas rutas,
+pantallas y pruebas de administración web de gestores, y se añadieron los
+contrastes de realms, alcance de correo y cierre comercial independiente. La
+validación completa posterior pasó 112 archivos y 548 pruebas, sin fallos y con
+una prueba POSIX no aplicable en Windows. La reducción frente a esta evidencia
+histórica corresponde a esa retirada
+del ejecutable web obsoleto; el administrador vigente es exclusivamente local
+en Linux y está documentado en [MANAGER-CORE.md](./MANAGER-CORE.md).
 
 ## Paso siguiente autorizado para validación humana
 

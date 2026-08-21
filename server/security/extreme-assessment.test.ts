@@ -171,12 +171,16 @@ describe("extreme local security assessment", () => {
   });
 
   it("enforces role boundaries even when protected URLs are requested directly", async () => {
+    await request(app)
+      .get("/api/users")
+      .set("Cookie", memberCookie)
+      .expect(403);
     for (const path of [
-      "/api/users",
       "/api/admin/data-retention",
-      "/api/admin/resource-manager",
+      "/api/umf-corporate/data-retention",
+      "/api/umf-corporate/resource-manager",
     ]) {
-      await request(app).get(path).set("Cookie", memberCookie).expect(403);
+      await request(app).get(path).set("Cookie", memberCookie).expect(404);
     }
 
     await request(app)

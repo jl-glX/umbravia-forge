@@ -50,7 +50,12 @@ Umbravia Forge reúne en una misma base técnica la actividad diaria de un centr
 - **UMF Support:** aplicación web corporativa separada para incidencias de plataforma, altas aprobadas y correo de privacidad.
 - **Cuentas y continuidad:** verificación de correo, recuperación de acceso, MFA, passkeys, sesiones revocables y cierre reversible de cuenta.
 - **Forge Notify:** cola transaccional cifrada, reintentos acotados, trazabilidad, saneamiento periódico y transporte de correo desacoplado.
-- **Plano de gestión interno:** coordinación de gestores, prioridades, control de conflictos y consola corporativa aislada.
+- **Plano de gestión interno:** coordinación de gestores, prioridades, control de conflictos y administración local Linux con allowlist operativa y ámbito `commercial` o `support` explícito; no publica consola web ni API remota.
+
+La aplicación comercial y UMF Support comparten PostgreSQL en `staging` y
+`production`, pero no comparten identidad: los realms, credenciales, cookies,
+relaciones y autorizaciones son independientes. Compartir el motor no concede
+acceso cruzado ni convierte la cuenta de un centro en personal corporativo.
 
 ### Principios de diseño
 
@@ -171,7 +176,7 @@ automatizados están en [AGENTS.md](./AGENTS.md).
 
 - Stripe permanece separado del libro operativo interno. La suscripción SaaS del centro dispone de Checkout, portal, webhooks firmados, alertas mínimas de factura y reconciliación explícita en modos Test y Live aislados. Analytics y CRM comprueban su capacidad comercial en el servidor cuando se activa el control de suscripciones. La disponibilidad del código no demuestra que Prices, credenciales o webhooks Live estén configurados. Umbravia Forge no procesa reembolsos ni mueve dinero entre el centro y sus socios.
 - La entregabilidad del correo depende también de DNS, reputación, recepción, rebotes y proveedores externos; una aceptación SMTP no equivale por sí sola a entrega en la bandeja de entrada.
-- UMF Support dispone de API, panel web y receptor firmado para correo corporativo, pero el buzón de privacidad no debe anunciarse hasta validar externamente entrada, ticket, respuesta, rebote y entrega. Existe un ZIP de prueba que instala un lanzador web de Windows; todavía no es una aplicación nativa, no está firmado y requiere validación humana en un equipo limpio.
+- UMF Support dispone de API, panel web y receptor firmado para correo corporativo, pero el buzón de privacidad no debe anunciarse hasta validar externamente entrada, ticket, respuesta, rebote y entrega. Su canal vigente es exclusivamente web y no anuncia instalador; el ZIP corporativo se conserva solo como evidencia histórica de pruebas y cualquier reactivación requerirá firma y una nueva validación humana.
 - Las copias cifradas, la restauración y las migraciones de PostgreSQL deben comprobarse en cada entorno autorizado antes de un lanzamiento comercial.
 - Los textos legales y fiscales requieren completar los datos reales y una revisión profesional.
 - Las aplicaciones de escritorio y móviles forman parte de una evolución posterior, no del núcleo actualmente distribuido.

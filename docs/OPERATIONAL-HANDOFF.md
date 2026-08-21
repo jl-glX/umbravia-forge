@@ -14,6 +14,12 @@ historial de trabajo.
 - El código activo ya no crea ni reconoce un centro implícito o privilegiado.
   Las rutas de tenant exigen un perfil y una membresía activos; los permisos de
   plataforma usan `platformOperators`, aprovisionado de forma controlada.
+- Las rutas que necesitan un centro devuelven el código estable
+  `FACILITY_MEMBERSHIP_REQUIRED` cuando la cuenta no tiene una membresía
+  activa. Clases, reservas y pagos lo traducen a una explicación equivalente en
+  los cuatro catálogos, sin mostrar el texto técnico inglés del servidor. Un rol
+  insuficiente conserva el código general `FORBIDDEN` y no se confunde con la
+  ausencia de centro.
 - Los perfiles de compatibilidad heredados quedan cerrados y con sus membresías
   suspendidas, conservando el identificador original para trazabilidad. Los
   backfills actuales sin destino usan `legacy-import-quarantine`, también
@@ -40,10 +46,25 @@ historial de trabajo.
   PostgreSQL externa se haya migrado. Siguen pendientes la copia/restauración y
   la validación cruzada en un entorno autorizado antes de producción.
 - UMF Support es una aplicación web corporativa distinta del soporte de cada
-  centro. Los operadores de plataforma actúan como dirección; el resto del
-  personal solo puede crear su cuenta después de aprobación manual y consumo
-  de un código temporal de un solo uso. Una cuenta administradora de centro no
-  recibe acceso corporativo por su rol.
+  centro. Solo una identidad `corporate_support` con una pertenencia activa en
+  `umfSupportStaff` puede entrar; `platformOperators` queda en el ámbito
+  comercial. El resto del personal solo puede crear su cuenta después de
+  aprobación manual y consumo de un código temporal de un solo uso. Una cuenta
+  administradora de centro no recibe acceso corporativo por su rol.
+- Ambas aplicaciones usan el proveedor de datos configurado; en producción,
+  UMF Support está dentro del mismo PostgreSQL, con realms, relaciones y tablas
+  lógicamente separados. No debe afirmarse que existe una segunda base física.
+  Compartir motor tampoco autoriza consultas cruzadas ni fusiona identidades.
+- Un mismo correo puede corresponder a una identidad `commercial` y otra
+  `corporate_support`, pero no comparten fila de usuario, contraseña,
+  recuperación ni cookie. La aplicación principal usa
+  `umbravia-forge_session` y soporte `umf-support_session`; las pruebas de
+  aislamiento cubren el rechazo cruzado.
+- El cierre y la eliminación física de cuenta pertenecen solo al realm
+  `commercial`. El servicio rechaza identificadores corporativos y el ejecutor
+  filtra también los trabajos vencidos por realm. La regresión automatizada
+  elimina una cuenta comercial y confirma que la cuenta de UMF Support con el
+  mismo correo permanece activa y puede iniciar sesión.
 - La plantilla empresarial usa `companyStaffProfiles` y queda separada de los
   permisos. La solicitud de UMF Support crea una contraseña de prealta guardada
   solo como hash Argon2id separado y durante siete días. La activación exige el
@@ -52,7 +73,7 @@ historial de trabajo.
   necesitan aprobación manual. La excepción inicial autoaprueba únicamente el
   correo cuyo hash coincide con
   `UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256`, envía allí el código y crea una
-  única jefatura, dirección de soporte y operador global sin añadir una
+  única jefatura y dirección de soporte sin añadir autoridad comercial ni una
   membresía de centro. El marcador permanente `corporateBootstrapState` impide
   reabrir la excepción aunque después se eliminen roles. El comando con correo
   repetido y `--apply` se conserva como recuperación controlada y consume el
@@ -62,6 +83,24 @@ historial de trabajo.
   Las cuentas aprobadas de soporte se incorporan expresamente a la plantilla;
   retirarlas conserva el registro, revoca sus asignaciones y devuelve los
   módulos sin responsable a la cobertura de la jefatura.
+- La terminal web/API de gestores y su tabla de credenciales se retiran. Los
+  gestores son infraestructura interna compartida y disponen de un único
+  administrador local Linux; cada flujo debe marcarse expresamente como
+  `commercial` o `support`. No deben reaparecer enlaces de gestores en la
+  cuenta comercial ni rutas `/umf-support/managers/*`.
+- El administrador local rechaza `root` y exige que el usuario Linux figure en
+  `UMF_MANAGER_ADMIN_LINUX_USERS` antes de inicializar, abrir o migrar la base
+  y antes de resolver la cuenta. El ámbito
+  `commercial` requiere identidad comercial verificada y operador comercial
+  activo. El ámbito `support` requiere identidad corporativa verificada,
+  dirección activa de UMF Support y cargo activo `platform_head`. Las vistas,
+  operaciones y señales se filtran por el ámbito elegido; no existe una
+  autoridad implícita compartida entre ambos.
+- La cola de correo transaccional conserva `platformScope` en cada fila. Los
+  flujos de cuentas y centros usan `commercial`; UMF Support usa `support`.
+  Reintentos, caducidades y fallos publican señales con el ámbito persistido.
+  La migración PostgreSQL 44 está preparada, pero debe aplicarse y comprobarse
+  en el entorno autorizado antes de afirmar que la base viva está actualizada.
 - El correo de una cuenta activa ya no puede cambiarse desde la administración
   de un centro. El flujo propio exige contraseña, verifica el nuevo buzón con
   un código temporal válido durante seis horas y mantiene el correo original
@@ -80,22 +119,26 @@ historial de trabajo.
   sigue pendiente completar el canal verificado, el domicilio publicable, el
   inventario de encargados y transferencias, los criterios de conservación y
   la revisión jurídica antes de un despliegue abierto.
-- `npm run package:windows-web-apps` prepara un ZIP de prueba con lanzadores web
-  separados para UMF Support y la aplicación principal. No contiene secretos
-  ni servidor y no requiere elevación. El instalador de UMF Support se ha
-  comprobado en un perfil Windows real: detecta paquetes incompletos, mantiene
-  el resultado visible, crea accesos en Escritorio e Inicio y abre la aplicación
-  web instalada. Todavía necesita firma de código y una prueba humana en un
-  equipo Windows limpio antes de distribuirlo de forma general. GitHub Actions
-  conserva el ZIP como artefacto temporal cuando la validación es favorable.
+- `npm run package:windows-web-apps` conserva un ZIP reproducible como evidencia
+  de pruebas anteriores, pero no es un canal vigente de UMF Support. El portal
+  corporativo declara distribución web en `/umf-support/access`, devuelve
+  `installer: null` y no anuncia una descarga. La aplicación principal mantiene
+  por separado su paquete portable. Cualquier reapertura del instalador
+  corporativo exige una decisión explícita, firma y nueva validación humana.
 - La auditoría integral del cambio se conserva en
   `docs/UMF-SUPPORT-READINESS-AUDIT-2026-08-21.md`; la revisión específica de
   la credencial previa está en
-  `docs/UMF-SUPPORT-PREAUTH-CREDENTIAL-AUDIT-2026-08-21.md`. La puerta local
-  `npm run ci:validate` terminó favorablemente con 115 archivos de prueba, 559
-  pruebas favorables y una omitida. También completó las compilaciones, el
-  paquete Windows y la auditoría de dependencias. Estas cifras describen el
-  checkout y no sustituyen la validación humana ni la comprobación del entorno
+  `docs/UMF-SUPPORT-PREAUTH-CREDENTIAL-AUDIT-2026-08-21.md`. La separación de
+  identidades, gestores y correo se audita en
+  `docs/IDENTITY-REALM-AND-MANAGER-BOUNDARY-AUDIT-2026-08-21.md`. Las pruebas
+  focalizadas más recientes abarcan nueve archivos y 72 pruebas. En el checkout
+  final, portabilidad de 48 archivos, formato, lint y los tres `typecheck`
+  fueron favorables. El supervisor paralelo de Vitest terminó en Windows sin
+  resumen; la repetición completa en un solo proceso pasó 112 archivos y 548
+  pruebas, sin fallos y con una prueba de sintaxis POSIX no aplicable en
+  Windows. Las tres compilaciones, el paquete Windows y la auditoría de
+  dependencias también fueron favorables. Quedan la revisión final del diff y
+  GitHub Actions; el resultado local no sustituye la comprobación del entorno
   desplegado.
 
 ## Fuentes y orden de autoridad

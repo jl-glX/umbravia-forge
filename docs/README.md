@@ -32,8 +32,10 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Forge Support](./FORGE-SUPPORT.md)
 - [UMF Support corporativo](./UMF-SUPPORT.md), incluida la plantilla separada,
   las delegaciones modulares, la inicialización única de jefatura, la
-  credencial previa ligada a la activación y el correo operativo de plataforma
-- [Forge Notify](./FORGE-NOTIFY.md)
+  credencial previa ligada a la activación, los realms independientes y el
+  correo operativo de plataforma
+- [Forge Notify](./FORGE-NOTIFY.md), incluida la separación persistente de
+  entregas y señales entre `commercial` y `support`
 - [Gestor de bases y entornos](./DATABASE-ENVIRONMENT-MANAGER.md)
 - [Política de dependencias](./dependency-policy.md)
 - [Suscripciones y facturación con Stripe](./STRIPE-BILLING.md)
@@ -54,8 +56,6 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Preparación para producción propia](./SELF-HOSTED-PRODUCTION.md)
 - [Despliegue protegido](../deploy/README.md)
 - [Despliegue portable en Linux](../deploy/LINUX.md)
-- [Paquete de prueba de aplicaciones web para Windows](./WINDOWS-WEB-APP-PACKAGE.md)
-- [Entorno aislado de la terminal corporativa](../deploy/manager-terminal-sandbox/README.md)
 
 ## Auditorías y puntos históricos
 
@@ -74,6 +74,8 @@ estado actual hay que volver a los documentos vigentes anteriores.
 - [Auditoría integral de UMF Support, 2026-08-21](./UMF-SUPPORT-READINESS-AUDIT-2026-08-21.md)
 - [Auditoría del acceso inicial y cambio de correo de UMF Support, 2026-08-21](./UMF-SUPPORT-ACCESS-AUDIT-2026-08-21.md)
 - [Auditoría de la credencial previa de UMF Support, 2026-08-21](./UMF-SUPPORT-PREAUTH-CREDENTIAL-AUDIT-2026-08-21.md)
+- [Auditoría de separación de identidades y plano de gestores, 2026-08-21](./IDENTITY-REALM-AND-MANAGER-BOUNDARY-AUDIT-2026-08-21.md)
+- [Paquete histórico de prueba de aplicaciones web para Windows](./WINDOWS-WEB-APP-PACKAGE.md)
 - [Auditoría de neutralización del dominio, 2026-08-16](./ACTIVITY-DOMAIN-MIGRATION-AUDIT-2026-08-16.md)
 - [Auditoría de la base comercial, 2026-08-03](./COMMERCIAL-FOUNDATION-AUDIT.md)
 - [Decisiones comerciales 22-38, 2026-08-04](./COMMERCIAL-POINTS-22-38.md)

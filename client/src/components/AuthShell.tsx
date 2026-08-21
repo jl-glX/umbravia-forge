@@ -12,6 +12,7 @@ interface AuthShellProps {
   children: ReactNode;
   utilityMenu?: ReactNode;
   contentSurface?: "card" | "integrated";
+  brand?: "commercial" | "corporate_support";
 }
 
 export function AuthShell({
@@ -21,13 +22,30 @@ export function AuthShell({
   children,
   utilityMenu,
   contentSurface = "card",
+  brand = "commercial",
 }: AuthShellProps) {
   const { t } = useTranslation();
-  const highlights: Array<{ kind: BrandGlyphKind; text: string }> = [
-    { kind: "structure", text: t("auth.highlights.weekly") },
-    { kind: "community", text: t("auth.highlights.waitlists") },
-    { kind: "guidance", text: t("auth.highlights.secure") },
-  ];
+  const highlights: Array<{ kind: BrandGlyphKind; text: string }> =
+    brand === "corporate_support"
+      ? [
+          {
+            kind: "structure",
+            text: t("umfCorporateAccount.highlights.identity"),
+          },
+          {
+            kind: "community",
+            text: t("umfCorporateAccount.highlights.roles"),
+          },
+          {
+            kind: "guidance",
+            text: t("umfCorporateAccount.highlights.security"),
+          },
+        ]
+      : [
+          { kind: "structure", text: t("auth.highlights.weekly") },
+          { kind: "community", text: t("auth.highlights.waitlists") },
+          { kind: "guidance", text: t("auth.highlights.secure") },
+        ];
 
   return (
     <main className="auth-shell-enter grid min-h-screen bg-brand-night lg:grid-cols-[1.05fr_0.95fr]">
@@ -36,18 +54,32 @@ export function AuthShell({
         <div className="absolute -right-32 -top-20 h-80 w-80 rounded-full bg-brand-path/15 blur-3xl" />
 
         <div className="relative inline-flex w-fit rounded-2xl bg-white px-3 py-2 shadow-xl shadow-black/20">
-          <BrandLockup className="h-14 w-auto max-w-64" />
+          {brand === "corporate_support" ? (
+            <img
+              src="/brand/umf-support-wordmark.png"
+              alt="UMF Support"
+              className="h-14 w-auto max-w-64"
+            />
+          ) : (
+            <BrandLockup className="h-14 w-auto max-w-64" />
+          )}
         </div>
 
         <div className="relative max-w-xl">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-ember">
-            {t("auth.brandTagline")}
+            {brand === "corporate_support"
+              ? t("umfSupport.corporateOperations")
+              : t("auth.brandTagline")}
           </p>
           <h1 className="mt-5 text-5xl font-bold leading-[1.08] tracking-tight xl:text-6xl">
-            {t("auth.brandTitle")}
+            {brand === "corporate_support"
+              ? t("umfCorporateAccount.title")
+              : t("auth.brandTitle")}
           </h1>
           <p className="mt-6 max-w-lg text-lg leading-relaxed text-slate-300">
-            {t("auth.brandDescription")}
+            {brand === "corporate_support"
+              ? t("umfCorporateAccount.boundary")
+              : t("auth.brandDescription")}
           </p>
           <div className="mt-10 space-y-4">
             {highlights.map(({ kind, text }) => (
@@ -85,7 +117,15 @@ export function AuthShell({
               {utilityMenu}
             </div>
             <div className="mb-8 lg:hidden">
-              <BrandLockup className="h-14 w-auto max-w-64" />
+              {brand === "corporate_support" ? (
+                <img
+                  src="/brand/umf-support-wordmark.png"
+                  alt="UMF Support"
+                  className="h-14 w-auto max-w-64"
+                />
+              ) : (
+                <BrandLockup className="h-14 w-auto max-w-64" />
+              )}
             </div>
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-ember">
               {eyebrow}

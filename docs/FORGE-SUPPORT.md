@@ -3,7 +3,8 @@
 > [!IMPORTANT]
 > Este documento describe el soporte que cada centro presta dentro de su
 > propio tenant. El soporte corporativo de la plataforma es una aplicación,
-> una autoridad y un almacén separados; se documenta en
+> una autoridad y un conjunto de tablas lógicamente separados dentro del
+> proveedor de datos compartido; se documenta en
 > [UMF Support](./UMF-SUPPORT.md).
 
 ## Propósito
@@ -81,6 +82,12 @@ garantía contractual; cualquier SLA comercial debe definirse por separado.
 - **Forge Search:** búsqueda de tickets accesibles y artículos permitidos.
 - **Gestor de seguridad:** límites de mutación, validación estricta y señales.
 - **Gestor de recursos:** auditoría periódica y limpieza coordinada.
+
+Todas las operaciones y señales de gestores originadas por este módulo, y sus
+entregas de correo, usan `platformScope=commercial`. La infraestructura de
+gestores y la cola son compartidas, pero ese ámbito impide que su estado se
+presente como actividad de UMF Support. La identidad `corporate_support` no
+sustituye una membresía activa del centro.
 
 ## Aislamiento y datos
 

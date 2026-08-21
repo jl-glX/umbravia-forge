@@ -10,6 +10,7 @@ export interface AuthUser {
   avatarDataUrl: string;
   role: UserRole;
   accountStatus: "pending_verification" | "active" | "security_review";
+  identityRealm?: "commercial";
   facility?: {
     id: string;
     slug: string;
@@ -17,12 +18,6 @@ export interface AuthUser {
     role: FacilityRole;
   } | null;
   platformOperator?: boolean;
-  corporateConsole?: {
-    enabled: boolean;
-    authorityProfileId: string | null;
-    profileIds: string[];
-    priority: number | null;
-  };
 }
 
 export function getAccessRole(user: AuthUser | null): UserRole | null {

@@ -126,41 +126,7 @@
   "accountMenu": {
     "open": "Kontomenü öffnen",
     "manage": "Kontobereich öffnen",
-    "managerConsole": "Zugang zum Manager-Terminal",
-    "support": "Forge Support öffnen"
-  },
-  "managerConsole": {
-    "eyebrow": "Interner Unternehmenskanal",
-    "title": "Zugang zum Manager-Terminal",
-    "description": "Die Webseite prüft die Unternehmensidentität und kann nur temporären externen Zugang ausstellen. Der interne Kanal wird ausschliesslich über die Unternehmens-App aus dem Microsoft Store oder Mac App Store geöffnet.",
-    "webBoundary": "Keine Web-Konsole",
-    "loadError": "Der Terminalzugang konnte nicht geprüft werden.",
-    "issueError": "Die Terminal-Zugangsdaten konnten nicht ausgestellt werden.",
-    "internalTitle": "Interner Umbravia-Kanal",
-    "recommended": "Exklusiver Unternehmenszugang",
-    "internalDescription": "Nur eine verifizierte Unternehmensinstallation darf eine Sitzung bei Aktivität und Vertrauen offen halten. Sie wird nach {{minutes}} Minuten Inaktivität, Standby oder Ruhezustand sowie bei Änderung von Konto, Rolle oder Vertrauen widerrufen.",
-    "internalAppsOnly": "Interne Zugangsdaten werden nicht über die Webseite ausgestellt",
-    "internalApps": "Vorgesehene Zugänge: {{apps}}. Die Integration bleibt geschlossen, bis Apps und Store-Verifizierung verfügbar sind.",
-    "externalTitle": "Autorisierte externe Umgebung",
-    "externalCompatibility": "PowerShell · WSL · macOS · Linux",
-    "externalDescription": "Einmalige Zugangsdaten, die {{credentialMinutes}} Minuten gültig sind. Die Verbindung öffnet eine externe Sitzung für bis zu {{sessionMinutes}} Minuten.",
-    "credentialScope": "Maximaler Umfang dieser Zugangsdaten",
-    "includeTemporaryPermissions": "Aktive temporäre Berechtigungen einschliessen. Sie werden bei jedem Vorgang erneut geprüft und entfallen nach Ablauf oder Widerruf.",
-    "issueInternal": "Internen Zugang ausstellen",
-    "issueExternal": "Temporären externen Zugang ausstellen",
-    "issuing": "Zugang wird ausgestellt…",
-    "credentialReady": "Zugangsdaten bereit",
-    "internalCredentialNotice": "Diese Zugangsdaten nur im autorisierten internen Kanal aufbewahren.",
-    "externalCredentialNotice": "Nur einmal verwenden und nicht in Dateien oder Verläufen speichern.",
-    "copy": "Zugangsdaten kopieren",
-    "internalRevocationNotice": "Aktivität hält den Zugang aufrecht. exit widerruft ihn sofort; Inaktivität, Standby, Ruhezustand oder Vertrauensverlust machen ihn ebenfalls ungültig.",
-    "externalExpiryNotice": "Die Zugangsdaten verfallen auch unbenutzt und werden nach dem Öffnen der Sitzung ungültig. exit schliesst und widerruft die aktive Sitzung.",
-    "launchInstruction": "Client im autorisierten Terminal ausführen und die Zugangsdaten bei Aufforderung einfügen:",
-    "issuedScope": "Umfang: {{scope}} · temporäre Berechtigungen: {{temporary}}",
-    "temporaryYes": "eingeschlossen",
-    "temporaryNo": "ausgeschlossen",
-    "boundaryTitle": "Berechtigungsgrenze",
-    "boundaryDescription": "Profil {{profile}} sieht und verwaltet nur die durch seine Priorität erlaubten Zweige. Befehle laufen in einem isolierten Linux-Container ohne Geheimnisse oder Zugriff auf das Hostsystem."
+    "support": "Hilfe für das Studio"
   },
   "support": {
     "eyebrow": "Betreuung und Wissen",
@@ -535,24 +501,14 @@
     "trainerAnalytics": "Klassenanalyse",
     "adminDashboard": "Verwaltung der Einrichtung",
     "billing": "Gebühren, Zahlungen und Rechnungen",
-    "resourceManager": "Ressourcenmanager",
-    "securityManager": "Sicherheitsmanager",
     "adminDashboardDescription": "Verwalten Sie Benutzer, Klassen, Trainer und den täglichen Betrieb.",
     "notifications": "Benachrichtigungen",
     "billingDescription": "Verwalten Sie Zahlungen, Rechnungen, Fälligkeitstermine und Testzugriff.",
     "adminAnalyticsDescription": "Studienauslastung, Nachfrage, Anwesenheit und Zeitfenster.",
     "preferences": "Präferenzen",
     "adminAnalytics": "Anlagenanalyse",
-    "resourceManagerDescription": "Überwachen Sie Frontend-, Backend- und API-Prozesse und -Funktionen.",
-    "securityManagerDescription": "Zentralisieren Sie Kontrollen, Signale und Risikobeobachtungen ohne automatische Sperren.",
     "dataRetention": "Datenaufbewahrung",
     "dataRetentionDescription": "Bereiten Sie Richtlinienentwürfe vor und prüfen Sie zukünftige Datensätze.",
-    "environmentManager": "Umgebungsverwaltung",
-    "environmentManagerDescription": "Erstellen Sie isolierte SQLite-Umgebungen und bereiten Sie deren geprüfte Übernahme in PostgreSQL vor.",
-    "emailManager": "E-Mail-Verwaltung",
-    "emailManagerDescription": "Verwalten, bestätigen und melden Sie E-Mail-Kanäle und ihre Warteschlange, ohne Empfänger oder Geheimnisse offenzulegen.",
-    "capabilityRoadmap": "Funktions-Roadmap",
-    "capabilityRoadmapDescription": "Vergleichen Sie umgesetzte, teilweise und fehlende Funktionen mit dem Markt.",
     "notificationsDescription": "Benachrichtigungseinstellungen und -verlauf werden in einer zukünftigen Phase aktiviert.",
     "delegationSecurity": "Bei Delegationen kann nur jemand in Ihrem Namen buchen oder stornieren. Sie gewähren keinen Zugriff auf Ihr Profil, Ihr Passwort, Ihre Zahlungen oder Sicherheitseinstellungen.",
     "preferencesDescription": "Thema, Privatsphäre und weitere persönliche Optionen werden nach und nach hinzugefügt."
@@ -859,15 +815,7 @@
     "analytics": "Anwesenheit und Nachfrage",
     "downloads": "Download-Center",
     "downloadsDescription": "Greifen Sie auf die offiziellen Apps und das tragbare Umbravia Forge-Paket zu.",
-    "analyticsDescription": "Finden Sie Kurse und Zeitfenster mit der höchsten und niedrigsten Besucherzahl.",
-    "resources": "Serverressourcen",
-    "resourcesDescription": "Überwachen und steuern Sie interne Aufgaben, die von Umbravia Forge registriert werden.",
-    "environments": "Umgebungen und Datenbanken",
-    "environmentsDescription": "Verwalten Sie isolierte Demos und ihre PostgreSQL-Bereitschaft.",
-    "emailManager": "Interne E-Mail",
-    "emailManagerDescription": "Überwachen Sie E-Mail-Kanäle, ihre Warteschlange und koordinierte Verbindungen zu Konten und Support.",
-    "capabilityRoadmap": "Funktions-Roadmap",
-    "capabilityRoadmapDescription": "Prüfen Sie die tatsächliche Abdeckung und priorisierte Produktlücken."
+    "analyticsDescription": "Finden Sie Kurse und Zeitfenster mit der höchsten und niedrigsten Besucherzahl."
   },
   "downloads": {
     "title": "Download-Center",
@@ -905,159 +853,6 @@
     "loadError": "Download-Optionen konnten nicht geladen werden.",
     "download": "Download öffnen",
     "securityNotice": "Umbravia Forge zeigt nur von der Plattform konfigurierte HTTPS-Ziele an. Bestätigen Sie immer, dass der Store oder Download zu Umbravia Forge gehört, bevor Sie ihn installieren."
-  },
-  "securityManager": {
-    "eyebrow": "Sicherheitsüberwachung",
-    "title": "Sicherheitsmanager",
-    "description": "Prüfen Sie den Kontrollstatus und aktuelle Signale in einer administrativen Ansicht.",
-    "loadError": "Der Sicherheitsstatus konnte nicht geladen werden.",
-    "observeTitle": "Risiko-Engine im Beobachtungsmodus",
-    "observeDescription": "Signale werden zur Auswertung protokolliert. Diese Version sperrt Verbindungen nicht automatisch aufgrund ihrer Risikobewertung.",
-    "failedLogins24h": "Fehlgeschlagene Anmeldungen in 24 Std.",
-    "captchaFailures24h": "Fehlgeschlagene CAPTCHA-Prüfungen in 24 Std.",
-    "riskObservations7d": "Risikosignale in 7 Tagen",
-    "highRiskObservations7d": "Hohe Signale in 7 Tagen",
-    "controlsTitle": "Koordinierte Kontrollen",
-    "controlsDescription": "Aktueller Status der Schutzmassnahmen von Anwendung und API.",
-    "captchaControl": "Manuelles CAPTCHA mit Servervalidierung",
-    "originControl": "Ursprungskontrolle bei sensiblen Vorgängen",
-    "rateLimitControl": "Begrenzung der Anmeldeversuche",
-    "headersControl": "Sicherheitsheader",
-    "riskControl": "Risikobeobachtung",
-    "coordinationTitle": "Koordination zwischen Managern",
-    "coordinationDescription": "{{managers}} Manager teilen Signale und Arbeitsbereiche. {{operations}} exklusive Vorgänge sind aktiv.",
-    "available": "Verfügbar",
-    "notConfigured": "Konfiguration erforderlich",
-    "eventsTitle": "Aktuelle Aktivität",
-    "eventsDescription": "Die letzten in sieben Tagen aufgezeichneten Sicherheitsereignisse.",
-    "noDetails": "Keine weiteren Details",
-    "noEvents": "Es gibt noch keine aktuelle Sicherheitsaktivität."
-  },
-  "resourceManager": {
-    "title": "Ressourcenmanager",
-    "eyebrow": "API-Operationen",
-    "loadError": "Der Ressourcenstatus konnte nicht geladen werden.",
-    "heapCapacity": "Reservierte Kapazität",
-    "memory": "Speicher im Einsatz",
-    "uptime": "Betriebszeit",
-    "enabledTasks": "Aktivierte Aufgaben",
-    "residualChecksTitle": "Prüfung auf verbliebene Prozesse aktiv",
-    "residualChecksSummary": "{{checks}} Prüfungen abgeschlossen · {{removed}} veraltete Laufzeitdatensätze entfernt",
-    "lastResidualCheck": "Letzte Prüfung: {{date}}",
-    "noResidualCheck": "Warten auf die erste Prüfung",
-    "description": "Überwachen Sie interne Aufgaben von Umbravia Forge und führen Sie nur von der Plattform registrierte Prozesse aus, pausieren oder setzen Sie sie fort.",
-    "updateError": "Die Aufgabe konnte nicht aktualisiert werden.",
-    "pause": "Pause",
-    "resume": "Wieder aufnehmen",
-    "states": {
-      "idle": "Bereit",
-      "running": "Läuft",
-      "paused": "Angehalten",
-      "error": "Fehler"
-    },
-    "taskStats": "{{runs}}-Ausführungen · {{duration}} ms beim letzten Durchlauf · {{result}}-Elemente verarbeitet",
-    "reviewFindings": "{{count}} Funde prüfen",
-    "scopeNotice": "Dieses Panel steuert niemals Betriebssystemprozesse oder andere Anwendungen.",
-    "tasks": {
-      "expired-auth-cleanup": {
-        "description": "Entfernt abgelaufene oder widerrufene Sitzungen und abgelaufene Authentifizierungsherausforderungen.",
-        "name": "Bereinigung der Authentifizierung abgelaufen"
-      },
-      "sqlite-query-planner": {
-        "name": "Optimierung des SQLite-Abfrageplaners",
-        "description": "Ermöglicht SQLite, kompakte Statistiken zu aktualisieren, wenn die Datenbank sie benötigt."
-      },
-      "booking-integrity-cleanup": {
-        "name": "Buchungsintegrität",
-        "description": "Bereinigt eindeutige doppelte aktive Buchungen und veraltete Wartelisteneinträge."
-      },
-      "project-runtime-cleanup": {
-        "name": "Projektlaufzeit bereinigen",
-        "description": "Entfernt veraltete Umbravia Forge-Einträge und verhindert doppelte Entwicklungsinstanzen, ohne andere Prozesse anzutasten."
-      },
-      "deleted-account-residual-cleanup": {
-        "name": "Restbereinigung gelöschter Konten",
-        "description": "Entfernt technische Reste nicht mehr vorhandener Konten, ohne Schliessungen oder Inaktivitätsfristen zu bestimmen."
-      },
-      "source-hygiene-audit": {
-        "name": "Quellcode-Hygieneprüfung",
-        "description": "Meldet identische, leere oder möglicherweise veraltete Dateien zur Prüfung, ohne Quellcode automatisch zu löschen."
-      },
-      "environment-readiness-audit": {
-        "name": "Umgebungsbereitschaft",
-        "description": "Prüft, ob verwaltete SQLite-Umgebungen ein vollständiges Schema besitzen, bevor ihre Übernahme in PostgreSQL vorbereitet wird."
-      }
-    },
-    "managedTasks": "Gemanagte Prozesse",
-    "runNow": "Lauf jetzt"
-  },
-  "emailManager": {
-    "eyebrow": "Interne Kommunikation",
-    "title": "E-Mail-Verwaltung",
-    "description": "Verwalten Sie Versand und Empfang, bestätigen Sie die Bereitschaft und melden Sie Vorfälle über den Manager-Koordinator.",
-    "loadError": "Die E-Mail-Verwaltung konnte nicht geladen werden.",
-    "actionError": "Der E-Mail-Vorgang konnte nicht abgeschlossen werden.",
-    "outbound": "Ausgehend",
-    "inbound": "Eingehend",
-    "pending": "Ausstehend",
-    "failed": "Fehlgeschlagen",
-    "audit": "Prüfen",
-    "maintenance": "Warteschlange warten",
-    "ready": "Kanäle bereit",
-    "attention": "Einige Hinweise erfordern Aufmerksamkeit",
-    "coordinationNotice": "Die Verwaltung betreibt E-Mail; der Koordinator prüft Verbindungen, verhindert Überschneidungen und verteilt Bestätigungen und Hinweise.",
-    "recentFailures": "Letzte Fehler",
-    "privacyNotice": "Es werden nur bereinigte technische Codes angezeigt. Empfänger, Inhalte und Schlüsselwerte bleiben verborgen.",
-    "noFailures": "Keine aktuellen Fehler.",
-    "attempts": "Versuche"
-  },
-  "environmentManager": {
-    "eyebrow": "Dateninfrastruktur",
-    "title": "Umgebungsverwaltung",
-    "description": "PostgreSQL ist die primäre Datenbank für reale Umgebungen. SQLite bleibt auf Entwicklung, Tests, Demos und isolierte kommerzielle MVPs beschränkt.",
-    "loadError": "Die Umgebungsverwaltung konnte nicht geladen werden.",
-    "createError": "Die isolierte Umgebung konnte nicht erstellt werden.",
-    "planError": "Der Migrationsplan konnte nicht vorbereitet werden.",
-    "activeEngine": "Aktive Datenbank",
-    "primaryEngine": "Primäre Datenbank",
-    "migrationMode": "Migrationsmodus",
-    "reviewFirst": "Prüfung zuerst",
-    "createTitle": "Isolierte SQLite-Umgebung erstellen",
-    "name": "Umgebungsname",
-    "slug": "Technische Kennung",
-    "kind": "Verwendung",
-    "customerSandbox": "Virtuelle Kundenprobe",
-    "commercialMvp": "Isoliertes kommerzielles MVP",
-    "create": "Umgebung erstellen",
-    "prepareMigration": "Migration vorbereiten",
-    "planSummary": "{{rows}} Datensätze zur Prüfung erfasst.",
-    "sensitiveReview": "Sensible Kategorien sind vorhanden und benötigen vor der Übertragung eine ausdrückliche Freigabe.",
-    "noSensitiveData": "In sensiblen Kategorien wurden keine Datensätze gefunden.",
-    "executionDisabled": "Die automatische Ausführung ist deaktiviert; dieser Schritt prüft und plant nur.",
-    "mutationsDisabled": "Die Erstellung von Umgebungen ist in dieser Bereitstellung deaktiviert.",
-    "empty": "Es gibt noch keine verwalteten isolierten Umgebungen.",
-    "status": {
-      "ready": "Bereit",
-      "migration_review": "In Prüfung",
-      "migration_ready": "Bereit zur Migrationsprüfung",
-      "migration_blocked": "Migration blockiert"
-    }
-  },
-  "capabilityRoadmap": {
-    "eyebrow": "Produktbewertung",
-    "title": "Was vorhanden ist und was fehlt",
-    "description": "Vergleicht die letzte Bewertung von Umbravia Forge mit dem aktuellen Code und Marktanforderungen.",
-    "loadError": "Die Funktions-Roadmap konnte nicht geladen werden.",
-    "current": "Vorhanden",
-    "gap": "Fehlt noch",
-    "evidence": "Lokaler Nachweis",
-    "openDestination": "Ziel öffnen",
-    "status": {
-      "implemented": "Umgesetzt",
-      "partial": "Teilweise",
-      "prepared": "Vorbereitet",
-      "missing": "Ausstehend"
-    }
   },
   "classes": {
     "scheduled": "Geplant",
@@ -1868,6 +1663,7 @@
     }
   },
   "errors": {
+    "facilityMembershipRequired": "Dieses Konto gehört derzeit keinem aktiven Studio an. Du benötigst eine aktive Mitgliedschaft, um Kurse, Buchungen, Zahlungen und Bestellungen zu sehen.",
     "fetchAttendees": "Teilnehmer konnten nicht abgerufen werden",
     "fetchClasses": "Klassen konnten nicht abgerufen werden",
     "fetchUsers": "Benutzer konnten nicht abgerufen werden",

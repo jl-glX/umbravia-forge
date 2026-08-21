@@ -20,7 +20,7 @@
   },
   "scripts": {
     "dev": "tsx scripts/dev.ts",
-    "manager:console": "node scripts/manager-console.mjs",
+    "platform:managers": "tsx scripts/platform-manager-admin.ts",
     "company:provision-head": "tsx scripts/provision-company-head.ts",
     "build": "node scripts/run-project-scripts.mjs build:client build:server build:support-email-worker",
     "build:client": "vite build",

@@ -149,6 +149,7 @@ async function listManagedEnvironmentManifests() {
     } catch {
       publishManagerSignal(
         "environment",
+        "commercial",
         "warning",
         "ENVIRONMENT_MANIFEST_INVALID",
         `The managed environment ${entry.name} has an invalid manifest.`,
@@ -198,6 +199,7 @@ export async function createManagedEnvironment(
 
   return withCoordinatedManagerOperation(
     "environment",
+    "commercial",
     "create-sqlite-environment",
     ["database-maintenance", `environment:${slug}`],
     async () => {
@@ -224,6 +226,7 @@ export async function createManagedEnvironment(
         );
         publishManagerSignal(
           "environment",
+          "commercial",
           "info",
           "ENVIRONMENT_CREATED",
           `SQLite environment ${slug} is ready.`,
@@ -279,6 +282,7 @@ export async function stageCommercialEnvironmentRemoval(slugInput: string) {
 export async function prepareEnvironmentMigration(environmentId: string) {
   return withCoordinatedManagerOperation(
     "environment",
+    "commercial",
     "prepare-postgresql-migration",
     ["database-maintenance", `environment:${environmentId}`],
     async () => {
@@ -358,6 +362,6 @@ export async function getEnvironmentManagerOverview() {
     migrationExecutionEnabled: false,
     migrationMode: "review-first" as const,
     environments,
-    coordination: getManagerCoordinationStatus(),
+    coordination: getManagerCoordinationStatus("commercial"),
   };
 }

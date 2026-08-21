@@ -207,6 +207,7 @@ describe("account recovery", () => {
     });
     const maintenance = coordinator.withCoordinatedManagerOperation(
       "resource",
+      "commercial",
       "test-authentication-cleanup",
       ["authentication-records"],
       async () => {

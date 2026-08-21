@@ -122,41 +122,7 @@
   "accountMenu": {
     "open": "Open account menu",
     "manage": "Open account area",
-    "managerConsole": "Manager terminal access",
-    "support": "Open Forge Support"
-  },
-  "managerConsole": {
-    "eyebrow": "Internal corporate channel",
-    "title": "Manager terminal access",
-    "description": "The web verifies corporate identity and can only issue temporary external access. The internal channel opens exclusively from the Microsoft Store or Mac App Store corporate app.",
-    "webBoundary": "No web console",
-    "loadError": "Terminal access could not be verified.",
-    "issueError": "The terminal credential could not be issued.",
-    "internalTitle": "Umbravia internal channel",
-    "recommended": "Exclusive corporate gateway",
-    "internalDescription": "Only a verified corporate installation may keep a session while activity and trust remain. It is revoked after {{minutes}} minutes of inactivity, suspend or hibernate, or when account, role, or trust changes.",
-    "internalAppsOnly": "Internal credentials are not issued from the web",
-    "internalApps": "Planned entry points: {{apps}}. The integration remains closed until the apps and store verification are available.",
-    "externalTitle": "Authorized external environment",
-    "externalCompatibility": "PowerShell · WSL · macOS · Linux",
-    "externalDescription": "A one-time credential valid for {{credentialMinutes}} minutes. Connecting opens an external session for up to {{sessionMinutes}} minutes.",
-    "credentialScope": "Maximum scope for this credential",
-    "includeTemporaryPermissions": "Include active temporary permissions. They are checked again on every operation and disappear when expired or revoked.",
-    "issueInternal": "Issue internal access",
-    "issueExternal": "Issue temporary external access",
-    "issuing": "Issuing access…",
-    "credentialReady": "Credential ready",
-    "internalCredentialNotice": "Keep this credential only in the authorized internal channel.",
-    "externalCredentialNotice": "Use it once and do not store it in files or history.",
-    "copy": "Copy credential",
-    "internalRevocationNotice": "Activity keeps access alive. exit revokes it immediately; inactivity, suspend, hibernate, or loss of trust also invalidates it.",
-    "externalExpiryNotice": "The credential expires even when unused and becomes invalid after opening the session. exit closes and revokes the active session.",
-    "launchInstruction": "Run the client in the authorized terminal and paste the credential when prompted:",
-    "issuedScope": "Scope: {{scope}} · temporary permissions: {{temporary}}",
-    "temporaryYes": "included",
-    "temporaryNo": "excluded",
-    "boundaryTitle": "Authority boundary",
-    "boundaryDescription": "Profile {{profile}} can only view and manage branches allowed by its priority. Commands run in an isolated Linux container without secrets or host-system access."
+    "support": "Facility support"
   },
   "support": {
     "eyebrow": "Care and knowledge",
@@ -325,18 +291,8 @@
     "billingDescription": "Manage payments, invoices, due dates and trial access.",
     "adminAnalytics": "Facility analytics",
     "adminAnalyticsDescription": "Study occupancy, demand, attendance and time slots.",
-    "resourceManager": "Resource manager",
-    "resourceManagerDescription": "Monitor frontend, backend and API processes and capabilities.",
-    "securityManager": "Security manager",
-    "securityManagerDescription": "Centralize controls, signals and risk observations without automatic blocking.",
     "dataRetention": "Data retention",
     "dataRetentionDescription": "Prepare draft policies and review their future records.",
-    "environmentManager": "Environment manager",
-    "environmentManagerDescription": "Create isolated SQLite environments and prepare their reviewed promotion to PostgreSQL.",
-    "emailManager": "Email manager",
-    "emailManagerDescription": "Manage, confirm and alert on email channels and their queue without exposing recipients or secrets.",
-    "capabilityRoadmap": "Capability roadmap",
-    "capabilityRoadmapDescription": "Compare implemented, partial and missing product capabilities against the market.",
     "notifications": "Notifications",
     "notificationsDescription": "Notification preferences and history will be enabled in a future phase.",
     "preferences": "Preferences",
@@ -763,15 +719,7 @@
     "analytics": "Attendance and demand",
     "analyticsDescription": "Find classes and time slots with the highest and lowest attendance.",
     "downloads": "Download center",
-    "downloadsDescription": "Access the official apps and Umbravia Forge portable package.",
-    "resources": "Server resources",
-    "resourcesDescription": "Monitor and control internal tasks registered by Umbravia Forge.",
-    "environments": "Environments and databases",
-    "environmentsDescription": "Manage isolated demos and their PostgreSQL readiness.",
-    "emailManager": "Internal email",
-    "emailManagerDescription": "Monitor email channels, their queue and coordinated connections with accounts and support.",
-    "capabilityRoadmap": "Capability roadmap",
-    "capabilityRoadmapDescription": "Review real coverage and prioritized product gaps."
+    "downloadsDescription": "Access the official apps and Umbravia Forge portable package."
   },
   "downloads": {
     "eyebrow": "Umbravia Forge on all your devices",
@@ -808,159 +756,6 @@
         "destination": "Browser download",
         "format": ".zip"
       }
-    }
-  },
-  "securityManager": {
-    "eyebrow": "Security monitoring",
-    "title": "Security manager",
-    "description": "Review control status and recent signals from one administrative view.",
-    "loadError": "Security status could not be loaded.",
-    "observeTitle": "Risk engine in observation mode",
-    "observeDescription": "Signals are recorded for evaluation, but this version does not automatically block a connection because of its risk score.",
-    "failedLogins24h": "Failed sign-ins in 24h",
-    "captchaFailures24h": "Failed CAPTCHA checks in 24h",
-    "riskObservations7d": "Risk signals in 7 days",
-    "highRiskObservations7d": "High signals in 7 days",
-    "controlsTitle": "Coordinated controls",
-    "controlsDescription": "Current state of protections enforced by the application and API.",
-    "captchaControl": "Manual CAPTCHA with server validation",
-    "originControl": "Origin checks on sensitive operations",
-    "rateLimitControl": "Authentication attempt limit",
-    "headersControl": "Security headers",
-    "riskControl": "Risk observation",
-    "coordinationTitle": "Manager coordination",
-    "coordinationDescription": "{{managers}} managers share signals and work scopes. There are {{operations}} active exclusive operations.",
-    "available": "Available",
-    "notConfigured": "Configuration required",
-    "eventsTitle": "Recent activity",
-    "eventsDescription": "Latest security events recorded during the last seven days.",
-    "noDetails": "No additional details",
-    "noEvents": "There is no recent security activity yet."
-  },
-  "resourceManager": {
-    "eyebrow": "API operations",
-    "title": "Resource manager",
-    "description": "Monitor Umbravia Forge internal tasks and run, pause or resume only processes registered by the platform.",
-    "loadError": "Resource status could not be loaded.",
-    "updateError": "The task could not be updated.",
-    "memory": "Memory in use",
-    "heapCapacity": "Reserved capacity",
-    "uptime": "Uptime",
-    "enabledTasks": "Enabled tasks",
-    "residualChecksTitle": "Residual process checks active",
-    "residualChecksSummary": "{{checks}} checks completed · {{removed}} stale runtime records removed",
-    "lastResidualCheck": "Last check: {{date}}",
-    "noResidualCheck": "Waiting for the first check",
-    "managedTasks": "Managed processes",
-    "scopeNotice": "This panel never controls operating-system processes or other applications.",
-    "taskStats": "{{runs}} runs · {{duration}} ms on the last run · {{result}} items processed",
-    "reviewFindings": "Review {{count}} findings",
-    "runNow": "Run now",
-    "pause": "Pause",
-    "resume": "Resume",
-    "states": {
-      "idle": "Ready",
-      "running": "Running",
-      "paused": "Paused",
-      "error": "Error"
-    },
-    "tasks": {
-      "expired-auth-cleanup": {
-        "name": "Expired authentication cleanup",
-        "description": "Removes expired or revoked sessions and authentication challenges that have expired."
-      },
-      "sqlite-query-planner": {
-        "name": "SQLite query planner optimization",
-        "description": "Lets SQLite refresh lightweight statistics when the database needs them."
-      },
-      "booking-integrity-cleanup": {
-        "name": "Booking integrity",
-        "description": "Reconciles duplicate active bookings and stale waitlist entries when the correction is unambiguous."
-      },
-      "project-runtime-cleanup": {
-        "name": "Project runtime cleanup",
-        "description": "Removes stale Umbravia Forge records and prevents duplicate development instances without touching other operating-system processes."
-      },
-      "deleted-account-residual-cleanup": {
-        "name": "Deleted account residual cleanup",
-        "description": "Removes technical remnants whose account no longer exists, without deciding closures or inactivity periods."
-      },
-      "source-hygiene-audit": {
-        "name": "Source hygiene audit",
-        "description": "Finds identical, empty or potentially obsolete files for review without deleting source code automatically."
-      },
-      "environment-readiness-audit": {
-        "name": "Environment readiness",
-        "description": "Checks that managed SQLite environments keep a complete schema before their promotion to PostgreSQL is prepared."
-      }
-    }
-  },
-  "emailManager": {
-    "eyebrow": "Internal communications",
-    "title": "Email manager",
-    "description": "Manage delivery and reception, confirm readiness and report incidents through the manager coordinator.",
-    "loadError": "The email manager could not be loaded.",
-    "actionError": "The email operation could not be completed.",
-    "outbound": "Outbound",
-    "inbound": "Inbound",
-    "pending": "Pending",
-    "failed": "Failed",
-    "audit": "Check",
-    "maintenance": "Maintain queue",
-    "ready": "Channels ready",
-    "attention": "Some alerts require attention",
-    "coordinationNotice": "The manager operates email; the coordinator validates connections, prevents overlap and distributes confirmations and alerts.",
-    "recentFailures": "Recent failures",
-    "privacyNotice": "Only sanitized technical codes are shown. Recipients, content and key values are never exposed.",
-    "noFailures": "There are no recent failures.",
-    "attempts": "attempts"
-  },
-  "environmentManager": {
-    "eyebrow": "Data infrastructure",
-    "title": "Environment manager",
-    "description": "PostgreSQL is the primary engine for real environments. SQLite is limited to development, testing, demonstrations and isolated commercial MVPs.",
-    "loadError": "The environment manager could not be loaded.",
-    "createError": "The isolated environment could not be created.",
-    "planError": "The migration plan could not be prepared.",
-    "activeEngine": "Active engine",
-    "primaryEngine": "Primary engine",
-    "migrationMode": "Migration mode",
-    "reviewFirst": "Review first",
-    "createTitle": "Create an isolated SQLite environment",
-    "name": "Environment name",
-    "slug": "Technical identifier",
-    "kind": "Purpose",
-    "customerSandbox": "Virtual customer trial",
-    "commercialMvp": "Isolated commercial MVP",
-    "create": "Create environment",
-    "prepareMigration": "Prepare migration",
-    "planSummary": "{{rows}} records inventoried for review.",
-    "sensitiveReview": "Sensitive categories are present and require specific authorization before transfer.",
-    "noSensitiveData": "No records were found in sensitive categories.",
-    "executionDisabled": "Automatic execution is disabled: this step only validates and prepares the transfer.",
-    "mutationsDisabled": "Environment creation is disabled in this deployment.",
-    "empty": "There are no managed isolated environments yet.",
-    "status": {
-      "ready": "Ready",
-      "migration_review": "Under review",
-      "migration_ready": "Ready for migration review",
-      "migration_blocked": "Migration blocked"
-    }
-  },
-  "capabilityRoadmap": {
-    "eyebrow": "Product assessment",
-    "title": "What exists and what is missing",
-    "description": "Compares the latest Umbravia Forge assessment with the current code and capabilities observed in the market.",
-    "loadError": "The capability roadmap could not be loaded.",
-    "current": "What exists",
-    "gap": "What is missing",
-    "evidence": "Local evidence",
-    "openDestination": "Open destination",
-    "status": {
-      "implemented": "Implemented",
-      "partial": "Partial",
-      "prepared": "Prepared",
-      "missing": "Pending"
     }
   },
   "classes": {
@@ -1767,6 +1562,7 @@
     }
   },
   "errors": {
+    "facilityMembershipRequired": "This account does not currently belong to an active facility. You need an active membership to view classes, bookings, payments, and orders.",
     "fetchClasses": "Failed to fetch classes",
     "fetchTrainerClasses": "Failed to fetch trainer classes",
     "fetchAttendees": "Failed to fetch attendees",
@@ -2317,9 +2113,21 @@
     "passwordMismatch": "The passwords do not match.",
     "activationInvalid": "The email, password or activation code is invalid, expired, or the request must be submitted again.",
     "restrictedNotice": "Account, membership, position and permissions are managed separately",
-    "downloadWindowsTest": "Download the Windows test web installer (.zip)",
+    "passkeyLogin": "Sign in with a corporate passkey",
     "privacy": "Privacy",
     "error": "The operation could not be completed."
+  },
+  "umfCorporateAccount": {
+    "shortTitle": "Corporate account",
+    "title": "Corporate account centre",
+    "heading": "Independent UMF Support identity",
+    "boundary": "This account, its sessions, access methods and corporate permissions are separate from every member, trainer or facility account, even when both use the same email address.",
+    "back": "Back to support",
+    "highlights": {
+      "identity": "Separate corporate identity",
+      "roles": "Revocable positions and permissions",
+      "security": "Protected sessions and credentials"
+    }
   },
   "accountEmailChange": {
     "title": "Account sign-in email",

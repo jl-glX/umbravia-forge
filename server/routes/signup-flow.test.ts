@@ -130,10 +130,14 @@ describe("progressive account signup", () => {
       .executeTakeFirstOrThrow();
     expect(user.accountStatus).toBe("active");
     expect(user.emailVerifiedAt).toEqual(expect.any(Number));
-    await request(app)
+    const membershipRequired = await request(app)
       .get("/api/activity-sessions")
       .set("Cookie", cookie)
       .expect(403);
+    expect(membershipRequired.body).toEqual({
+      error: "An active facility membership is required",
+      code: "FACILITY_MEMBERSHIP_REQUIRED",
+    });
 
     const login = await request(app)
       .post("/api/auth/login")

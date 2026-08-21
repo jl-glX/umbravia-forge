@@ -4,7 +4,6 @@ import {
   ChevronDown,
   LifeBuoy,
   LogOut,
-  SquareTerminal,
   Settings,
   UserRound,
   X,
@@ -139,18 +138,6 @@ export function AccountMenu() {
             <Settings size={18} />
             {t("accountMenu.manage")}
           </Link>
-
-          {user?.corporateConsole?.enabled && (
-            <Link
-              role="menuitem"
-              to="/admin/manager-console"
-              onClick={() => setIsOpen(false)}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
-            >
-              <SquareTerminal size={18} />
-              {t("accountMenu.managerConsole")}
-            </Link>
-          )}
 
           <Link
             role="menuitem"

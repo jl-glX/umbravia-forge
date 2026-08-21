@@ -273,13 +273,14 @@ export async function getEmailManagerOverview() {
       secretValuesExposed: false as const,
       configurationMutationEnabled: false as const,
     },
-    coordination: getManagerCoordinationStatus(),
+    coordination: getManagerCoordinationStatus("commercial"),
   };
 }
 
 export async function runEmailManagerAudit() {
   return withPrioritizedManagerOperation(
     "email",
+    "commercial",
     "email-readiness-audit",
     ["notification-delivery", "support-email-ingress"],
     "normal",
@@ -288,6 +289,7 @@ export async function runEmailManagerAudit() {
       const readiness = getEmailManagerReadiness();
       publishManagerSignal(
         "email",
+        "commercial",
         readiness.healthy ? "info" : "warning",
         readiness.healthy
           ? "EMAIL_MANAGER_AUDIT_CONFIRMED"
@@ -319,6 +321,7 @@ export async function maintainManagedEmailQueue() {
 export async function runEmailManagerMaintenance() {
   return withPrioritizedManagerOperation(
     "email",
+    "commercial",
     "email-queue-maintenance",
     ["notification-delivery"],
     "high",
@@ -327,6 +330,7 @@ export async function runEmailManagerMaintenance() {
       const result = await maintainEmailDeliveryQueue();
       publishManagerSignal(
         "email",
+        "commercial",
         "info",
         "EMAIL_MANAGER_MAINTENANCE_CONFIRMED",
         "The email manager completed queue maintenance and reported its result.",
@@ -423,6 +427,7 @@ export async function sanitizeManagedEmailHistory(now = Date.now()): Promise<{
 
   publishManagerSignal(
     "email",
+    "commercial",
     "info",
     "EMAIL_HISTORY_SANITIZATION_CONFIRMED",
     `${result} terminal email record(s) were stripped of recipient, encrypted content and identifying delivery metadata.`,

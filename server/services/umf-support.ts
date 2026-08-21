@@ -41,9 +41,9 @@ import {
   queueUmfSupportReplyEmail,
 } from "./email-delivery.js";
 import {
+  createCorporateSupportAccount,
   hashPassword,
   isStrongPassword,
-  signup,
   type AuthResult,
 } from "./auth.js";
 import {
@@ -256,24 +256,19 @@ function categoryForInboundSubject(subject: string): "privacy" | "general" {
 export async function getUmfSupportRole(
   userId: string,
 ): Promise<UmfSupportRole | null> {
-  const [operator, staff] = await Promise.all([
-    db
-      .selectFrom("platformOperators")
-      .select("userId")
-      .where("userId", "=", userId)
-      .where("status", "=", "active")
-      .executeTakeFirst(),
-    db
-      .selectFrom("umfSupportStaff")
-      .select("role")
-      .where("userId", "=", userId)
-      .where("status", "=", "active")
-      .executeTakeFirst(),
-  ]);
-  return operator ? "director" : (staff?.role ?? null);
+  const staff = await db
+    .selectFrom("umfSupportStaff")
+    .select("role")
+    .where("userId", "=", userId)
+    .where("status", "=", "active")
+    .executeTakeFirst();
+  return staff?.role ?? null;
 }
 
 async function requireStaff(auth: AuthenticatedUser): Promise<UmfSupportRole> {
+  if (auth.identityRealm !== "corporate_support") {
+    throw new UmfSupportAccessError("UMF Support access is required");
+  }
   const role = await getUmfSupportRole(auth.userId);
   if (!role) throw new UmfSupportAccessError("UMF Support access is required");
   return role;
@@ -287,21 +282,13 @@ async function requireDirector(auth: AuthenticatedUser): Promise<void> {
 
 export async function getUmfSupportCapabilities(auth: AuthenticatedUser) {
   const role = await requireStaff(auth);
-  const [companyHead, platformOperator] = await Promise.all([
-    db
-      .selectFrom("companyStaffProfiles")
-      .select("userId")
-      .where("userId", "=", auth.userId)
-      .where("position", "=", "platform_head")
-      .where("status", "=", "active")
-      .executeTakeFirst(),
-    db
-      .selectFrom("platformOperators")
-      .select("userId")
-      .where("userId", "=", auth.userId)
-      .where("status", "=", "active")
-      .executeTakeFirst(),
-  ]);
+  const companyHead = await db
+    .selectFrom("companyStaffProfiles")
+    .select("userId")
+    .where("userId", "=", auth.userId)
+    .where("position", "=", "platform_head")
+    .where("status", "=", "active")
+    .executeTakeFirst();
   const readiness = getEmailManagerReadiness();
   let inbound = false;
   let configurationValid = true;
@@ -314,7 +301,7 @@ export async function getUmfSupportCapabilities(auth: AuthenticatedUser) {
     role,
     canReviewAccess: role === "director",
     canManageTeam: role === "director",
-    canManageCompanyRoles: Boolean(companyHead && platformOperator),
+    canManageCompanyRoles: Boolean(companyHead),
     email: {
       outbound: readiness.capabilities.supportNotifications,
       inbound,
@@ -326,22 +313,12 @@ export async function getUmfSupportCapabilities(auth: AuthenticatedUser) {
 }
 
 export function getUmfSupportDistribution() {
-  const configured = process.env.UMF_SUPPORT_WINDOWS_ZIP_URL?.trim();
-  let url: string | null = null;
-  if (configured) {
-    try {
-      const candidate = new URL(configured);
-      if (candidate.protocol === "https:") url = candidate.toString();
-    } catch {
-      url = null;
-    }
-  }
   return {
-    platform: "windows" as const,
-    packageFormat: ".zip",
-    testPackage: true,
-    url,
-    available: url !== null,
+    stage: "production" as const,
+    channel: "web" as const,
+    path: "/umf-support/access",
+    available: true,
+    installer: null,
   };
 }
 
@@ -368,6 +345,7 @@ export async function requestUmfSupportAccess(input: Record<string, unknown>) {
       .selectFrom("users")
       .select("id")
       .where("email", "=", email)
+      .where("identityRealm", "=", "corporate_support")
       .executeTakeFirst(),
     db
       .selectFrom("umfSupportAccessRequests")
@@ -682,7 +660,7 @@ export async function activateUmfSupportAccount(
   if (!/^[A-Z]{2}$/.test(countryCode)) {
     throw new UmfSupportValidationError("countryCode is invalid");
   }
-  const result = await signup(
+  const result = await createCorporateSupportAccount(
     email,
     request.name,
     password,
@@ -693,16 +671,9 @@ export async function activateUmfSupportAccount(
       locale: request.locale,
       acceptedTerms: input.acceptedTerms === true,
       acceptedPrivacy: input.acceptedPrivacy === true,
-      accountType: "member",
     },
-    { requireEmailVerification: false },
   );
   try {
-    await db
-      .updateTable("users")
-      .set({ emailVerifiedAt: now })
-      .where("id", "=", result.user.id)
-      .execute();
     if (credential.activationKind === "designated_head") {
       await bootstrapCompanyHead(result.user.id, request.id);
     } else {
@@ -759,7 +730,7 @@ export async function activateUmfSupportAccount(
 
 export async function listUmfSupportStaff(auth: AuthenticatedUser) {
   await requireStaff(auth);
-  const listed = await db
+  return db
     .selectFrom("umfSupportStaff")
     .innerJoin("users", "users.id", "umfSupportStaff.userId")
     .select([
@@ -773,29 +744,6 @@ export async function listUmfSupportStaff(auth: AuthenticatedUser) {
     ])
     .orderBy("users.name")
     .execute();
-  const operators = await db
-    .selectFrom("platformOperators")
-    .innerJoin("users", "users.id", "platformOperators.userId")
-    .select([
-      "platformOperators.userId",
-      "users.name",
-      "users.lastName",
-      "users.email",
-      "platformOperators.createdAt",
-    ])
-    .where("platformOperators.status", "=", "active")
-    .execute();
-  const known = new Set(listed.map((row) => row.userId));
-  return [
-    ...operators
-      .filter((row) => !known.has(row.userId))
-      .map((row) => ({
-        ...row,
-        role: "director" as const,
-        status: "active" as const,
-      })),
-    ...listed,
-  ];
 }
 
 export async function listCompanyStaff(auth: AuthenticatedUser) {
@@ -956,22 +904,14 @@ function companyProfile(value: unknown): CorporateManagerProfileId {
 
 async function requireCompanyHead(auth: AuthenticatedUser): Promise<void> {
   await requireDirector(auth);
-  const [head, operator] = await Promise.all([
-    db
-      .selectFrom("companyStaffProfiles")
-      .select("userId")
-      .where("userId", "=", auth.userId)
-      .where("position", "=", "platform_head")
-      .where("status", "=", "active")
-      .executeTakeFirst(),
-    db
-      .selectFrom("platformOperators")
-      .select("userId")
-      .where("userId", "=", auth.userId)
-      .where("status", "=", "active")
-      .executeTakeFirst(),
-  ]);
-  if (!head || !operator) {
+  const head = await db
+    .selectFrom("companyStaffProfiles")
+    .select("userId")
+    .where("userId", "=", auth.userId)
+    .where("position", "=", "platform_head")
+    .where("status", "=", "active")
+    .executeTakeFirst();
+  if (!head) {
     throw new UmfSupportAccessError(
       "Active company head authority is required",
     );
@@ -980,21 +920,13 @@ async function requireCompanyHead(auth: AuthenticatedUser): Promise<void> {
 
 export async function listCompanyRoleDelegations(auth: AuthenticatedUser) {
   await requireStaff(auth);
-  const [companyHead, platformOperator] = await Promise.all([
-    db
-      .selectFrom("companyStaffProfiles")
-      .select("userId")
-      .where("userId", "=", auth.userId)
-      .where("position", "=", "platform_head")
-      .where("status", "=", "active")
-      .executeTakeFirst(),
-    db
-      .selectFrom("platformOperators")
-      .select("userId")
-      .where("userId", "=", auth.userId)
-      .where("status", "=", "active")
-      .executeTakeFirst(),
-  ]);
+  const companyHead = await db
+    .selectFrom("companyStaffProfiles")
+    .select("userId")
+    .where("userId", "=", auth.userId)
+    .where("position", "=", "platform_head")
+    .where("status", "=", "active")
+    .executeTakeFirst();
   let query = db
     .selectFrom("corporateRoleDelegations")
     .innerJoin(
@@ -1012,7 +944,7 @@ export async function listCompanyRoleDelegations(auth: AuthenticatedUser) {
       "recipient.name as recipientName",
       "recipient.lastName as recipientLastName",
     ]);
-  if (!companyHead || !platformOperator) {
+  if (!companyHead) {
     query = query.where(
       "corporateRoleDelegations.recipientUserId",
       "=",

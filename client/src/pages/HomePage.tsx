@@ -11,10 +11,6 @@ import {
   Building2,
   MonitorDown,
   Plus,
-  ServerCog,
-  Database,
-  Route,
-  MailCheck,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useCurrentUser } from "../hooks/useCurrentUser";
@@ -29,12 +25,7 @@ export function HomePage() {
   const user = useCurrentUser();
   const { t } = useTranslation();
   if (user && getAccessRole(user) === "admin")
-    return (
-      <AdminHome
-        name={user.name}
-        platformOperator={user.platformOperator === true}
-      />
-    );
+    return <AdminHome name={user.name} />;
   const features: Array<{
     kind: BrandGlyphKind;
     title: string;
@@ -145,13 +136,7 @@ export function HomePage() {
   );
 }
 
-function AdminHome({
-  name,
-  platformOperator,
-}: {
-  name: string;
-  platformOperator: boolean;
-}) {
+function AdminHome({ name }: { name: string }) {
   const { t } = useTranslation();
   const { profile } = useFacilityProfile();
   const actions = [
@@ -185,40 +170,7 @@ function AdminHome({
       title: t("adminHome.downloads"),
       text: t("adminHome.downloadsDescription"),
     },
-    {
-      to: "/admin/resource-manager",
-      icon: ServerCog,
-      title: t("adminHome.resources"),
-      text: t("adminHome.resourcesDescription"),
-    },
-    {
-      to: "/admin/environment-manager",
-      icon: Database,
-      title: t("adminHome.environments"),
-      text: t("adminHome.environmentsDescription"),
-    },
-    {
-      to: "/admin/email-manager",
-      icon: MailCheck,
-      title: t("adminHome.emailManager"),
-      text: t("adminHome.emailManagerDescription"),
-    },
-    {
-      to: "/admin/capability-roadmap",
-      icon: Route,
-      title: t("adminHome.capabilityRoadmap"),
-      text: t("adminHome.capabilityRoadmapDescription"),
-    },
-  ].filter(
-    (action) =>
-      platformOperator ||
-      ![
-        "/admin/resource-manager",
-        "/admin/environment-manager",
-        "/admin/email-manager",
-        "/admin/capability-roadmap",
-      ].includes(action.to),
-  );
+  ];
 
   return (
     <main className="min-h-[calc(100vh-4.5rem)] bg-slate-50 text-slate-950">

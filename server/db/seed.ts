@@ -106,6 +106,7 @@ async function findSeedUser(id: string, email: string) {
     .selectFrom("users")
     .selectAll()
     .where("email", "=", email)
+    .where("identityRealm", "=", "commercial")
     .executeTakeFirst();
 }
 
@@ -257,6 +258,7 @@ export async function seedDatabase() {
       .selectFrom("users")
       .select(["id", "role", "createdAt"])
       .where("email", "in", demoEmails)
+      .where("identityRealm", "=", "commercial")
       .execute();
     await Promise.all(
       seededUsers.map((user) => ensureSupportIdentifier(user.id)),

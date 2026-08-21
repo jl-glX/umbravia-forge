@@ -3,6 +3,7 @@ import type { Generated } from "kysely";
 interface User {
   id: string;
   email: string;
+  identityRealm: Generated<"commercial" | "corporate_support">;
   phone: string | null;
   name: string;
   lastName: Generated<string>;
@@ -50,6 +51,7 @@ interface EmailVerificationChallenge {
 interface EmailChangeChallenge {
   id: string;
   userId: string;
+  identityRealm: "commercial" | "corporate_support";
   newEmail: string;
   codeHash: string;
   createdAt: number;
@@ -70,6 +72,7 @@ interface AccountRecoveryChallenge {
 interface EmailDelivery {
   id: string;
   userId: string | null;
+  platformScope: Generated<"commercial" | "support">;
   kind:
     | "email_verification"
     | "account_recovery"
@@ -1077,28 +1080,6 @@ interface ManagerTemporaryPermission {
   revokedAt: number | null;
 }
 
-interface ManagerTerminalAccess {
-  id: string;
-  userId: string;
-  accessMode: "internal" | "external";
-  scopeProfileId: CorporateConsoleStoredProfileId | null;
-  allowTemporaryPermissions: number;
-  credentialHash: string;
-  terminalSessionHash: string | null;
-  createdAt: number;
-  expiresAt: number | null;
-  lastActivityAt: number;
-  lastHeartbeatAt: number;
-  consumedAt: number | null;
-  terminalSessionExpiresAt: number | null;
-  revokedAt: number | null;
-}
-
-type CorporateConsoleStoredProfileId =
-  | "umbravia-forge"
-  | CorporateManagerProfileId
-  | "manager-cryptographic-material-replacement";
-
 export type CommercialFacilityType =
   | "traditional_gym"
   | "crossfit"
@@ -1341,7 +1322,6 @@ export interface Database {
   managerOrganizationalUnits: ManagerOrganizationalUnit;
   managerOrganizationalMemberships: ManagerOrganizationalMembership;
   managerTemporaryPermissions: ManagerTemporaryPermission;
-  managerTerminalAccess: ManagerTerminalAccess;
   commercialTrials: CommercialTrial;
   commercialTrialEvents: CommercialTrialEvent;
   administratorSignupProvisioning: AdministratorSignupProvisioning;

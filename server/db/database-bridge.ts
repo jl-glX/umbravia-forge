@@ -83,7 +83,6 @@ export const migrationTableGroups = {
     "passkeyCredentials",
     "webauthnChallenges",
     "securityEvents",
-    "managerTerminalAccess",
     "managerTemporaryPermissions",
   ],
   support: [

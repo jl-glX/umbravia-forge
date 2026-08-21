@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CreditCard, ReceiptText, ShoppingBag } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { authFetch } from "../lib/api";
+import { localizedApiErrorMessage } from "../lib/api-error";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -38,12 +39,16 @@ export function MemberPaymentsPage() {
       const response = await authFetch(
         `${API_BASE}/api/member-commerce/summary`,
       );
-      const body = (await response.json()) as CommerceSummary & {
-        error?: string;
-      };
       if (!response.ok) {
-        throw new Error(body.error ?? t("memberCommerce.loadFailed"));
+        throw new Error(
+          await localizedApiErrorMessage(
+            response,
+            t("memberCommerce.loadFailed"),
+            (key) => t(key),
+          ),
+        );
       }
+      const body = (await response.json()) as CommerceSummary;
       setSummary(body);
       setError("");
     } catch (cause) {

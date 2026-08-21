@@ -463,6 +463,7 @@ async function cleanupDueCommercialTrial(
 ) {
   return withCoordinatedManagerOperation(
     "account",
+    "commercial",
     "cleanup-abandoned-commercial-trial",
     [`commercial-trial:${trial.facilityId}`],
     async () => {
@@ -998,6 +999,7 @@ export async function declareCommercialTrialData(
 ) {
   return withCoordinatedManagerOperation(
     "account",
+    "commercial",
     "declare-commercial-trial-data",
     [`commercial-trial:${facilityId}`],
     async () => {

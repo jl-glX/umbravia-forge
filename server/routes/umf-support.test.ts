@@ -51,6 +51,7 @@ describe("UMF Support corporate API", () => {
         {
           id: "umf-director",
           email: "director@example.com",
+          identityRealm: "corporate_support",
           phone: null,
           name: "Director",
           avatarDataUrl: "",
@@ -64,6 +65,7 @@ describe("UMF Support corporate API", () => {
         {
           id: "tenant-admin-only",
           email: "tenant-admin@example.com",
+          identityRealm: "commercial",
           phone: null,
           name: "Tenant Admin",
           avatarDataUrl: "",
@@ -77,11 +79,12 @@ describe("UMF Support corporate API", () => {
       ])
       .execute();
     await database.db
-      .insertInto("platformOperators")
+      .insertInto("umfSupportStaff")
       .values({
         userId: "umf-director",
-        source: "controlled_provisioning",
+        role: "director",
         status: "active",
+        approvedByUserId: "umf-director",
         createdAt: now,
         updatedAt: now,
         revokedAt: null,
@@ -101,10 +104,9 @@ describe("UMF Support corporate API", () => {
       })
       .execute();
     app = (await import("../index.js")).app;
-    const login = await request(app).post("/api/auth/login").send({
-      identifier: "director@example.com",
+    const login = await request(app).post("/api/umf-support/login").send({
+      email: "director@example.com",
       password: "DirectorPassword123",
-      accessPortal: "support",
       rememberDevice: false,
     });
     directorCookie = login.headers["set-cookie"][0];
@@ -121,18 +123,19 @@ describe("UMF Support corporate API", () => {
       .get("/api/umf-support/distribution")
       .expect(200);
     expect(distribution.body.distribution).toMatchObject({
+      stage: "production",
+      channel: "web",
       available: true,
-      testPackage: true,
-      url: "https://downloads.example.com/umf-support-test.zip",
+      installer: null,
     });
 
-    const login = await request(app).post("/api/auth/login").send({
-      identifier: "tenant-admin@example.com",
+    const login = await request(app).post("/api/umf-support/login").send({
+      email: "tenant-admin@example.com",
       password: "TenantAdminPassword123",
-      accessPortal: "support",
       rememberDevice: false,
     });
     expect(login.status).toBe(401);
+    expect(login.headers["set-cookie"]).toBeUndefined();
   });
 
   it("exposes company positions without deriving technical permissions from them", async () => {
@@ -170,7 +173,7 @@ describe("UMF Support corporate API", () => {
       accessPortal: "support",
       rememberDevice: false,
     });
-    expect(login.status).toBe(401);
+    expect(login.status).toBe(400);
   });
 
   it("requires manual approval and consumes the activation code once", async () => {
@@ -191,6 +194,14 @@ describe("UMF Support corporate API", () => {
       .expect(200);
     expect(pending.body.requests).toHaveLength(1);
     expect(pending.body.requests[0].status).toBe("pending");
+    await expect(
+      database.db
+        .selectFrom("users")
+        .select("id")
+        .where("email", "=", "new-agent@example.com")
+        .where("identityRealm", "=", "corporate_support")
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
 
     const approved = await request(app)
       .post(
@@ -200,6 +211,14 @@ describe("UMF Support corporate API", () => {
       .send({})
       .expect(200);
     expect(approved.body.code).toMatch(/^\d{6}$/);
+    await expect(
+      database.db
+        .selectFrom("emailDeliveries")
+        .select(["platformScope", "kind"])
+        .where("recipient", "=", "new-agent@example.com")
+        .orderBy("createdAt", "desc")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ platformScope: "support", kind: "support_update" });
 
     const stored = await database.db
       .selectFrom("umfSupportAccessRequests")
@@ -268,10 +287,9 @@ describe("UMF Support corporate API", () => {
       })
       .expect(400);
 
-    const login = await request(app).post("/api/auth/login").send({
-      identifier: "new-agent@example.com",
+    const login = await request(app).post("/api/umf-support/login").send({
+      email: "new-agent@example.com",
       password: "NewAgentPassword123",
-      accessPortal: "support",
       rememberDevice: false,
     });
     expect(login.status).toBe(200);
@@ -371,12 +389,12 @@ describe("UMF Support corporate API", () => {
       reportsToUserId: "umf-director",
       status: "active",
     });
-    const login = await request(app).post("/api/auth/login").send({
-      identifier: "new-agent@example.com",
+    const login = await request(app).post("/api/umf-support/login").send({
+      email: "new-agent@example.com",
       password: "NewAgentPassword123",
-      accessPortal: "support",
       rememberDevice: false,
     });
+    expect(login.status).toBe(200);
     const agentCookie = login.headers["set-cookie"][0];
 
     const offer = async () =>

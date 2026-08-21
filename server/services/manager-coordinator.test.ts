@@ -20,6 +20,7 @@ describe("manager coordinator", () => {
     });
     const first = withCoordinatedManagerOperation(
       "account",
+      "commercial",
       "account-deletion",
       ["account-records"],
       async () => firstCanFinish,
@@ -28,6 +29,7 @@ describe("manager coordinator", () => {
     await expect(
       withCoordinatedManagerOperation(
         "resource",
+        "commercial",
         "residual-cleanup",
         ["account-records"],
         async () => undefined,
@@ -36,18 +38,23 @@ describe("manager coordinator", () => {
 
     releaseFirst();
     await first;
-    expect(getManagerCoordinationStatus().activeOperations).toHaveLength(0);
+    expect(
+      getManagerCoordinationStatus("commercial").activeOperations,
+    ).toHaveLength(0);
   });
 
   it("shares signals between managers", () => {
     publishManagerSignal(
       "security",
+      "commercial",
       "warning",
       "TEST_SIGNAL",
       "A coordinated test signal",
     );
 
-    expect(getManagerCoordinationStatus().recentSignals[0]).toMatchObject({
+    expect(
+      getManagerCoordinationStatus("commercial").recentSignals[0],
+    ).toMatchObject({
       source: "security",
       severity: "warning",
       code: "TEST_SIGNAL",
@@ -64,7 +71,7 @@ describe("manager coordinator", () => {
       compatible: true,
       scopes: ["notification-delivery", "support-email-ingress"],
     });
-    expect(getManagerCoordinationStatus().connections).toEqual(
+    expect(getManagerCoordinationStatus("commercial").connections).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           consumer: "resource",
@@ -113,7 +120,7 @@ describe("manager coordinator", () => {
     expect(transferred).toEqual({ verification: true, recovery: false });
     expect(transferred).not.toBe(original);
 
-    const status = getManagerCoordinationStatus();
+    const status = getManagerCoordinationStatus("commercial");
     expect(status.connectionProtection).toMatchObject({
       primitive: "AES-256-GCM",
       payloadsEncryptedInTransit: true,
@@ -130,6 +137,7 @@ describe("manager coordinator", () => {
     });
     const first = withCoordinatedManagerOperation(
       "account",
+      "commercial",
       " account-deletion ",
       [" account-records ", "account-records"],
       async () => firstCanFinish,
@@ -138,6 +146,7 @@ describe("manager coordinator", () => {
     await expect(
       withCoordinatedManagerOperation(
         "encryption",
+        "commercial",
         "key-readiness",
         ["account-records"],
         async () => undefined,
@@ -152,6 +161,7 @@ describe("manager coordinator", () => {
     await expect(
       withCoordinatedManagerOperation(
         "security",
+        "commercial",
         "   ",
         ["security-events"],
         async () => undefined,
@@ -160,6 +170,7 @@ describe("manager coordinator", () => {
     await expect(
       withCoordinatedManagerOperation(
         "security",
+        "commercial",
         "security-audit",
         ["", "   "],
         async () => undefined,
@@ -171,6 +182,7 @@ describe("manager coordinator", () => {
     await expect(
       withCoordinatedManagerOperation(
         "account",
+        "commercial",
         "read-security-files",
         ["security-files"],
         async () => undefined,
@@ -179,6 +191,7 @@ describe("manager coordinator", () => {
     await expect(
       withCoordinatedManagerOperation(
         "resource",
+        "commercial",
         "read-encryption-files",
         ["encryption-files"],
         async () => undefined,
@@ -188,6 +201,7 @@ describe("manager coordinator", () => {
     await expect(
       withCoordinatedManagerOperation(
         "security",
+        "commercial",
         "security-file-audit",
         ["security-files"],
         async () => "security-ok",
@@ -196,6 +210,7 @@ describe("manager coordinator", () => {
     await expect(
       withCoordinatedManagerOperation(
         "encryption",
+        "commercial",
         "encryption-file-audit",
         ["encryption-files"],
         async () => "encryption-ok",
@@ -208,6 +223,7 @@ describe("manager coordinator", () => {
       await expect(
         withCoordinatedManagerOperation(
           manager,
+          "commercial",
           "unsafe-file-operation",
           ["raw-key-material"],
           async () => undefined,
@@ -216,6 +232,7 @@ describe("manager coordinator", () => {
       await expect(
         withCoordinatedManagerOperation(
           manager,
+          "commercial",
           "literal-file-operation",
           ["file:/etc/umbravia-forge/secret"],
           async () => undefined,
@@ -227,19 +244,57 @@ describe("manager coordinator", () => {
   it("redacts common secret forms from shared manager signals", () => {
     publishManagerSignal(
       "security",
+      "commercial",
       "critical",
       "SECRET_REDACTION_TEST",
       "token=must-not-leak\npassword:also-hidden",
     );
 
-    const signal = getManagerCoordinationStatus().recentSignals[0];
+    const signal = getManagerCoordinationStatus("commercial").recentSignals[0];
     expect(signal.message).toBe("[REDACTED] [REDACTED]");
     expect(signal.message).not.toContain("must-not-leak");
     expect(signal.message).not.toContain("also-hidden");
   });
 
+  it("partitions signal presentation and retention under symmetric saturation", () => {
+    for (const platformScope of ["commercial", "support"] as const) {
+      for (let index = 0; index < 55; index += 1) {
+        publishManagerSignal(
+          "notification",
+          platformScope,
+          "warning",
+          `SCOPE_SATURATION_${platformScope.toUpperCase()}_${index}`,
+          `${platformScope} diagnostic ${index}`,
+        );
+      }
+    }
+
+    const commercial = getManagerCoordinationStatus("commercial");
+    const support = getManagerCoordinationStatus("support");
+    expect(commercial.recentSignals).toHaveLength(20);
+    expect(support.recentSignals).toHaveLength(20);
+    expect(
+      commercial.recentSignals.every(
+        (signal) => signal.platformScope === "commercial",
+      ),
+    ).toBe(true);
+    expect(
+      support.recentSignals.every(
+        (signal) => signal.platformScope === "support",
+      ),
+    ).toBe(true);
+    expect(commercial.signalRetention).toEqual({
+      limitPerScope: 50,
+      retained: 50,
+    });
+    expect(support.signalRetention).toEqual({
+      limitPerScope: 50,
+      retained: 50,
+    });
+  });
+
   it("publishes the least-privilege policy without secret material", () => {
-    expect(getManagerCoordinationStatus().accessPolicy).toEqual({
+    expect(getManagerCoordinationStatus("commercial").accessPolicy).toEqual({
       defaultSensitiveFileAccess: "denied",
       rawSecretExposure: "denied",
       protectedScopes: {
@@ -251,7 +306,9 @@ describe("manager coordinator", () => {
   });
 
   it("publishes the traffic administrator contract without domain authority", () => {
-    expect(getManagerCoordinationStatus().managerCore.administrator).toEqual({
+    expect(
+      getManagerCoordinationStatus("commercial").managerCore.administrator,
+    ).toEqual({
       role: "traffic-priority-conflict-administrator",
       executesDomainWork: false,
       changesManagerConfiguration: false,
@@ -262,6 +319,7 @@ describe("manager coordinator", () => {
   it("protects and acknowledges high-priority coordinator directives", async () => {
     const response = await withHighPriorityManagerDirective(
       "resource",
+      "commercial",
       "order",
       "run-priority-maintenance",
       ["resource-maintenance"],
@@ -279,7 +337,8 @@ describe("manager coordinator", () => {
     });
     expect(response.receipt.directiveId).toMatch(/^manager-directive-/);
     expect(
-      getManagerCoordinationStatus().managerCore.highPriorityChannel,
+      getManagerCoordinationStatus("commercial").managerCore
+        .highPriorityChannel,
     ).toEqual(
       expect.objectContaining({
         allowedPriorities: ["critical", "high"],
@@ -297,6 +356,7 @@ describe("manager coordinator", () => {
     await expect(
       withHighPriorityManagerDirective(
         "security",
+        "commercial",
         "instruction",
         "token=must-not-travel",
         ["security-events"],
@@ -307,6 +367,7 @@ describe("manager coordinator", () => {
     await expect(
       withHighPriorityManagerDirective(
         "security",
+        "commercial",
         "instruction",
         "review-security-events",
         ["file:/etc/private"],

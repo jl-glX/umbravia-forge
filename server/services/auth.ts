@@ -9,7 +9,6 @@ import {
 import { mfaStatus, verifyMfaCode } from "./mfa.js";
 import { recordSecurityEvent } from "./security-events.js";
 import { ensureSupportIdentifier } from "./support-identifiers.js";
-import { canBootstrapCompanyHead } from "./company-bootstrap.js";
 import { markMeaningfulAccountActivity } from "./account-lifecycle.js";
 import {
   isPasswordWithinHashLimit,
@@ -27,10 +26,6 @@ import {
 } from "./facility-context.js";
 import { commercialFacilityTypes } from "../lib/commercial-trial.js";
 import type { CommercialFacilityType } from "../db/types.js";
-import {
-  getCorporateConsoleAccess,
-  type CorporateConsoleAccess,
-} from "./manager-console.js";
 
 export { isStrongPassword } from "../lib/password-policy.js";
 
@@ -48,11 +43,11 @@ export interface SessionData {
   avatarDataUrl: string;
   role: "member" | "trainer" | "admin";
   accountStatus: "pending_verification" | "active" | "security_review";
+  identityRealm: "commercial" | "corporate_support";
   createdAt: number;
   expiresAt: number;
   facility: FacilityContext | null;
   platformOperator: boolean;
-  corporateConsole: CorporateConsoleAccess;
 }
 
 export interface AuthResult {
@@ -65,9 +60,9 @@ export interface AuthResult {
     avatarDataUrl: string;
     role: "member" | "trainer" | "admin";
     accountStatus: "pending_verification" | "active" | "security_review";
+    identityRealm: "commercial" | "corporate_support";
     facility?: FacilityContext | null;
     platformOperator?: boolean;
-    corporateConsole?: CorporateConsoleAccess;
   };
 }
 
@@ -154,7 +149,10 @@ export async function createSession(
     .execute();
 
   await markMeaningfulAccountActivity(user.id, "login_success", now);
-  const platformOperator = await isPlatformOperator(user.id);
+  const corporateIdentity = user.identityRealm === "corporate_support";
+  const platformOperator = corporateIdentity
+    ? false
+    : await isPlatformOperator(user.id);
   const publicUser: AuthResult["user"] = {
     id: user.id,
     email: user.email,
@@ -162,12 +160,9 @@ export async function createSession(
     avatarDataUrl: user.avatarDataUrl,
     role: user.role,
     accountStatus: user.accountStatus,
-    facility: await resolveFacilityContext(user.id),
+    identityRealm: user.identityRealm,
+    facility: corporateIdentity ? null : await resolveFacilityContext(user.id),
     platformOperator,
-    corporateConsole: await getCorporateConsoleAccess(
-      user.id,
-      platformOperator,
-    ),
   };
   return { sessionToken: token, user: publicUser, rememberDevice };
 }
@@ -194,6 +189,7 @@ export async function signup(
     .selectFrom("users")
     .select("id")
     .where("email", "=", email)
+    .where("identityRealm", "=", "commercial")
     .executeTakeFirst();
 
   if (existingUser) {
@@ -226,6 +222,7 @@ export async function signup(
   const user = {
     id: `user-${randomBytes(8).toString("hex")}`,
     email,
+    identityRealm: "commercial" as const,
     phone: null,
     name,
     lastName: profile.lastName,
@@ -272,6 +269,63 @@ export async function signup(
   return createSession(user, metadata);
 }
 
+export async function createCorporateSupportAccount(
+  email: string,
+  name: string,
+  password: string,
+  metadata: SessionMetadata,
+  profile: Pick<
+    SignupProfile,
+    "lastName" | "countryCode" | "locale" | "acceptedTerms" | "acceptedPrivacy"
+  >,
+): Promise<AuthResult> {
+  if (!isStrongPassword(password)) {
+    throw new Error("Password does not meet the security requirements");
+  }
+  if (!profile.acceptedTerms || !profile.acceptedPrivacy) {
+    throw new Error("Terms and privacy acknowledgement are required");
+  }
+  const existing = await db
+    .selectFrom("users")
+    .select("id")
+    .where("email", "=", email)
+    .where("identityRealm", "=", "corporate_support")
+    .executeTakeFirst();
+  if (existing) {
+    throw new Error("Unable to create account with these credentials");
+  }
+
+  const createdAt = Date.now();
+  const user = {
+    id: `corporate-user-${randomBytes(8).toString("hex")}`,
+    email,
+    identityRealm: "corporate_support" as const,
+    phone: null,
+    name,
+    lastName: profile.lastName,
+    countryCode: profile.countryCode,
+    locale: profile.locale,
+    accountStatus: "active" as const,
+    emailVerifiedAt: createdAt,
+    termsVersion: CURRENT_TERMS_VERSION,
+    termsAcceptedAt: createdAt,
+    privacyVersion: CURRENT_PRIVACY_VERSION,
+    privacyAcceptedAt: createdAt,
+    avatarDataUrl: "",
+    role: "admin" as const,
+    sessionIdleTimeoutMinutes: DEFAULT_SESSION_IDLE_TIMEOUT_MINUTES,
+  };
+  await db
+    .insertInto("users")
+    .values({
+      ...user,
+      password: await hashPassword(password),
+      createdAt,
+    })
+    .execute();
+  return createSession(user, metadata);
+}
+
 export async function login(
   identifier: string,
   password: string,
@@ -299,6 +353,11 @@ export async function login(
         expression("phone", "=", normalizedPhone),
       ]),
     )
+    .where(
+      "identityRealm",
+      "=",
+      accessPortal === "support" ? "corporate_support" : "commercial",
+    )
     .executeTakeFirst();
 
   const portalMembership = user
@@ -324,24 +383,10 @@ export async function login(
         .where("status", "=", "active")
         .executeTakeFirst()
     : null;
-  const supportOperator = user
-    ? await db
-        .selectFrom("platformOperators")
-        .select("userId")
-        .where("userId", "=", user.id)
-        .where("status", "=", "active")
-        .executeTakeFirst()
-    : null;
-  const supportBootstrapAvailable =
-    user && accessPortal === "support"
-      ? await canBootstrapCompanyHead(user.id)
-      : false;
   const portalMatches =
     user &&
     (accessPortal === "support"
-      ? Boolean(
-          supportMembership || supportOperator || supportBootstrapAvailable,
-        )
+      ? Boolean(supportMembership)
       : portalMembership !== undefined ||
         (accessPortal === "member"
           ? user.role === "member"
@@ -401,6 +446,7 @@ export async function login(
       avatarDataUrl: user.avatarDataUrl,
       role: user.role,
       accountStatus: user.accountStatus,
+      identityRealm: user.identityRealm,
     },
     metadata,
     rememberDevice,
@@ -414,6 +460,7 @@ export async function completeMfaLogin(
   challengeToken: string,
   code: string,
   metadata: SessionMetadata = {},
+  expectedIdentityRealm: "commercial" | "corporate_support" = "commercial",
 ): Promise<AuthResult> {
   const now = Date.now();
   const challengeId = sessionId(challengeToken);
@@ -431,17 +478,30 @@ export async function completeMfaLogin(
       "users.avatarDataUrl",
       "users.role",
       "users.accountStatus",
+      "users.identityRealm",
     ])
     .where("authChallenges.id", "=", challengeId)
     .executeTakeFirst();
 
   if (
     !challenge ||
+    challenge.identityRealm !== expectedIdentityRealm ||
     challenge.consumedAt !== null ||
     challenge.expiresAt <= now ||
     challenge.attempts >= MFA_MAX_ATTEMPTS
   ) {
     throw new Error("Invalid or expired verification challenge");
+  }
+  if (expectedIdentityRealm === "corporate_support") {
+    const membership = await db
+      .selectFrom("umfSupportStaff")
+      .select("userId")
+      .where("userId", "=", challenge.userId)
+      .where("status", "=", "active")
+      .executeTakeFirst();
+    if (!membership) {
+      throw new Error("Invalid or expired verification challenge");
+    }
   }
 
   const verification = await verifyMfaCode(
@@ -472,6 +532,7 @@ export async function completeMfaLogin(
       avatarDataUrl: challenge.avatarDataUrl,
       role: challenge.role,
       accountStatus: challenge.accountStatus,
+      identityRealm: challenge.identityRealm,
     },
     metadata,
     challenge.rememberDevice === 1,
@@ -504,6 +565,7 @@ export async function verifyToken(token: string): Promise<SessionData | null> {
       "users.avatarDataUrl",
       "users.role",
       "users.accountStatus",
+      "users.identityRealm",
     ])
     .where("sessions.id", "=", sessionId(token))
     .executeTakeFirst();
@@ -538,7 +600,10 @@ export async function verifyToken(token: string): Promise<SessionData | null> {
       .execute();
   }
 
-  const platformOperator = await isPlatformOperator(record.userId);
+  const corporateIdentity = record.identityRealm === "corporate_support";
+  const platformOperator = corporateIdentity
+    ? false
+    : await isPlatformOperator(record.userId);
   return {
     userId: record.userId,
     email: record.email,
@@ -546,15 +611,14 @@ export async function verifyToken(token: string): Promise<SessionData | null> {
     avatarDataUrl: record.avatarDataUrl,
     role: record.role,
     accountStatus: record.accountStatus,
+    identityRealm: record.identityRealm,
     createdAt: record.createdAt,
     expiresAt: record.expiresAt,
     sessionId: sessionId(token),
-    facility: await resolveFacilityContext(record.userId),
+    facility: corporateIdentity
+      ? null
+      : await resolveFacilityContext(record.userId),
     platformOperator,
-    corporateConsole: await getCorporateConsoleAccess(
-      record.userId,
-      platformOperator,
-    ),
   };
 }
 

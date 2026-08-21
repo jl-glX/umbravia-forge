@@ -166,7 +166,7 @@ describe("administrator account safety", () => {
       .get("/api/users")
       .set("Cookie", memberCookie)
       .expect(403, {
-        error: "An active facility membership is required",
+        error: "You do not have permission to perform this action",
         code: "FORBIDDEN",
       });
 

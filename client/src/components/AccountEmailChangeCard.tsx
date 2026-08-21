@@ -9,11 +9,12 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 
 async function accountSecurityRequest<T>(
+  apiBase: string,
   path: string,
   body?: unknown,
   method = "POST",
 ) {
-  const response = await authFetch(`/api/account/security${path}`, {
+  const response = await authFetch(`${apiBase}${path}`, {
     method,
     ...(body === undefined
       ? {}
@@ -32,9 +33,20 @@ async function accountSecurityRequest<T>(
   return payload;
 }
 
-export function AccountEmailChangeCard() {
+interface AccountEmailChangeCardProps {
+  apiBase?: string;
+  accountUser?: { email: string } | null;
+  onAccountRefresh?: () => Promise<unknown>;
+}
+
+export function AccountEmailChangeCard({
+  apiBase = "/api/account/security",
+  accountUser,
+  onAccountRefresh,
+}: AccountEmailChangeCardProps = {}) {
   const { t } = useTranslation();
-  const { user, refreshUser } = useAuth();
+  const { user: commercialUser, refreshUser } = useAuth();
+  const user = accountUser ?? commercialUser;
   const [newEmail, setNewEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -65,6 +77,7 @@ export function AccountEmailChangeCard() {
     setNotice("");
     try {
       const result = await accountSecurityRequest<{ expiresAt: number }>(
+        apiBase,
         "/email-change/request",
         {
           email: newEmail,
@@ -94,8 +107,8 @@ export function AccountEmailChangeCard() {
     setError("");
     setNotice("");
     try {
-      await accountSecurityRequest("/email-change/confirm", { code });
-      await refreshUser();
+      await accountSecurityRequest(apiBase, "/email-change/confirm", { code });
+      await (onAccountRefresh ?? refreshUser)();
       setCode("");
       setNewEmail("");
       setVerificationPending(false);
@@ -112,7 +125,12 @@ export function AccountEmailChangeCard() {
     setError("");
     setNotice("");
     try {
-      await accountSecurityRequest("/email-change", undefined, "DELETE");
+      await accountSecurityRequest(
+        apiBase,
+        "/email-change",
+        undefined,
+        "DELETE",
+      );
       setVerificationPending(false);
       setCode("");
       setNewEmail("");

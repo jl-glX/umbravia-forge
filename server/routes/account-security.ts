@@ -1,8 +1,5 @@
 import express from "express";
-import {
-  authenticate,
-  getAuthenticatedUser,
-} from "../middleware/authorization.js";
+import { getAuthenticatedUser } from "../middleware/authorization.js";
 import { authenticationLimiter } from "../middleware/security.js";
 import {
   accountMfaConfirmationValidation,
@@ -18,8 +15,12 @@ import {
 import {
   clearPasskeyChallengeCookie,
   clearSessionCookie,
+  clearSupportPasskeyChallengeCookie,
+  clearSupportSessionCookie,
   readPasskeyChallengeToken,
+  readSupportPasskeyChallengeToken,
   setPasskeyChallengeCookie,
+  setSupportPasskeyChallengeCookie,
 } from "../lib/session-cookie.js";
 import {
   getSecurityOverview,
@@ -52,7 +53,34 @@ import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { getWebauthnContext } from "../lib/request-origin.js";
 
 export const accountSecurityRouter = express.Router();
-accountSecurityRouter.use(authenticate);
+
+function isCorporateAccount(res: express.Response): boolean {
+  return getAuthenticatedUser(res).identityRealm === "corporate_support";
+}
+
+function readScopedPasskeyChallenge(
+  req: express.Request,
+  res: express.Response,
+): string | null {
+  return isCorporateAccount(res)
+    ? readSupportPasskeyChallengeToken(req)
+    : readPasskeyChallengeToken(req);
+}
+
+function setScopedPasskeyChallenge(res: express.Response, token: string): void {
+  if (isCorporateAccount(res)) setSupportPasskeyChallengeCookie(res, token);
+  else setPasskeyChallengeCookie(res, token);
+}
+
+function clearScopedPasskeyChallenge(res: express.Response): void {
+  if (isCorporateAccount(res)) clearSupportPasskeyChallengeCookie(res);
+  else clearPasskeyChallengeCookie(res);
+}
+
+function clearScopedSession(res: express.Response): void {
+  if (isCorporateAccount(res)) clearSupportSessionCookie(res);
+  else clearSessionCookie(res);
+}
 
 accountSecurityRouter.get("/", async (_req, res, next) => {
   try {
@@ -180,7 +208,7 @@ accountSecurityRouter.post(
         { id: auth.userId, email: auth.email, name: auth.name },
         rpID,
       );
-      setPasskeyChallengeCookie(res, result.token);
+      setScopedPasskeyChallenge(res, result.token);
       res.json(result.options);
     } catch (error) {
       next(error);
@@ -197,7 +225,7 @@ accountSecurityRouter.post(
     res: express.Response,
     next: express.NextFunction,
   ) => {
-    const token = readPasskeyChallengeToken(req);
+    const token = readScopedPasskeyChallenge(req, res);
     if (!token) {
       res.status(401).json({ error: "Invalid or expired passkey challenge" });
       return;
@@ -212,10 +240,10 @@ accountSecurityRouter.post(
         origin,
         rpID,
       );
-      clearPasskeyChallengeCookie(res);
+      clearScopedPasskeyChallenge(res);
       res.status(201).json({ enabled: true });
     } catch (error) {
-      clearPasskeyChallengeCookie(res);
+      clearScopedPasskeyChallenge(res);
       next(error);
     }
   },
@@ -356,7 +384,7 @@ accountSecurityRouter.delete(
         res.status(404).json({ error: "Session not found" });
         return;
       }
-      if (req.params.sessionId === auth.sessionId) clearSessionCookie(res);
+      if (req.params.sessionId === auth.sessionId) clearScopedSession(res);
       res.status(204).end();
     } catch (error) {
       next(error);

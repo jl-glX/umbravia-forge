@@ -24,6 +24,12 @@ El gestor de recursos ejecuta periódicamente una auditoría de preparación de
 los entornos registrados. Solo inspecciona archivos administrados por Umbravia
 Forge y no busca ni elimina bases externas.
 
+No existe una página ni una API web administrativa para este gestor. Su estado
+saneado solo puede consultarse mediante el administrador local Linux
+compartido descrito en [Núcleo de gestores](./MANAGER-CORE.md), con ámbito
+`commercial` o `support` explícito. Esa interfaz no crea entornos, no ejecuta
+promociones y no muestra cadenas de conexión.
+
 ## Creación de entornos SQLite
 
 Cada entorno se crea bajo `ENVIRONMENT_DATA_ROOT` con:

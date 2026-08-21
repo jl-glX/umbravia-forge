@@ -39,7 +39,17 @@ const API_BASE =
     ? "http://localhost:3001"
     : "";
 
-export function RecoverAccountPage() {
+interface RecoverAccountPageProps {
+  apiPath?: "/api/auth" | "/api/umf-support";
+  returnPath?: "/login" | "/umf-support/access";
+  corporate?: boolean;
+}
+
+export function RecoverAccountPage({
+  apiPath = "/api/auth",
+  returnPath = "/login",
+  corporate = false,
+}: RecoverAccountPageProps = {}) {
   const { t } = useTranslation();
   const [methods, setMethods] = useState<RecoveryMethod[]>([]);
   const [lookupMethods, setLookupMethods] = useState<RecoveryLookupMethod[]>([
@@ -60,7 +70,7 @@ export function RecoverAccountPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/auth/recovery/capabilities`)
+    fetch(`${API_BASE}${apiPath}/recovery/capabilities`)
       .then(async (response) => {
         if (!response.ok) throw new Error("Recovery capabilities unavailable");
         return (await response.json()) as {
@@ -80,7 +90,7 @@ export function RecoverAccountPage() {
         }
       })
       .catch(() => setMethods([]));
-  }, []);
+  }, [apiPath]);
 
   const requestRecovery = async (event: FormEvent) => {
     event.preventDefault();
@@ -91,7 +101,7 @@ export function RecoverAccountPage() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`${API_BASE}/api/auth/recovery/request`, {
+      const response = await fetch(`${API_BASE}${apiPath}/recovery/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -132,7 +142,7 @@ export function RecoverAccountPage() {
     setError("");
     try {
       const response = await fetch(
-        `${API_BASE}/api/auth/recovery/reset-password`,
+        `${API_BASE}${apiPath}/recovery/reset-password`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -170,6 +180,7 @@ export function RecoverAccountPage() {
       eyebrow={t("recovery.eyebrow")}
       title={t("recovery.title")}
       description={t("recovery.description")}
+      brand={corporate ? "corporate_support" : "commercial"}
     >
       {step === "request" && (
         <form className="space-y-4" onSubmit={requestRecovery}>
@@ -316,7 +327,7 @@ export function RecoverAccountPage() {
             <p className="mt-1">{t("recovery.completeDescription")}</p>
           </div>
           <Button asChild className="w-full">
-            <Link to="/login">{t("recovery.returnToLogin")}</Link>
+            <Link to={returnPath}>{t("recovery.returnToLogin")}</Link>
           </Button>
         </div>
       )}
@@ -365,7 +376,7 @@ export function RecoverAccountPage() {
 
       {step !== "complete" && (
         <Button asChild variant="outline" className="mt-5 w-full">
-          <Link to="/login">{t("recovery.returnToLogin")}</Link>
+          <Link to={returnPath}>{t("recovery.returnToLogin")}</Link>
         </Button>
       )}
     </AuthShell>

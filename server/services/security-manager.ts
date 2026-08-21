@@ -92,7 +92,7 @@ export async function getSecurityManagerOverview() {
       sampleTruncated,
     },
     encryption: getSecurityEncryptionHardeningOverview(),
-    coordination: getManagerCoordinationStatus(),
+    coordination: getManagerCoordinationStatus("commercial"),
     recentEvents: events.slice(0, RECENT_EVENT_LIMIT),
   };
 }

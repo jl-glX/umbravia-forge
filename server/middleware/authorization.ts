@@ -1,14 +1,16 @@
 import { NextFunction, Request, Response } from "express";
 import { db } from "../db/client.js";
 import { verifyToken } from "../services/auth.js";
-import { readSessionToken } from "../lib/session-cookie.js";
+import {
+  readSessionToken,
+  readSupportSessionToken,
+} from "../lib/session-cookie.js";
 import { hasActiveBookingDelegation } from "../services/delegations.js";
 import type { FacilityRole } from "../db/types.js";
 import {
   FacilityAccessDeniedError,
   resolveFacilityContext,
 } from "../services/facility-context.js";
-import type { CorporateConsoleAccess } from "../services/manager-console.js";
 
 export type UserRole = "member" | "trainer" | "admin";
 
@@ -21,6 +23,7 @@ export interface AuthenticatedUser {
   avatarDataUrl: string;
   role: UserRole;
   accountStatus: "pending_verification" | "active" | "security_review";
+  identityRealm: "commercial" | "corporate_support";
   facility: {
     id: string;
     slug: string;
@@ -28,7 +31,6 @@ export interface AuthenticatedUser {
     role: FacilityRole;
   } | null;
   platformOperator?: boolean;
-  corporateConsole: CorporateConsoleAccess;
 }
 
 function unauthorized(res: Response, message = "Authentication required") {
@@ -38,8 +40,17 @@ function unauthorized(res: Response, message = "Authentication required") {
 function forbidden(
   res: Response,
   message = "You do not have permission to perform this action",
+  code = "FORBIDDEN",
 ) {
-  res.status(403).json({ error: message, code: "FORBIDDEN" });
+  res.status(403).json({ error: message, code });
+}
+
+function facilityMembershipRequired(res: Response) {
+  forbidden(
+    res,
+    "An active facility membership is required",
+    "FACILITY_MEMBERSHIP_REQUIRED",
+  );
 }
 
 export function getAuthenticatedUser(res: Response): AuthenticatedUser {
@@ -51,8 +62,12 @@ async function authenticateSession(
   res: Response,
   next: NextFunction,
   allowInactive: boolean,
+  identityRealm: "commercial" | "corporate_support",
 ): Promise<void> {
-  const token = readSessionToken(req);
+  const token =
+    identityRealm === "corporate_support"
+      ? readSupportSessionToken(req)
+      : readSessionToken(req);
   if (!token) {
     unauthorized(res);
     return;
@@ -62,6 +77,11 @@ async function authenticateSession(
     const session = await verifyToken(token);
     if (!session) {
       unauthorized(res, "Invalid or expired session");
+      return;
+    }
+
+    if (session.identityRealm !== identityRealm) {
+      unauthorized(res, "Session belongs to a different application realm");
       return;
     }
 
@@ -112,7 +132,7 @@ export function authenticate(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  return authenticateSession(req, res, next, false);
+  return authenticateSession(req, res, next, false, "commercial");
 }
 
 export function authenticateAccountSession(
@@ -120,7 +140,15 @@ export function authenticateAccountSession(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  return authenticateSession(req, res, next, true);
+  return authenticateSession(req, res, next, true, "commercial");
+}
+
+export function authenticateCorporateSupport(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  return authenticateSession(req, res, next, false, "corporate_support");
 }
 
 export function requireRole(...roles: UserRole[]) {
@@ -160,8 +188,12 @@ export function getFacilityContext(res: Response) {
 export function requireFacility(...roles: FacilityRole[]) {
   return (_req: Request, res: Response, next: NextFunction): void => {
     const facility = getAuthenticatedUser(res).facility;
-    if (!facility || (roles.length > 0 && !roles.includes(facility.role))) {
-      forbidden(res, "An active facility membership is required");
+    if (!facility) {
+      facilityMembershipRequired(res);
+      return;
+    }
+    if (roles.length > 0 && !roles.includes(facility.role)) {
+      forbidden(res);
       return;
     }
     next();
@@ -208,7 +240,7 @@ export function requireClassFacility(classParamName: string) {
     try {
       const facility = getAuthenticatedUser(res).facility;
       if (!facility) {
-        forbidden(res, "An active facility membership is required");
+        facilityMembershipRequired(res);
         return;
       }
       const activitySession = await db
@@ -265,7 +297,7 @@ export function requireBookingFacility(bookingParamName: string) {
     try {
       const facility = getAuthenticatedUser(res).facility;
       if (!facility) {
-        forbidden(res, "An active facility membership is required");
+        facilityMembershipRequired(res);
         return;
       }
       const booking = await db
@@ -359,7 +391,7 @@ export function requireTrainerClassOrRole(
       const auth = getAuthenticatedUser(res);
       const facility = auth.facility;
       if (!facility) {
-        forbidden(res, "An active facility membership is required");
+        facilityMembershipRequired(res);
         return;
       }
       if (
@@ -407,7 +439,7 @@ export function requireTrainerBookingOrRole(
       const auth = getAuthenticatedUser(res);
       const facility = auth.facility;
       if (!facility) {
-        forbidden(res, "An active facility membership is required");
+        facilityMembershipRequired(res);
         return;
       }
       if (

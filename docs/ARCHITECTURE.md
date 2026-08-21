@@ -38,8 +38,8 @@ Development uses a single launcher for Vite and Express. Production builds the c
 - Internationalized user interface.
 - Public legal information.
 - A corporate UMF Support application for platform incidents, privacy mail and
-  manually approved staff. Its platform authority and tables remain separate
-  from each facility's tenant-scoped Forge Support module.
+  manually approved staff. Its platform authority and tables remain logically
+  separate from each facility's tenant-scoped Forge Support module.
 - Account identity, reversible closure scheduling and draft-only data-retention
   policies.
 - Coordinated account, security, resource, environment, email, notification and
@@ -74,24 +74,34 @@ membership checks and capability middleware decide what that identity may do;
 hiding an action in React is never an authorization control.
 
 UMF Support uses a third authentication portal named `support`. Access is
-granted only by an active `platformOperators` record or an active corporate
-support membership. This portal does not select a facility context and cannot
-be reached merely by holding the global account role `admin`.
+granted only by an active corporate support membership. This portal does not
+select a facility context and cannot be reached merely by holding the global
+account role `admin` or an active commercial `platformOperators` record.
+Commercial and corporate identities use different realm values and different
+session, MFA and passkey cookies. The same normalized email may identify one
+account in each realm without sharing a password, recovery flow or session.
+
+Both applications use the data provider selected for the deployment:
+PostgreSQL in staging and production, SQLite in isolated development and test
+environments. UMF Support is not a second physical database in the current
+architecture. Its isolation comes from realm-qualified account relations,
+corporate-only tables and server authorization; sharing a PostgreSQL service
+does not make a commercial account a corporate identity.
 
 The only exception is the one-time company-head bootstrap. Before any
 corporate identity has ever been established, a support pre-enrolment whose
 normalized email matches the SHA-256 configured outside the repository is
 approved automatically. Activation still requires the same email, the
 Argon2id-verified password created with the request and the bounded code sent
-to that mailbox. It creates the initial platform operator, support director
-and company-head records without creating a facility membership. A persistent
-singleton marker keeps that path closed after the first claim even if roles
+to that mailbox. It creates the initial support director and company-head
+records without creating a facility membership or commercial operator. A
+persistent singleton marker keeps that path closed after the first claim even if roles
 are later removed. Existing verified identities remain a controlled recovery
 path rather than the normal onboarding route.
 
 The visible company directory is a separate module. `companyStaffProfiles`
 models reporting lines and business positions, `umfSupportStaff` scopes support
-operations, and `platformOperators` represents platform-wide authority. Module
+operations, and `platformOperators` remains commercial authority. Module
 delegations require an explicit recipient decision before creating a corporate
 role assignment. The platform head covers unoccupied modules automatically,
 but an active assignment or actionable pending delegation suspends that
@@ -101,6 +111,24 @@ Approved support accounts join the company directory only through an explicit
 head action. Removing a person retains the audit record, revokes their active
 module assignments and withdraws their actionable delegations; a company
 position alone never grants technical access.
+
+Domain managers are shared internal infrastructure, not another account
+portal. Their single administrator is available only from the local Linux
+interface and every operation is explicitly scoped as `commercial` or
+`support`; neither application exposes manager administration routes in the
+browser. The process rejects `root` and requires the local Linux user to appear
+in `UMF_MANAGER_ADMIN_LINUX_USERS` before application authority is evaluated.
+Commercial views require a verified commercial platform operator. Support
+views require a verified corporate identity that is both an active UMF Support
+director and the active platform head. Operations and signals are filtered by
+scope before they are presented.
+
+Transactional email uses the same explicit platform boundary. Every
+`emailDeliveries` row stores `commercial` or `support`; retries and failure
+signals retain that stored scope. PostgreSQL migration 44 prepares the column
+and only reclassifies legacy rows when a persisted UMF Support relationship is
+unambiguous. Repository migrations do not prove that the live database has
+already applied it.
 
 Account email changes belong to the identity boundary rather than facility
 administration. They require the current password and a bounded code delivered

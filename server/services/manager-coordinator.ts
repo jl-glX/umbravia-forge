@@ -11,6 +11,7 @@ import {
   type ManagerControlDirectiveKind,
   type ManagerControlPriority,
   type ManagerId,
+  type ManagerPlatformScope,
   type ManagerTaskPriority,
   type ManagerTrafficClass,
 } from "./manager-core.js";
@@ -21,6 +22,7 @@ export type {
   ManagerControlDirectiveKind,
   ManagerControlPriority,
   ManagerId,
+  ManagerPlatformScope,
   ManagerTaskPriority,
   ManagerTrafficClass,
 };
@@ -35,6 +37,7 @@ export type ManagerConnectionCapability =
 interface ManagerSignal {
   id: string;
   source: ManagerId;
+  platformScope: ManagerPlatformScope;
   severity: ManagerSignalSeverity;
   code: string;
   messageEncrypted: string;
@@ -211,6 +214,7 @@ function sanitizeManagerSignalMessage(message: string): string {
 
 export function publishManagerSignal(
   source: ManagerId,
+  platformScope: ManagerPlatformScope,
   severity: ManagerSignalSeverity,
   code: string,
   message: string,
@@ -223,25 +227,48 @@ export function publishManagerSignal(
   const fingerprint = createHash("sha256")
     .update(sanitizedMessage)
     .digest("hex");
-  if (!managerAdministrator.admitSignal(source, severity, code, fingerprint)) {
+  if (
+    !managerAdministrator.admitSignal(
+      source,
+      platformScope,
+      severity,
+      code,
+      fingerprint,
+    )
+  ) {
     return;
   }
   signals.unshift({
     id,
     source,
+    platformScope,
     severity,
     code,
     messageEncrypted: protectManagerConnectionPayload(
       Buffer.from(sanitizedMessage, "utf8"),
-      `manager-signal:${source}:${id}`,
+      `manager-signal:${platformScope}:${source}:${id}`,
     ),
     createdAt: Date.now(),
   });
-  if (signals.length > MAX_SIGNALS) signals.length = MAX_SIGNALS;
+  const sameScopeSignals = signals.reduce(
+    (count, signal) => count + Number(signal.platformScope === platformScope),
+    0,
+  );
+  if (sameScopeSignals > MAX_SIGNALS) {
+    let oldestSameScopeIndex = -1;
+    for (let index = signals.length - 1; index >= 0; index -= 1) {
+      if (signals[index]?.platformScope === platformScope) {
+        oldestSameScopeIndex = index;
+        break;
+      }
+    }
+    if (oldestSameScopeIndex >= 0) signals.splice(oldestSameScopeIndex, 1);
+  }
 }
 
 export async function withCoordinatedManagerOperation<T>(
   manager: ManagerId,
+  platformScope: ManagerPlatformScope,
   operation: string,
   scopes: string[],
   run: () => Promise<T>,
@@ -252,6 +279,7 @@ export async function withCoordinatedManagerOperation<T>(
   assertManagerScopeAccess(manager, normalizedScopes);
   return managerAdministrator.runImmediate(
     manager,
+    platformScope,
     operation,
     normalizedScopes,
     run,
@@ -260,6 +288,7 @@ export async function withCoordinatedManagerOperation<T>(
 
 export async function withPrioritizedManagerOperation<T>(
   manager: ManagerId,
+  platformScope: ManagerPlatformScope,
   operation: string,
   scopes: string[],
   priority: ManagerTaskPriority,
@@ -272,6 +301,7 @@ export async function withPrioritizedManagerOperation<T>(
   assertManagerScopeAccess(manager, normalizedScopes);
   return managerAdministrator.enqueue(
     manager,
+    platformScope,
     operation,
     normalizedScopes,
     run,
@@ -282,6 +312,7 @@ export async function withPrioritizedManagerOperation<T>(
 
 export async function withHighPriorityManagerDirective<T>(
   manager: ManagerId,
+  platformScope: ManagerPlatformScope,
   kind: ManagerControlDirectiveKind,
   operation: string,
   scopes: string[],
@@ -320,6 +351,7 @@ export async function withHighPriorityManagerDirective<T>(
       JSON.stringify({
         directiveId,
         manager,
+        platformScope,
         kind,
         operation: normalizedOperation,
         scopes: normalizedScopes,
@@ -336,6 +368,7 @@ export async function withHighPriorityManagerDirective<T>(
   ) as {
     directiveId: string;
     manager: ManagerId;
+    platformScope: ManagerPlatformScope;
     kind: ManagerControlDirectiveKind;
     operation: string;
     scopes: string[];
@@ -345,6 +378,7 @@ export async function withHighPriorityManagerDirective<T>(
   const result = await managerAdministrator.enqueueControlDirective(
     "manager-coordinator",
     request.manager,
+    request.platformScope,
     request.kind,
     request.operation,
     request.scopes,
@@ -382,9 +416,21 @@ export async function withHighPriorityManagerDirective<T>(
   return { result, receipt };
 }
 
-export function getManagerCoordinationStatus() {
+export function getManagerCoordinationStatus(
+  platformScope: ManagerPlatformScope,
+) {
   const core = managerAdministrator.getStatus();
+  const scopedCore = {
+    ...core,
+    activeOperations: core.activeOperations.filter(
+      (operation) => operation.platformScope === platformScope,
+    ),
+    queuedOperations: core.queuedOperations.filter(
+      (operation) => operation.platformScope === platformScope,
+    ),
+  };
   return {
+    platformScope,
     mode: "shared-runtime" as const,
     managers: [
       "account",
@@ -396,27 +442,37 @@ export function getManagerCoordinationStatus() {
       "notification",
       "support",
     ] as const,
-    activeOperations: core.activeOperations,
-    managerCore: core,
-    recentSignals: signals.slice(0, 20).map((signal) => {
-      let message = "Encrypted manager signal unavailable.";
-      try {
-        message = revealManagerConnectionPayload(
-          signal.messageEncrypted,
-          `manager-signal:${signal.source}:${signal.id}`,
-        ).toString("utf8");
-      } catch {
-        // A removed rotation key must not expose the encrypted envelope.
-      }
-      return {
-        id: signal.id,
-        source: signal.source,
-        severity: signal.severity,
-        code: signal.code,
-        message,
-        createdAt: signal.createdAt,
-      };
-    }),
+    activeOperations: scopedCore.activeOperations,
+    managerCore: scopedCore,
+    recentSignals: signals
+      .filter((signal) => signal.platformScope === platformScope)
+      .slice(0, 20)
+      .map((signal) => {
+        let message = "Encrypted manager signal unavailable.";
+        try {
+          message = revealManagerConnectionPayload(
+            signal.messageEncrypted,
+            `manager-signal:${signal.platformScope}:${signal.source}:${signal.id}`,
+          ).toString("utf8");
+        } catch {
+          // A removed rotation key must not expose the encrypted envelope.
+        }
+        return {
+          id: signal.id,
+          source: signal.source,
+          platformScope: signal.platformScope,
+          severity: signal.severity,
+          code: signal.code,
+          message,
+          createdAt: signal.createdAt,
+        };
+      }),
+    signalRetention: {
+      limitPerScope: MAX_SIGNALS,
+      retained: signals.filter(
+        (signal) => signal.platformScope === platformScope,
+      ).length,
+    },
     connections: managedConnections.map((connection) => ({
       ...connection,
       scopes: [...connection.scopes],

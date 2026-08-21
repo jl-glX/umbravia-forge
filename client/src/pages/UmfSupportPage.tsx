@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   Building2,
   Check,
@@ -22,7 +22,6 @@ import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { useAuth } from "../hooks/useAuth";
 import {
   approveAccess,
   createTicket,
@@ -33,9 +32,11 @@ import {
   fetchCompanyStaff,
   fetchMailbox,
   fetchStaff,
+  fetchSupportSession,
   fetchTicket,
   fetchTickets,
   rejectAccess,
+  logoutSupport,
   renounceCompanyRole,
   replyTicket,
   respondToCompanyRoleDelegation,
@@ -53,6 +54,7 @@ import {
   type UmfSupportStaffMember,
   type UmfSupportTicket,
   type UmfSupportTicketSummary,
+  type UmfSupportSessionUser,
   type UmfTicketPriority,
   type UmfTicketCategory,
   type UmfTicketStatus,
@@ -101,7 +103,9 @@ function formatDate(value: number, locale: string) {
 export function UmfSupportPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { user, isInitializing, logout } = useAuth();
+  const [user, setUser] = useState<UmfSupportSessionUser | null | undefined>(
+    undefined,
+  );
   const [capabilities, setCapabilities] =
     useState<UmfSupportCapabilities | null>(null);
   const [view, setView] = useState<View>("tickets");
@@ -188,6 +192,12 @@ export function UmfSupportPage() {
       setLoading(false);
     }
   }, [capabilities, refreshTickets, selected, t, view]);
+
+  useEffect(() => {
+    void fetchSupportSession()
+      .then(setUser)
+      .catch(() => setUser(null));
+  }, []);
 
   useEffect(() => {
     if (user) void refresh();
@@ -436,7 +446,7 @@ export function UmfSupportPage() {
     }
   };
 
-  if (isInitializing)
+  if (user === undefined)
     return <p className="p-8 text-slate-600">{t("common.loading")}</p>;
   if (!user) return <Navigate to="/umf-support/access" replace />;
 
@@ -474,11 +484,20 @@ export function UmfSupportPage() {
             {capabilities ? t(`umfSupport.role.${capabilities.role}`) : "—"}
           </span>
           <LanguageSwitcher />
+          <Link
+            to="/umf-support/account"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+          >
+            <ShieldCheck size={17} />
+            <span className="hidden sm:inline">
+              {t("umfCorporateAccount.shortTitle")}
+            </span>
+          </Link>
           <Button
             variant="ghost"
             className="text-slate-200 hover:bg-slate-800 hover:text-white"
             onClick={() =>
-              void logout().then(() => navigate("/umf-support/access"))
+              void logoutSupport().then(() => navigate("/umf-support/access"))
             }
           >
             <LogOut size={17} />{" "}

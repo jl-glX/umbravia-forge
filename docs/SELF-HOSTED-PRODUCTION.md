@@ -127,6 +127,9 @@ SEED_DEMO_DATA=false
 COMMERCIAL_TRIALS_ENABLED=false
 UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256=<sha256 del correo normalizado de la cuenta designada>
 
+# Interfaz local de gestores: lista exacta de usuarios Linux no root.
+UMF_MANAGER_ADMIN_LINUX_USERS=<usuario-operativo-autorizado>
+
 # Suscripcion SaaS del centro; mantener cerrada hasta completar Stripe Live.
 STRIPE_BILLING_ENABLED=false
 STRIPE_BILLING_MODE=live
@@ -144,6 +147,12 @@ incorporarse al entorno protegido antes de enviar esa solicitud y retirarse
 después de comprobar que `corporateBootstrapState` quedó registrado. La
 activación todavía exige el mismo correo, la contraseña ligada a la solicitud
 y el código recibido en el buzón; retirar el hash no reabre la inicialización.
+
+`UMF_MANAGER_ADMIN_LINUX_USERS` no concede por sí sola autoridad de aplicación.
+El comando local comprueba primero Linux, el rechazo de `root` y la allowlist;
+solo después abre la base y exige un operador comercial verificado para
+`commercial`, o dirección corporativa y jefatura activas para `support`. No
+publica una consola web, una API administrativa ni una terminal de red.
 
 `DATABASE_SSL=false` solo corresponde a PostgreSQL en el mismo servidor y
 limitado a `localhost`. Si la base está en otra máquina, debe usarse TLS con

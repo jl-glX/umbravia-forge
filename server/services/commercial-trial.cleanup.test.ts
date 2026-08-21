@@ -269,6 +269,7 @@ describe("commercial trial abandonment cleanup", () => {
     let release!: () => void;
     const held = coordinator.withCoordinatedManagerOperation(
       "account",
+      "commercial",
       "test-data-review",
       [`commercial-trial:${seeded.facilityId}`],
       () =>

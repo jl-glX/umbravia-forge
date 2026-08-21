@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { authFetch } from "../lib/api";
+import { localizedApiErrorMessage } from "../lib/api-error";
 import i18n from "../i18n/config";
 
 export interface UserBooking {
@@ -29,7 +30,13 @@ export function useBookings(userId: string) {
       const response = await authFetch(`/api/bookings/user/${userId}`);
 
       if (!response.ok) {
-        throw new Error(i18n.t("bookings.fetchFailed"));
+        throw new Error(
+          await localizedApiErrorMessage(
+            response,
+            i18n.t("bookings.fetchFailed"),
+            (key) => i18n.t(key),
+          ),
+        );
       }
 
       const data = await response.json();

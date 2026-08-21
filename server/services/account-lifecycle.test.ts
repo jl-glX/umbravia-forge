@@ -256,6 +256,206 @@ describe("account lifecycle", () => {
     ).toBeUndefined();
   });
 
+  it("deletes a commercial identity without touching UMF Support for the same email", async () => {
+    const email = "lifecycle-separated@example.com";
+    const commercial = await auth.signup(
+      email,
+      "Commercial Identity",
+      "CommercialPassword123",
+    );
+    const corporate = await auth.createCorporateSupportAccount(
+      email,
+      "Corporate Identity",
+      "CorporatePassword123",
+      {},
+      {
+        lastName: "Support",
+        countryCode: "ES",
+        locale: "es",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+      },
+    );
+    const now = Date.now();
+    await database.db
+      .insertInto("umfSupportStaff")
+      .values({
+        userId: corporate.user.id,
+        role: "agent",
+        status: "active",
+        approvedByUserId: corporate.user.id,
+        createdAt: now,
+        updatedAt: now,
+        revokedAt: null,
+      })
+      .execute();
+
+    await lifecycle.scheduleAccountDeletion(
+      commercial.user.id,
+      "manual",
+      now - 31 * 24 * 60 * 60 * 1000,
+    );
+    await expect(
+      lifecycle.executeDueAccountDeletionJobs(now),
+    ).resolves.toMatchObject({ completed: 1, blocked: 0 });
+
+    await expect(
+      database.db
+        .selectFrom("users")
+        .select("id")
+        .where("id", "=", commercial.user.id)
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
+    await expect(
+      database.db
+        .selectFrom("users")
+        .select(["id", "identityRealm", "accountStatus"])
+        .where("id", "=", corporate.user.id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      id: corporate.user.id,
+      identityRealm: "corporate_support",
+      accountStatus: "active",
+    });
+    await expect(
+      auth.login(email, "CorporatePassword123", "support"),
+    ).resolves.toMatchObject({
+      user: {
+        id: corporate.user.id,
+        identityRealm: "corporate_support",
+      },
+    });
+  });
+
+  it("keeps a commercial deletion scheduled after same-email UMF Support login", async () => {
+    const email = "lifecycle-login-separated@example.com";
+    const commercial = await auth.signup(
+      email,
+      "Commercial Pending Deletion",
+      "CommercialPassword123",
+    );
+    const corporate = await auth.createCorporateSupportAccount(
+      email,
+      "Corporate Login",
+      "CorporatePassword123",
+      {},
+      {
+        lastName: "Support",
+        countryCode: "ES",
+        locale: "es",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+      },
+    );
+    const now = Date.now();
+    await database.db
+      .insertInto("umfSupportStaff")
+      .values({
+        userId: corporate.user.id,
+        role: "agent",
+        status: "active",
+        approvedByUserId: corporate.user.id,
+        createdAt: now,
+        updatedAt: now,
+        revokedAt: null,
+      })
+      .execute();
+    await lifecycle.scheduleAccountDeletion(commercial.user.id, "manual", now);
+
+    await expect(
+      auth.login(email, "CorporatePassword123", "support"),
+    ).resolves.toMatchObject({
+      user: {
+        id: corporate.user.id,
+        identityRealm: "corporate_support",
+      },
+    });
+    await expect(
+      lifecycle.hasScheduledAccountDeletion(commercial.user.id),
+    ).resolves.toBe(true);
+    await expect(
+      database.db
+        .selectFrom("accountDeletionRequests")
+        .select(["userId", "status", "cancelledAt"])
+        .where("userId", "=", commercial.user.id)
+        .where("status", "=", "scheduled")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      userId: commercial.user.id,
+      status: "scheduled",
+      cancelledAt: null,
+    });
+    await expect(
+      lifecycle.hasScheduledAccountDeletion(corporate.user.id),
+    ).resolves.toBe(false);
+  });
+
+  it("rejects the commercial deletion workflow for a corporate identity", async () => {
+    const corporate = await auth.createCorporateSupportAccount(
+      "lifecycle-corporate-only@example.com",
+      "Corporate Only",
+      "CorporatePassword123",
+      {},
+      {
+        lastName: "Support",
+        countryCode: "ES",
+        locale: "es",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+      },
+    );
+
+    await expect(
+      lifecycle.scheduleAccountDeletion(corporate.user.id, "manual"),
+    ).rejects.toThrow(
+      "Commercial account deletion requires a commercial identity",
+    );
+
+    const now = Date.now();
+    await database.db.transaction().execute(async (transaction) => {
+      await transaction
+        .insertInto("accountDeletionRequests")
+        .values({
+          id: `corrupt-request-${corporate.user.id}`,
+          userId: corporate.user.id,
+          trigger: "manual",
+          status: "scheduled",
+          requestedAt: now - 31 * 24 * 60 * 60 * 1000,
+          graceEndsAt: now - 1,
+          cancelledAt: null,
+          completedAt: null,
+        })
+        .execute();
+      await transaction
+        .insertInto("accountDeletionJobs")
+        .values({
+          id: `corrupt-job-${corporate.user.id}`,
+          requestId: `corrupt-request-${corporate.user.id}`,
+          userId: corporate.user.id,
+          status: "planned",
+          executionEnabled: 1,
+          createdAt: now,
+          updatedAt: now,
+          completedAt: null,
+        })
+        .execute();
+    });
+
+    await expect(lifecycle.executeDueAccountDeletionJobs(now)).resolves.toEqual(
+      { evaluated: 0, completed: 0, blocked: 0 },
+    );
+    await expect(
+      database.db
+        .selectFrom("users")
+        .select(["id", "identityRealm"])
+        .where("id", "=", corporate.user.id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      id: corporate.user.id,
+      identityRealm: "corporate_support",
+    });
+  });
+
   it("does not treat a retention record already scheduled for deletion as a legal hold", async () => {
     const disposable = await auth.signup(
       "lifecycle-retention-scheduled@example.com",

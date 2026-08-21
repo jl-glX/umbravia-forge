@@ -1,15 +1,43 @@
 import express from "express";
 import {
-  authenticate,
+  authenticateCorporateSupport,
   getAuthenticatedUser,
 } from "../middleware/authorization.js";
 import { requireCaptcha } from "../middleware/captcha.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
 import {
+  authenticationLimiter,
+  accountRecoveryLimiter,
+  loginLimiter,
   signupLimiter,
   supportMutationLimiter,
 } from "../middleware/security.js";
-import { setSessionCookie } from "../lib/session-cookie.js";
+import {
+  clearSupportMfaChallengeCookie,
+  clearSupportPasskeyChallengeCookie,
+  clearSupportSessionCookie,
+  readSupportMfaChallengeToken,
+  readSupportPasskeyChallengeToken,
+  readSupportSessionToken,
+  setSupportMfaChallengeCookie,
+  setSupportPasskeyChallengeCookie,
+  setSupportSessionCookie,
+} from "../lib/session-cookie.js";
+import { completeMfaLogin, login, logout } from "../services/auth.js";
+import { accountSecurityRouter } from "./account-security.js";
+import {
+  beginPasskeyAuthentication,
+  finishPasskeyAuthentication,
+} from "../services/passkeys.js";
+import { getWebauthnContext } from "../lib/request-origin.js";
+import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
+import {
+  AccountRecoveryPasswordReusedError,
+  getRecoveryCapabilities,
+  requestPasswordRecovery,
+  resetPasswordWithRecoveryCode,
+} from "../services/account-recovery.js";
+import { deliverQueuedEmail } from "../services/email-delivery.js";
 import {
   activateUmfSupportAccount,
   approveUmfSupportAccess,
@@ -34,10 +62,6 @@ import {
   updateUmfSupportStaff,
   updateUmfSupportTicket,
 } from "../services/umf-support.js";
-import {
-  bootstrapCompanyHead,
-  canBootstrapCompanyHead,
-} from "../services/company-bootstrap.js";
 
 export const umfSupportRouter = express.Router();
 
@@ -58,6 +82,81 @@ function requireOnlyFields(body: unknown, allowed: readonly string[]) {
 umfSupportRouter.get("/distribution", (_req, res) => {
   res.json({ distribution: getUmfSupportDistribution() });
 });
+
+umfSupportRouter.get("/recovery/capabilities", (_req, res) => {
+  res.json({
+    methods: getRecoveryCapabilities(),
+    lookupMethods: ["email"],
+  });
+});
+
+umfSupportRouter.post(
+  "/recovery/request",
+  accountRecoveryLimiter,
+  requireCaptcha("recovery"),
+  async (req, res) => {
+    try {
+      requireOnlyFields(req.body, ["method", "identifier", "captchaToken"]);
+      if (
+        req.body.method !== "email" ||
+        typeof req.body.identifier !== "string"
+      ) {
+        throw new Error("Invalid recovery request");
+      }
+      const result = await requestPasswordRecovery(
+        "email",
+        req.body.identifier,
+        "corporate_support",
+      );
+      if (result.deliveryId) {
+        setImmediate(() => {
+          void deliverQueuedEmail(result.deliveryId!).catch(() => undefined);
+        });
+      }
+    } catch {
+      // Never disclose whether the corporate identity exists.
+    }
+    res.status(202).json({ accepted: true });
+  },
+);
+
+umfSupportRouter.post(
+  "/recovery/reset-password",
+  accountRecoveryLimiter,
+  async (req, res) => {
+    try {
+      requireOnlyFields(req.body, [
+        "method",
+        "identifier",
+        "code",
+        "newPassword",
+      ]);
+      if (req.body.method !== "email") throw new Error("Invalid method");
+      const recovered = await resetPasswordWithRecoveryCode({
+        method: "email",
+        identifier: req.body.identifier,
+        code: req.body.code,
+        newPassword: req.body.newPassword,
+        identityRealm: "corporate_support",
+      });
+      if (!recovered) throw new Error("Invalid recovery code");
+      clearSupportSessionCookie(res);
+      clearSupportMfaChallengeCookie(res);
+      clearSupportPasskeyChallengeCookie(res);
+      res.json({ recovered: true });
+    } catch (error) {
+      res
+        .status(error instanceof AccountRecoveryPasswordReusedError ? 409 : 400)
+        .json({
+          code:
+            error instanceof AccountRecoveryPasswordReusedError
+              ? error.code
+              : "ACCOUNT_RECOVERY_INVALID",
+          error: "Invalid or expired recovery code",
+        });
+    }
+  },
+);
 
 umfSupportRouter.post(
   "/access-requests",
@@ -98,7 +197,7 @@ umfSupportRouter.post(
       const result = await activateUmfSupportAccount(req.body, {
         userAgent: req.get("User-Agent"),
       });
-      setSessionCookie(res, result.sessionToken);
+      setSupportSessionCookie(res, result.sessionToken);
       res.status(201).json({ user: result.user });
     } catch (error) {
       next(error);
@@ -106,37 +205,164 @@ umfSupportRouter.post(
   },
 );
 
-umfSupportRouter.use(authenticate);
-
-umfSupportRouter.get("/bootstrap-head", async (_req, res, next) => {
-  try {
-    const auth = getAuthenticatedUser(res);
-    res.json({ available: await canBootstrapCompanyHead(auth.userId) });
-  } catch (error) {
-    next(error);
-  }
-});
-
 umfSupportRouter.post(
-  "/bootstrap-head",
-  supportMutationLimiter,
-  async (_req, res, next) => {
+  "/login",
+  loginLimiter,
+  requireCaptcha("login"),
+  async (req, res) => {
     try {
-      const auth = getAuthenticatedUser(res);
-      if (Date.now() - auth.createdAt > 5 * 60 * 1000) {
-        res.status(401).json({
-          error: "Recent authentication is required",
-          code: "RECENT_AUTHENTICATION_REQUIRED",
-        });
+      requireOnlyFields(req.body, [
+        "email",
+        "password",
+        "rememberDevice",
+        "captchaToken",
+      ]);
+      const email = normalizedSupportLoginEmail(req.body.email);
+      if (typeof req.body.password !== "string") {
+        throw new Error("Invalid credentials");
+      }
+      const result = await login(
+        email,
+        req.body.password,
+        "support",
+        req.body.rememberDevice === true,
+        { userAgent: req.get("User-Agent") },
+      );
+      if ("challengeToken" in result) {
+        setSupportMfaChallengeCookie(res, result.challengeToken);
+        res.json({ mfaRequired: true });
         return;
       }
-      await bootstrapCompanyHead(auth.userId);
-      res.status(201).json({ position: "platform_head", role: "director" });
-    } catch (error) {
-      next(error);
+      setSupportSessionCookie(res, result.sessionToken, result.rememberDevice);
+      res.json({ user: result.user, mfaRequired: false });
+    } catch {
+      res.status(401).json({
+        code: "INVALID_CREDENTIALS",
+        error: "Invalid email or password",
+      });
     }
   },
 );
+
+umfSupportRouter.post(
+  "/mfa/verify",
+  authenticationLimiter,
+  async (req, res) => {
+    const challengeToken = readSupportMfaChallengeToken(req);
+    if (
+      !challengeToken ||
+      typeof req.body?.code !== "string" ||
+      !/^(?:\d{6}|[A-Fa-f0-9]{6}-?[A-Fa-f0-9]{6})$/.test(req.body.code)
+    ) {
+      res.status(401).json({ error: "Invalid verification code" });
+      return;
+    }
+    try {
+      const result = await completeMfaLogin(
+        challengeToken,
+        req.body.code,
+        {
+          userAgent: req.get("User-Agent"),
+        },
+        "corporate_support",
+      );
+      clearSupportMfaChallengeCookie(res);
+      setSupportSessionCookie(res, result.sessionToken, result.rememberDevice);
+      res.json({ user: result.user });
+    } catch {
+      res.status(401).json({ error: "Invalid verification code" });
+    }
+  },
+);
+
+umfSupportRouter.post(
+  "/passkeys/options",
+  authenticationLimiter,
+  async (req, res) => {
+    try {
+      requireOnlyFields(req.body, ["email", "rememberDevice"]);
+      const { rpID } = getWebauthnContext(req);
+      const result = await beginPasskeyAuthentication(
+        normalizedSupportLoginEmail(req.body.email),
+        "support",
+        req.body.rememberDevice === true,
+        rpID,
+      );
+      setSupportPasskeyChallengeCookie(res, result.token);
+      res.json(result.options);
+    } catch {
+      res.status(401).json({ error: "Passkey access is not available" });
+    }
+  },
+);
+
+umfSupportRouter.post(
+  "/passkeys/verify",
+  authenticationLimiter,
+  async (req, res) => {
+    const token = readSupportPasskeyChallengeToken(req);
+    if (!token || !req.body?.response) {
+      res.status(401).json({ error: "Invalid or expired passkey challenge" });
+      return;
+    }
+    try {
+      const { origin, rpID } = getWebauthnContext(req);
+      const result = await finishPasskeyAuthentication(
+        token,
+        req.body.response as AuthenticationResponseJSON,
+        origin,
+        rpID,
+        "support",
+        { userAgent: req.get("User-Agent") },
+      );
+      if (result.user.identityRealm !== "corporate_support") {
+        throw new Error("Invalid identity realm");
+      }
+      clearSupportPasskeyChallengeCookie(res);
+      setSupportSessionCookie(res, result.sessionToken, result.rememberDevice);
+      res.json({ user: result.user });
+    } catch {
+      clearSupportPasskeyChallengeCookie(res);
+      res.status(401).json({ error: "Passkey verification failed" });
+    }
+  },
+);
+
+umfSupportRouter.use(authenticateCorporateSupport);
+
+umfSupportRouter.get("/session", (_req, res) => {
+  const session = getAuthenticatedUser(res);
+  res.json({
+    user: {
+      id: session.userId,
+      email: session.email,
+      name: session.name,
+      avatarDataUrl: session.avatarDataUrl,
+      role: session.role,
+      accountStatus: session.accountStatus,
+      identityRealm: session.identityRealm,
+    },
+  });
+});
+
+umfSupportRouter.post("/logout", async (req, res) => {
+  const token = readSupportSessionToken(req);
+  if (token) await logout(token);
+  clearSupportSessionCookie(res);
+  clearSupportMfaChallengeCookie(res);
+  res.json({ message: "Logged out successfully" });
+});
+
+umfSupportRouter.use("/account/security", accountSecurityRouter);
+
+function normalizedSupportLoginEmail(value: unknown): string {
+  if (typeof value !== "string") throw new Error("Invalid email");
+  const email = value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("Invalid email");
+  }
+  return email;
+}
 
 umfSupportRouter.get("/capabilities", async (_req, res, next) => {
   try {

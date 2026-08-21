@@ -15,6 +15,7 @@ export function observeSecurityRisk(surface: string) {
       if (assessment.level === "high") {
         publishManagerSignal(
           "security",
+          "commercial",
           "warning",
           "HIGH_RISK_OBSERVED",
           `${surface}: ${assessment.reasons.join(",")}`,

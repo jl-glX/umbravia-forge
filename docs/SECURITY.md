@@ -59,11 +59,14 @@ security audit or a future legally required record.
 Umbravia Forge presents members, centre staff and corporate UMF Support with
 three separate sign-in portals. The member portal accepts member accounts. The
 facility staff portal accepts trainer and administrator accounts. The corporate
-portal accepts only active platform operators or personnel approved in UMF
-Support. A centre administrator is not corporate support staff, and corporate
-support membership grants no facility context. This separation is enforced by
-the API as well as the interface; choosing a different portal cannot elevate an
-account's role or permissions.
+portal accepts only personnel approved in UMF Support. A centre administrator
+or commercial platform operator is not corporate support staff, and corporate
+support membership grants no facility context. Commercial and corporate
+identities have distinct realm values and cookies, even when they use the same
+email address. Passwords, recovery challenges, MFA/passkey challenges and
+sessions remain separate. This boundary is enforced by the API as well as the
+interface; choosing a different portal or replaying the other application's
+cookie cannot elevate an account's role or permissions.
 
 ## Human verification
 
@@ -122,9 +125,20 @@ session controls, rate limiting and monitoring remain independent layers.
   security events remain independent controls. Corporate activation creates no
   facility membership, and message operations fail closed in production when
   private-content encryption is not active.
-- A Windows test launcher that contains no credentials, runs without
-  elevation, uses the canonical HTTPS origin and delegates authentication and
-  session handling to the same server controls as the browser application.
+- Manager administration is not exposed in either web application. One local
+  Linux administrator serves the shared manager infrastructure and every
+  operation must carry an explicit `commercial` or `support` scope. It rejects
+  `root`, requires the local user in `UMF_MANAGER_ADMIN_LINUX_USERS` and then
+  checks scope-specific application authority. Support access additionally
+  requires an active corporate director and active platform-head position;
+  commercial operator status is not accepted as a substitute.
+- Transactional email rows and manager signals carry the same explicit scope.
+  A support retry or failure cannot surface in the commercial administrator
+  view, and legacy rows are not reclassified from recipient data alone.
+- The historical Windows launcher contains no credentials, runs without
+  elevation and delegates authentication to the canonical HTTPS origin, but it
+  is not a current UMF Support distribution channel. Re-enabling it requires a
+  separate signing and human-validation decision.
 - Small configurable request bodies and centralized error handling.
 - Input validation and automated security tests.
 - Local databases and environment files excluded from version control.

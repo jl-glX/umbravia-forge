@@ -238,7 +238,7 @@ export function getEncryptionManagerOverview() {
       keyChangesRequireExplicitOperatorAction: true as const,
     },
     materialReplacement: getCryptographicMaterialReplacementOverview(),
-    coordination: getManagerCoordinationStatus(),
+    coordination: getManagerCoordinationStatus("commercial"),
   };
 }
 
@@ -302,6 +302,7 @@ export function getAccountDataProtectionOverview(
 export async function runEncryptionManagerAudit() {
   return withPrioritizedManagerOperation(
     "encryption",
+    "commercial",
     "configuration-audit",
     ["encryption-files"],
     "critical",
@@ -310,6 +311,7 @@ export async function runEncryptionManagerAudit() {
       const audit = auditEncryptionConfiguration();
       publishManagerSignal(
         "encryption",
+        "commercial",
         audit.healthy ? "info" : "critical",
         audit.healthy ? "ENCRYPTION_AUDIT_PASSED" : "ENCRYPTION_AUDIT_FAILED",
         audit.healthy

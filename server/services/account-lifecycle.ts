@@ -305,6 +305,13 @@ export async function markMeaningfulAccountActivity(
   if (!MEANINGFUL_ACTIVITY_SOURCES.includes(source)) {
     throw new Error("Invalid meaningful account activity source");
   }
+  const commercialIdentity = await db
+    .selectFrom("users")
+    .select("id")
+    .where("id", "=", userId)
+    .where("identityRealm", "=", "commercial")
+    .executeTakeFirst();
+  if (!commercialIdentity) return;
   await db
     .insertInto("accountDeletionPreferences")
     .values({
@@ -339,7 +346,9 @@ export async function evaluateDueInactivityDeletions(
 ): Promise<{ evaluated: number; scheduled: number }> {
   const preferences = await db
     .selectFrom("accountDeletionPreferences")
+    .innerJoin("users", "users.id", "accountDeletionPreferences.userId")
     .select(["userId", "inactivityMonths", "lastMeaningfulActivityAt"])
+    .where("users.identityRealm", "=", "commercial")
     .where("inactivityMonths", "is not", null)
     .execute();
   let scheduled = 0;
@@ -376,6 +385,7 @@ export async function evaluateUnconfiguredInactivityReviews(
 }> {
   const candidates = await db
     .selectFrom("users")
+    .where("users.identityRealm", "=", "commercial")
     .leftJoin(
       "accountDeletionPreferences",
       "accountDeletionPreferences.userId",
@@ -599,9 +609,21 @@ export async function scheduleAccountDeletion(
 ) {
   return withCoordinatedManagerOperation(
     "account",
+    "commercial",
     "schedule-account-deletion",
     ["account-records"],
     async () => {
+      const commercialIdentity = await db
+        .selectFrom("users")
+        .select("id")
+        .where("id", "=", userId)
+        .where("identityRealm", "=", "commercial")
+        .executeTakeFirst();
+      if (!commercialIdentity) {
+        throw new Error(
+          "Commercial account deletion requires a commercial identity",
+        );
+      }
       const existing = await db
         .selectFrom("accountDeletionRequests")
         .selectAll()
@@ -703,6 +725,7 @@ export async function scheduleAccountDeletion(
         } catch {
           publishManagerSignal(
             "email",
+            "commercial",
             "warning",
             "ACCOUNT_DELETION_PREPARATION_NOTICE_FAILED",
             "An account closure was scheduled, but its preparation notice could not be queued.",
@@ -904,6 +927,7 @@ export async function executeDueAccountDeletionJobs(
       "accountDeletionRequests.id",
       "accountDeletionJobs.requestId",
     )
+    .innerJoin("users", "users.id", "accountDeletionJobs.userId")
     .select([
       "accountDeletionJobs.id as jobId",
       "accountDeletionJobs.userId",
@@ -916,6 +940,7 @@ export async function executeDueAccountDeletionJobs(
     ])
     .where("accountDeletionRequests.status", "=", "scheduled")
     .where("accountDeletionRequests.graceEndsAt", "<=", now)
+    .where("users.identityRealm", "=", "commercial")
     .execute();
   let completed = 0;
   let blocked = 0;
@@ -923,6 +948,7 @@ export async function executeDueAccountDeletionJobs(
   for (const item of due) {
     await withCoordinatedManagerOperation(
       "account",
+      "commercial",
       "execute-account-deletion",
       [`account:${item.userId}`],
       async () => {
@@ -963,6 +989,7 @@ export async function executeDueAccountDeletionJobs(
             .execute();
           publishManagerSignal(
             "account",
+            "commercial",
             "warning",
             "ACCOUNT_DELETION_REVIEW_REQUIRED",
             "An expired account closure requires retention or tenant ownership review.",
@@ -1045,6 +1072,7 @@ export async function cancelScheduledAccountDeletion(
 ) {
   return withCoordinatedManagerOperation(
     "account",
+    "commercial",
     "cancel-account-deletion",
     ["account-records"],
     async () => {

@@ -1156,6 +1156,7 @@ communityRouter.delete(
         try {
           publishManagerSignal(
             "resource",
+            "commercial",
             "warning",
             "COMMUNITY_MESSAGE_CLEANUP_DEFERRED",
             "Encrypted message attachment cleanup remains staged for maintenance.",
@@ -1177,6 +1178,7 @@ communityRouter.delete(
         try {
           publishManagerSignal(
             "security",
+            "commercial",
             "warning",
             "COMMUNITY_ATTACHMENT_AUDIT_DEFERRED",
             "A community attachment deletion audit event requires review.",

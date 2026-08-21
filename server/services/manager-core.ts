@@ -13,12 +13,14 @@ export type ManagerId =
 export type ManagerTaskPriority = "critical" | "high" | "normal" | "low";
 export type ManagerControlPriority = "critical" | "high";
 export type ManagerControlDirectiveKind = "order" | "instruction";
+export type ManagerPlatformScope = "commercial" | "support";
 export type ManagerTrafficClass =
   "control" | "interactive" | "transactional" | "maintenance" | "observation";
 
 export interface ActiveManagerOperation {
   id: string;
   manager: ManagerId;
+  platformScope: ManagerPlatformScope;
   operation: string;
   scopes: string[];
   priority: ManagerTaskPriority;
@@ -29,6 +31,7 @@ export interface ActiveManagerOperation {
 interface QueuedManagerOperation<T = unknown> {
   id: string;
   manager: ManagerId;
+  platformScope: ManagerPlatformScope;
   operation: string;
   scopes: string[];
   priority: ManagerTaskPriority;
@@ -106,7 +109,10 @@ export class ManagerAdministrator {
   private readonly active = new Map<string, ActiveManagerOperation>();
   private readonly queue: QueuedManagerOperation[] = [];
   private readonly recentSignals = new Map<string, number>();
-  private readonly lowPrioritySignalTimes: number[] = [];
+  private readonly lowPrioritySignalTimes = new Map<
+    ManagerPlatformScope,
+    number[]
+  >();
   private readonly globalConcurrency: number;
   private readonly perManagerConcurrency: number;
   private readonly globalQueueCapacity: number;
@@ -144,6 +150,7 @@ export class ManagerAdministrator {
 
   private normalizeOperation(
     manager: ManagerId,
+    platformScope: ManagerPlatformScope,
     operation: string,
     scopes: string[],
     priority: ManagerTaskPriority,
@@ -163,6 +170,7 @@ export class ManagerAdministrator {
     return {
       id: `manager-operation-${randomBytes(8).toString("hex")}`,
       manager,
+      platformScope,
       operation: normalizedOperation,
       scopes: normalizedScopes,
       priority,
@@ -207,6 +215,7 @@ export class ManagerAdministrator {
 
   runImmediate<T>(
     manager: ManagerId,
+    platformScope: ManagerPlatformScope,
     operation: string,
     scopes: string[],
     run: () => Promise<T>,
@@ -215,6 +224,7 @@ export class ManagerAdministrator {
   ): Promise<T> {
     const normalized = this.normalizeOperation(
       manager,
+      platformScope,
       operation,
       scopes,
       priority,
@@ -234,6 +244,7 @@ export class ManagerAdministrator {
 
   enqueue<T>(
     manager: ManagerId,
+    platformScope: ManagerPlatformScope,
     operation: string,
     scopes: string[],
     run: () => Promise<T>,
@@ -242,6 +253,7 @@ export class ManagerAdministrator {
   ): Promise<T> {
     const normalized = this.normalizeOperation(
       manager,
+      platformScope,
       operation,
       scopes,
       priority,
@@ -283,6 +295,7 @@ export class ManagerAdministrator {
   async enqueueControlDirective<T>(
     endpoint: "manager-coordinator",
     manager: ManagerId,
+    platformScope: ManagerPlatformScope,
     kind: ManagerControlDirectiveKind,
     operation: string,
     scopes: string[],
@@ -300,6 +313,7 @@ export class ManagerAdministrator {
     try {
       const result = await this.enqueue(
         manager,
+        platformScope,
         `control-${kind}:${operation}`,
         scopes,
         run,
@@ -344,12 +358,13 @@ export class ManagerAdministrator {
 
   admitSignal(
     source: ManagerId,
+    platformScope: ManagerPlatformScope,
     severity: "info" | "warning" | "critical",
     code: string,
     fingerprint: string,
   ): boolean {
     const now = this.now();
-    const key = `${source}:${severity}:${code}:${fingerprint}`;
+    const key = `${platformScope}:${source}:${severity}:${code}:${fingerprint}`;
     const previous = this.recentSignals.get(key);
     if (
       severity !== "critical" &&
@@ -362,19 +377,16 @@ export class ManagerAdministrator {
     this.recentSignals.set(key, now);
     if (severity === "info") {
       const cutoff = now - 60_000;
-      while (
-        this.lowPrioritySignalTimes.length > 0 &&
-        this.lowPrioritySignalTimes[0] < cutoff
-      ) {
-        this.lowPrioritySignalTimes.shift();
+      const signalTimes = this.lowPrioritySignalTimes.get(platformScope) ?? [];
+      while (signalTimes.length > 0 && signalTimes[0] < cutoff) {
+        signalTimes.shift();
       }
-      if (
-        this.lowPrioritySignalTimes.length >= this.lowPrioritySignalsPerMinute
-      ) {
+      if (signalTimes.length >= this.lowPrioritySignalsPerMinute) {
         this.counters.rateLimitedSignals += 1;
         return false;
       }
-      this.lowPrioritySignalTimes.push(now);
+      signalTimes.push(now);
+      this.lowPrioritySignalTimes.set(platformScope, signalTimes);
     }
     this.recentSignals.set(key, now);
     for (const [candidate, createdAt] of this.recentSignals) {
@@ -426,6 +438,7 @@ export class ManagerAdministrator {
       queuedOperations: this.queue.map((item) => ({
         id: item.id,
         manager: item.manager,
+        platformScope: item.platformScope,
         operation: item.operation,
         scopes: [...item.scopes],
         priority: item.priority,

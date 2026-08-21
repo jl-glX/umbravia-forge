@@ -11,17 +11,16 @@ export class CompanyBootstrapUnavailableError extends Error {
 }
 
 async function hasAnyCorporateInitialization(): Promise<boolean> {
-  const [state, operator, supportStaff, companyStaff] = await Promise.all([
+  const [state, supportStaff, companyStaff] = await Promise.all([
     db
       .selectFrom("corporateBootstrapState")
       .select("id")
       .where("id", "=", "company_head")
       .executeTakeFirst(),
-    db.selectFrom("platformOperators").select("userId").executeTakeFirst(),
     db.selectFrom("umfSupportStaff").select("userId").executeTakeFirst(),
     db.selectFrom("companyStaffProfiles").select("userId").executeTakeFirst(),
   ]);
-  return Boolean(state || operator || supportStaff || companyStaff);
+  return Boolean(state || supportStaff || companyStaff);
 }
 
 function isDesignatedBootstrapEmail(email: string): boolean {
@@ -37,10 +36,32 @@ function isDesignatedBootstrapEmail(email: string): boolean {
 export async function canRequestCompanyHeadBootstrap(
   email: string,
 ): Promise<boolean> {
-  return (
-    isDesignatedBootstrapEmail(email) &&
-    !(await hasAnyCorporateInitialization())
-  );
+  if (!isDesignatedBootstrapEmail(email)) return false;
+  if (!(await hasAnyCorporateInitialization())) return true;
+  return Boolean(await findFusedCompanyHead(email));
+}
+
+async function findFusedCompanyHead(email: string) {
+  const state = await db
+    .selectFrom("corporateBootstrapState")
+    .innerJoin("users", "users.id", "corporateBootstrapState.claimedByUserId")
+    .select(["users.id", "users.email", "users.identityRealm"])
+    .where("corporateBootstrapState.id", "=", "company_head")
+    .executeTakeFirst();
+  if (
+    !state ||
+    state.identityRealm !== "commercial" ||
+    state.email.trim().toLowerCase() !== email.trim().toLowerCase()
+  ) {
+    return null;
+  }
+  const corporateIdentity = await db
+    .selectFrom("users")
+    .select("id")
+    .where("email", "=", state.email)
+    .where("identityRealm", "=", "corporate_support")
+    .executeTakeFirst();
+  return corporateIdentity ? null : state;
 }
 
 export async function canBootstrapCompanyHead(
@@ -48,12 +69,13 @@ export async function canBootstrapCompanyHead(
 ): Promise<boolean> {
   const user = await db
     .selectFrom("users")
-    .select(["email", "accountStatus", "emailVerifiedAt"])
+    .select(["email", "accountStatus", "emailVerifiedAt", "identityRealm"])
     .where("id", "=", userId)
     .executeTakeFirst();
   return Boolean(
     user?.accountStatus === "active" &&
     user.emailVerifiedAt !== null &&
+    user.identityRealm === "corporate_support" &&
     isDesignatedBootstrapEmail(user.email) &&
     !(await hasAnyCorporateInitialization()),
   );
@@ -68,26 +90,23 @@ export async function bootstrapCompanyHead(
     await db.transaction().execute(async (transaction) => {
       const user = await transaction
         .selectFrom("users")
-        .select(["email", "accountStatus", "emailVerifiedAt"])
+        .select(["email", "accountStatus", "emailVerifiedAt", "identityRealm"])
         .where("id", "=", userId)
         .executeTakeFirst();
       if (
         !user ||
         user.accountStatus !== "active" ||
         user.emailVerifiedAt === null ||
+        user.identityRealm !== "corporate_support" ||
         !isDesignatedBootstrapEmail(user.email)
       ) {
         throw new CompanyBootstrapUnavailableError();
       }
 
-      const [state, operator, supportStaff, companyStaff] = await Promise.all([
+      const [state, supportStaff, companyStaff] = await Promise.all([
         transaction
           .selectFrom("corporateBootstrapState")
           .select("id")
-          .executeTakeFirst(),
-        transaction
-          .selectFrom("platformOperators")
-          .select("userId")
           .executeTakeFirst(),
         transaction
           .selectFrom("umfSupportStaff")
@@ -98,50 +117,132 @@ export async function bootstrapCompanyHead(
           .select("userId")
           .executeTakeFirst(),
       ]);
-      if (state || operator || supportStaff || companyStaff) {
-        throw new CompanyBootstrapUnavailableError();
+      if (state || supportStaff || companyStaff) {
+        const fusedSource = await transaction
+          .selectFrom("corporateBootstrapState")
+          .innerJoin(
+            "users",
+            "users.id",
+            "corporateBootstrapState.claimedByUserId",
+          )
+          .select(["users.id", "users.email", "users.identityRealm"])
+          .where("corporateBootstrapState.id", "=", "company_head")
+          .executeTakeFirst();
+        if (
+          !accessRequestId ||
+          !fusedSource ||
+          fusedSource.identityRealm !== "commercial" ||
+          fusedSource.email !== user.email
+        ) {
+          throw new CompanyBootstrapUnavailableError();
+        }
+        const oldUserId = fusedSource.id;
+        await transaction
+          .updateTable("umfSupportStaff")
+          .set({ approvedByUserId: userId })
+          .where("approvedByUserId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("companyStaffProfiles")
+          .set({ appointedByUserId: userId })
+          .where("appointedByUserId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("companyStaffProfiles")
+          .set({ reportsToUserId: userId })
+          .where("reportsToUserId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("corporateRoleAssignments")
+          .set({ assignedByUserId: userId })
+          .where("assignedByUserId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("corporateRoleDelegations")
+          .set({ delegatedByUserId: userId })
+          .where("delegatedByUserId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("umfSupportAccessRequests")
+          .set({ reviewedByUserId: userId })
+          .where("reviewedByUserId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("umfSupportAccessRequests")
+          .set({ activatedUserId: userId })
+          .where("activatedUserId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("umfSupportTickets")
+          .set({ assigneeUserId: userId })
+          .where("assigneeUserId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("umfSupportMessages")
+          .set({ authorUserId: userId })
+          .where("authorUserId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("corporateRoleDelegations")
+          .set({ recipientUserId: userId })
+          .where("recipientUserId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("corporateRoleAssignments")
+          .set({ userId })
+          .where("userId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("companyStaffProfiles")
+          .set({ userId })
+          .where("userId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("umfSupportStaff")
+          .set({ userId })
+          .where("userId", "=", oldUserId)
+          .execute();
+        await transaction
+          .updateTable("corporateBootstrapState")
+          .set({ claimedByUserId: userId, claimedAt: now })
+          .where("id", "=", "company_head")
+          .where("claimedByUserId", "=", oldUserId)
+          .execute();
+      } else {
+        await transaction
+          .insertInto("corporateBootstrapState")
+          .values({
+            id: "company_head",
+            claimedByUserId: userId,
+            claimedAt: now,
+          })
+          .execute();
+        await transaction
+          .insertInto("umfSupportStaff")
+          .values({
+            userId,
+            role: "director",
+            status: "active",
+            approvedByUserId: userId,
+            createdAt: now,
+            updatedAt: now,
+            revokedAt: null,
+          })
+          .execute();
+        await transaction
+          .insertInto("companyStaffProfiles")
+          .values({
+            userId,
+            position: "platform_head",
+            reportsToUserId: null,
+            status: "active",
+            appointedByUserId: userId,
+            createdAt: now,
+            updatedAt: now,
+            revokedAt: null,
+          })
+          .execute();
       }
-
-      await transaction
-        .insertInto("corporateBootstrapState")
-        .values({ id: "company_head", claimedByUserId: userId, claimedAt: now })
-        .execute();
-      await transaction
-        .insertInto("platformOperators")
-        .values({
-          userId,
-          source: "controlled_provisioning",
-          status: "active",
-          createdAt: now,
-          updatedAt: now,
-          revokedAt: null,
-        })
-        .execute();
-      await transaction
-        .insertInto("umfSupportStaff")
-        .values({
-          userId,
-          role: "director",
-          status: "active",
-          approvedByUserId: userId,
-          createdAt: now,
-          updatedAt: now,
-          revokedAt: null,
-        })
-        .execute();
-      await transaction
-        .insertInto("companyStaffProfiles")
-        .values({
-          userId,
-          position: "platform_head",
-          reportsToUserId: null,
-          status: "active",
-          appointedByUserId: userId,
-          createdAt: now,
-          updatedAt: now,
-          revokedAt: null,
-        })
-        .execute();
       const openRequests = await transaction
         .selectFrom("umfSupportAccessRequests")
         .select("id")
@@ -182,9 +283,12 @@ export async function bootstrapCompanyHead(
           type: "company_head_bootstrapped",
           createdAt: now,
           metadata: JSON.stringify({
-            mode: accessRequestId
-              ? "designated_support_activation"
-              : "designated_verified_account",
+            mode:
+              state || supportStaff || companyStaff
+                ? "separated_from_commercial_identity"
+                : accessRequestId
+                  ? "designated_support_activation"
+                  : "designated_verified_account",
           }),
         })
         .execute();

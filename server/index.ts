@@ -28,17 +28,9 @@ import { accountIdentityRouter } from "./routes/account-identity.js";
 import { accountLifecycleRouter } from "./routes/account-lifecycle.js";
 import { accountManagerRouter } from "./routes/account-manager.js";
 import { accountContinuityRouter } from "./routes/account-continuity.js";
-import { dataRetentionRouter } from "./routes/data-retention.js";
 import { memberCommerceRouter } from "./routes/member-commerce.js";
 import { delegationsRouter } from "./routes/delegations.js";
 import { downloadsRouter } from "./routes/downloads.js";
-import { resourceManagerRouter } from "./routes/resource-manager.js";
-import { securityManagerRouter } from "./routes/security-manager.js";
-import { encryptionManagerRouter } from "./routes/encryption-manager.js";
-import { environmentManagerRouter } from "./routes/environment-manager.js";
-import { emailManagerRouter } from "./routes/email-manager.js";
-import { managerConsoleRouter } from "./routes/manager-console.js";
-import { capabilityRoadmapRouter } from "./routes/capability-roadmap.js";
 import { commercialRouter } from "./routes/commercial.js";
 import { communityRouter } from "./routes/community.js";
 import { moderationRouter } from "./routes/moderation.js";
@@ -67,6 +59,7 @@ import {
 } from "./services/account-lifecycle-scheduler.js";
 import { validateProductionConfiguration } from "./lib/production-config.js";
 import { parseServerPort } from "./lib/server-endpoint.js";
+import { authenticate } from "./middleware/authorization.js";
 import {
   rejectAbusiveRequestShape,
   rejectAutomatedProbe,
@@ -151,7 +144,6 @@ app.use("/api/auth", authRouter);
 app.use("/api/account/lifecycle", accountLifecycleRouter);
 app.use("/api/account/manager", accountManagerRouter);
 app.use("/api/account/continuity", accountContinuityRouter);
-app.use("/api/admin/data-retention", dataRetentionRouter);
 app.use("/api/activity-sessions", classesRouter);
 app.use("/api/bookings", bookingsRouter);
 app.use("/api/users", usersRouter);
@@ -179,19 +171,12 @@ app.use(
 );
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/crm", crmRouter);
-app.use("/api/account/security", accountSecurityRouter);
+app.use("/api/account/security", authenticate, accountSecurityRouter);
 app.use("/api/feedback", feedbackRouter);
 app.use("/api/billing", billingRouter);
 app.use("/api/member-commerce", memberCommerceRouter);
 app.use("/api/account/delegations", delegationsRouter);
 app.use("/api/downloads", downloadsRouter);
-app.use("/api/admin/resource-manager", resourceManagerRouter);
-app.use("/api/admin/security-manager", securityManagerRouter);
-app.use("/api/admin/encryption-manager", encryptionManagerRouter);
-app.use("/api/admin/environment-manager", environmentManagerRouter);
-app.use("/api/admin/email-manager", emailManagerRouter);
-app.use("/api/admin/manager-console", managerConsoleRouter);
-app.use("/api/admin/capability-roadmap", capabilityRoadmapRouter);
 app.use("/api/commercial", commercialRouter);
 app.use("/api/commercial-subscription", commercialSubscriptionRouter);
 app.use("/api/community", communityRouter);

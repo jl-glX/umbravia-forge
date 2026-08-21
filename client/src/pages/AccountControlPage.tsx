@@ -7,23 +7,18 @@ import {
   CircleAlert,
   CircleCheck,
   LoaderCircle,
-  MailCheck,
   CalendarDays,
   CreditCard,
   Download,
-  Database,
-  Gauge,
   KeyRound,
   LayoutDashboard,
   Settings2,
-  ShieldAlert,
   ShieldCheck,
   ShoppingBag,
   Timer,
   Trash2,
   UserRound,
   UserRoundCog,
-  Route,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -213,42 +208,6 @@ export function AccountControlPage() {
       title: t("accountControl.adminAnalytics"),
       description: t("accountControl.adminAnalyticsDescription"),
     },
-    {
-      to: "/admin/resource-manager",
-      icon: Gauge,
-      title: t("accountControl.resourceManager"),
-      description: t("accountControl.resourceManagerDescription"),
-    },
-    {
-      to: "/admin/security-manager",
-      icon: ShieldAlert,
-      title: t("accountControl.securityManager"),
-      description: t("accountControl.securityManagerDescription"),
-    },
-    {
-      to: "/admin/data-retention",
-      icon: Database,
-      title: t("accountControl.dataRetention"),
-      description: t("accountControl.dataRetentionDescription"),
-    },
-    {
-      to: "/admin/environment-manager",
-      icon: Database,
-      title: t("accountControl.environmentManager"),
-      description: t("accountControl.environmentManagerDescription"),
-    },
-    {
-      to: "/admin/email-manager",
-      icon: MailCheck,
-      title: t("accountControl.emailManager"),
-      description: t("accountControl.emailManagerDescription"),
-    },
-    {
-      to: "/admin/capability-roadmap",
-      icon: Route,
-      title: t("accountControl.capabilityRoadmap"),
-      description: t("accountControl.capabilityRoadmapDescription"),
-    },
   ];
 
   const roleLinks =
@@ -256,13 +215,7 @@ export function AccountControlPage() {
       ? memberLinks
       : accessRole === "trainer"
         ? trainerLinks
-        : user?.platformOperator
-          ? adminLinks
-          : adminLinks.filter((shortcut) =>
-              ["/admin-dashboard", "/billing", "/admin-analytics"].includes(
-                shortcut.to,
-              ),
-            );
+        : adminLinks;
   const roleSectionKey =
     accessRole === "member"
       ? "member"

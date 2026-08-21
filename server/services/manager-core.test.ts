@@ -12,6 +12,7 @@ describe("manager core administrator", () => {
     let release!: () => void;
     const held = administrator.runImmediate(
       "email",
+      "commercial",
       "delivery",
       ["notification-delivery"],
       () => new Promise<void>((resolve) => (release = resolve)),
@@ -20,6 +21,7 @@ describe("manager core administrator", () => {
     expect(() =>
       administrator.runImmediate(
         "resource",
+        "commercial",
         "maintenance",
         ["notification-delivery"],
         async () => undefined,
@@ -36,6 +38,7 @@ describe("manager core administrator", () => {
     let release!: () => void;
     const held = administrator.runImmediate(
       "email",
+      "commercial",
       "delivery",
       ["notification-delivery"],
       () =>
@@ -48,6 +51,7 @@ describe("manager core administrator", () => {
     );
     const queued = administrator.enqueue(
       "resource",
+      "commercial",
       "maintenance",
       ["notification-delivery"],
       async () => order.push("queued"),
@@ -70,18 +74,26 @@ describe("manager core administrator", () => {
     let release!: () => void;
     const held = administrator.runImmediate(
       "email",
+      "commercial",
       "delivery",
       ["delivery"],
       () => new Promise<void>((resolve) => (release = resolve)),
     );
     const queued = administrator.enqueue(
       "email",
+      "commercial",
       "maintenance",
       ["maintenance"],
       async () => undefined,
     );
     expect(() =>
-      administrator.enqueue("email", "extra", ["extra"], async () => undefined),
+      administrator.enqueue(
+        "email",
+        "commercial",
+        "extra",
+        ["extra"],
+        async () => undefined,
+      ),
     ).toThrow(ManagerQueueCapacityError);
     release();
     await Promise.all([held, queued]);
@@ -92,17 +104,84 @@ describe("manager core administrator", () => {
     const administrator = new ManagerAdministrator({ now });
 
     expect(
-      administrator.admitSignal("email", "warning", "QUEUE_DELAY", "a"),
+      administrator.admitSignal(
+        "email",
+        "commercial",
+        "warning",
+        "QUEUE_DELAY",
+        "a",
+      ),
     ).toBe(true);
     expect(
-      administrator.admitSignal("email", "warning", "QUEUE_DELAY", "a"),
+      administrator.admitSignal(
+        "email",
+        "commercial",
+        "warning",
+        "QUEUE_DELAY",
+        "a",
+      ),
     ).toBe(false);
     expect(
-      administrator.admitSignal("email", "critical", "QUEUE_DOWN", "b"),
+      administrator.admitSignal(
+        "email",
+        "commercial",
+        "critical",
+        "QUEUE_DOWN",
+        "b",
+      ),
     ).toBe(true);
     expect(
-      administrator.admitSignal("email", "critical", "QUEUE_DOWN", "b"),
+      administrator.admitSignal(
+        "email",
+        "commercial",
+        "critical",
+        "QUEUE_DOWN",
+        "b",
+      ),
     ).toBe(true);
+  });
+
+  it("rate-limits informational signals independently by platform scope", () => {
+    const administrator = new ManagerAdministrator({
+      now: () => 1_000,
+      lowPrioritySignalsPerMinute: 1,
+    });
+    expect(
+      administrator.admitSignal(
+        "email",
+        "commercial",
+        "info",
+        "COMMERCIAL_INFO",
+        "commercial-a",
+      ),
+    ).toBe(true);
+    expect(
+      administrator.admitSignal(
+        "email",
+        "support",
+        "info",
+        "SUPPORT_INFO",
+        "support-a",
+      ),
+    ).toBe(true);
+    expect(
+      administrator.admitSignal(
+        "email",
+        "commercial",
+        "info",
+        "COMMERCIAL_INFO_2",
+        "commercial-b",
+      ),
+    ).toBe(false);
+    expect(
+      administrator.admitSignal(
+        "email",
+        "support",
+        "info",
+        "SUPPORT_INFO_2",
+        "support-b",
+      ),
+    ).toBe(false);
   });
 
   it("runs coordinator control directives ahead of ordinary queued work", async () => {
@@ -111,12 +190,14 @@ describe("manager core administrator", () => {
     let release!: () => void;
     const held = administrator.runImmediate(
       "email",
+      "commercial",
       "delivery",
       ["delivery"],
       () => new Promise<void>((resolve) => (release = resolve)),
     );
     const ordinary = administrator.enqueue(
       "resource",
+      "commercial",
       "cleanup",
       ["cleanup"],
       async () => order.push("ordinary"),
@@ -126,6 +207,7 @@ describe("manager core administrator", () => {
     const control = administrator.enqueueControlDirective(
       "manager-coordinator",
       "security",
+      "commercial",
       "instruction",
       "prioritize-security-review",
       ["security-events"],
@@ -144,6 +226,7 @@ describe("manager core administrator", () => {
     let directiveRan = false;
     const held = administrator.runImmediate(
       "email",
+      "commercial",
       "delivery",
       ["shared-control-scope"],
       () => new Promise<void>((resolve) => (release = resolve)),
@@ -151,6 +234,7 @@ describe("manager core administrator", () => {
     const directive = administrator.enqueueControlDirective(
       "manager-coordinator",
       "resource",
+      "commercial",
       "order",
       "coordinate-recovery",
       ["shared-control-scope"],
@@ -173,6 +257,7 @@ describe("manager core administrator", () => {
       administrator.enqueueControlDirective(
         "manager-coordinator",
         "resource",
+        "commercial",
         "order",
         "ordinary-maintenance",
         ["maintenance"],
@@ -184,6 +269,7 @@ describe("manager core administrator", () => {
       administrator.enqueueControlDirective(
         "untrusted-endpoint" as "manager-coordinator",
         "resource",
+        "commercial",
         "order",
         "urgent-maintenance",
         ["maintenance"],

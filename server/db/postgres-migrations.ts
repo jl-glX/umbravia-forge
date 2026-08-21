@@ -9,7 +9,9 @@ type Migration = {
 export const postgresInitialSchema = String.raw`
 CREATE TABLE IF NOT EXISTS "users" (
   "id" TEXT PRIMARY KEY,
-  "email" TEXT NOT NULL UNIQUE,
+  "email" TEXT NOT NULL,
+  "identityRealm" TEXT NOT NULL DEFAULT 'commercial'
+    CHECK ("identityRealm" IN ('commercial', 'corporate_support')),
   "phone" TEXT UNIQUE,
   "name" TEXT NOT NULL,
   "lastName" TEXT NOT NULL DEFAULT '',
@@ -27,6 +29,8 @@ CREATE TABLE IF NOT EXISTS "users" (
   "sessionIdleTimeoutMinutes" INTEGER NOT NULL DEFAULT 10080,
   "createdAt" BIGINT NOT NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_users_realm_email"
+  ON "users" ("identityRealm", "email");
 CREATE INDEX IF NOT EXISTS "idx_users_email" ON "users" ("email");
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_users_phone" ON "users" ("phone") WHERE "phone" IS NOT NULL;
 CREATE INDEX IF NOT EXISTS "idx_users_role" ON "users" ("role");
@@ -71,6 +75,7 @@ CREATE INDEX IF NOT EXISTS "idx_accountRecoveryChallenges_expiresAt" ON "account
 CREATE TABLE IF NOT EXISTS "emailDeliveries" (
   "id" TEXT PRIMARY KEY,
   "userId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "platformScope" TEXT NOT NULL DEFAULT 'commercial' CHECK ("platformScope" IN ('commercial', 'support')),
   "kind" TEXT NOT NULL CHECK ("kind" IN ('email_verification', 'account_recovery', 'support_update', 'security_notice')),
   "recipient" TEXT NOT NULL,
   "locale" TEXT NOT NULL,
@@ -89,6 +94,7 @@ CREATE TABLE IF NOT EXISTS "emailDeliveries" (
 CREATE INDEX IF NOT EXISTS "idx_emailDeliveries_due" ON "emailDeliveries" ("status", "nextAttemptAt");
 CREATE INDEX IF NOT EXISTS "idx_emailDeliveries_user" ON "emailDeliveries" ("userId", "createdAt");
 CREATE INDEX IF NOT EXISTS "idx_emailDeliveries_expiry" ON "emailDeliveries" ("expiresAt");
+CREATE INDEX IF NOT EXISTS "idx_emailDeliveries_scope_due" ON "emailDeliveries" ("platformScope", "status", "nextAttemptAt");
 
 CREATE TABLE IF NOT EXISTS "antiAutomationChallenges" (
   "id" TEXT PRIMARY KEY,
@@ -817,6 +823,7 @@ CREATE INDEX IF NOT EXISTS "idx_moderationAppeals_case"
 CREATE TABLE IF NOT EXISTS "emailDeliveries" (
   "id" TEXT PRIMARY KEY,
   "userId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "platformScope" TEXT NOT NULL DEFAULT 'commercial' CHECK ("platformScope" IN ('commercial', 'support')),
   "kind" TEXT NOT NULL CHECK ("kind" IN ('email_verification')),
   "recipient" TEXT NOT NULL,
   "locale" TEXT NOT NULL,
@@ -835,6 +842,7 @@ CREATE TABLE IF NOT EXISTS "emailDeliveries" (
 CREATE INDEX IF NOT EXISTS "idx_emailDeliveries_due" ON "emailDeliveries" ("status", "nextAttemptAt");
 CREATE INDEX IF NOT EXISTS "idx_emailDeliveries_user" ON "emailDeliveries" ("userId", "createdAt");
 CREATE INDEX IF NOT EXISTS "idx_emailDeliveries_expiry" ON "emailDeliveries" ("expiresAt");
+CREATE INDEX IF NOT EXISTS "idx_emailDeliveries_scope_due" ON "emailDeliveries" ("platformScope", "status", "nextAttemptAt");
 `,
   },
   {
@@ -2358,6 +2366,73 @@ CREATE TABLE IF NOT EXISTS "umfSupportAccessCredentials" (
   "createdAt" BIGINT NOT NULL,
   "expiresAt" BIGINT NOT NULL
 );
+`,
+  },
+  {
+    version: 41,
+    name: "separate-commercial-and-corporate-identities",
+    sql: String.raw`
+ALTER TABLE "users"
+  ADD COLUMN IF NOT EXISTS "identityRealm" TEXT NOT NULL DEFAULT 'commercial';
+ALTER TABLE "users"
+  DROP CONSTRAINT IF EXISTS "users_identityRealm_check";
+ALTER TABLE "users"
+  ADD CONSTRAINT "users_identityRealm_check"
+  CHECK ("identityRealm" IN ('commercial', 'corporate_support'));
+ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_email_key";
+DROP INDEX IF EXISTS "idx_users_email";
+CREATE INDEX IF NOT EXISTS "idx_users_email" ON "users" ("email");
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_users_realm_email"
+  ON "users" ("identityRealm", "email");
+`,
+  },
+  {
+    version: 42,
+    name: "retire-browser-manager-terminal",
+    sql: String.raw`
+DROP TABLE IF EXISTS "managerTerminalAccess";
+`,
+  },
+  {
+    version: 43,
+    name: "scope-email-change-challenges-by-identity-realm",
+    sql: String.raw`
+ALTER TABLE "emailChangeChallenges"
+  ADD COLUMN IF NOT EXISTS "identityRealm" TEXT NOT NULL DEFAULT 'commercial';
+UPDATE "emailChangeChallenges" AS challenge
+SET "identityRealm" = account."identityRealm"
+FROM "users" AS account
+WHERE account."id" = challenge."userId";
+ALTER TABLE "emailChangeChallenges"
+  DROP CONSTRAINT IF EXISTS "emailChangeChallenges_identityRealm_check";
+ALTER TABLE "emailChangeChallenges"
+  ADD CONSTRAINT "emailChangeChallenges_identityRealm_check"
+  CHECK ("identityRealm" IN ('commercial', 'corporate_support'));
+DROP INDEX IF EXISTS "idx_emailChangeChallenges_new_email";
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_emailChangeChallenges_realm_new_email"
+  ON "emailChangeChallenges" ("identityRealm", "newEmail");
+`,
+  },
+  {
+    version: 44,
+    name: "scope-transactional-email-deliveries-by-platform",
+    sql: String.raw`
+ALTER TABLE "emailDeliveries"
+  ADD COLUMN IF NOT EXISTS "platformScope" TEXT NOT NULL DEFAULT 'commercial';
+ALTER TABLE "emailDeliveries"
+  DROP CONSTRAINT IF EXISTS "emailDeliveries_platformScope_check";
+ALTER TABLE "emailDeliveries"
+  ADD CONSTRAINT "emailDeliveries_platformScope_check"
+  CHECK ("platformScope" IN ('commercial', 'support'));
+UPDATE "emailDeliveries" AS delivery
+SET "platformScope" = 'support'
+WHERE delivery."id" IN (
+  SELECT message."deliveryId"
+  FROM "umfSupportMessages" AS message
+  WHERE message."deliveryId" IS NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_emailDeliveries_scope_due"
+  ON "emailDeliveries" ("platformScope", "status", "nextAttemptAt");
 `,
   },
 ];

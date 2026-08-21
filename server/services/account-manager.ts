@@ -42,6 +42,6 @@ export async function getAccountManagerOverview(
     communication: getManagedEmailChannelCapabilities("account"),
     continuity: lifecycle.continuityBridge,
     dataProtection: getAccountDataProtectionOverview(),
-    coordination: getManagerCoordinationStatus(),
+    coordination: getManagerCoordinationStatus("commercial"),
   };
 }

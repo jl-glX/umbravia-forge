@@ -1,4 +1,11 @@
-# Paquete de prueba de aplicaciones web para Windows
+# Paquete histórico de prueba de aplicaciones web para Windows
+
+> **No es un canal vigente de UMF Support.** El portal corporativo se publica
+> únicamente como aplicación web en `/umf-support/access`; su API de
+> distribución declara `channel: web` e `installer: null`, y la interfaz no
+> anuncia descargas. El ZIP se conserva solo como artefacto reproducible para
+> pruebas técnicas anteriores y no demuestra una distribución de escritorio
+> autorizada.
 
 ## Alcance
 
@@ -80,8 +87,8 @@ La validación humana posterior debe cubrir:
 
 ## Publicación
 
-El ZIP no se incorpora al historial Git. Tras alojarlo en una ubicación HTTPS
-controlada, `UMF_SUPPORT_WINDOWS_ZIP_URL` permite mostrar el enlace en el acceso
-de UMF Support. `DOWNLOAD_ZIP_URL` mantiene el enlace de paquete portable de la
-aplicación principal. Un URL configurado no demuestra que el binario esté
-firmado ni que la instalación se haya validado.
+El ZIP no se incorpora al historial Git y UMF Support no consume una URL de
+instalador. `DOWNLOAD_ZIP_URL` mantiene el enlace de paquete portable de la
+aplicación principal. Reabrir un canal de escritorio corporativo requerirá una
+decisión explícita, firma de código, publicación HTTPS, hash verificable y una
+nueva validación humana; no debe reactivarse por conservar este artefacto.

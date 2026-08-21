@@ -165,7 +165,14 @@ export async function requestEmailChange(userId: string, value: string) {
   await cleanupExpiredEmailChangeChallenges(now);
   const user = await db
     .selectFrom("users")
-    .select(["email", "name", "locale", "accountStatus", "emailVerifiedAt"])
+    .select([
+      "email",
+      "name",
+      "locale",
+      "accountStatus",
+      "emailVerifiedAt",
+      "identityRealm",
+    ])
     .where("id", "=", userId)
     .executeTakeFirst();
   if (
@@ -189,6 +196,7 @@ export async function requestEmailChange(userId: string, value: string) {
     .selectFrom("users")
     .select("id")
     .where("email", "=", newEmail)
+    .where("identityRealm", "=", user.identityRealm)
     .executeTakeFirst();
   if (existing) {
     throw new EmailChangeError(
@@ -232,6 +240,7 @@ export async function requestEmailChange(userId: string, value: string) {
         .values({
           id: `email-change-${randomBytes(12).toString("hex")}`,
           userId,
+          identityRealm: user.identityRealm,
           newEmail,
           codeHash: hashCode(code),
           createdAt: now,
@@ -258,6 +267,8 @@ export async function requestEmailChange(userId: string, value: string) {
   try {
     verificationDeliveryId = await queueEmailChangeVerification({
       userId,
+      platformScope:
+        user.identityRealm === "corporate_support" ? "support" : "commercial",
       email: newEmail,
       name: user.name,
       code,
@@ -268,6 +279,8 @@ export async function requestEmailChange(userId: string, value: string) {
     deliveryIds.push(verificationDeliveryId);
     securityNoticeDeliveryId = await queueEmailChangeAttemptNotice({
       userId,
+      platformScope:
+        user.identityRealm === "corporate_support" ? "support" : "commercial",
       currentEmail: user.email,
       name: user.name,
       locale,
@@ -421,6 +434,10 @@ export async function confirmEmailChange(
 
   const noticeId = await queueEmailChangedNotice({
     userId,
+    platformScope:
+      challenge.identityRealm === "corporate_support"
+        ? "support"
+        : "commercial",
     oldEmail: user.email,
     newEmail: challenge.newEmail,
     name: user.name,

@@ -83,7 +83,19 @@ function deviceLabel(userAgent: string) {
   return "Web";
 }
 
-export function AccountSecurityPage() {
+interface AccountSecurityPageProps {
+  apiBase?: string;
+  accountUser?: { email: string } | null;
+  onAccountRefresh?: () => Promise<unknown>;
+  corporate?: boolean;
+}
+
+export function AccountSecurityPage({
+  apiBase = "/api/account/security",
+  accountUser,
+  onAccountRefresh,
+  corporate = false,
+}: AccountSecurityPageProps = {}) {
   const { t, i18n } = useTranslation();
   const [overview, setOverview] = useState<SecurityOverview | null>(null);
   const [setup, setSetup] = useState<SetupData | null>(null);
@@ -103,10 +115,10 @@ export function AccountSecurityPage() {
   const [now, setNow] = useState(Date.now());
 
   const load = useCallback(async () => {
-    const result = await api<SecurityOverview>("/api/account/security");
+    const result = await api<SecurityOverview>(apiBase);
     setOverview(result);
     setSessionIdleTimeoutMinutes(result.sessionIdleTimeoutMinutes);
-  }, []);
+  }, [apiBase]);
 
   useEffect(() => {
     load().catch((cause) =>
@@ -144,7 +156,7 @@ export function AccountSecurityPage() {
   const startSetup = () =>
     action(async () => {
       setSetup(
-        await api<SetupData>("/api/account/security/mfa/setup", {
+        await api<SetupData>(`${apiBase}/mfa/setup`, {
           method: "POST",
           body: JSON.stringify({ password }),
         }),
@@ -155,7 +167,7 @@ export function AccountSecurityPage() {
   const enableMfa = () =>
     action(async () => {
       const result = await api<{ recoveryCodes: string[] }>(
-        "/api/account/security/mfa/enable",
+        `${apiBase}/mfa/enable`,
         { method: "POST", body: JSON.stringify({ code }) },
       );
       setRecoveryCodes(result.recoveryCodes);
@@ -166,7 +178,7 @@ export function AccountSecurityPage() {
   const regenerateCodes = () =>
     action(async () => {
       const result = await api<{ recoveryCodes: string[] }>(
-        "/api/account/security/mfa/recovery-codes",
+        `${apiBase}/mfa/recovery-codes`,
         { method: "POST", body: JSON.stringify({ password, code }) },
       );
       setRecoveryCodes(result.recoveryCodes);
@@ -176,7 +188,7 @@ export function AccountSecurityPage() {
 
   const disableMfa = () =>
     action(async () => {
-      await api<void>("/api/account/security/mfa", {
+      await api<void>(`${apiBase}/mfa`, {
         method: "DELETE",
         body: JSON.stringify({ password, code }),
       });
@@ -188,14 +200,14 @@ export function AccountSecurityPage() {
   const enablePasskey = () =>
     action(async () => {
       const options = await api<RegistrationOptions>(
-        "/api/account/security/passkeys/options",
+        `${apiBase}/passkeys/options`,
         {
           method: "POST",
           body: JSON.stringify({ password: passkeyPassword }),
         },
       );
       const response = await startRegistration({ optionsJSON: options });
-      await api<{ enabled: boolean }>("/api/account/security/passkeys/verify", {
+      await api<{ enabled: boolean }>(`${apiBase}/passkeys/verify`, {
         method: "POST",
         body: JSON.stringify({ response }),
       });
@@ -204,7 +216,7 @@ export function AccountSecurityPage() {
 
   const disablePasskey = () =>
     action(async () => {
-      await api<void>("/api/account/security/passkeys", {
+      await api<void>(`${apiBase}/passkeys`, {
         method: "DELETE",
         body: JSON.stringify({ password: passkeyPassword }),
       });
@@ -214,7 +226,7 @@ export function AccountSecurityPage() {
   const revokeSession = (sessionId: string) =>
     action(
       () =>
-        api<void>(`/api/account/security/sessions/${sessionId}`, {
+        api<void>(`${apiBase}/sessions/${sessionId}`, {
           method: "DELETE",
         }),
       t("security.sessionRevoked"),
@@ -223,7 +235,7 @@ export function AccountSecurityPage() {
   const updateSessionTimeout = () =>
     action(
       () =>
-        api<void>("/api/account/security/sessions/settings", {
+        api<void>(`${apiBase}/sessions/settings`, {
           method: "PATCH",
           body: JSON.stringify({
             timeoutMinutes: sessionIdleTimeoutMinutes,
@@ -234,7 +246,7 @@ export function AccountSecurityPage() {
 
   const reportCompromise = () =>
     action(async () => {
-      await api("/api/account/security/compromise", {
+      await api(`${apiBase}/compromise`, {
         method: "POST",
         body: JSON.stringify({
           password: compromisePassword,
@@ -338,10 +350,14 @@ export function AccountSecurityPage() {
           </div>
         )}
 
-        <ProfilePhotoSettings />
+        {!corporate && <ProfilePhotoSettings />}
 
         <div className="mb-6">
-          <AccountEmailChangeCard />
+          <AccountEmailChangeCard
+            apiBase={apiBase}
+            accountUser={accountUser}
+            onAccountRefresh={onAccountRefresh}
+          />
         </div>
 
         <Card className="mb-6 rounded-3xl border-amber-200 bg-amber-50 p-6 shadow-sm sm:p-8">
@@ -639,10 +655,9 @@ export function AccountSecurityPage() {
                     onClick={() =>
                       action(
                         () =>
-                          api<void>(
-                            "/api/account/security/sessions/revoke-others",
-                            { method: "POST" },
-                          ),
+                          api<void>(`${apiBase}/sessions/revoke-others`, {
+                            method: "POST",
+                          }),
                         t("security.otherSessionsRevoked"),
                       )
                     }

@@ -233,6 +233,7 @@ export async function createUser(
     .selectFrom("users")
     .selectAll()
     .where("email", "=", email)
+    .where("identityRealm", "=", "commercial")
     .executeTakeFirst();
 
   if (existingUser) {
@@ -249,6 +250,7 @@ export async function createUser(
       .values({
         id: userId,
         email,
+        identityRealm: "commercial",
         phone: null,
         name,
         accountStatus: "active",

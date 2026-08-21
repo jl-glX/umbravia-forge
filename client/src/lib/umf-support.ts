@@ -42,11 +42,21 @@ export interface UmfSupportCapabilities {
 }
 
 export interface UmfSupportDistribution {
-  platform: "windows";
-  packageFormat: ".zip";
-  testPackage: true;
-  url: string | null;
+  stage: "production";
+  channel: "web";
+  path: "/umf-support/access";
   available: boolean;
+  installer: null;
+}
+
+export interface UmfSupportSessionUser {
+  id: string;
+  email: string;
+  name: string;
+  avatarDataUrl: string;
+  role: "admin";
+  accountStatus: "active";
+  identityRealm: "corporate_support";
 }
 
 export interface UmfSupportAccessRequest {
@@ -168,12 +178,6 @@ export function requestAccess(input: {
   });
 }
 
-export async function fetchDistribution() {
-  return (
-    await request<{ distribution: UmfSupportDistribution }>("/distribution")
-  ).distribution;
-}
-
 export function activateAccount(input: {
   email: string;
   code: string;
@@ -190,20 +194,58 @@ export function activateAccount(input: {
   });
 }
 
+export function loginSupport(input: {
+  email: string;
+  password: string;
+  rememberDevice: boolean;
+  captchaToken: string;
+}) {
+  return request<{
+    user?: UmfSupportSessionUser;
+    mfaRequired: boolean;
+  }>("/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function verifySupportMfa(code: string) {
+  return request<{ user: UmfSupportSessionUser }>("/mfa/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+}
+
+export function beginSupportPasskey(email: string, rememberDevice = false) {
+  return request<unknown>("/passkeys/options", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, rememberDevice }),
+  });
+}
+
+export function finishSupportPasskey(response: unknown) {
+  return request<{ user: UmfSupportSessionUser }>("/passkeys/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ response }),
+  });
+}
+
+export async function fetchSupportSession() {
+  return (await request<{ user: UmfSupportSessionUser }>("/session")).user;
+}
+
+export function logoutSupport() {
+  return request<{ message: string }>("/logout", { method: "POST" });
+}
+
 export async function fetchCapabilities() {
   return (
     await request<{ capabilities: UmfSupportCapabilities }>("/capabilities")
   ).capabilities;
-}
-
-export async function bootstrapHeadIfAvailable() {
-  const status = await request<{ available: boolean }>("/bootstrap-head");
-  if (!status.available) return false;
-  await request<{ position: "platform_head"; role: "director" }>(
-    "/bootstrap-head",
-    { method: "POST" },
-  );
-  return true;
 }
 
 export async function fetchTickets(filters?: { status?: string; q?: string }) {

@@ -126,41 +126,7 @@
   "accountMenu": {
     "open": "Abrir menú de cuenta",
     "manage": "Abrir área de cuenta",
-    "managerConsole": "Acceso a terminal de gestores",
-    "support": "Abrir Forge Support"
-  },
-  "managerConsole": {
-    "eyebrow": "Canal corporativo interno",
-    "title": "Acceso a terminal de gestores",
-    "description": "La web verifica la identidad corporativa y solo puede emitir accesos externos temporales. El canal interno se abre exclusivamente desde la app corporativa de Microsoft Store o Mac App Store.",
-    "webBoundary": "Sin consola web",
-    "loadError": "No se pudo comprobar el acceso a la terminal.",
-    "issueError": "No se pudo emitir la credencial de terminal.",
-    "internalTitle": "Canal interno de Umbravia",
-    "recommended": "Puerta corporativa exclusiva",
-    "internalDescription": "Solo una instalación corporativa verificada podrá mantener una sesión mientras exista actividad y confianza. Se revoca tras {{minutes}} minutos de inactividad, suspensión o hibernación, o si cambia la cuenta, el rol o la confianza.",
-    "internalAppsOnly": "No se emiten credenciales internas desde la web",
-    "internalApps": "Entradas previstas: {{apps}}. La integración permanecerá cerrada hasta que las aplicaciones y su verificación de tienda estén disponibles.",
-    "externalTitle": "Entorno externo autorizado",
-    "externalCompatibility": "PowerShell · WSL · macOS · Linux",
-    "externalDescription": "Credencial de un solo uso válida durante {{credentialMinutes}} minutos. Al conectarse abre una sesión externa de hasta {{sessionMinutes}} minutos.",
-    "credentialScope": "Alcance máximo de esta credencial",
-    "includeTemporaryPermissions": "Incluir permisos temporales vigentes. Se volverán a comprobar en cada operación y desaparecerán al caducar o ser revocados.",
-    "issueInternal": "Emitir acceso interno",
-    "issueExternal": "Emitir acceso externo temporal",
-    "issuing": "Emitiendo acceso…",
-    "credentialReady": "Credencial preparada",
-    "internalCredentialNotice": "Conserva esta credencial solo en el canal interno autorizado.",
-    "externalCredentialNotice": "Úsala una sola vez y no la guardes en archivos ni historial.",
-    "copy": "Copiar credencial",
-    "internalRevocationNotice": "La actividad mantiene el acceso. exit lo revoca de inmediato; la inactividad, suspensión, hibernación o pérdida de confianza también lo invalidan.",
-    "externalExpiryNotice": "La credencial caduca aunque no se utilice y deja de ser válida después de abrir la sesión. exit cierra y revoca la sesión activa.",
-    "launchInstruction": "Ejecuta el cliente desde la terminal autorizada y pega la credencial cuando se solicite:",
-    "issuedScope": "Alcance: {{scope}} · permisos temporales: {{temporary}}",
-    "temporaryYes": "incluidos",
-    "temporaryNo": "excluidos",
-    "boundaryTitle": "Límite de autoridad",
-    "boundaryDescription": "El perfil {{profile}} solo ve y administra las ramas permitidas por su prioridad. Los comandos se ejecutan en un contenedor Linux aislado, sin secretos ni acceso al sistema anfitrión."
+    "support": "Ayuda del centro"
   },
   "support": {
     "eyebrow": "Atención y conocimiento",
@@ -335,18 +301,8 @@
     "billingDescription": "Administra pagos, facturas, vencimientos y accesos de prueba.",
     "adminAnalytics": "Analítica del centro",
     "adminAnalyticsDescription": "Estudia ocupación, demanda, asistencia y franjas horarias.",
-    "resourceManager": "Gestor de recursos",
-    "resourceManagerDescription": "Supervisa procesos y capacidades del frontend, backend y API.",
-    "securityManager": "Gestor de seguridad",
-    "securityManagerDescription": "Centraliza controles, señales y observaciones de riesgo sin aplicar bloqueos automáticos.",
     "dataRetention": "Retención de datos",
     "dataRetentionDescription": "Prepara políticas en borrador y revisa sus futuros registros.",
-    "environmentManager": "Gestor de entornos",
-    "environmentManagerDescription": "Crea entornos SQLite aislados y prepara su promoción revisada a PostgreSQL.",
-    "emailManager": "Gestor de correo",
-    "emailManagerDescription": "Gestiona, confirma y avisa sobre los canales de correo y su cola sin mostrar destinatarios ni secretos.",
-    "capabilityRoadmap": "Ruta de capacidades",
-    "capabilityRoadmapDescription": "Compara lo implementado, lo parcial y lo que todavía falta frente al mercado.",
     "notifications": "Notificaciones",
     "notificationsDescription": "El centro de preferencias y avisos se habilitará en una próxima fase.",
     "preferences": "Preferencias",
@@ -773,15 +729,7 @@
     "analytics": "Asistencia y demanda",
     "analyticsDescription": "Detecta clases y franjas horarias con mayor o menor ocupación.",
     "downloads": "Centro de descargas",
-    "downloadsDescription": "Accede a las aplicaciones oficiales y al paquete portátil de Umbravia Forge.",
-    "resources": "Recursos del servidor",
-    "resourcesDescription": "Supervisa y controla las tareas internas registradas por Umbravia Forge.",
-    "environments": "Entornos y bases de datos",
-    "environmentsDescription": "Administra demos aisladas y su preparación para PostgreSQL.",
-    "emailManager": "Correo interno",
-    "emailManagerDescription": "Supervisa los canales de correo, su cola y las conexiones coordinadas con cuentas y soporte.",
-    "capabilityRoadmap": "Ruta de capacidades",
-    "capabilityRoadmapDescription": "Revisa la cobertura real y las carencias priorizadas del producto."
+    "downloadsDescription": "Accede a las aplicaciones oficiales y al paquete portátil de Umbravia Forge."
   },
   "downloads": {
     "eyebrow": "Umbravia Forge en todos tus dispositivos",
@@ -818,159 +766,6 @@
         "destination": "Descarga del navegador",
         "format": ".zip"
       }
-    }
-  },
-  "securityManager": {
-    "eyebrow": "Supervisión de seguridad",
-    "title": "Gestor de seguridad",
-    "description": "Consulta el estado de los controles y las señales recientes desde una única vista administrativa.",
-    "loadError": "No se ha podido cargar el estado de seguridad.",
-    "observeTitle": "Motor de riesgo en modo observación",
-    "observeDescription": "Las señales se registran para poder evaluarlas, pero esta versión no bloquea automáticamente una conexión por su puntuación de riesgo.",
-    "failedLogins24h": "Accesos fallidos en 24 h",
-    "captchaFailures24h": "CAPTCHA fallidos en 24 h",
-    "riskObservations7d": "Señales de riesgo en 7 días",
-    "highRiskObservations7d": "Señales altas en 7 días",
-    "controlsTitle": "Controles coordinados",
-    "controlsDescription": "Estado real de las protecciones aplicadas por la aplicación y la API.",
-    "captchaControl": "CAPTCHA manual con validación en servidor",
-    "originControl": "Control de origen en operaciones sensibles",
-    "rateLimitControl": "Límite de intentos de autenticación",
-    "headersControl": "Cabeceras de seguridad",
-    "riskControl": "Observación de riesgo",
-    "coordinationTitle": "Coordinación entre gestores",
-    "coordinationDescription": "{{managers}} gestores comparten avisos y ámbitos de trabajo. Hay {{operations}} operaciones exclusivas activas.",
-    "available": "Disponible",
-    "notConfigured": "Requiere configuración",
-    "eventsTitle": "Actividad reciente",
-    "eventsDescription": "Últimos eventos de seguridad registrados durante los últimos siete días.",
-    "noDetails": "Sin detalles adicionales",
-    "noEvents": "Todavía no hay actividad de seguridad reciente."
-  },
-  "resourceManager": {
-    "eyebrow": "Operación de la API",
-    "title": "Gestor de recursos",
-    "description": "Supervisa las tareas internas de Umbravia Forge y ejecuta, pausa o reanuda únicamente procesos registrados por la plataforma.",
-    "loadError": "No se ha podido cargar el estado de los recursos.",
-    "updateError": "No se ha podido actualizar la tarea.",
-    "memory": "Memoria en uso",
-    "heapCapacity": "Capacidad reservada",
-    "uptime": "Tiempo activo",
-    "enabledTasks": "Tareas habilitadas",
-    "residualChecksTitle": "Comprobación de procesos residuales activa",
-    "residualChecksSummary": "{{checks}} comprobaciones completadas · {{removed}} registros residuales retirados",
-    "lastResidualCheck": "Última comprobación: {{date}}",
-    "noResidualCheck": "Pendiente de la primera comprobación",
-    "managedTasks": "Procesos administrados",
-    "scopeNotice": "Este panel nunca controla procesos del sistema operativo ni de otras aplicaciones.",
-    "taskStats": "{{runs}} ejecuciones · {{duration}} ms en la última · {{result}} elementos procesados",
-    "reviewFindings": "Revisar {{count}} hallazgos",
-    "runNow": "Ejecutar ahora",
-    "pause": "Pausar",
-    "resume": "Reanudar",
-    "states": {
-      "idle": "Preparada",
-      "running": "En ejecución",
-      "paused": "Pausada",
-      "error": "Con error"
-    },
-    "tasks": {
-      "expired-auth-cleanup": {
-        "name": "Limpieza de autenticación caducada",
-        "description": "Elimina sesiones vencidas o revocadas y retos de autenticación ya caducados."
-      },
-      "sqlite-query-planner": {
-        "name": "Optimización del planificador SQLite",
-        "description": "Permite que SQLite actualice sus estadísticas ligeras cuando la base de datos lo necesita."
-      },
-      "booking-integrity-cleanup": {
-        "name": "Integridad de reservas",
-        "description": "Reconcilia reservas activas duplicadas y entradas obsoletas de la lista de espera cuando la corrección es inequívoca."
-      },
-      "project-runtime-cleanup": {
-        "name": "Limpieza del entorno del proyecto",
-        "description": "Retira registros residuales de Umbravia Forge y evita instancias de desarrollo duplicadas sin tocar otros procesos de Windows."
-      },
-      "deleted-account-residual-cleanup": {
-        "name": "Limpieza residual de cuentas borradas",
-        "description": "Retira restos técnicos cuya cuenta ya no existe, sin decidir cierres ni periodos de inactividad."
-      },
-      "source-hygiene-audit": {
-        "name": "Auditoría de higiene del código",
-        "description": "Detecta archivos idénticos, vacíos o aparentemente obsoletos y los presenta para revisión sin borrar código automáticamente."
-      },
-      "environment-readiness-audit": {
-        "name": "Preparación de entornos",
-        "description": "Comprueba que los entornos SQLite administrados conservan un esquema completo antes de preparar su promoción a PostgreSQL."
-      }
-    }
-  },
-  "emailManager": {
-    "eyebrow": "Comunicaciones internas",
-    "title": "Gestor de correo",
-    "description": "Gestiona la entrega y recepción, confirma su preparación y avisa de incidencias mediante el coordinador de gestores.",
-    "loadError": "No se ha podido cargar el gestor de correo.",
-    "actionError": "No se ha podido completar la operación de correo.",
-    "outbound": "Salida",
-    "inbound": "Entrada",
-    "pending": "Pendientes",
-    "failed": "Fallidos",
-    "audit": "Comprobar",
-    "maintenance": "Mantener cola",
-    "ready": "Canales preparados",
-    "attention": "Hay avisos que requieren atención",
-    "coordinationNotice": "El gestor opera el correo; el coordinador valida sus conexiones, evita solapamientos y distribuye confirmaciones y avisos.",
-    "recentFailures": "Fallos recientes",
-    "privacyNotice": "Solo se muestran códigos técnicos saneados. Nunca aparecen destinatarios, contenido ni valores de claves.",
-    "noFailures": "No hay fallos recientes.",
-    "attempts": "intentos"
-  },
-  "environmentManager": {
-    "eyebrow": "Infraestructura de datos",
-    "title": "Gestor de entornos",
-    "description": "PostgreSQL es el motor principal de los entornos reales. SQLite queda limitado a desarrollo, pruebas, demostraciones y MVP comerciales aislados.",
-    "loadError": "No se ha podido cargar el gestor de entornos.",
-    "createError": "No se ha podido crear el entorno aislado.",
-    "planError": "No se ha podido preparar el plan de migración.",
-    "activeEngine": "Motor activo",
-    "primaryEngine": "Motor principal",
-    "migrationMode": "Modo de migración",
-    "reviewFirst": "Revisión previa",
-    "createTitle": "Crear un entorno SQLite aislado",
-    "name": "Nombre del entorno",
-    "slug": "Identificador técnico",
-    "kind": "Uso",
-    "customerSandbox": "Prueba virtual de cliente",
-    "commercialMvp": "MVP comercial aislado",
-    "create": "Crear entorno",
-    "prepareMigration": "Preparar migración",
-    "planSummary": "{{rows}} registros inventariados para revisión.",
-    "sensitiveReview": "Hay categorías sensibles y requieren autorización específica antes de transferirse.",
-    "noSensitiveData": "No se han detectado registros en categorías sensibles.",
-    "executionDisabled": "La ejecución automática está desactivada: este paso solo valida y prepara el traslado.",
-    "mutationsDisabled": "La creación de entornos está desactivada en este despliegue.",
-    "empty": "Todavía no hay entornos aislados administrados.",
-    "status": {
-      "ready": "Preparado",
-      "migration_review": "En revisión",
-      "migration_ready": "Listo para revisión de migración",
-      "migration_blocked": "Migración bloqueada"
-    }
-  },
-  "capabilityRoadmap": {
-    "eyebrow": "Diagnóstico de producto",
-    "title": "Qué existe y qué falta",
-    "description": "Contrasta el último diagnóstico de Umbravia Forge con el código actual y con capacidades observadas en el mercado.",
-    "loadError": "No se ha podido cargar la ruta de capacidades.",
-    "current": "Qué hay",
-    "gap": "Qué falta",
-    "evidence": "Evidencia local",
-    "openDestination": "Abrir destino",
-    "status": {
-      "implemented": "Implementado",
-      "partial": "Parcial",
-      "prepared": "Preparado",
-      "missing": "Pendiente"
     }
   },
   "classes": {
@@ -1783,6 +1578,7 @@
     }
   },
   "errors": {
+    "facilityMembershipRequired": "Esta cuenta no pertenece actualmente a ningún centro activo. Necesitas una membresía vigente para ver clases, reservas, pagos y pedidos.",
     "fetchClasses": "No se han podido cargar las clases",
     "fetchTrainerClasses": "No se han podido cargar las clases del entrenador",
     "fetchAttendees": "No se han podido cargar los asistentes",
@@ -2333,9 +2129,21 @@
     "passwordMismatch": "Las contraseñas no coinciden.",
     "activationInvalid": "El correo, la contraseña o el código de activación no son válidos, han caducado o la solicitud necesita repetirse.",
     "restrictedNotice": "Cuenta, pertenencia, cargo y permisos se gestionan por separado",
-    "downloadWindowsTest": "Descargar instalador web de prueba para Windows (.zip)",
+    "passkeyLogin": "Entrar con una passkey corporativa",
     "privacy": "Privacidad",
     "error": "No se pudo completar la operación."
+  },
+  "umfCorporateAccount": {
+    "shortTitle": "Cuenta corporativa",
+    "title": "Centro de cuenta corporativa",
+    "heading": "Identidad independiente de UMF Support",
+    "boundary": "Esta cuenta, sus sesiones, sus métodos de acceso y sus permisos corporativos están separados de cualquier cuenta de socio, entrenador o centro deportivo, aunque ambas utilicen el mismo correo.",
+    "back": "Volver a soporte",
+    "highlights": {
+      "identity": "Identidad corporativa separada",
+      "roles": "Cargos y permisos revocables",
+      "security": "Sesiones y credenciales protegidas"
+    }
   },
   "accountEmailChange": {
     "title": "Correo de acceso de la cuenta",

@@ -120,33 +120,9 @@ const DownloadsPage = lazyPage(
   () => import("./pages/DownloadsPage"),
   "DownloadsPage",
 );
-const ResourceManagerPage = lazyPage(
-  () => import("./pages/ResourceManagerPage"),
-  "ResourceManagerPage",
-);
-const SecurityManagerPage = lazyPage(
-  () => import("./pages/SecurityManagerPage"),
-  "SecurityManagerPage",
-);
-const EnvironmentManagerPage = lazyPage(
-  () => import("./pages/EnvironmentManagerPage"),
-  "EnvironmentManagerPage",
-);
-const EmailManagerPage = lazyPage(
-  () => import("./pages/EmailManagerPage"),
-  "EmailManagerPage",
-);
-const CapabilityRoadmapPage = lazyPage(
-  () => import("./pages/CapabilityRoadmapPage"),
-  "CapabilityRoadmapPage",
-);
 const BillingPage = lazyPage(
   () => import("./pages/BillingPage"),
   "BillingPage",
-);
-const DataRetentionPage = lazyPage(
-  () => import("./pages/DataRetentionPage"),
-  "DataRetentionPage",
 );
 const CommercialPage = lazyPage(
   () => import("./pages/CommercialPage"),
@@ -176,10 +152,6 @@ const SupportPage = lazyPage(
   () => import("./pages/SupportPage"),
   "SupportPage",
 );
-const ManagerConsolePage = lazyPage(
-  () => import("./pages/ManagerConsolePage"),
-  "ManagerConsolePage",
-);
 const UmfSupportAccessPage = lazyPage(
   () => import("./pages/UmfSupportAccessPage"),
   "UmfSupportAccessPage",
@@ -188,13 +160,20 @@ const UmfSupportPage = lazyPage(
   () => import("./pages/UmfSupportPage"),
   "UmfSupportPage",
 );
+const UmfCorporateAccountPage = lazyPage(
+  () => import("./pages/UmfCorporateAccountPage"),
+  "UmfCorporateAccountPage",
+);
+const UmfSupportRecoveryPage = lazyPage(
+  () => import("./pages/UmfSupportRecoveryPage"),
+  "UmfSupportRecoveryPage",
+);
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: UserRole | UserRole[];
   allowPending?: boolean;
   platformOperatorOnly?: boolean;
-  corporateConsoleOnly?: boolean;
 }
 
 function ProtectedRoute({
@@ -202,7 +181,6 @@ function ProtectedRoute({
   requiredRole,
   allowPending = false,
   platformOperatorOnly = false,
-  corporateConsoleOnly = false,
 }: ProtectedRouteProps) {
   const { t } = useTranslation();
   const { user, isInitializing } = useAuth();
@@ -233,10 +211,6 @@ function ProtectedRoute({
   }
 
   if (platformOperatorOnly && user.platformOperator !== true) {
-    return <UnauthorizedPage />;
-  }
-
-  if (corporateConsoleOnly && user.corporateConsole?.enabled !== true) {
     return <UnauthorizedPage />;
   }
 
@@ -302,7 +276,15 @@ function AppContent() {
             path="/umf-support/access"
             element={<UmfSupportAccessPage />}
           />
+          <Route
+            path="/umf-support/recover"
+            element={<UmfSupportRecoveryPage />}
+          />
           <Route path="/umf-support" element={<UmfSupportPage />} />
+          <Route
+            path="/umf-support/account"
+            element={<UmfCorporateAccountPage />}
+          />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route
             path="/"
@@ -429,66 +411,10 @@ function AppContent() {
             }
           />
           <Route
-            path="/admin/manager-console"
-            element={
-              <ProtectedRoute corporateConsoleOnly>
-                <ManagerConsolePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/resource-manager"
-            element={
-              <ProtectedRoute requiredRole="admin" platformOperatorOnly>
-                <ResourceManagerPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/security-manager"
-            element={
-              <ProtectedRoute requiredRole="admin" platformOperatorOnly>
-                <SecurityManagerPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/environment-manager"
-            element={
-              <ProtectedRoute requiredRole="admin" platformOperatorOnly>
-                <EnvironmentManagerPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/email-manager"
-            element={
-              <ProtectedRoute requiredRole="admin" platformOperatorOnly>
-                <EmailManagerPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/capability-roadmap"
-            element={
-              <ProtectedRoute requiredRole="admin" platformOperatorOnly>
-                <CapabilityRoadmapPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/billing"
             element={
               <ProtectedRoute requiredRole="admin">
                 <BillingPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/data-retention"
-            element={
-              <ProtectedRoute requiredRole="admin" platformOperatorOnly>
-                <DataRetentionPage />
               </ProtectedRoute>
             }
           />

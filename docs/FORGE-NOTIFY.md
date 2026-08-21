@@ -10,12 +10,13 @@ confirmaciones o alertas saneadas. El transporte final se hace mediante SMTP,
 tanto con un relay autorizado como con un MTA local.
 
 ```text
-Cuenta o Forge Support
-        -> plantilla localizada
-        -> cola cifrada
-        -> trabajador de entrega
-        -> SMTP/MTA
-        -> servidor de correo destinatario
+Cuenta/Forge Support comercial ─┐
+                               ├─> cola cifrada + platformScope
+UMF Support corporativo ───────┘       ├─ commercial
+                                       └─ support
+                                            -> trabajador de entrega
+                                            -> SMTP/MTA
+                                            -> servidor destinatario
 ```
 
 Esta separación permite cambiar el transporte sin reescribir el registro, la
@@ -27,6 +28,8 @@ verificación o Forge Support.
 - códigos almacenados como hashes, con caducidad y límite de intentos;
 - plantillas de cuenta y soporte separadas del transporte;
 - cola persistente con estados pendiente, procesando, enviado y fallido;
+- ámbito persistente `commercial` o `support` en cada entrega, conservado en
+  reintentos, errores y señales internas;
 - cifrado AES-256-GCM autenticado y versionado del destinatario, asunto y
   cuerpo mientras están pendientes, con lectura compatible del formato
   anterior;
@@ -35,12 +38,19 @@ verificación o Forge Support.
   inesperado;
 - purga de cargas cifradas ya entregadas o agotadas;
 - registro técnico de intentos y errores sin almacenar la contraseña SMTP;
-- confirmaciones y avisos del gestor de correo distribuidos por el coordinador;
+- confirmaciones y avisos del gestor de correo distribuidos por el coordinador
+  y filtrados por el mismo ámbito de plataforma;
 - notificaciones opcionales al buzón interno de Forge Support;
-- panel administrativo del gestor de correo sin destinatarios, cuerpos ni
-  valores de claves;
-- auditoría explícita de los canales y mantenimiento manual coordinado de la
-  cola.
+- observación desde el administrador local Linux compartido, sin panel web ni
+  API administrativa y sin destinatarios, cuerpos o valores de claves;
+- auditoría explícita de los canales y mantenimiento coordinado de la cola.
+
+La migración PostgreSQL 44 y la inicialización equivalente de SQLite añaden
+`emailDeliveries.platformScope`. Las filas anteriores permanecen en
+`commercial` salvo que exista evidencia persistida inequívoca de que una
+entrega pertenece a un mensaje de UMF Support; no se infiere el ámbito solo por
+el correo del destinatario. El repositorio prepara esta migración, pero no
+demuestra que ya se haya aplicado en la base PostgreSQL operativa.
 
 ## Interconexión entre gestores
 
@@ -52,10 +62,11 @@ El coordinador conserva un registro cerrado de conexiones compatibles:
 - Recursos puede programar el mantenimiento de la cola en el ámbito compartido
   `notification-delivery`.
 
-El núcleo central admite estas tareas con colas acotadas y prioridades. El
-correo sigue siendo ejecutado exclusivamente por el gestor de correo; el
-administrador central solo decide cuándo puede ocupar un ámbito sin entrar en
-conflicto con otro gestor.
+El núcleo central admite estas tareas con colas acotadas y prioridades. Cada
+operación y señal declara además `commercial` o `support`, incluido el camino
+de error del trabajador. El correo sigue siendo ejecutado exclusivamente por
+el gestor de correo; el administrador central solo decide cuándo puede ocupar
+un ámbito sin entrar en conflicto con otro gestor.
 
 El gestor de correo gestiona, confirma y avisa. El coordinador valida cada
 enlace, impide operaciones simultáneas sobre el mismo ámbito y distribuye sus
@@ -200,7 +211,9 @@ Cambiar la configuración nunca activa silenciosamente cuentas pendientes.
 
 El gestor de correo ejecuta y confirma el mantenimiento de la cola. El gestor de
 recursos conserva únicamente la programación periódica, previa autorización del
-coordinador. Deben vigilarse como mínimo:
+coordinador. El administrador local debe seleccionar el ámbito antes de mostrar
+señales; una vista de soporte no incluye actividad comercial ni a la inversa.
+Deben vigilarse como mínimo:
 
 - antigüedad del mensaje pendiente más antiguo;
 - número de reintentos y trabajos agotados;

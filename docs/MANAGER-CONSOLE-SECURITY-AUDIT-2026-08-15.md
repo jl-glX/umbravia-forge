@@ -1,4 +1,11 @@
-# Auditoría de seguridad de la consola corporativa de gestores
+# Auditoría histórica de seguridad de la consola corporativa de gestores
+
+> [!IMPORTANT]
+> Estado desde 2026-08-21: componente retirado. La migración 42 purga sus
+> credenciales y sesiones; ya no existen cliente, API ni ejecutor de terminal.
+> Este documento no describe una capacidad vigente. La administración local
+> de Linux vigente se documenta en [MANAGER-CORE.md](./MANAGER-CORE.md). Los
+> comandos y rutas citados más abajo son únicamente evidencia histórica.
 
 > [!NOTE]
 > Evidencia histórica del alcance indicado. El estado vigente del plano de

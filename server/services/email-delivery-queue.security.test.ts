@@ -10,6 +10,7 @@ describe("email delivery queue security", () => {
   let auth: typeof import("./auth.js");
   let emailDelivery: typeof import("./email-delivery.js");
   let emailManager: typeof import("./email-manager.js");
+  let managerCoordinator: typeof import("./manager-coordinator.js");
   let userId: string;
   let encryptionKey: string;
 
@@ -26,6 +27,7 @@ describe("email delivery queue security", () => {
     auth = await import("./auth.js");
     emailDelivery = await import("./email-delivery.js");
     emailManager = await import("./email-manager.js");
+    managerCoordinator = await import("./manager-coordinator.js");
     await database.initializeDatabase();
     const account = await auth.signup(
       "email-queue-security@example.com",
@@ -48,6 +50,7 @@ describe("email delivery queue security", () => {
   async function queueRecovery(code: string, expiresAt: number) {
     return emailDelivery.queueAccountRecoveryCode({
       userId,
+      platformScope: "commercial",
       email: "email-queue-security@example.com",
       name: "Synthetic Recipient",
       code,
@@ -62,6 +65,7 @@ describe("email delivery queue security", () => {
     const stored = await database.db
       .selectFrom("emailDeliveries")
       .select([
+        "platformScope",
         "recipient",
         "payloadEncrypted",
         "status",
@@ -72,6 +76,7 @@ describe("email delivery queue security", () => {
       .executeTakeFirstOrThrow();
 
     expect(stored).toMatchObject({
+      platformScope: "commercial",
       status: "queued",
       attempts: 0,
       maxAttempts: emailDelivery.MAX_EMAIL_DELIVERY_ATTEMPTS,
@@ -143,6 +148,43 @@ describe("email delivery queue security", () => {
         kind: "account_recovery",
       }),
     });
+  });
+
+  it("preserves the support scope in stored deliveries and failure signals", async () => {
+    const deliveryId = await emailDelivery.queueUmfSupportReplyEmail({
+      email: "corporate-support@example.com",
+      locale: "es",
+      ticketPublicId: "UMF-TEST-001",
+      subject: "Synthetic support reply",
+      message: "Synthetic body",
+    });
+    await database.db
+      .updateTable("emailDeliveries")
+      .set({ payloadEncrypted: "invalid-payload" })
+      .where("id", "=", deliveryId)
+      .execute();
+
+    await expect(emailDelivery.deliverQueuedEmail(deliveryId)).resolves.toBe(
+      false,
+    );
+    await expect(
+      database.db
+        .selectFrom("emailDeliveries")
+        .select(["platformScope", "status", "lastError"])
+        .where("id", "=", deliveryId)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      platformScope: "support",
+      status: "failed",
+      lastError: "payload_authentication_failed",
+    });
+    expect(
+      managerCoordinator
+        .getManagerCoordinationStatus("support")
+        .recentSignals.find(
+          (signal) => signal.code === "EMAIL_DELIVERY_PAYLOAD_REJECTED",
+        ),
+    ).toMatchObject({ platformScope: "support" });
   });
 
   it("supersedes older recovery messages and removes their encrypted payload", async () => {

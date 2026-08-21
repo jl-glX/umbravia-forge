@@ -239,7 +239,8 @@ async function initializeSqliteSchema(
     sqliteDb.exec(`
       CREATE TABLE users (
         id TEXT PRIMARY KEY,
-        email TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL,
+        identityRealm TEXT NOT NULL DEFAULT 'commercial' CHECK(identityRealm IN ('commercial', 'corporate_support')),
         phone TEXT UNIQUE,
         name TEXT NOT NULL,
         lastName TEXT NOT NULL DEFAULT '',
@@ -258,6 +259,7 @@ async function initializeSqliteSchema(
         createdAt INTEGER NOT NULL
       );
       CREATE INDEX idx_users_email ON users(email);
+      CREATE UNIQUE INDEX idx_users_realm_email ON users(identityRealm, email);
       CREATE UNIQUE INDEX idx_users_phone ON users(phone) WHERE phone IS NOT NULL;
       CREATE INDEX idx_users_role ON users(role);
     `);
@@ -340,6 +342,62 @@ async function initializeSqliteSchema(
         "CREATE UNIQUE INDEX idx_users_phone ON users(phone) WHERE phone IS NOT NULL",
       );
     }
+
+    if (!columnNames.includes("identityRealm")) {
+      console.log("Separating commercial and corporate identity realms...");
+      sqliteDb.pragma("foreign_keys = OFF");
+      try {
+        sqliteDb.exec(`
+          CREATE TABLE users_identity_realm_migration (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            identityRealm TEXT NOT NULL DEFAULT 'commercial' CHECK(identityRealm IN ('commercial', 'corporate_support')),
+            phone TEXT,
+            name TEXT NOT NULL,
+            lastName TEXT NOT NULL DEFAULT '',
+            countryCode TEXT NOT NULL DEFAULT 'ES',
+            locale TEXT NOT NULL DEFAULT 'es',
+            accountStatus TEXT NOT NULL DEFAULT 'active' CHECK(accountStatus IN ('pending_verification', 'active', 'security_review')),
+            emailVerifiedAt INTEGER,
+            termsVersion TEXT NOT NULL DEFAULT 'draft-v1',
+            termsAcceptedAt INTEGER,
+            privacyVersion TEXT NOT NULL DEFAULT 'draft-v1',
+            privacyAcceptedAt INTEGER,
+            avatarDataUrl TEXT NOT NULL DEFAULT '',
+            password TEXT NOT NULL DEFAULT '',
+            role TEXT NOT NULL DEFAULT 'member',
+            sessionIdleTimeoutMinutes INTEGER NOT NULL DEFAULT 10080,
+            createdAt INTEGER NOT NULL
+          );
+          INSERT INTO users_identity_realm_migration (
+            id, email, identityRealm, phone, name, lastName, countryCode, locale,
+            accountStatus, emailVerifiedAt, termsVersion, termsAcceptedAt,
+            privacyVersion, privacyAcceptedAt, avatarDataUrl, password, role,
+            sessionIdleTimeoutMinutes, createdAt
+          )
+          SELECT
+            id, email, 'commercial', phone, name, lastName, countryCode, locale,
+            accountStatus, emailVerifiedAt, termsVersion, termsAcceptedAt,
+            privacyVersion, privacyAcceptedAt, avatarDataUrl, password, role,
+            sessionIdleTimeoutMinutes, createdAt
+          FROM users;
+          DROP TABLE users;
+          ALTER TABLE users_identity_realm_migration RENAME TO users;
+          CREATE INDEX idx_users_email ON users(email);
+          CREATE UNIQUE INDEX idx_users_realm_email ON users(identityRealm, email);
+          CREATE UNIQUE INDEX idx_users_phone ON users(phone) WHERE phone IS NOT NULL;
+          CREATE INDEX idx_users_role ON users(role);
+        `);
+      } finally {
+        sqliteDb.pragma("foreign_keys = ON");
+      }
+      const integrityErrors = sqliteDb.pragma("foreign_key_check") as unknown[];
+      if (integrityErrors.length > 0) {
+        throw new Error(
+          "Identity realm migration failed foreign-key validation",
+        );
+      }
+    }
   }
 
   if (!tableNames.includes("accountSupportIdentifiers")) {
@@ -400,7 +458,8 @@ async function initializeSqliteSchema(
       CREATE TABLE emailChangeChallenges (
         id TEXT PRIMARY KEY,
         userId TEXT NOT NULL UNIQUE,
-        newEmail TEXT NOT NULL UNIQUE,
+        identityRealm TEXT NOT NULL CHECK(identityRealm IN ('commercial', 'corporate_support')),
+        newEmail TEXT NOT NULL,
         codeHash TEXT NOT NULL,
         createdAt INTEGER NOT NULL,
         expiresAt INTEGER NOT NULL,
@@ -409,7 +468,44 @@ async function initializeSqliteSchema(
       );
       CREATE INDEX idx_emailChangeChallenges_expiry
         ON emailChangeChallenges(expiresAt);
+      CREATE UNIQUE INDEX idx_emailChangeChallenges_realm_new_email
+        ON emailChangeChallenges(identityRealm, newEmail);
     `);
+  }
+
+  const emailChangeColumns = sqliteDb
+    .prepare("PRAGMA table_info(emailChangeChallenges)")
+    .all() as Array<{ name: string }>;
+  if (!emailChangeColumns.some((column) => column.name === "identityRealm")) {
+    sqliteDb.transaction(() => {
+      sqliteDb.exec(`
+        ALTER TABLE emailChangeChallenges RENAME TO emailChangeChallenges_legacy;
+        CREATE TABLE emailChangeChallenges (
+          id TEXT PRIMARY KEY,
+          userId TEXT NOT NULL UNIQUE,
+          identityRealm TEXT NOT NULL CHECK(identityRealm IN ('commercial', 'corporate_support')),
+          newEmail TEXT NOT NULL,
+          codeHash TEXT NOT NULL,
+          createdAt INTEGER NOT NULL,
+          expiresAt INTEGER NOT NULL,
+          attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts >= 0),
+          FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+        );
+        INSERT INTO emailChangeChallenges (
+          id, userId, identityRealm, newEmail, codeHash, createdAt, expiresAt, attempts
+        )
+        SELECT challenge.id, challenge.userId, users.identityRealm,
+          challenge.newEmail, challenge.codeHash, challenge.createdAt,
+          challenge.expiresAt, challenge.attempts
+        FROM emailChangeChallenges_legacy AS challenge
+        INNER JOIN users ON users.id = challenge.userId;
+        DROP TABLE emailChangeChallenges_legacy;
+        CREATE INDEX idx_emailChangeChallenges_expiry
+          ON emailChangeChallenges(expiresAt);
+        CREATE UNIQUE INDEX idx_emailChangeChallenges_realm_new_email
+          ON emailChangeChallenges(identityRealm, newEmail);
+      `);
+    })();
   }
 
   if (!tableNames.includes("accountRecoveryChallenges")) {
@@ -457,6 +553,7 @@ async function initializeSqliteSchema(
       CREATE TABLE emailDeliveries (
         id TEXT PRIMARY KEY,
         userId TEXT,
+        platformScope TEXT NOT NULL DEFAULT 'commercial' CHECK(platformScope IN ('commercial', 'support')),
         kind TEXT NOT NULL CHECK(kind IN ('email_verification', 'account_recovery', 'support_update', 'security_notice')),
         recipient TEXT NOT NULL,
         locale TEXT NOT NULL,
@@ -479,6 +576,8 @@ async function initializeSqliteSchema(
         ON emailDeliveries(userId, createdAt);
       CREATE INDEX idx_emailDeliveries_expiry
         ON emailDeliveries(expiresAt);
+      CREATE INDEX idx_emailDeliveries_scope_due
+        ON emailDeliveries(platformScope, status, nextAttemptAt);
     `);
   } else {
     const deliveryDefinition = sqliteDb
@@ -493,6 +592,7 @@ async function initializeSqliteSchema(
         CREATE TABLE emailDeliveries (
           id TEXT PRIMARY KEY,
           userId TEXT,
+          platformScope TEXT NOT NULL DEFAULT 'commercial' CHECK(platformScope IN ('commercial', 'support')),
           kind TEXT NOT NULL CHECK(kind IN ('email_verification', 'account_recovery', 'support_update', 'security_notice')),
           recipient TEXT NOT NULL,
           locale TEXT NOT NULL,
@@ -509,8 +609,15 @@ async function initializeSqliteSchema(
           expiresAt INTEGER NOT NULL,
           FOREIGN KEY(userId) REFERENCES users(id) ON DELETE SET NULL
         );
-        INSERT INTO emailDeliveries
-          SELECT * FROM emailDeliveriesLegacy;
+        INSERT INTO emailDeliveries (
+          id, userId, kind, recipient, locale, payloadEncrypted, status,
+          attempts, maxAttempts, nextAttemptAt, messageId, lastError,
+          createdAt, updatedAt, sentAt, expiresAt
+        )
+          SELECT id, userId, kind, recipient, locale, payloadEncrypted, status,
+            attempts, maxAttempts, nextAttemptAt, messageId, lastError,
+            createdAt, updatedAt, sentAt, expiresAt
+          FROM emailDeliveriesLegacy;
         DROP TABLE emailDeliveriesLegacy;
         CREATE INDEX idx_emailDeliveries_due
           ON emailDeliveries(status, nextAttemptAt);
@@ -518,9 +625,37 @@ async function initializeSqliteSchema(
           ON emailDeliveries(userId, createdAt);
         CREATE INDEX idx_emailDeliveries_expiry
           ON emailDeliveries(expiresAt);
+        CREATE INDEX idx_emailDeliveries_scope_due
+          ON emailDeliveries(platformScope, status, nextAttemptAt);
       `);
     }
   }
+
+  const emailDeliveryColumns = sqliteDb
+    .prepare("PRAGMA table_info(emailDeliveries)")
+    .all() as Array<{ name: string }>;
+  if (!emailDeliveryColumns.some((column) => column.name === "platformScope")) {
+    sqliteDb.exec(`
+      ALTER TABLE emailDeliveries
+        ADD COLUMN platformScope TEXT NOT NULL DEFAULT 'commercial'
+        CHECK(platformScope IN ('commercial', 'support'));
+    `);
+  }
+  if (tableNames.includes("umfSupportMessages")) {
+    sqliteDb.exec(`
+      UPDATE emailDeliveries
+      SET platformScope = 'support'
+      WHERE id IN (
+        SELECT deliveryId
+        FROM umfSupportMessages
+        WHERE deliveryId IS NOT NULL
+      );
+    `);
+  }
+  sqliteDb.exec(`
+    CREATE INDEX IF NOT EXISTS idx_emailDeliveries_scope_due
+      ON emailDeliveries(platformScope, status, nextAttemptAt);
+  `);
 
   if (!tableNames.includes("antiAutomationChallenges")) {
     console.log("Creating first-party anti-automation challenges table...");
@@ -2252,26 +2387,6 @@ async function initializeSqliteSchema(
     CREATE INDEX IF NOT EXISTS idx_corporateRoleDelegations_recipient
       ON corporateRoleDelegations(recipientUserId, status, createdAt DESC);
 
-    CREATE TABLE IF NOT EXISTS managerTerminalAccess (
-      id TEXT PRIMARY KEY,
-      userId TEXT NOT NULL,
-      accessMode TEXT NOT NULL CHECK(accessMode IN ('internal', 'external')),
-      credentialHash TEXT NOT NULL UNIQUE,
-      terminalSessionHash TEXT UNIQUE,
-      createdAt INTEGER NOT NULL,
-      expiresAt INTEGER,
-      lastActivityAt INTEGER NOT NULL,
-      lastHeartbeatAt INTEGER NOT NULL,
-      consumedAt INTEGER,
-      terminalSessionExpiresAt INTEGER,
-      revokedAt INTEGER,
-      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-    );
-    CREATE INDEX IF NOT EXISTS idx_managerTerminalAccess_user
-      ON managerTerminalAccess(userId, expiresAt);
-    CREATE INDEX IF NOT EXISTS idx_managerTerminalAccess_session
-      ON managerTerminalAccess(terminalSessionHash, terminalSessionExpiresAt);
-
     CREATE TABLE IF NOT EXISTS managerOrganizationalUnits (
       id TEXT PRIMARY KEY,
       slug TEXT NOT NULL UNIQUE,
@@ -2343,35 +2458,9 @@ async function initializeSqliteSchema(
       ON managerTemporaryPermissions(unitId, status, expiresAt);
   `);
 
-  const managerTerminalColumns = sqliteDb
-    .prepare("PRAGMA table_info(managerTerminalAccess)")
-    .all() as Array<{ name: string }>;
-  if (
-    !managerTerminalColumns.some((column) => column.name === "lastHeartbeatAt")
-  ) {
-    sqliteDb.exec(
-      "ALTER TABLE managerTerminalAccess ADD COLUMN lastHeartbeatAt INTEGER NOT NULL DEFAULT 0",
-    );
-    sqliteDb.exec(
-      "UPDATE managerTerminalAccess SET lastHeartbeatAt = lastActivityAt WHERE lastHeartbeatAt = 0",
-    );
-  }
-  if (
-    !managerTerminalColumns.some((column) => column.name === "scopeProfileId")
-  ) {
-    sqliteDb.exec(
-      "ALTER TABLE managerTerminalAccess ADD COLUMN scopeProfileId TEXT",
-    );
-  }
-  if (
-    !managerTerminalColumns.some(
-      (column) => column.name === "allowTemporaryPermissions",
-    )
-  ) {
-    sqliteDb.exec(
-      "ALTER TABLE managerTerminalAccess ADD COLUMN allowTemporaryPermissions INTEGER NOT NULL DEFAULT 0 CHECK(allowTemporaryPermissions IN (0, 1))",
-    );
-  }
+  // The former browser-issued manager terminal is deliberately retired. Any
+  // legacy credential/session hashes are purged instead of being migrated.
+  sqliteDb.exec("DROP TABLE IF EXISTS managerTerminalAccess");
 
   if (!tableNames.includes("commercialRequests")) {
     sqliteDb.exec(`

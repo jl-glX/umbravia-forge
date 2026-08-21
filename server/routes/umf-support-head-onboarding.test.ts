@@ -117,20 +117,21 @@ describe("UMF Support designated head onboarding", () => {
     await expect(
       database.db
         .selectFrom("users")
-        .select(["accountStatus", "emailVerifiedAt"])
+        .select(["accountStatus", "emailVerifiedAt", "identityRealm"])
         .where("id", "=", userId)
         .executeTakeFirstOrThrow(),
     ).resolves.toMatchObject({
       accountStatus: "active",
       emailVerifiedAt: expect.any(Number),
+      identityRealm: "corporate_support",
     });
     await expect(
       database.db
         .selectFrom("platformOperators")
-        .select("status")
+        .select("userId")
         .where("userId", "=", userId)
-        .executeTakeFirstOrThrow(),
-    ).resolves.toEqual({ status: "active" });
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
     await expect(
       database.db
         .selectFrom("umfSupportStaff")
@@ -160,12 +161,12 @@ describe("UMF Support designated head onboarding", () => {
         .executeTakeFirst(),
     ).resolves.toBeUndefined();
 
-    const login = await request(app).post("/api/auth/login").send({
-      identifier: "head@example.com",
+    const login = await request(app).post("/api/umf-support/login").send({
+      email: "head@example.com",
       password: "HeadOnboardingPassword123",
-      accessPortal: "support",
       rememberDevice: false,
     });
     expect(login.status).toBe(200);
+    expect(login.headers["set-cookie"][0]).toContain("umf-support_session=");
   });
 });

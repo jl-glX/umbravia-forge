@@ -533,6 +533,7 @@ export async function runManagedTask(
       await checkResidualBackgroundProcesses("task-start", taskId);
       const result = await withPrioritizedManagerOperation(
         "resource",
+        "commercial",
         taskId,
         taskCoordinationScopes[taskId] ?? [`resource-task:${taskId}`],
         task.definition.priority,
@@ -560,6 +561,7 @@ export async function runManagedTask(
         task.state = task.enabled ? "idle" : "paused";
         publishManagerSignal(
           "resource",
+          "commercial",
           "info",
           "RESOURCE_TASK_DEFERRED",
           `${taskId} deferred for coordinated access.`,
@@ -572,6 +574,7 @@ export async function runManagedTask(
       task.state = "error";
       publishManagerSignal(
         "resource",
+        "commercial",
         "warning",
         "RESOURCE_TASK_FAILED",
         `${taskId}: ${task.lastError}`,
@@ -650,7 +653,7 @@ export function getResourceManagerStatus() {
       staleRecordsRemoved: staleRuntimeRecordsRemoved,
       lastCheck: lastRuntimeCheck,
     },
-    coordination: getManagerCoordinationStatus(),
+    coordination: getManagerCoordinationStatus("commercial"),
     tasks: [...tasks.values()].map(serializeTask),
   };
 }

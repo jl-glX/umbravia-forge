@@ -30,12 +30,31 @@ describe("PostgreSQL migrations", () => {
       ["classSessionContents", "activitySessionContents"],
     ]);
     const tables = new Set(
-      [...sql.matchAll(/CREATE TABLE IF NOT EXISTS "([^"]+)"/g)].map(
-        (match) => legacyTableNames.get(match[1]) ?? match[1],
-      ),
+      [...sql.matchAll(/CREATE TABLE IF NOT EXISTS "([^"]+)"/g)]
+        .map((match) => legacyTableNames.get(match[1]) ?? match[1])
+        .filter((tableName) => tableName !== "managerTerminalAccess"),
     );
 
     expect([...migratableTables].sort()).toEqual([...tables].sort());
+  });
+
+  it("purges the retired browser-terminal credentials after historical migrations", () => {
+    const retirement = postgresMigrationSql().find((sql) =>
+      sql.includes('DROP TABLE IF EXISTS "managerTerminalAccess"'),
+    );
+    expect(retirement).toBeDefined();
+  });
+
+  it("scopes legacy transactional email with explicit UMF Support evidence", () => {
+    const migration = postgresMigrationSql().find(
+      (sql) =>
+        sql.includes('ALTER TABLE "emailDeliveries"') &&
+        sql.includes('ADD COLUMN IF NOT EXISTS "platformScope"'),
+    );
+    expect(migration).toContain("DEFAULT 'commercial'");
+    expect(migration).toContain('FROM "umfSupportMessages"');
+    expect(migration).toContain("SET \"platformScope\" = 'support'");
+    expect(migration).toContain('"idx_emailDeliveries_scope_due"');
   });
 
   it("keeps legacy activity identifiers out of the resulting schema", () => {

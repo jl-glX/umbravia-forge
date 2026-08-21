@@ -32,9 +32,12 @@ function normalizePhone(value: string): string {
 
 async function findPortalUser(identifier: string, accessPortal: AccessPortal) {
   const normalizedIdentifier = identifier.trim().toLowerCase();
+  const identityRealm =
+    accessPortal === "support" ? "corporate_support" : "commercial";
   const user = await db
     .selectFrom("users")
     .select(["id", "email", "name", "role"])
+    .where("identityRealm", "=", identityRealm)
     .where((expression) =>
       expression.or([
         expression("email", "=", normalizedIdentifier),
@@ -45,11 +48,22 @@ async function findPortalUser(identifier: string, accessPortal: AccessPortal) {
 
   if (
     !user ||
-    (accessPortal === "member"
-      ? user.role !== "member"
-      : user.role !== "trainer" && user.role !== "admin")
+    (accessPortal === "support"
+      ? user.role !== "admin"
+      : accessPortal === "member"
+        ? user.role !== "member"
+        : user.role !== "trainer" && user.role !== "admin")
   ) {
     throw new Error("Passkey access is not available");
+  }
+  if (accessPortal === "support") {
+    const membership = await db
+      .selectFrom("umfSupportStaff")
+      .select("userId")
+      .where("userId", "=", user.id)
+      .where("status", "=", "active")
+      .executeTakeFirst();
+    if (!membership) throw new Error("Passkey access is not available");
   }
   return user;
 }
@@ -219,6 +233,7 @@ export async function finishPasskeyAuthentication(
   response: AuthenticationResponseJSON,
   expectedOrigin: string,
   rpID: string,
+  accessPortal: AccessPortal,
   metadata: SessionMetadata,
 ): Promise<AuthResult> {
   const challenge = await readChallenge(token, "authentication");
@@ -231,11 +246,33 @@ export async function finishPasskeyAuthentication(
       .executeTakeFirst(),
     db
       .selectFrom("users")
-      .select(["id", "email", "name", "avatarDataUrl", "role", "accountStatus"])
+      .select([
+        "id",
+        "email",
+        "name",
+        "avatarDataUrl",
+        "role",
+        "accountStatus",
+        "identityRealm",
+      ])
       .where("id", "=", challenge.userId)
       .executeTakeFirst(),
   ]);
   if (!credential || !user) throw new Error("Passkey verification failed");
+  const expectedRealm =
+    accessPortal === "support" ? "corporate_support" : "commercial";
+  if (user.identityRealm !== expectedRealm) {
+    throw new Error("Passkey verification failed");
+  }
+  if (accessPortal === "support") {
+    const membership = await db
+      .selectFrom("umfSupportStaff")
+      .select("userId")
+      .where("userId", "=", user.id)
+      .where("status", "=", "active")
+      .executeTakeFirst();
+    if (!membership) throw new Error("Passkey verification failed");
+  }
   const verification = await verifyAuthenticationResponse({
     response,
     expectedChallenge: challenge.challenge,

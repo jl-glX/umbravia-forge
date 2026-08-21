@@ -35,6 +35,7 @@ try {
     .selectFrom("users")
     .select(["id", "accountStatus", "emailVerifiedAt"])
     .where("email", "=", email)
+    .where("identityRealm", "=", "corporate_support")
     .executeTakeFirst();
   if (!user) {
     throw new Error(
@@ -53,7 +54,6 @@ try {
     otherCompanyStaff,
     supportRecord,
     companyRecord,
-    platformOperator,
     bootstrapState,
   ] = await Promise.all([
     db
@@ -76,11 +76,6 @@ try {
     db
       .selectFrom("companyStaffProfiles")
       .select(["position", "status"])
-      .where("userId", "=", user.id)
-      .executeTakeFirst(),
-    db
-      .selectFrom("platformOperators")
-      .select("status")
       .where("userId", "=", user.id)
       .executeTakeFirst(),
     db
@@ -112,13 +107,11 @@ try {
     userId: user.id,
     companyPosition: "platform_head",
     supportRole: "director",
-    grantsPlatformOperator: true,
     current: {
       companyPosition: companyRecord?.position ?? null,
       companyStatus: companyRecord?.status ?? null,
       supportRole: supportRecord?.role ?? null,
       supportStatus: supportRecord?.status ?? null,
-      platformOperator: platformOperator?.status ?? null,
     },
   };
 
@@ -192,26 +185,6 @@ try {
           })
           .execute();
       }
-
-      if (platformOperator) {
-        await transaction
-          .updateTable("platformOperators")
-          .set({ status: "active", updatedAt: now, revokedAt: null })
-          .where("userId", "=", user.id)
-          .executeTakeFirstOrThrow();
-      } else {
-        await transaction
-          .insertInto("platformOperators")
-          .values({
-            userId: user.id,
-            source: "controlled_provisioning",
-            status: "active",
-            createdAt: now,
-            updatedAt: now,
-            revokedAt: null,
-          })
-          .execute();
-      }
     });
 
     await recordSecurityEvent("umf_support_staff_changed", user.id, {
@@ -220,14 +193,12 @@ try {
       status: "active",
       companyPosition: "platform_head",
       provisioning: "initial_company_head",
-      grantsPlatformOperator: true,
     });
     console.log(
       JSON.stringify(
         {
           ...plan,
           status: "applied",
-          platformOperatorChanged: platformOperator?.status !== "active",
         },
         null,
         2,

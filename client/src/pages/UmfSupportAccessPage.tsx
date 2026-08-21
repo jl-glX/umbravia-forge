@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
-  Download,
+  Fingerprint,
   KeyRound,
   LogIn,
   UserPlus,
@@ -14,23 +14,29 @@ import { PasswordInput } from "../components/PasswordInput";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { useAuth } from "../hooks/useAuth";
 import {
   activateAccount,
-  bootstrapHeadIfAvailable,
-  fetchDistribution,
+  beginSupportPasskey,
+  finishSupportPasskey,
+  loginSupport,
   requestAccess,
-  type UmfSupportDistribution,
+  verifySupportMfa,
 } from "../lib/umf-support";
-import { authFetch } from "../lib/api";
 import { isPasswordWithinHashLimit } from "../lib/passwordPolicy";
+import {
+  browserSupportsWebAuthn,
+  platformAuthenticatorIsAvailable,
+  startAuthentication,
+} from "@simplewebauthn/browser";
 
 type Mode = "login" | "request" | "activate";
+type AuthenticationOptions = Parameters<
+  typeof startAuthentication
+>[0]["optionsJSON"];
 
 export function UmfSupportAccessPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { refreshUser } = useAuth();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -48,20 +54,17 @@ export function UmfSupportAccessPage() {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [distribution, setDistribution] =
-    useState<UmfSupportDistribution | null>(null);
-
-  const finishSupportLogin = async () => {
-    await bootstrapHeadIfAvailable();
-    await refreshUser();
-    navigate("/umf-support", { replace: true });
-  };
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
 
   useEffect(() => {
-    void fetchDistribution()
-      .then(setDistribution)
-      .catch(() => setDistribution(null));
+    if (!browserSupportsWebAuthn()) return;
+    void platformAuthenticatorIsAvailable()
+      .then(setPasskeyAvailable)
+      .catch(() => setPasskeyAvailable(false));
   }, []);
+  const finishSupportLogin = async () => {
+    navigate("/umf-support", { replace: true });
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -71,40 +74,16 @@ export function UmfSupportAccessPage() {
     try {
       if (mode === "login") {
         if (mfaRequired) {
-          const response = await authFetch("/api/auth/mfa/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code: mfaCode }),
-          });
-          const payload = (await response.json().catch(() => ({}))) as {
-            code?: string;
-            error?: string;
-          };
-          if (!response.ok) {
-            throw new Error(payload.code ?? payload.error ?? "MFA_FAILED");
-          }
+          await verifySupportMfa(mfaCode);
           await finishSupportLogin();
           return;
         }
-        const response = await authFetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            identifier: email,
-            password,
-            accessPortal: "support",
-            rememberDevice: false,
-            captchaToken,
-          }),
+        const payload = await loginSupport({
+          email,
+          password,
+          rememberDevice: false,
+          captchaToken,
         });
-        const payload = (await response.json().catch(() => ({}))) as {
-          code?: string;
-          error?: string;
-          mfaRequired?: boolean;
-        };
-        if (!response.ok) {
-          throw new Error(payload.code ?? payload.error ?? "LOGIN_FAILED");
-        }
         if (payload.mfaRequired) {
           setMfaRequired(true);
           setPassword("");
@@ -149,7 +128,6 @@ export function UmfSupportAccessPage() {
           acceptedPrivacy,
           captchaToken,
         });
-        await refreshUser();
         navigate("/umf-support", { replace: true });
       }
     } catch (cause) {
@@ -186,6 +164,25 @@ export function UmfSupportAccessPage() {
     setAcceptedTerms(false);
     setAcceptedPrivacy(false);
     setCaptchaToken("");
+  };
+
+  const loginWithPasskey = async () => {
+    setWorking(true);
+    setError("");
+    try {
+      const options = (await beginSupportPasskey(
+        email,
+      )) as AuthenticationOptions;
+      const response = await startAuthentication({ optionsJSON: options });
+      await finishSupportPasskey(response);
+      await finishSupportLogin();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : t("umfSupportAccess.error"),
+      );
+    } finally {
+      setWorking(false);
+    }
   };
 
   return (
@@ -439,6 +436,17 @@ export function UmfSupportAccessPage() {
                 )}
                 {t(`umfSupportAccess.${mode}.action`)}
               </Button>
+              {mode === "login" && !mfaRequired && passkeyAvailable && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={working || !email}
+                  className="h-11 w-full"
+                  onClick={() => void loginWithPasskey()}
+                >
+                  <Fingerprint /> {t("umfSupportAccess.passkeyLogin")}
+                </Button>
+              )}
             </form>
           </div>
         </section>
@@ -449,14 +457,14 @@ export function UmfSupportAccessPage() {
             {t("umfSupportAccess.privacy")}
           </Link>
         </p>
-        {distribution?.available && distribution.url && (
-          <a
-            href={distribution.url}
-            className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+        <p className="mt-3 text-center text-xs">
+          <Link
+            to="/umf-support/recover"
+            className="font-semibold text-slate-600 underline hover:text-slate-900"
           >
-            <Download size={16} /> {t("umfSupportAccess.downloadWindowsTest")}
-          </a>
-        )}
+            {t("recovery.title")}
+          </Link>
+        </p>
       </div>
     </main>
   );

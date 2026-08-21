@@ -5,6 +5,12 @@ esta fecha. La descripción vigente del producto está en
 [`UMF-SUPPORT.md`](./UMF-SUPPORT.md), y el código, las migraciones y las pruebas
 del commit activo prevalecen si el sistema evoluciona.
 
+La credencial de prealta sigue vigente, pero la activación posterior ya no
+comparte una fila de usuario ni una sesión con la aplicación comercial: crea
+una identidad `corporate_support` independiente. La continuidad y la migración
+de cuentas anteriormente fusionadas se describen en la
+[auditoría de separación](./IDENTITY-REALM-AND-MANAGER-BOUNDARY-AUDIT-2026-08-21.md).
+
 ## Alcance
 
 Se revisaron el formulario público de solicitud, la aprobación corporativa, la

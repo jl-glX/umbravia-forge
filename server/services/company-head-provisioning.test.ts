@@ -22,6 +22,7 @@ describe("initial company head provisioning", () => {
       .values({
         id: "company-head",
         email: "head@example.com",
+        identityRealm: "corporate_support",
         phone: null,
         name: "Company Head",
         avatarDataUrl: "",
@@ -41,7 +42,7 @@ describe("initial company head provisioning", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  it("creates one visible company head and grants platform authority separately", () => {
+  it("creates one visible company head without granting commercial platform authority", () => {
     const command = [
       join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs"),
       join(process.cwd(), "scripts", "provision-company-head.ts"),
@@ -63,7 +64,6 @@ describe("initial company head provisioning", () => {
       });
 
     expect(run()).toContain('"status": "applied"');
-    expect(run()).toContain('"platformOperatorChanged": false');
 
     const raw = new Database(databasePath, { readonly: true });
     try {
@@ -85,11 +85,9 @@ describe("initial company head provisioning", () => {
       ).toEqual({ role: "director", status: "active" });
       expect(
         raw
-          .prepare(
-            "SELECT source, status FROM platformOperators WHERE userId = ?",
-          )
+          .prepare("SELECT userId FROM platformOperators WHERE userId = ?")
           .get("company-head"),
-      ).toEqual({ source: "controlled_provisioning", status: "active" });
+      ).toBeUndefined();
       expect(
         raw
           .prepare(

@@ -20,13 +20,12 @@ WHERE table_schema = 'public'
   );
 
 SELECT
-  'terminal_scope_columns' AS check_name,
+  'retired_browser_terminal' AS check_name,
   count(*) AS found,
-  2 AS expected
-FROM information_schema.columns
+  0 AS expected
+FROM information_schema.tables
 WHERE table_schema = 'public'
-  AND table_name = 'managerTerminalAccess'
-  AND column_name IN ('scopeProfileId', 'allowTemporaryPermissions');
+  AND table_name = 'managerTerminalAccess';
 
 SELECT
   'invalid_active_memberships' AS check_name,
@@ -48,12 +47,5 @@ WHERE "expiresAt" <= "startsAt"
      "status" = 'active'
      AND "expiresAt" <= (extract(epoch FROM clock_timestamp()) * 1000)::bigint
    );
-
-SELECT
-  'unscoped_terminal_credentials' AS check_name,
-  count(*) AS total
-FROM "managerTerminalAccess"
-WHERE "revokedAt" IS NULL
-  AND "scopeProfileId" IS NULL;
 
 ROLLBACK;

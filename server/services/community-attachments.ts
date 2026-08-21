@@ -334,6 +334,7 @@ export async function deleteCommunityAttachment(
     try {
       publishManagerSignal(
         "resource",
+        "commercial",
         "warning",
         "COMMUNITY_ATTACHMENT_CLEANUP_DEFERRED",
         "Encrypted community attachment cleanup remains staged for maintenance.",

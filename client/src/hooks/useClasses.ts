@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { authFetch } from "../lib/api";
+import { localizedApiErrorMessage } from "../lib/api-error";
 import i18n from "../i18n/config";
 
 export interface ActivitySession {
@@ -31,7 +32,13 @@ export function useClasses() {
       const response = await authFetch("/api/activity-sessions");
 
       if (!response.ok) {
-        throw new Error(i18n.t("errors.fetchClasses"));
+        throw new Error(
+          await localizedApiErrorMessage(
+            response,
+            i18n.t("errors.fetchClasses"),
+            (key) => i18n.t(key),
+          ),
+        );
       }
 
       const data = await response.json();

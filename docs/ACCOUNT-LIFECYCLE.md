@@ -1,12 +1,35 @@
 # Account lifecycle foundation
 
-This document describes the technical foundation used to demonstrate account
-identity, closure and data-retention flows. It is not a legal policy and does
-not define production retention periods.
+This document describes the technical foundation for account identity,
+closure and data-retention flows. It is not a legal policy and does not define
+production retention periods.
 
-## Scope of the demo
+## Identity-realm boundary
 
-The current implementation can demonstrate:
+The lifecycle and deletion workflow in this document belongs to the
+`commercial` identity realm. UMF Support uses separate `corporate_support`
+user rows, credentials, sessions, passkeys, recovery challenges and verified
+email-change challenges. A normalized email may therefore identify one
+commercial account and one corporate account without joining their passwords,
+memberships or lifecycle state.
+
+Scheduling or cancelling deletion for a commercial account never deletes,
+restores or grants access to the corporate identity with the same email. UMF
+Support activation likewise does not create or reactivate a sports-centre
+membership and does not cancel a commercial deletion request. Corporate staff
+removal and retention need their own reviewed operational workflow; they must
+not be implemented by calling the commercial deletion executor.
+
+The service rejects a corporate user identifier before scheduling commercial
+closure. The due-job query also joins `users.identityRealm = commercial`, so a
+malformed or manually inserted deletion job cannot make the commercial worker
+destroy a corporate identity. Regression coverage deletes one commercial row,
+retains the same-email corporate row and signs that corporate account back in
+to UMF Support.
+
+## Current implemented scope
+
+The current implementation provides:
 
 - a stable internal account identifier that is never shown as a credential;
 - a public support identifier that can be shown, copied and rotated;
@@ -47,7 +70,7 @@ The current implementation can demonstrate:
   minimal terminal result remains for 30 days so failures are not reported as
   successful deliveries and can still be audited.
 
-The demo deliberately does not:
+The implementation deliberately does not:
 
 - delete or anonymize user data;
 - suspend account access when a closure is scheduled;
@@ -166,7 +189,8 @@ the user's intention so a future verified request workflow can evaluate
 ownership, dependencies, applicable retention rules and execution results.
 
 The screen also explains that some records may need to remain restricted for a
-legal or operational reason. This is intentionally general: the demo does not
+legal or operational reason. This is intentionally general: the current
+foundation does not
 state final legal bases, jurisdictions or retention periods.
 
 ## Separation of identifiers
@@ -339,8 +363,8 @@ future review must cover at least:
 - consequences for invoices, security logs and active disputes;
 - revision dates, change notices and renewed consent where required.
 
-Do not copy the illustrative durations from the demo into legal documents
-without a separate legal and operational review.
+Do not copy the illustrative durations from this technical foundation into
+legal documents without a separate legal and operational review.
 
 ## Historical email-record sanitation
 

@@ -59,8 +59,9 @@ gestores, donde ambos extremos pertenecen a Umbravia Forge.
 - mensajes conservados por el coordinador: AES-256-GCM con clave exclusiva y
   sobres versionados; el estado público solo descifra mensajes saneados y nunca
   devuelve el sobre;
-- espacios persistentes de la terminal corporativa: instantánea autenticada con
-  AES-256-GCM; el espacio activo vive en memoria temporal del contenedor;
+- la terminal corporativa web, su contenedor y sus espacios persistentes están
+  retirados; la migración 42 elimina sus hashes de acceso y el administrador
+  local Linux vigente no crea un espacio de trabajo ni una sesión remota;
 - copias PostgreSQL: `pg_dump` transmite directamente a `age`;
 - clave privada de recuperación: fuera del servidor de producción;
 - archivos de entorno: permisos `600` o `640` y nunca incluidos en Git.

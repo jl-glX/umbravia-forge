@@ -15,7 +15,10 @@ import {
   sendDirectEmail,
   type DirectEmailTransportConfiguration,
 } from "./email-direct-transport.js";
-import { publishManagerSignal } from "./manager-coordinator.js";
+import {
+  publishManagerSignal,
+  type ManagerPlatformScope,
+} from "./manager-coordinator.js";
 import { recordSecurityEvent } from "./security-events.js";
 
 type SupportedLocale = "es" | "en" | "de" | "de-CH";
@@ -591,6 +594,7 @@ export async function sendTransactionalEmail(input: {
 
 async function queueEncryptedDelivery(input: {
   userId: string | null;
+  platformScope: ManagerPlatformScope;
   kind: EmailDeliveryKind;
   recipient: string;
   locale: SupportedLocale;
@@ -611,6 +615,7 @@ async function queueEncryptedDelivery(input: {
           updatedAt: now,
         })
         .where("userId", "=", input.userId)
+        .where("platformScope", "=", input.platformScope)
         .where("kind", "=", input.kind)
         .where("status", "in", ["queued", "retry", "processing"])
         .execute();
@@ -620,6 +625,7 @@ async function queueEncryptedDelivery(input: {
       .values({
         id,
         userId: input.userId,
+        platformScope: input.platformScope,
         kind: input.kind,
         recipient: input.recipient,
         locale: input.locale,
@@ -799,6 +805,7 @@ export async function queueEmailVerificationCode(input: {
 }): Promise<string> {
   const id = await queueEncryptedDelivery({
     userId: input.userId,
+    platformScope: "commercial",
     kind: "email_verification",
     recipient: input.email,
     locale: input.locale,
@@ -808,6 +815,7 @@ export async function queueEmailVerificationCode(input: {
   });
   publishManagerSignal(
     "email",
+    "commercial",
     "info",
     "EMAIL_VERIFICATION_QUEUED",
     "A verification message was queued for delivery.",
@@ -817,6 +825,7 @@ export async function queueEmailVerificationCode(input: {
 
 export async function queueEmailChangeVerification(input: {
   userId: string;
+  platformScope: ManagerPlatformScope;
   email: string;
   name: string;
   code: string;
@@ -832,6 +841,7 @@ export async function queueEmailChangeVerification(input: {
   );
   return queueEncryptedDelivery({
     userId: input.userId,
+    platformScope: input.platformScope,
     kind: "security_notice",
     recipient: input.email,
     locale: input.locale,
@@ -846,6 +856,7 @@ export async function queueEmailChangeVerification(input: {
 
 export async function queueEmailChangeAttemptNotice(input: {
   userId: string;
+  platformScope: ManagerPlatformScope;
   currentEmail: string;
   name: string;
   locale: SupportedLocale;
@@ -858,6 +869,7 @@ export async function queueEmailChangeAttemptNotice(input: {
   });
   return queueEncryptedDelivery({
     userId: input.userId,
+    platformScope: input.platformScope,
     kind: "security_notice",
     recipient: input.currentEmail,
     locale: input.locale,
@@ -872,6 +884,7 @@ export async function queueEmailChangeAttemptNotice(input: {
 
 export async function queueEmailChangedNotice(input: {
   userId: string;
+  platformScope: ManagerPlatformScope;
   oldEmail: string;
   newEmail: string;
   name: string;
@@ -915,6 +928,7 @@ export async function queueEmailChangedNotice(input: {
   const safeRecoveryUrl = escapeHtml(input.recoveryUrl);
   return queueEncryptedDelivery({
     userId: input.userId,
+    platformScope: input.platformScope,
     kind: "security_notice",
     recipient: input.oldEmail,
     locale: input.locale,
@@ -931,6 +945,7 @@ export async function queueEmailChangedNotice(input: {
 
 export async function queueAccountRecoveryCode(input: {
   userId: string;
+  platformScope: ManagerPlatformScope;
   email: string;
   name: string;
   code: string;
@@ -944,6 +959,7 @@ export async function queueAccountRecoveryCode(input: {
   );
   const id = await queueEncryptedDelivery({
     userId: input.userId,
+    platformScope: input.platformScope,
     kind: "account_recovery",
     recipient: input.email,
     locale: input.locale,
@@ -957,6 +973,7 @@ export async function queueAccountRecoveryCode(input: {
   });
   publishManagerSignal(
     "email",
+    input.platformScope,
     "info",
     "ACCOUNT_RECOVERY_QUEUED",
     "An account recovery message was queued for delivery.",
@@ -977,6 +994,7 @@ export async function queueSupportUpdateEmail(input: {
   const safeMessage = escapeHtml(input.message);
   const id = await queueEncryptedDelivery({
     userId: input.userId,
+    platformScope: "commercial",
     kind: "support_update",
     recipient: input.email,
     locale: input.locale,
@@ -992,6 +1010,7 @@ export async function queueSupportUpdateEmail(input: {
   });
   publishManagerSignal(
     "email",
+    "commercial",
     "info",
     "SUPPORT_UPDATE_QUEUED",
     "A support update was queued for delivery.",
@@ -1009,6 +1028,7 @@ export async function queueSupportStaffNotificationEmail(input: {
   const safeMessage = escapeHtml(input.message);
   const id = await queueEncryptedDelivery({
     userId: null,
+    platformScope: "commercial",
     kind: "support_update",
     recipient: input.email,
     locale: "es",
@@ -1023,6 +1043,7 @@ export async function queueSupportStaffNotificationEmail(input: {
   });
   publishManagerSignal(
     "email",
+    "commercial",
     "info",
     "SUPPORT_STAFF_NOTIFICATION_QUEUED",
     "A support queue notification was prepared for delivery.",
@@ -1073,6 +1094,7 @@ export async function queueUmfSupportAccessCodeEmail(input: {
   const message = content[input.locale] ?? content.es;
   const id = await queueEncryptedDelivery({
     userId: null,
+    platformScope: "support",
     kind: "support_update",
     recipient: input.email,
     locale: input.locale,
@@ -1087,6 +1109,7 @@ export async function queueUmfSupportAccessCodeEmail(input: {
   });
   publishManagerSignal(
     "email",
+    "support",
     "info",
     "UMF_SUPPORT_ACCESS_QUEUED",
     "An approved UMF Support access code was queued for delivery.",
@@ -1105,6 +1128,7 @@ export async function queueUmfSupportReplyEmail(input: {
   const title = `[${input.ticketPublicId}] ${input.subject}`;
   const id = await queueEncryptedDelivery({
     userId: null,
+    platformScope: "support",
     kind: "support_update",
     recipient: input.email,
     locale: input.locale,
@@ -1120,6 +1144,7 @@ export async function queueUmfSupportReplyEmail(input: {
   });
   publishManagerSignal(
     "email",
+    "support",
     "info",
     "UMF_SUPPORT_REPLY_QUEUED",
     "A UMF Support reply was queued for delivery.",
@@ -1182,6 +1207,7 @@ export async function queueAccountInactivityReviewEmail(input: {
   const safeUrl = escapeHtml(input.actionUrl);
   const id = await queueEncryptedDelivery({
     userId: input.userId,
+    platformScope: "commercial",
     kind: "security_notice",
     recipient: input.email,
     locale: input.locale,
@@ -1199,6 +1225,7 @@ export async function queueAccountInactivityReviewEmail(input: {
   });
   publishManagerSignal(
     "email",
+    "commercial",
     "info",
     isReminder
       ? "ACCOUNT_INACTIVITY_REVIEW_REMINDER_QUEUED"
@@ -1359,6 +1386,7 @@ export async function queueAccountDeletionPreparationEmail(input: {
   const message = buildAccountDeletionPreparationMessage(input);
   const id = await queueEncryptedDelivery({
     userId: input.userId,
+    platformScope: "commercial",
     kind: "security_notice",
     recipient: input.email,
     locale: input.locale,
@@ -1374,6 +1402,7 @@ export async function queueAccountDeletionPreparationEmail(input: {
   });
   publishManagerSignal(
     "email",
+    "commercial",
     "info",
     "ACCOUNT_DELETION_PREPARATION_QUEUED",
     "An account closure preparation notice was queued for delivery.",
@@ -1405,6 +1434,13 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
       })
       .where("id", "=", deliveryId)
       .execute();
+    publishManagerSignal(
+      "email",
+      row.platformScope,
+      "warning",
+      "EMAIL_DELIVERY_EXPIRED",
+      "An email queue item expired before delivery and its payload was purged.",
+    );
     return false;
   }
   const claimed = await db
@@ -1467,6 +1503,7 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
       } catch {
         publishManagerSignal(
           "security",
+          row.platformScope,
           "warning",
           "ACCOUNT_INACTIVITY_REVIEW_AUDIT_FAILED",
           "The inactivity review email was sent but its audit event could not be recorded.",
@@ -1481,6 +1518,7 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
       } catch {
         publishManagerSignal(
           "security",
+          row.platformScope,
           "warning",
           "EMAIL_DELIVERY_AUDIT_FAILED",
           "The verification email was sent but its audit event could not be recorded.",
@@ -1537,6 +1575,7 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
       } catch {
         publishManagerSignal(
           "security",
+          row.platformScope,
           "warning",
           "EMAIL_DELIVERY_AUDIT_FAILED",
           "A rejected payload could not be written to the security audit log.",
@@ -1545,6 +1584,7 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
     }
     publishManagerSignal(
       payloadRejected || keyUnavailable ? "security" : "email",
+      row.platformScope,
       terminal ? "warning" : "info",
       keyUnavailable
         ? "EMAIL_DELIVERY_KEY_UNAVAILABLE"
@@ -1570,7 +1610,7 @@ export async function processPendingEmailDeliveries(
 ): Promise<{ processed: number; delivered: number }> {
   const rows = await db
     .selectFrom("emailDeliveries")
-    .select("id")
+    .select(["id", "platformScope"])
     .where("status", "in", ["queued", "retry"])
     .where("nextAttemptAt", "<=", Date.now())
     .orderBy("nextAttemptAt", "asc")
@@ -1583,6 +1623,7 @@ export async function processPendingEmailDeliveries(
     } catch {
       publishManagerSignal(
         "email",
+        row.platformScope,
         "warning",
         "EMAIL_DELIVERY_WORKER_ITEM_FAILED",
         "One email queue item failed unexpectedly; processing continued.",

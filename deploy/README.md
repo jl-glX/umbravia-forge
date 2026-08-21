@@ -135,17 +135,12 @@ sudo sh deploy/manage-caddy-diagnostics.sh enable
 sudo sh deploy/manage-caddy-diagnostics.sh status
 ```
 
-Una vez activada la sonda, la consola corporativa permite comprobarla sin
-abrir un navegador. Desde la rama de soporte:
-
-```text
-use profile:manager-support
-ufctl diagnose probe all
-```
-
-El diagnóstico es de solo lectura, usa el host configurado en
-`UMBRAVIA_DIAGNOSTIC_PROBE_ORIGIN` (o `https://cf-test.umbraviaforge.com` por
-defecto) y no permite indicar destinos arbitrarios.
+La antigua consola web/API de gestores y su orden `ufctl` ya no forman parte
+del canal operativo. La sonda se comprueba desde el propio servidor mediante
+las herramientas de operación de solo lectura y el destino fijo
+`https://cf-test.umbraviaforge.com`; el administrador local Linux compartido
+solo presenta estado y señales saneadas de los gestores y no actúa como una
+terminal de red genérica.
 
 El gestor conserva una copia del Caddyfile, valida la configuración candidata
 antes de instalarla y restaura la anterior si Caddy no puede recargarse. La

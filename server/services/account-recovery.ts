@@ -179,6 +179,7 @@ function normalizeRecoveryIdentifier(
 async function findRecoverableUser(
   method: RecoveryLookupMethod,
   identifier: string,
+  identityRealm: "commercial" | "corporate_support" = "commercial",
 ): Promise<RecoverableUser | undefined> {
   const normalized = normalizeRecoveryIdentifier(method, identifier);
   if (method === "email") {
@@ -186,8 +187,10 @@ async function findRecoverableUser(
       .selectFrom("users")
       .select(["id", "email", "name", "locale", "accountStatus"])
       .where("email", "=", normalized)
+      .where("identityRealm", "=", identityRealm)
       .executeTakeFirst();
   }
+  if (identityRealm === "corporate_support") return undefined;
   if (method === "username") {
     return db
       .selectFrom("socialProfiles")
@@ -208,14 +211,16 @@ async function findRecoverableUser(
     .selectFrom("users")
     .select(["id", "email", "name", "locale", "accountStatus"])
     .where("id", "=", userId)
+    .where("identityRealm", "=", "commercial")
     .executeTakeFirst();
 }
 
 export async function requestPasswordRecovery(
   method: RecoveryLookupMethod,
   identifier: string,
+  identityRealm: "commercial" | "corporate_support" = "commercial",
 ): Promise<{ deliveryId: string | null }> {
-  const user = await findRecoverableUser(method, identifier);
+  const user = await findRecoverableUser(method, identifier, identityRealm);
 
   // The public route always returns the same response. Pending signups are not
   // recoverable through password reset because their email has not been proven.
@@ -227,6 +232,8 @@ export async function requestPasswordRecovery(
 
   const deliveryId = await queueAccountRecoveryCode({
     userId: user.id,
+    platformScope:
+      identityRealm === "corporate_support" ? "support" : "commercial",
     email: user.email,
     name: user.name,
     code,
@@ -242,6 +249,7 @@ async function performPasswordResetWithRecoveryCode(input: {
   identifier: string;
   code: string;
   newPassword: string;
+  identityRealm?: "commercial" | "corporate_support";
 }): Promise<boolean> {
   if (
     !isStrongPassword(input.newPassword) ||
@@ -250,7 +258,11 @@ async function performPasswordResetWithRecoveryCode(input: {
     throw new Error("Password does not meet the security requirements");
   }
 
-  const user = await findRecoverableUser(input.method, input.identifier);
+  const user = await findRecoverableUser(
+    input.method,
+    input.identifier,
+    input.identityRealm,
+  );
   const challenge = await db
     .selectFrom("accountRecoveryChallenges")
     .select([
@@ -361,9 +373,11 @@ export async function resetPasswordWithRecoveryCode(input: {
   identifier: string;
   code: string;
   newPassword: string;
+  identityRealm?: "commercial" | "corporate_support";
 }): Promise<boolean> {
   return withCoordinatedManagerOperation(
     "account",
+    input.identityRealm === "corporate_support" ? "support" : "commercial",
     "password-recovery",
     ["authentication-records"],
     () => performPasswordResetWithRecoveryCode(input),

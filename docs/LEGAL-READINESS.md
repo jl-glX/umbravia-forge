@@ -6,7 +6,7 @@ No private residential address has been published. The address and other
 provider-identification details required for a future commercial release remain
 explicitly pending professional advice and a suitable publication arrangement.
 
-The account-lifecycle demo also avoids defining binding retention periods. Its
+The account-lifecycle foundation also avoids defining binding retention periods. Its
 technical boundaries and future review points are documented in
 [Account lifecycle foundation](./ACCOUNT-LIFECYCLE.md).
 

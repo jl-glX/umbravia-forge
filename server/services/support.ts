@@ -288,6 +288,7 @@ async function notifySupportInbox(
     void deliverQueuedEmail(deliveryId).catch(() => {
       publishManagerSignal(
         "support",
+        "commercial",
         "warning",
         "SUPPORT_INBOX_NOTIFICATION_FAILED",
         `Inbox notification for ${ticket.publicId} remains queued.`,
@@ -296,6 +297,7 @@ async function notifySupportInbox(
   } catch {
     publishManagerSignal(
       "support",
+      "commercial",
       "warning",
       "SUPPORT_INBOX_NOTIFICATION_FAILED",
       `Inbox notification for ${ticket.publicId} could not be queued.`,
@@ -389,6 +391,7 @@ export async function createSupportTicket(
   if (priority === "urgent") {
     publishManagerSignal(
       "support",
+      "commercial",
       "critical",
       "URGENT_SUPPORT_TICKET",
       `${ticket.publicId} requires urgent attention.`,
@@ -396,6 +399,7 @@ export async function createSupportTicket(
   } else {
     publishManagerSignal(
       "support",
+      "commercial",
       "info",
       "SUPPORT_TICKET_CREATED",
       `${ticket.publicId} entered the support queue.`,
@@ -672,6 +676,7 @@ export async function addSupportMessage(
         void deliverQueuedEmail(deliveryId).catch(() => {
           publishManagerSignal(
             "support",
+            "commercial",
             "warning",
             "SUPPORT_NOTIFICATION_FAILED",
             `Notification for ${ticket.publicId} remains queued.`,
@@ -680,6 +685,7 @@ export async function addSupportMessage(
       } catch {
         publishManagerSignal(
           "support",
+          "commercial",
           "warning",
           "SUPPORT_NOTIFICATION_FAILED",
           `Notification for ${ticket.publicId} remains unavailable.`,
@@ -739,6 +745,7 @@ export async function ingestSupportInboundEmail(
         "emailVerifiedAt",
       ])
       .where("email", "=", sender)
+      .where("identityRealm", "=", "commercial")
       .executeTakeFirst();
     if (
       !requester ||
@@ -860,6 +867,7 @@ export async function ingestSupportInboundEmail(
     }
     publishManagerSignal(
       "support",
+      "commercial",
       "info",
       "SUPPORT_EMAIL_TICKET_CREATED",
       `${ticket.publicId} entered the support queue by authenticated email.`,
@@ -956,6 +964,7 @@ export async function ingestSupportInboundEmail(
   }
   publishManagerSignal(
     "support",
+    "commercial",
     "info",
     "SUPPORT_EMAIL_REPLY_RECEIVED",
     `${ticket.publicId} received an authenticated email reply.`,
@@ -1254,6 +1263,7 @@ export async function deleteSupportAttachment(
     try {
       publishManagerSignal(
         "support",
+        "commercial",
         "warning",
         "SUPPORT_ATTACHMENT_CLEANUP_DEFERRED",
         "Encrypted support attachment cleanup remains staged for maintenance.",
@@ -1516,6 +1526,7 @@ export async function auditSupportSla(): Promise<{
   if (overdue.length > 0) {
     publishManagerSignal(
       "support",
+      "commercial",
       "warning",
       "SUPPORT_SLA_AT_RISK",
       `${overdue.length} support ticket(s) exceeded an SLA target.`,

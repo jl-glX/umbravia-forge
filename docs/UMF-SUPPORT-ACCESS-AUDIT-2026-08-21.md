@@ -7,6 +7,12 @@ vigente se mantiene en [UMF Support](./UMF-SUPPORT.md),
 [Arquitectura](./ARCHITECTURE.md) y
 [Ciclo de vida de cuentas](./ACCOUNT-LIFECYCLE.md).
 
+Después de esta revisión se separaron las identidades `commercial` y
+`corporate_support`, sus cookies, recuperación y retos de cambio de correo. La
+vigencia del código pasó de quince minutos a seis horas. Por tanto, las cifras
+y decisiones inferiores deben leerse en su contexto temporal y junto a la
+[auditoría de separación](./IDENTITY-REALM-AND-MANAGER-BOUNDARY-AUDIT-2026-08-21.md).
+
 ## Alcance
 
 - inicio de la primera jefatura sin otra autoridad capaz de aprobarla;

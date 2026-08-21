@@ -66,7 +66,9 @@ Copy `.env.example` to `.env` to override defaults.
 | Variable                                     | Purpose                                                          |
 | -------------------------------------------- | ---------------------------------------------------------------- |
 | `NODE_ENV`                                   | Runtime mode. Production enables stricter cookies, CSP and HSTS. |
+| `APP_ENV`                                    | Selects development, demo, staging or production policy.         |
 | `PORT`                                       | Express API port. Defaults to `3001`.                            |
+| `DATABASE_PROVIDER` / `DATABASE_URL`         | Selects SQLite locally or the protected PostgreSQL deployment.   |
 | `CLIENT_ORIGIN`                              | Required HTTPS browser origin(s) in production.                  |
 | `WEBAUTHN_ORIGIN`                            | Public trusted origin used for passkey verification.             |
 | `WEBAUTHN_RP_ID`                             | Relying-party domain bound to passkey credentials.               |
@@ -96,6 +98,9 @@ Copy `.env.example` to `.env` to override defaults.
 | `SUPPORT_NOTIFICATION_EMAIL`                 | Optional internal destination for new-ticket notifications.      |
 | `SUPPORT_ATTACHMENT_MAX_BYTES`               | Private attachment limit; defaults to 5 MiB and is capped at 10. |
 | `SUPPORT_MUTATION_RATE_LIMIT_MAX_REQUESTS`   | Per-window mutation budget for Forge Support.                    |
+| `UMF_SUPPORT_EMAIL_*`                        | Separate corporate inbound address, reply key and webhook key.   |
+| `UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256`    | One-time designated corporate-head mailbox fingerprint.          |
+| `UMF_MANAGER_ADMIN_LINUX_USERS`              | Exact Linux-user allowlist for local manager administration.     |
 | `STRIPE_BILLING_ENABLED`                     | Explicitly enables the centre SaaS subscription integration.     |
 | `STRIPE_BILLING_MODE`                        | Selects isolated Stripe `test` or `live` objects.                |
 | `STRIPE_RESTRICTED_API_KEY`                  | Mode-matched restricted server key; never exposed to the client. |
@@ -113,6 +118,29 @@ Use Cloudflare's documented test keys only in local development; production
 configuration rejects them.
 
 Never commit `.env`, databases, tokens or real customer data.
+
+The commercial application and UMF Support share the configured database
+provider, but not an authentication identity. `users.identityRealm`, separate
+session/MFA/passkey cookies and domain authorization keep `commercial` and
+`corporate_support` accounts independent even when their normalized email is
+the same. PostgreSQL is therefore the production store for both applications;
+separation is enforced by schema relations and server checks, not by treating
+one portal as a role of the other.
+
+Manager administration has no browser route or remote shell. On Linux, use the
+maintained read-only interface only after configuring the local operating-user
+allowlist outside the repository:
+
+```text
+npm run platform:managers -- --email <authorized-account> --scope commercial overview
+npm run platform:managers -- --email <authorized-account> --scope support overview
+```
+
+The command rejects non-Linux systems, `root` and users absent from
+`UMF_MANAGER_ADMIN_LINUX_USERS` before it initializes or migrates the database.
+Application authority is then evaluated independently for the requested
+scope. Do not place real Linux usernames or account emails in a committed
+template or document.
 
 Stripe Billing remains disabled by default. Production startup validates the
 complete Stripe configuration when it is enabled, and a staging profile cannot

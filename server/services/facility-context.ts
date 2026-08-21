@@ -42,9 +42,11 @@ export async function listFacilityContexts(
 export async function isPlatformOperator(userId: string): Promise<boolean> {
   const operator = await db
     .selectFrom("platformOperators")
-    .select("userId")
-    .where("userId", "=", userId)
-    .where("status", "=", "active")
+    .innerJoin("users", "users.id", "platformOperators.userId")
+    .select("platformOperators.userId")
+    .where("platformOperators.userId", "=", userId)
+    .where("platformOperators.status", "=", "active")
+    .where("users.identityRealm", "=", "commercial")
     .executeTakeFirst();
   return Boolean(operator);
 }

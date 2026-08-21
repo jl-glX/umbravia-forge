@@ -43,51 +43,10 @@ describe("dynamic manager organizational access migration", () => {
     ).resolves.toEqual([]);
   });
 
-  it("stores explicit scope and temporary-permission consent on credentials", async () => {
-    const now = Date.now();
-    await database.db
-      .insertInto("users")
-      .values({
-        id: "manager-migration-user",
-        email: "manager-migration@example.com",
-        phone: null,
-        name: "Manager Migration",
-        avatarDataUrl: "",
-        password: "not-used",
-        role: "admin",
-        sessionIdleTimeoutMinutes: 15,
-        createdAt: now,
-      })
-      .execute();
-    await database.db
-      .insertInto("managerTerminalAccess")
-      .values({
-        id: "manager-migration-access",
-        userId: "manager-migration-user",
-        accessMode: "external",
-        scopeProfileId: "manager-email",
-        allowTemporaryPermissions: 1,
-        credentialHash: "manager-migration-credential",
-        terminalSessionHash: null,
-        createdAt: now,
-        expiresAt: now + 60_000,
-        lastActivityAt: now,
-        lastHeartbeatAt: now,
-        consumedAt: null,
-        terminalSessionExpiresAt: null,
-        revokedAt: null,
-      })
-      .execute();
-
-    await expect(
-      database.db
-        .selectFrom("managerTerminalAccess")
-        .select(["scopeProfileId", "allowTemporaryPermissions"])
-        .where("id", "=", "manager-migration-access")
-        .executeTakeFirstOrThrow(),
-    ).resolves.toEqual({
-      scopeProfileId: "manager-email",
-      allowTemporaryPermissions: 1,
-    });
+  it("does not retain the retired browser-terminal credential table", async () => {
+    const tables = await database.db.introspection.getTables();
+    expect(tables.some((table) => table.name === "managerTerminalAccess")).toBe(
+      false,
+    );
   });
 });
