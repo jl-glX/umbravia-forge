@@ -91,7 +91,12 @@ incorporado al repositorio: el paquete final debe generarse en el entorno
 autorizado que inyecte la clave pública real del sitio. La compilación que forma parte de la
 puerta completa sí fue favorable.
 
-El resultado de GitHub Actions se añadirá como evidencia del commit publicado.
+GitHub Actions validó favorablemente el commit publicado en la solicitud
+[#15](https://github.com/jl-glX/umbravia-forge/pull/15): el trabajo
+[`validate`](https://github.com/jl-glX/umbravia-forge/actions/runs/32471602847/job/96739371231)
+completó en Ubuntu la instalación bloqueada, la sintaxis de los scripts, la
+puerta `ci:validate` y el paquete Linux con una clave pública Turnstile
+exclusiva de CI.
 
 ## Puertas humanas y Live posteriores
 
