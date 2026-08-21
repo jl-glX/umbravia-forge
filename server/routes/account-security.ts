@@ -7,6 +7,8 @@ import { authenticationLimiter } from "../middleware/security.js";
 import {
   accountMfaConfirmationValidation,
   accountCompromiseValidation,
+  emailChangeConfirmValidation,
+  emailChangeRequestValidation,
   mfaCodeValidation,
   passkeyResponseValidation,
   passwordConfirmationValidation,
@@ -41,6 +43,10 @@ import {
   finishPasskeyRegistration,
   removePasskeys,
 } from "../services/passkeys.js";
+import {
+  confirmEmailChange,
+  requestEmailChange,
+} from "../services/email-change.js";
 import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { getWebauthnContext } from "../lib/request-origin.js";
 
@@ -55,6 +61,53 @@ accountSecurityRouter.get("/", async (_req, res, next) => {
     next(error);
   }
 });
+
+accountSecurityRouter.post(
+  "/email-change/request",
+  authenticationLimiter,
+  emailChangeRequestValidation,
+  async (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      if (!(await verifyUserPassword(auth.userId, req.body.password))) {
+        res.status(401).json({
+          error: "Invalid security confirmation",
+          code: "INVALID_SECURITY_CONFIRMATION",
+        });
+        return;
+      }
+      res
+        .status(202)
+        .json(await requestEmailChange(auth.userId, req.body.email));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+accountSecurityRouter.post(
+  "/email-change/confirm",
+  authenticationLimiter,
+  emailChangeConfirmValidation,
+  async (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      res.json(
+        await confirmEmailChange(auth.userId, auth.sessionId, req.body.code),
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 accountSecurityRouter.post(
   "/compromise",

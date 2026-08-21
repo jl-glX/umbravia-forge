@@ -47,6 +47,16 @@ interface EmailVerificationChallenge {
   consumedAt: number | null;
 }
 
+interface EmailChangeChallenge {
+  id: string;
+  userId: string;
+  newEmail: string;
+  codeHash: string;
+  createdAt: number;
+  expiresAt: number;
+  attempts: number;
+}
+
 interface AccountRecoveryChallenge {
   id: string;
   userId: string;
@@ -888,6 +898,12 @@ interface PlatformOperator {
   revokedAt: number | null;
 }
 
+interface CorporateBootstrapState {
+  id: "company_head";
+  claimedByUserId: string | null;
+  claimedAt: number;
+}
+
 export type UmfSupportRole = "director" | "agent";
 
 export type CompanyPosition =
@@ -1242,6 +1258,7 @@ export interface Database {
   users: User;
   accountSupportIdentifiers: AccountSupportIdentifier;
   emailVerificationChallenges: EmailVerificationChallenge;
+  emailChangeChallenges: EmailChangeChallenge;
   accountRecoveryChallenges: AccountRecoveryChallenge;
   emailDeliveries: EmailDelivery;
   antiAutomationChallenges: AntiAutomationChallenge;
@@ -1304,6 +1321,7 @@ export interface Database {
   facilityProfiles: FacilityProfile;
   facilityMemberships: FacilityMembership;
   platformOperators: PlatformOperator;
+  corporateBootstrapState: CorporateBootstrapState;
   companyStaffProfiles: CompanyStaffProfile;
   umfSupportStaff: UmfSupportStaff;
   umfSupportAccessRequests: UmfSupportAccessRequest;

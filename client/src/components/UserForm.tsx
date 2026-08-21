@@ -100,11 +100,17 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               required
               maxLength={254}
               value={formData.email}
+              disabled={Boolean(user)}
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm disabled:bg-gray-100 disabled:text-gray-500"
             />
+            {user && (
+              <p className="mt-1 text-xs text-gray-500">
+                {t("admin.emailChangeRequiresVerification")}
+              </p>
+            )}
           </div>
 
           <div>

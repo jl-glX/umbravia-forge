@@ -107,4 +107,72 @@ describe("account compromise response", () => {
       .send({ password: "WrongPassword123" })
       .expect(401);
   });
+
+  it("changes email only after password and new-inbox verification", async () => {
+    const secondaryCookie = (
+      await request(app).post("/api/auth/login").send({
+        identifier: "compromise@example.com",
+        password: "CompromisePassword123",
+        accessPortal: "member",
+        rememberDevice: false,
+      })
+    ).headers["set-cookie"][0];
+    await request(app)
+      .post("/api/account/security/email-change/request")
+      .set("Cookie", currentCookie)
+      .send({ email: "verified-new@example.com", password: "WrongPassword123" })
+      .expect(401);
+
+    const requested = await request(app)
+      .post("/api/account/security/email-change/request")
+      .set("Cookie", currentCookie)
+      .send({
+        email: "verified-new@example.com",
+        password: "CompromisePassword123",
+      })
+      .expect(202);
+    expect(requested.body.demoVerificationCode).toMatch(/^\d{6}$/);
+
+    await request(app)
+      .post("/api/account/security/email-change/confirm")
+      .set("Cookie", currentCookie)
+      .send({
+        code:
+          requested.body.demoVerificationCode === "000000"
+            ? "111111"
+            : "000000",
+      })
+      .expect(400);
+
+    await request(app)
+      .post("/api/account/security/email-change/confirm")
+      .set("Cookie", currentCookie)
+      .send({ code: requested.body.demoVerificationCode })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.email).toBe("verified-new@example.com");
+      });
+
+    await request(app)
+      .get("/api/auth/session")
+      .set("Cookie", currentCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.user.email).toBe("verified-new@example.com");
+      });
+    await request(app)
+      .get("/api/auth/session")
+      .set("Cookie", secondaryCookie)
+      .expect(401);
+
+    await request(app)
+      .post("/api/auth/login")
+      .send({
+        identifier: "compromise@example.com",
+        password: "CompromisePassword123",
+        accessPortal: "member",
+        rememberDevice: false,
+      })
+      .expect(401);
+  });
 });

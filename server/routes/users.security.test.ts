@@ -184,6 +184,28 @@ describe("administrator account safety", () => {
     );
   });
 
+  it("does not let a facility administrator replace another account email", async () => {
+    const response = await request(app)
+      .put("/api/users/retained-member")
+      .set("Cookie", adminCookie)
+      .send({
+        email: "replacement@example.com",
+        name: "Retained Member",
+        role: "member",
+      })
+      .expect(400);
+    expect(response.body.error).toBe(
+      "ACCOUNT_EMAIL_CHANGE_REQUIRES_VERIFICATION",
+    );
+    await expect(
+      database.db
+        .selectFrom("users")
+        .select("email")
+        .where("id", "=", "retained-member")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ email: "retained-member@example.com" });
+  });
+
   it("revokes active sessions whenever an administrator changes a role", async () => {
     await request(app)
       .patch("/api/users/synthetic-member/role")

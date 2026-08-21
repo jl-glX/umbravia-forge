@@ -1224,6 +1224,7 @@
     "classManagementTitle": "Kurse und Stundenpläne",
     "title": "Admin-Dashboard",
     "description": "Verwalten Sie Benutzer und Fitnesskurse",
+    "emailChangeRequiresVerification": "Nur die Kontoinhaberin oder der Kontoinhaber kann die Anmelde-E-Mail durch Bestätigung des neuen Postfachs ändern.",
     "usersTab": "Benutzerverwaltung",
     "classManagementDescription": "Erstellen und organisieren Sie die Kurse, die Mitglieder sehen können, ohne sich als Administrator anmelden zu müssen.",
     "operations": "Anlagenbetrieb",
@@ -2301,13 +2302,13 @@
     "login": {
       "eyebrow": "Geschützter Zugang",
       "title": "Anmelden",
-      "description": "Nur für genehmigte Mitarbeitende von UMF Support.",
+      "description": "Der Zugriff basiert auf Unternehmenskonten und Berechtigungen. Die festgelegte erste Leitung kann hier die einmalige Einrichtung abschliessen.",
       "action": "UMF Support öffnen"
     },
     "request": {
       "eyebrow": "Manuelle Genehmigung",
       "title": "Konto beantragen",
-      "description": "Die Leitung prüft jeden Antrag, bevor ein Konto erstellt werden kann.",
+      "description": "Die Leitung prüft Aufnahme und Module; ein bestehendes Konto erhält nicht automatisch globale Berechtigungen.",
       "action": "Antrag senden"
     },
     "activate": {
@@ -2324,7 +2325,7 @@
     "terms": "Nutzungsbedingungen",
     "acceptPrivacy": "Ich habe die folgende Erklärung gelesen:",
     "requestAccepted": "Der Antrag wurde erfasst. Nach der Genehmigung erhalten Sie einen einmaligen Aktivierungscode.",
-    "restrictedNotice": "Die direkte Registrierung ist geschlossen und jedes Konto muss genehmigt werden",
+    "restrictedNotice": "Konto, Zugehörigkeit, Position und Berechtigungen werden getrennt verwaltet",
     "downloadWindowsTest": "Test-Webinstaller für Windows herunterladen (.zip)",
     "privacy": "Datenschutz",
     "error": "Der Vorgang konnte nicht abgeschlossen werden."
@@ -2384,6 +2385,24 @@
     "renounceRole": "Berechtigung abgeben",
     "keepRoleAccess": "Mich ebenfalls berechtigen",
     "emptyDelegations": "Es wurden keine Delegationen erfasst.",
+    "emailChange": {
+      "title": "Anmelde-E-Mail des Kontos",
+      "description": "Die neue E-Mail-Adresse ersetzt die bisherige erst nach Prüfung des Passworts und des an das neue Postfach gesendeten Codes. Andere Sitzungen werden beendet und die bisherige Adresse erhält einen Hinweis.",
+      "current": "Aktuelle E-Mail-Adresse",
+      "new": "Neue E-Mail-Adresse",
+      "password": "Aktuelles Passwort",
+      "sendCode": "Bestätigungscode senden",
+      "code": "Code aus dem neuen Postfach",
+      "confirm": "Änderung bestätigen",
+      "codeSent": "Ein Code wurde an die neue E-Mail-Adresse gesendet.",
+      "completed": "Die E-Mail-Adresse wurde geändert und bestätigt.",
+      "passwordInvalid": "Das aktuelle Passwort ist nicht korrekt.",
+      "inUse": "Diese E-Mail-Adresse wird bereits verwendet oder wartet auf Bestätigung.",
+      "unchanged": "Die neue E-Mail-Adresse entspricht der aktuellen.",
+      "invalidCode": "Der Code ist ungültig, abgelaufen oder hat alle Versuche aufgebraucht.",
+      "conflict": "Das Konto wurde während der Bestätigung geändert. Starten Sie den Vorgang erneut.",
+      "error": "Die E-Mail-Adresse konnte nicht geändert werden."
+    },
     "moduleProfile": {
       "manager-core": "Manager-Kern",
       "manager-coordinator": "Manager-Koordination",

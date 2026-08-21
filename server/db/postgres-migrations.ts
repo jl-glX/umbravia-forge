@@ -2322,6 +2322,31 @@ CREATE INDEX IF NOT EXISTS "idx_corporateRoleDelegations_recipient"
   ON "corporateRoleDelegations" ("recipientUserId", "status", "createdAt" DESC);
 `,
   },
+  {
+    version: 39,
+    name: "company-head-bootstrap-and-verified-email-change",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "corporateBootstrapState" (
+  "id" TEXT PRIMARY KEY CHECK ("id" = 'company_head'),
+  "claimedByUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "claimedAt" BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "emailChangeChallenges" (
+  "id" TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL UNIQUE REFERENCES "users" ("id") ON DELETE CASCADE,
+  "newEmail" TEXT NOT NULL,
+  "codeHash" TEXT NOT NULL,
+  "createdAt" BIGINT NOT NULL,
+  "expiresAt" BIGINT NOT NULL,
+  "attempts" INTEGER NOT NULL DEFAULT 0 CHECK ("attempts" >= 0)
+);
+CREATE INDEX IF NOT EXISTS "idx_emailChangeChallenges_expiry"
+  ON "emailChangeChallenges" ("expiresAt");
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_emailChangeChallenges_new_email"
+  ON "emailChangeChallenges" ("newEmail");
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

@@ -394,6 +394,24 @@ async function initializeSqliteSchema(
     }
   }
 
+  if (!tableNames.includes("emailChangeChallenges")) {
+    console.log("Creating email change challenges table...");
+    sqliteDb.exec(`
+      CREATE TABLE emailChangeChallenges (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL UNIQUE,
+        newEmail TEXT NOT NULL UNIQUE,
+        codeHash TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        expiresAt INTEGER NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts >= 0),
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX idx_emailChangeChallenges_expiry
+        ON emailChangeChallenges(expiresAt);
+    `);
+  }
+
   if (!tableNames.includes("accountRecoveryChallenges")) {
     console.log("Creating account recovery challenges table...");
     sqliteDb.exec(`
@@ -2400,6 +2418,13 @@ async function initializeSqliteSchema(
     );
     CREATE INDEX IF NOT EXISTS idx_platformOperators_status
       ON platformOperators(status, userId);
+
+    CREATE TABLE IF NOT EXISTS corporateBootstrapState (
+      id TEXT PRIMARY KEY CHECK(id = 'company_head'),
+      claimedByUserId TEXT,
+      claimedAt INTEGER NOT NULL,
+      FOREIGN KEY(claimedByUserId) REFERENCES users(id) ON DELETE SET NULL
+    );
 
     CREATE TABLE IF NOT EXISTS companyStaffProfiles (
       userId TEXT PRIMARY KEY,

@@ -30,6 +30,7 @@ export const migrationTableGroups = {
     "administratorSignupProvisioning",
     "facilityMemberships",
     "platformOperators",
+    "corporateBootstrapState",
     "companyStaffProfiles",
     "corporateRoleAssignments",
     "corporateRoleDelegations",
@@ -72,6 +73,7 @@ export const migrationTableGroups = {
   ],
   security: [
     "emailVerificationChallenges",
+    "emailChangeChallenges",
     "accountRecoveryChallenges",
     "emailDeliveries",
     "antiAutomationChallenges",

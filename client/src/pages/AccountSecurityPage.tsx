@@ -20,6 +20,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { PasswordInput } from "../components/PasswordInput";
 import { ProfilePhotoSettings } from "../components/ProfilePhotoSettings";
+import { AccountEmailChangeCard } from "../components/AccountEmailChangeCard";
 import {
   browserSupportsWebAuthn,
   platformAuthenticatorIsAvailable,
@@ -338,6 +339,10 @@ export function AccountSecurityPage() {
         )}
 
         <ProfilePhotoSettings />
+
+        <div className="mb-6">
+          <AccountEmailChangeCard />
+        </div>
 
         <Card className="mb-6 rounded-3xl border-amber-200 bg-amber-50 p-6 shadow-sm sm:p-8">
           <div className="flex items-start gap-3">

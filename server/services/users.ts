@@ -311,17 +311,8 @@ export async function updateUser(
     throw new Error("User not found");
   }
 
-  // Validate email uniqueness if changing email
   if (updates.email && updates.email !== user.email) {
-    const existingUser = await db
-      .selectFrom("users")
-      .selectAll()
-      .where("email", "=", updates.email)
-      .executeTakeFirst();
-
-    if (existingUser) {
-      throw new Error("Email already in use");
-    }
+    throw new Error("ACCOUNT_EMAIL_CHANGE_REQUIRES_VERIFICATION");
   }
 
   if (updates.email || updates.name || updates.password) {
@@ -342,7 +333,6 @@ export async function updateUser(
 
   const updateValues: Record<string, unknown> = {};
 
-  if (updates.email) updateValues.email = updates.email;
   if (updates.name) updateValues.name = updates.name;
 
   if (updates.password) {

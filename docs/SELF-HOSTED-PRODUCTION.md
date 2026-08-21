@@ -125,6 +125,7 @@ SUPPORT_ATTACHMENT_MAX_BYTES=5242880
 SUPPORT_MUTATION_RATE_LIMIT_MAX_REQUESTS=30
 SEED_DEMO_DATA=false
 COMMERCIAL_TRIALS_ENABLED=false
+UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256=<sha256 del correo normalizado de la cuenta designada>
 
 # Suscripcion SaaS del centro; mantener cerrada hasta completar Stripe Live.
 STRIPE_BILLING_ENABLED=false
@@ -135,6 +136,13 @@ STRIPE_PRICE_FORGE_MONTHLY=<Price recurrente mensual Live>
 STRIPE_PRICE_FORGE_ANNUAL=<Price recurrente anual Live distinto>
 STRIPE_PORTAL_CONFIGURATION_ID=<configuracion Live opcional del portal>
 ```
+
+El hash de la jefatura inicial no es una contraseña ni concede acceso por sí
+solo: únicamente limita qué cuenta activa y ya verificada puede consumir la
+excepción de arranque de UMF Support. Debe calcularse fuera del repositorio,
+incorporarse al entorno protegido antes del primer acceso y retirarse después
+de comprobar que `corporateBootstrapState` quedó registrado. Retirarlo no
+reabre la inicialización.
 
 `DATABASE_SSL=false` solo corresponde a PostgreSQL en el mismo servidor y
 limitado a `localhost`. Si la base está en otra máquina, debe usarse TLS con

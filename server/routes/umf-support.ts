@@ -34,6 +34,10 @@ import {
   updateUmfSupportStaff,
   updateUmfSupportTicket,
 } from "../services/umf-support.js";
+import {
+  bootstrapCompanyHead,
+  canBootstrapCompanyHead,
+} from "../services/company-bootstrap.js";
 
 export const umfSupportRouter = express.Router();
 
@@ -102,6 +106,36 @@ umfSupportRouter.post(
 );
 
 umfSupportRouter.use(authenticate);
+
+umfSupportRouter.get("/bootstrap-head", async (_req, res, next) => {
+  try {
+    const auth = getAuthenticatedUser(res);
+    res.json({ available: await canBootstrapCompanyHead(auth.userId) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+umfSupportRouter.post(
+  "/bootstrap-head",
+  supportMutationLimiter,
+  async (_req, res, next) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      if (Date.now() - auth.createdAt > 5 * 60 * 1000) {
+        res.status(401).json({
+          error: "Recent authentication is required",
+          code: "RECENT_AUTHENTICATION_REQUIRED",
+        });
+        return;
+      }
+      await bootstrapCompanyHead(auth.userId);
+      res.status(201).json({ position: "platform_head", role: "director" });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 umfSupportRouter.get("/capabilities", async (_req, res, next) => {
   try {

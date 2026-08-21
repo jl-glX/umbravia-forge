@@ -195,6 +195,16 @@ export async function fetchCapabilities() {
   ).capabilities;
 }
 
+export async function bootstrapHeadIfAvailable() {
+  const status = await request<{ available: boolean }>("/bootstrap-head");
+  if (!status.available) return false;
+  await request<{ position: "platform_head"; role: "director" }>(
+    "/bootstrap-head",
+    { method: "POST" },
+  );
+  return true;
+}
+
 export async function fetchTickets(filters?: { status?: string; q?: string }) {
   const query = new URLSearchParams();
   if (filters?.status) query.set("status", filters.status);

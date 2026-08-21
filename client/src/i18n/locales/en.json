@@ -1130,6 +1130,7 @@
     "classManagementDescription": "Create and organise the classes members can see without booking as an administrator.",
     "title": "Admin dashboard",
     "description": "Manage users and gym classes",
+    "emailChangeRequiresVerification": "Only the account holder can change the sign-in email by verifying the new inbox.",
     "usersTab": "User management",
     "classesTab": "Class management",
     "brandingTab": "Facility identity",
@@ -2290,13 +2291,13 @@
     "login": {
       "eyebrow": "Restricted access",
       "title": "Sign in",
-      "description": "For approved UMF Support staff only.",
+      "description": "Access is based on corporate accounts and permissions. The designated first head can complete the one-time setup here.",
       "action": "Open UMF Support"
     },
     "request": {
       "eyebrow": "Manual approval",
       "title": "Request an account",
-      "description": "Management reviews every request before an account can be created.",
+      "description": "Management reviews onboarding and modules; an account does not receive global permissions merely by existing.",
       "action": "Submit request"
     },
     "activate": {
@@ -2313,7 +2314,7 @@
     "terms": "terms and conditions",
     "acceptPrivacy": "I have read the",
     "requestAccepted": "Request recorded. Once approved, you will receive a one-time activation code.",
-    "restrictedNotice": "Direct registration is closed and every account requires approval",
+    "restrictedNotice": "Account, membership, position and permissions are managed separately",
     "downloadWindowsTest": "Download the Windows test web installer (.zip)",
     "privacy": "Privacy",
     "error": "The operation could not be completed."
@@ -2373,6 +2374,24 @@
     "renounceRole": "Renounce permission",
     "keepRoleAccess": "Enable me too",
     "emptyDelegations": "No delegations have been recorded.",
+    "emailChange": {
+      "title": "Account sign-in email",
+      "description": "The new email only replaces the current one after your password and the code sent to the new inbox are verified. Other sessions will be closed and the previous address will receive a notice.",
+      "current": "Current email",
+      "new": "New email",
+      "password": "Current password",
+      "sendCode": "Send verification code",
+      "code": "Code sent to the new email",
+      "confirm": "Confirm change",
+      "codeSent": "A code has been sent to the new email.",
+      "completed": "The email has been changed and verified.",
+      "passwordInvalid": "The current password is incorrect.",
+      "inUse": "That email is already in use or has a pending verification.",
+      "unchanged": "The new email matches the current one.",
+      "invalidCode": "The code is invalid, expired or has used all its attempts.",
+      "conflict": "The account changed during verification. Start the process again.",
+      "error": "The email could not be changed."
+    },
     "moduleProfile": {
       "manager-core": "Manager core",
       "manager-coordinator": "Manager coordination",

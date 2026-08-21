@@ -64,7 +64,10 @@ export type SecurityEventType =
   | "corporate_role_rejected"
   | "corporate_role_renounced"
   | "corporate_role_self_enabled"
-  | "company_staff_updated";
+  | "company_staff_updated"
+  | "company_head_bootstrapped"
+  | "email_change_requested"
+  | "email_changed";
 
 export async function recordSecurityEvent(
   type: SecurityEventType,

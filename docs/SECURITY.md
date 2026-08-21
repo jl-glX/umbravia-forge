@@ -99,6 +99,9 @@ session controls, rate limiting and monitoring remain independent layers.
 - Server-validated Cloudflare Turnstile on signup, password login, passkey
   initiation, feedback and generic protected forms.
 - Hashed, expiring email-verification codes with bounded attempts.
+- Account email replacement only after password confirmation and a distinct
+  bounded code delivered to the new mailbox; facility administrators cannot
+  bypass this flow by editing the user record.
 - AES-256-GCM encryption for pending transactional-email payloads, with
   bounded retry, stale-job recovery and delivery tracing.
 - Versioned AES-256-GCM encryption at rest for private community content,

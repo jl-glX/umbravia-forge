@@ -1140,6 +1140,7 @@
     "classManagementDescription": "Crea y organiza las clases que verán los socios, sin realizar reservas como administrador.",
     "title": "Panel de administración",
     "description": "Gestiona usuarios y clases del gimnasio",
+    "emailChangeRequiresVerification": "El correo de acceso solo puede cambiarlo la propia persona mediante verificación del nuevo buzón.",
     "usersTab": "Gestión de usuarios",
     "classesTab": "Gestión de clases",
     "brandingTab": "Identidad del centro",
@@ -2306,13 +2307,13 @@
     "login": {
       "eyebrow": "Acceso restringido",
       "title": "Iniciar sesión",
-      "description": "Acceso exclusivo para personal aprobado de UMF Support.",
+      "description": "Acceso por cuenta y permisos corporativos. La primera jefatura designada puede completar aquí la inicialización única.",
       "action": "Entrar en UMF Support"
     },
     "request": {
       "eyebrow": "Aprobación manual",
       "title": "Solicitar una cuenta",
-      "description": "La dirección revisará la solicitud antes de permitir la creación de la cuenta.",
+      "description": "La dirección revisará la incorporación y sus módulos; una cuenta no recibe permisos globales por existir.",
       "action": "Enviar solicitud"
     },
     "activate": {
@@ -2329,7 +2330,7 @@
     "terms": "términos y condiciones",
     "acceptPrivacy": "He leído la",
     "requestAccepted": "Solicitud registrada. Cuando sea aprobada recibirás un código de activación de un solo uso.",
-    "restrictedNotice": "El registro directo está cerrado y cada alta requiere aprobación",
+    "restrictedNotice": "Cuenta, pertenencia, cargo y permisos se gestionan por separado",
     "downloadWindowsTest": "Descargar instalador web de prueba para Windows (.zip)",
     "privacy": "Privacidad",
     "error": "No se pudo completar la operación."
@@ -2389,6 +2390,24 @@
     "renounceRole": "Renunciar al permiso",
     "keepRoleAccess": "Habilitarme también",
     "emptyDelegations": "No hay delegaciones registradas.",
+    "emailChange": {
+      "title": "Correo de acceso de la cuenta",
+      "description": "El nuevo correo solo sustituirá al actual después de verificar la contraseña y el código enviado al nuevo buzón. Las demás sesiones se cerrarán y el correo anterior recibirá un aviso.",
+      "current": "Correo actual",
+      "new": "Correo nuevo",
+      "password": "Contraseña actual",
+      "sendCode": "Enviar código de verificación",
+      "code": "Código enviado al correo nuevo",
+      "confirm": "Confirmar cambio",
+      "codeSent": "Se ha enviado un código al nuevo correo.",
+      "completed": "El correo se ha cambiado y verificado correctamente.",
+      "passwordInvalid": "La contraseña actual no es correcta.",
+      "inUse": "Ese correo ya está en uso o tiene una verificación pendiente.",
+      "unchanged": "El correo nuevo coincide con el actual.",
+      "invalidCode": "El código no es válido, ha caducado o ha agotado sus intentos.",
+      "conflict": "La cuenta cambió durante la verificación. Inicia de nuevo el proceso.",
+      "error": "No se pudo cambiar el correo."
+    },
     "moduleProfile": {
       "manager-core": "Núcleo de gestores",
       "manager-coordinator": "Coordinación de gestores",

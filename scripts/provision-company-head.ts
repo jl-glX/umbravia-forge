@@ -33,7 +33,7 @@ await initializeDatabase();
 try {
   const user = await db
     .selectFrom("users")
-    .select(["id", "accountStatus"])
+    .select(["id", "accountStatus", "emailVerifiedAt"])
     .where("email", "=", email)
     .executeTakeFirst();
   if (!user) {
@@ -44,6 +44,9 @@ try {
   if (user.accountStatus !== "active") {
     throw new Error("The target account is not active");
   }
+  if (user.emailVerifiedAt === null) {
+    throw new Error("The target account email is not verified");
+  }
 
   const [
     activeHead,
@@ -51,6 +54,7 @@ try {
     supportRecord,
     companyRecord,
     platformOperator,
+    bootstrapState,
   ] = await Promise.all([
     db
       .selectFrom("companyStaffProfiles")
@@ -79,7 +83,18 @@ try {
       .select("status")
       .where("userId", "=", user.id)
       .executeTakeFirst(),
+    db
+      .selectFrom("corporateBootstrapState")
+      .select("claimedByUserId")
+      .where("id", "=", "company_head")
+      .executeTakeFirst(),
   ]);
+
+  if (bootstrapState && bootstrapState.claimedByUserId !== user.id) {
+    throw new Error(
+      "The one-time company head bootstrap was already claimed by another account.",
+    );
+  }
 
   if (activeHead && activeHead.userId !== user.id) {
     throw new Error(
@@ -112,6 +127,16 @@ try {
   } else {
     const now = Date.now();
     await db.transaction().execute(async (transaction) => {
+      if (!bootstrapState) {
+        await transaction
+          .insertInto("corporateBootstrapState")
+          .values({
+            id: "company_head",
+            claimedByUserId: user.id,
+            claimedAt: now,
+          })
+          .execute();
+      }
       if (supportRecord) {
         await transaction
           .updateTable("umfSupportStaff")

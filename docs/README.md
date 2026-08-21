@@ -31,7 +31,8 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Forge Analytics](./FORGE-ANALYTICS.md)
 - [Forge Support](./FORGE-SUPPORT.md)
 - [UMF Support corporativo](./UMF-SUPPORT.md), incluida la plantilla separada,
-  las delegaciones modulares y el correo operativo de plataforma
+  las delegaciones modulares, la inicialización única de jefatura, el cambio
+  verificado de correo y el correo operativo de plataforma
 - [Forge Notify](./FORGE-NOTIFY.md)
 - [Gestor de bases y entornos](./DATABASE-ENVIRONMENT-MANAGER.md)
 - [Política de dependencias](./dependency-policy.md)
@@ -71,6 +72,7 @@ estado actual hay que volver a los documentos vigentes anteriores.
 - [Auditoría de CRM y encuestas, 2026-08-16](./FORGE-CRM-AND-SURVEYS-FOUNDATION-AUDIT-2026-08-16.md)
 - [Auditoría integral de preparación del cambio, 2026-08-21](./INTEGRAL-READINESS-AUDIT-2026-08-21.md)
 - [Auditoría integral de UMF Support, 2026-08-21](./UMF-SUPPORT-READINESS-AUDIT-2026-08-21.md)
+- [Auditoría del acceso inicial y cambio de correo de UMF Support, 2026-08-21](./UMF-SUPPORT-ACCESS-AUDIT-2026-08-21.md)
 - [Auditoría de neutralización del dominio, 2026-08-16](./ACTIVITY-DOMAIN-MIGRATION-AUDIT-2026-08-16.md)
 - [Auditoría de la base comercial, 2026-08-03](./COMMERCIAL-FOUNDATION-AUDIT.md)
 - [Decisiones comerciales 22-38, 2026-08-04](./COMMERCIAL-POINTS-22-38.md)

@@ -78,6 +78,13 @@ granted only by an active `platformOperators` record or an active corporate
 support membership. This portal does not select a facility context and cannot
 be reached merely by holding the global account role `admin`.
 
+The only exception is the one-time company-head bootstrap. Before any
+corporate identity has ever been established, an active, email-verified
+account whose normalized email matches the SHA-256 configured outside the
+repository may create the initial platform operator, support director and
+company-head records in one transaction. A persistent singleton marker keeps
+that path closed after the first claim even if roles are later removed.
+
 The visible company directory is a separate module. `companyStaffProfiles`
 models reporting lines and business positions, `umfSupportStaff` scopes support
 operations, and `platformOperators` represents platform-wide authority. Module
@@ -90,6 +97,11 @@ Approved support accounts join the company directory only through an explicit
 head action. Removing a person retains the audit record, revokes their active
 module assignments and withdraws their actionable delegations; a company
 position alone never grants technical access.
+
+Account email changes belong to the identity boundary rather than facility
+administration. They require the current password and a bounded code delivered
+to the new inbox; completion revokes other sessions and obsolete temporary
+challenges and queues a security notice to the previous address.
 
 ## Localization
 

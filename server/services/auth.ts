@@ -9,6 +9,7 @@ import {
 import { mfaStatus, verifyMfaCode } from "./mfa.js";
 import { recordSecurityEvent } from "./security-events.js";
 import { ensureSupportIdentifier } from "./support-identifiers.js";
+import { canBootstrapCompanyHead } from "./company-bootstrap.js";
 import { markMeaningfulAccountActivity } from "./account-lifecycle.js";
 import {
   isPasswordWithinHashLimit,
@@ -331,10 +332,16 @@ export async function login(
         .where("status", "=", "active")
         .executeTakeFirst()
     : null;
+  const supportBootstrapAvailable =
+    user && accessPortal === "support"
+      ? await canBootstrapCompanyHead(user.id)
+      : false;
   const portalMatches =
     user &&
     (accessPortal === "support"
-      ? Boolean(supportMembership || supportOperator)
+      ? Boolean(
+          supportMembership || supportOperator || supportBootstrapAvailable,
+        )
       : portalMembership !== undefined ||
         (accessPortal === "member"
           ? user.role === "member"

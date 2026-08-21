@@ -26,6 +26,9 @@ The current implementation can demonstrate:
 - progressive personal signup with surname, jurisdiction, preferred language
   and versioned acknowledgements;
 - hashed, expiring email-verification challenges with attempt limits;
+- verified email changes requiring the current password and a separate,
+  hashed challenge sent to the new inbox; completion revokes other sessions
+  and obsolete temporary challenges and queues a notice to the old address;
 - a confirmed-compromise action that revokes secondary sessions and pending
   challenges, marks the account for review and rotates the support alias;
 - a recovery centre with passkey access and an email-code password-reset flow:

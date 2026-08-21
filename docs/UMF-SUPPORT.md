@@ -26,6 +26,9 @@ un modo sin conexión; véase
 
 - inicio de sesión específico en el portal `support`, incluido el segundo
   factor cuando la cuenta lo tiene activo;
+- inicialización única de la jefatura desde una cuenta activa, con correo
+  verificado y designada fuera del repositorio mediante el SHA-256 de su
+  correo normalizado;
 - solicitud pública de acceso protegida frente a abuso;
 - aprobación o rechazo manual por dirección;
 - código numérico de activación de un solo uso, válido durante 24 horas, con
@@ -51,12 +54,27 @@ un modo sin conexión; véase
   correo solicitante.
 - eventos de seguridad sin correos en claro para solicitudes, aprobaciones,
   rechazos, activaciones fallidas o completadas y cambios de personal;
-- registro de acceso al contenido privado al abrir tickets o bandejas.
+- registro de acceso al contenido privado al abrir tickets o bandejas;
+- cambio del correo de acceso mediante contraseña actual y código de seis
+  cifras enviado al nuevo buzón, con aviso al anterior e invalidación de las
+  demás sesiones y de retos temporales anteriores.
 
-Los operadores activos de `platformOperators` son la autoridad de dirección
-inicial. No se fija en el código el nombre, el correo ni una contraseña de una
-persona concreta. Las incorporaciones posteriores necesitan la aprobación de
-esa autoridad y no pueden autoasignarse el rol de dirección.
+Los operadores activos de `platformOperators` son la autoridad de dirección.
+No se fija en el código el nombre, el correo ni una contraseña de una persona
+concreta. Mientras no haya existido nunca personal, operador ni reclamación de
+jefatura, la cuenta designada por
+`UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256` puede iniciar sesión y completar
+automáticamente la inicialización. Debe estar activa, tener el correo ya
+verificado y usar una sesión creada en los últimos cinco minutos. Una fila
+singleton en `corporateBootstrapState` cierra para siempre esta excepción,
+incluso si después se revocan o eliminan roles. Las incorporaciones posteriores
+necesitan aprobación y no pueden autoasignarse dirección.
+
+El modelo separa cuenta, pertenencia, cargo y permiso. Esta frontera sigue el
+patrón habitual de mesas de ayuda con agentes habilitados, equipos, roles y
+permisos granulares: disponer de identidad no concede lectura de tickets,
+correo o administración. UMF Support puede ampliar su zona básica y sus
+módulos sin convertir el registro de una cuenta en un permiso global.
 
 ## Plantilla, módulos y delegaciones
 
@@ -81,10 +99,11 @@ trazabilidad, revoca sus asignaciones técnicas activas y retira sus delegacione
 pendientes o aceptadas; los módulos vuelven entonces a la cobertura vacante.
 La jefatura inicial no puede modificarse desde este flujo ordinario.
 
-La primera incorporación se realiza de forma controlada sobre una cuenta ya
-existente y activa. El comando es una simulación mientras no se añada `--apply`,
-exige repetir el mismo correo y falla si detecta otra persona activa en la
-plantilla:
+La vía normal de primera incorporación es automática al iniciar sesión con la
+cuenta designada. Como recuperación operativa controlada se conserva el
+comando sobre una cuenta existente, activa y con correo verificado. Es una
+simulación mientras no se añada `--apply`, exige repetir el mismo correo y
+falla si detecta otra persona activa en la plantilla:
 
 ```text
 npm run company:provision-head -- --email <cuenta> --confirm-email <cuenta>
@@ -95,6 +114,8 @@ El resultado inicial es una única persona con cargo visible `platform_head`,
 dirección de UMF Support y autoridad de operador de plataforma. El comando no
 crea cuentas ni contraseñas, no imprime secretos y no usa el cargo empresarial
 como fuente de autorización.
+Tanto la vía web como el comando consumen el marcador permanente de
+inicialización.
 
 ## Flujo de una solicitud de privacidad
 
@@ -135,6 +156,7 @@ UMF_SUPPORT_EMAIL_INBOUND_ENABLED=true
 UMF_SUPPORT_EMAIL_ADDRESS=privacy@example.com
 UMF_SUPPORT_EMAIL_REPLY_TOKEN_KEY=<32 bytes aleatorios en base64>
 UMF_SUPPORT_EMAIL_WEBHOOK_SECRET=<otros 32 bytes aleatorios en base64>
+UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256=<sha256 hexadecimal del correo normalizado>
 ```
 
 Los dos secretos deben ser exclusivos de UMF Support. No se reutilizan las
@@ -162,6 +184,8 @@ nombres no autoriza a crear o rotar secretos desde el repositorio.
 ```text
 POST   /api/umf-support/access-requests
 POST   /api/umf-support/activate
+GET    /api/umf-support/bootstrap-head
+POST   /api/umf-support/bootstrap-head
 GET    /api/umf-support/capabilities
 GET    /api/umf-support/access-requests
 POST   /api/umf-support/access-requests/:requestId/approve
@@ -182,12 +206,19 @@ PATCH  /api/umf-support/tickets/:ticketId
 POST   /api/umf-support/tickets/:ticketId/messages
 GET    /api/umf-support/mailbox/:direction
 POST   /api/internal/umf-support-email
+POST   /api/account/security/email-change/request
+POST   /api/account/security/email-change/confirm
 ```
 
 Las mutaciones rechazan campos desconocidos y tienen límites específicos. Las
 aprobaciones, rechazos y cambios de personal exigen una sesión autenticada con
 verificación humana reciente. El webhook interno no utiliza sesión del
 navegador: valida la firma sobre los bytes exactos y su antigüedad.
+La edición de usuarios de un centro no puede sustituir el correo de acceso:
+ese cambio pertenece exclusivamente al flujo verificado de la propia cuenta.
+La interfaz se ofrece tanto en `Cuenta > Seguridad` como en la vista de
+plantilla de UMF Support, sin que su disponibilidad dependa de ocupar un cargo
+corporativo.
 
 ## Validación y límites operativos
 

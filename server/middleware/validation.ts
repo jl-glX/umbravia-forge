@@ -445,6 +445,28 @@ export const passwordConfirmationValidation = validateRequest([
     .custom(enforcePasswordHashLimit),
 ]);
 
+export const emailChangeRequestValidation = validateRequest([
+  strictBody(["email", "password"]),
+  body("email")
+    .isString()
+    .trim()
+    .isLength({ min: 3, max: 254 })
+    .isEmail()
+    .normalizeEmail(),
+  body("password")
+    .isString()
+    .isLength({ min: 1, max: 128 })
+    .custom(enforcePasswordHashLimit),
+]);
+
+export const emailChangeConfirmValidation = validateRequest([
+  strictBody(["code"]),
+  body("code")
+    .isString()
+    .trim()
+    .matches(/^\d{6}$/),
+]);
+
 export const passkeyAuthenticationOptionsValidation = validateRequest([
   strictBody(["identifier", "accessPortal", "rememberDevice", "captchaToken"]),
   body("captchaToken").optional().isString().isLength({ min: 1, max: 2048 }),

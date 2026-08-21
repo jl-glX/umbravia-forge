@@ -97,6 +97,13 @@ describe("initial company head provisioning", () => {
           )
           .get(),
       ).toEqual({ count: 1 });
+      expect(
+        raw
+          .prepare(
+            "SELECT id, claimedByUserId FROM corporateBootstrapState WHERE id = 'company_head'",
+          )
+          .get(),
+      ).toEqual({ id: "company_head", claimedByUserId: "company-head" });
     } finally {
       raw.close();
     }

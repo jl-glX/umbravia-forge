@@ -17,6 +17,7 @@ import { Label } from "../components/ui/label";
 import { useAuth } from "../hooks/useAuth";
 import {
   activateAccount,
+  bootstrapHeadIfAvailable,
   fetchDistribution,
   requestAccess,
   type UmfSupportDistribution,
@@ -48,6 +49,12 @@ export function UmfSupportAccessPage() {
   const [distribution, setDistribution] =
     useState<UmfSupportDistribution | null>(null);
 
+  const finishSupportLogin = async () => {
+    await bootstrapHeadIfAvailable();
+    await refreshUser();
+    navigate("/umf-support", { replace: true });
+  };
+
   useEffect(() => {
     void fetchDistribution()
       .then(setDistribution)
@@ -74,8 +81,7 @@ export function UmfSupportAccessPage() {
           if (!response.ok) {
             throw new Error(payload.code ?? payload.error ?? "MFA_FAILED");
           }
-          await refreshUser();
-          navigate("/umf-support", { replace: true });
+          await finishSupportLogin();
           return;
         }
         const response = await authFetch("/api/auth/login", {
@@ -103,8 +109,7 @@ export function UmfSupportAccessPage() {
           setCaptchaToken("");
           return;
         }
-        await refreshUser();
-        navigate("/umf-support", { replace: true });
+        await finishSupportLogin();
       } else if (mode === "request") {
         await requestAccess({
           email,

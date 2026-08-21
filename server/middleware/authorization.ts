@@ -14,6 +14,7 @@ export type UserRole = "member" | "trainer" | "admin";
 
 export interface AuthenticatedUser {
   sessionId: string;
+  createdAt: number;
   userId: string;
   email: string;
   name: string;
