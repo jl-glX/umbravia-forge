@@ -206,4 +206,88 @@ describe("CRM route authorization and tenant isolation", () => {
 
     expect(response.body.code).toBe("CRM_MEMBER_NOT_FOUND");
   });
+
+  it("rejects partial, unknown and malformed CRM field contracts", async () => {
+    const memberResponse = await request(app)
+      .patch("/api/crm/members/crm-route-secondary-member")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "crm-route-secondary")
+      .send({ manualSegment: "attention", facilityId: "facility-alpha" })
+      .expect(400);
+    expect(memberResponse.body.code).toBe("VALIDATION_ERROR");
+
+    const createResponse = await request(app)
+      .post("/api/crm/follow-ups")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "crm-route-secondary")
+      .send({
+        memberUserId: "crm-route-secondary-member",
+        assignedToUserId: null,
+        kind: "retention",
+        dueAt: "not-a-timestamp",
+      })
+      .expect(400);
+    expect(createResponse.body.code).toBe("VALIDATION_ERROR");
+
+    const updateResponse = await request(app)
+      .patch("/api/crm/follow-ups/invalid.id")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "crm-route-secondary")
+      .send({ assignedToUserId: null, status: "open", dueAt: now })
+      .expect(400);
+    expect(updateResponse.body.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("enforces the paid CRM capability when Stripe enforcement is enabled", async () => {
+    vi.stubEnv("STRIPE_BILLING_ENABLED", "true");
+    vi.stubEnv("STRIPE_RESTRICTED_API_KEY", "rk_test_example");
+    vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_example");
+    vi.stubEnv("STRIPE_PRICE_FORGE_MONTHLY", "price_monthly");
+    vi.stubEnv("STRIPE_PRICE_FORGE_ANNUAL", "price_annual");
+    try {
+      const denied = await request(app)
+        .get("/api/crm/workspace")
+        .set("Cookie", adminCookie)
+        .set("X-Facility-Id", "crm-route-secondary")
+        .expect(402);
+      expect(denied.body).toMatchObject({
+        code: "COMMERCIAL_CAPABILITY_REQUIRED",
+        capability: "crm",
+      });
+
+      await database.db
+        .insertInto("facilityCommercialSubscriptions")
+        .values({
+          facilityId: "crm-route-secondary",
+          stripeLivemode: 0,
+          stripeCustomerId: "cus_crm_route_secondary",
+          stripeSubscriptionId: "sub_crm_route_secondary",
+          stripeCheckoutSessionId: null,
+          stripePriceId: "price_monthly",
+          planKey: "monthly",
+          status: "active",
+          currentPeriodEnd: now + 30 * 24 * 60 * 60 * 1_000,
+          cancelAtPeriodEnd: 0,
+          billingAttention: "none",
+          lastInvoiceEventAt: null,
+          lastReconciledAt: now,
+          lastStripeEventCreatedAt: now,
+          lastStripeEventId: "evt_crm_entitlement",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .execute();
+      await request(app)
+        .get("/api/crm/workspace")
+        .set("Cookie", adminCookie)
+        .set("X-Facility-Id", "crm-route-secondary")
+        .expect(200);
+    } finally {
+      await database.db
+        .deleteFrom("facilityCommercialSubscriptions")
+        .where("facilityId", "=", "crm-route-secondary")
+        .execute();
+      vi.stubEnv("STRIPE_BILLING_ENABLED", "false");
+    }
+  });
 });

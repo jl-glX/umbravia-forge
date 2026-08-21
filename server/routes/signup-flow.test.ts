@@ -234,6 +234,38 @@ describe("progressive account signup", () => {
     ).toBeUndefined();
   });
 
+  it("fails closed before creating an administrator when trial provisioning is disabled", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("COMMERCIAL_TRIALS_ENABLED", "false");
+    try {
+      const response = await request(app).post("/api/auth/signup").send({
+        email: "blocked-administrator@example.com",
+        name: "Blocked",
+        lastName: "Administrator",
+        password: "ProgressivePassword123",
+        countryCode: "ES",
+        locale: "es",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+        accountType: "administrator",
+        facilityName: "Centro Bloqueado",
+        facilityType: "functional_training",
+      });
+      expect(response.status).toBe(503);
+      expect(response.body.code).toBe("COMMERCIAL_TRIALS_DISABLED");
+      expect(
+        await database.db
+          .selectFrom("users")
+          .select("id")
+          .where("email", "=", "blocked-administrator@example.com")
+          .executeTakeFirst(),
+      ).toBeUndefined();
+    } finally {
+      vi.stubEnv("NODE_ENV", "test");
+      vi.stubEnv("COMMERCIAL_TRIALS_ENABLED", "true");
+    }
+  });
+
   it("rotates the verification challenge when a pending account requests another email", async () => {
     const signup = await request(app)
       .post("/api/auth/signup")

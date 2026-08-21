@@ -134,10 +134,14 @@ export function UserManagement() {
       )}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex gap-2 items-center">
-          <label className="text-sm font-medium text-gray-700">
+          <label
+            htmlFor="user-role-filter"
+            className="text-sm font-medium text-gray-700"
+          >
             {t("admin.filterRole")}
           </label>
           <select
+            id="user-role-filter"
             value={filterRole}
             onChange={(e) => {
               const value = e.target.value;
@@ -191,6 +195,7 @@ export function UserManagement() {
                 <th className="px-4 py-3 text-left font-semibold text-gray-900">
                   <input
                     type="checkbox"
+                    aria-label={t("admin.selectAllUsers")}
                     checked={
                       selectedUsers.length === filteredUsers.length &&
                       filteredUsers.length > 0
@@ -222,6 +227,7 @@ export function UserManagement() {
                   <td className="px-4 py-3">
                     <input
                       type="checkbox"
+                      aria-label={t("admin.selectUser", { name: user.name })}
                       checked={selectedUsers.includes(user.id)}
                       onChange={() => handleSelectUser(user.id)}
                       className="rounded"
@@ -231,6 +237,7 @@ export function UserManagement() {
                   <td className="px-4 py-3 text-gray-600">{user.email}</td>
                   <td className="px-4 py-3">
                     <select
+                      aria-label={`${t("common.role")}: ${user.name}`}
                       value={user.role}
                       onChange={(e) => {
                         if (isUserRole(e.target.value)) {

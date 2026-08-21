@@ -69,11 +69,17 @@
     "description": "Schliesse das Abonnement deines Zentrums in der sicheren Stripe-Umgebung ab und verwalte es dort. Zahlungen von Mitgliedern bleiben davon getrennt.",
     "loadError": "Der Abonnementstatus konnte nicht geladen werden.",
     "actionError": "Stripe konnte nicht geöffnet werden. Aktualisiere den Status und versuche es erneut.",
+    "reconcileError": "Das Abonnement konnte nicht mit Stripe abgeglichen werden. Versuche es erneut oder prüfe das Kundenportal.",
+    "reconcile": "Mit Stripe abgleichen",
+    "reconciling": "Abgleich läuft…",
+    "lastReconciled": "Letzter direkter Abgleich mit Stripe: {{date}}",
+    "lastInvoiceEvent": "Letztes empfangenes Abrechnungssignal: {{date}}",
     "checkoutSuccess": "Stripe hat den Vorgang erhalten. Der Zugang wird nach Eingang der signierten Bestätigung aktualisiert.",
     "checkoutCancelled": "Das Abonnement wurde nicht abgeschlossen und dein Zugang wurde nicht geändert.",
     "notConfiguredTitle": "Zahlungen sind noch nicht konfiguriert",
-    "notConfiguredDescription": "Die Funktion ist vorbereitet, aber auf dem Server ist noch keine Stripe-Testkonfiguration aktiv.",
+    "notConfiguredDescription": "Die Funktion ist vorbereitet, aber auf diesem Server ist keine Stripe-Abrechnungskonfiguration aktiv.",
     "testMode": "Testmodus: Diese Umgebung akzeptiert keine Stripe-Live-Ereignisse oder -Schlüssel.",
+    "liveMode": "Live-Modus: Diese Umgebung akzeptiert nur autorisierte Stripe-Live-Objekte und -Ereignisse für diese Installation.",
     "current": "Aktueller Status",
     "renewsOn": "Verlängert sich am",
     "endsOn": "Endet am",
@@ -82,6 +88,20 @@
     "choosePlan": "Abrechnungsart wählen",
     "priceNotice": "Stripe zeigt Preis, Währung und Bedingungen vor der Bestätigung an.",
     "continueToCheckout": "Weiter zu Stripe",
+    "attention": {
+      "payment_failed": {
+        "title": "Stripe konnte eine Zahlung nicht abschliessen",
+        "description": "Prüfe Zahlungsmethode und Rechnungsstatus im sicheren Stripe-Portal. Umbravia Forge verwaltet oder speichert keine Kartendaten."
+      },
+      "payment_action_required": {
+        "title": "Die Zahlung erfordert eine Authentifizierung",
+        "description": "Schliesse die von Stripe angeforderte Aktion ab, damit die Zahlung fortgesetzt werden kann."
+      },
+      "invoice_finalization_failed": {
+        "title": "Stripe konnte eine Rechnung nicht abschliessen",
+        "description": "Prüfe Rechnung und Abrechnungskonfiguration in Stripe. Ein bestehender Zugang beweist nicht, dass die Rechnung eingezogen werden kann."
+      }
+    },
     "plan": {
       "monthly": "Monatsplan",
       "annual": "Jahresplan"
@@ -255,7 +275,8 @@
     "staffSignInDescription": "Für Administratoren, Studioleitungen und autorisierte Trainer.",
     "emailAddress": "E-Mail-Adresse",
     "emailRequired": "E-Mail und Passwort sind erforderlich",
-    "centerIdentifier": "E-Mail oder Telefonnummer des Studios",
+    "centerIdentifier": "E-Mail oder Telefonnummer des beruflichen Kontos",
+    "accountIdentifier": "E-Mail oder Telefonnummer des Kontos",
     "credentialsRequired": "Kennung und Passwort sind erforderlich",
     "verificationRequired": "Die Verifizierung ist erforderlich",
     "invalidCredentials": "E-Mail-Adresse, Telefonnummer oder Passwort ist falsch",
@@ -279,7 +300,7 @@
     "useDifferentAccount": "Anderes Konto verwenden",
     "join": "Umbravia Forge beitreten",
     "createTitle": "Konto erstellen",
-    "fullName": "Vollständiger Name",
+    "fullName": "Vorname",
     "confirmPassword": "Passwort bestätigen",
     "allRequired": "Alle Felder sind erforderlich",
     "passwordMismatch": "Die Passwörter stimmen nicht überein",
@@ -322,7 +343,7 @@
     "passkeyVerificationFailed": "Die Überprüfung mit dem Geräteschutz konnte nicht abgeschlossen werden.",
     "passkeyChallengeInvalid": "Die Anmeldeanforderung ist abgelaufen. Bitte versuchen Sie es erneut.",
     "alternativeCodeHelp": "Wenn Sie 2FA verwenden, geben Sie hier einen Authentifizierungs- oder Wiederherstellungscode ein. Umbravia Forge überprüft zunächst Ihr Konto und Ihr Passwort.",
-    "passwordPolicy": "Das Passwort muss mindestens 12 Zeichen und höchstens 1024 Byte sowie Grossbuchstaben, Kleinbuchstaben und eine Zahl enthalten",
+    "passwordPolicy": "Das Passwort muss 12 bis 128 Zeichen umfassen, höchstens 1024 Byte verwenden sowie Grossbuchstaben, Kleinbuchstaben und eine Zahl enthalten",
     "createDescription": "Richten Sie Ihr Profil ein und beginnen Sie mit der Planung Ihrer nächsten Trainingseinheiten.",
     "accountType": "Kontotyp",
     "accountTypes": {
@@ -335,7 +356,8 @@
     "initialFacilityDescription": "Diese Anfangseinstellungen bereiten die Vorlage des Studios vor. Während der Testphase können sie im Kontobereich frei bearbeitet werden.",
     "accountDetailsTitle": "Kontodaten",
     "accountDetailsDescription": "Ergänzen Sie nun die Daten der Person, die das Studio verwalten wird.",
-    "administratorTrialNotice": "Das Studio und seine 31-tägige Testphase werden erst nach der E-Mail-Bestätigung erstellt. Bis dahin belegen sie keinen Mandanten und zählen nicht als echte Aktivität."
+    "administratorTrialNotice": "Das Studio und seine 31-tägige Testphase werden erst nach der E-Mail-Bestätigung erstellt. Bis dahin belegen sie keinen Mandanten und zählen nicht als echte Aktivität.",
+    "administratorSignupUnavailable": "Die Erstellung neuer Zentren ist in dieser Umgebung nicht aktiviert. Die Registrierung für Mitglieder bleibt verfügbar."
   },
   "home": {
     "welcome": "Willkommen zurück, {{name}}",
@@ -1236,6 +1258,8 @@
     "newUser": "Neuer Benutzer",
     "admins": "Administratoren",
     "noUsers": "Keine Benutzer gefunden",
+    "selectAllUsers": "Alle sichtbaren Benutzer auswählen",
+    "selectUser": "{{name}} auswählen",
     "deleteUserConfirm": "Sind Sie sicher, dass Sie diesen Benutzer löschen möchten?",
     "deleteUserTitle": "Konto löschen",
     "deleteUserDescription": "Sie beantragen die Löschung von «{{name}}». Daten, die aufbewahrt oder neu zugewiesen werden müssen, blockieren den Vorgang.",

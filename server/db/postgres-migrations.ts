@@ -2157,6 +2157,20 @@ ALTER TABLE "facilityCommercialSubscriptions"
   CHECK ("stripeLivemode" IN (0, 1));
 `,
   },
+  {
+    version: 35,
+    name: "stripe-billing-operational-state",
+    sql: String.raw`
+ALTER TABLE "facilityCommercialSubscriptions"
+  ADD COLUMN IF NOT EXISTS "billingAttention" TEXT NOT NULL DEFAULT 'none'
+  CHECK ("billingAttention" IN (
+    'none', 'payment_failed', 'payment_action_required',
+    'invoice_finalization_failed'
+  )),
+  ADD COLUMN IF NOT EXISTS "lastInvoiceEventAt" BIGINT,
+  ADD COLUMN IF NOT EXISTS "lastReconciledAt" BIGINT;
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

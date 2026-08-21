@@ -11,6 +11,7 @@ import { emailVerificationIsEnabled } from "./account-verification-mode.js";
 import { validatePrivateContentEncryptionConfiguration } from "./private-content-crypto.js";
 import { resolveSupportEmailInboundConfiguration } from "./support-email-inbound.js";
 import { validateManagerConnectionCryptoConfiguration } from "./manager-connection-crypto.js";
+import { resolveStripeBillingConfiguration } from "./stripe-billing-config.js";
 
 type ProductionConfiguration = {
   deploymentProfile: DeploymentProfile;
@@ -108,6 +109,7 @@ export function validateProductionConfiguration(
   resolveSupportEmailInboundConfiguration(environment);
   validatePrivateContentEncryptionConfiguration(environment);
   validateManagerConnectionCryptoConfiguration(environment);
+  resolveStripeBillingConfiguration(environment);
   const host = environment.HOST?.trim() || "127.0.0.1";
 
   if (!emailVerificationEnabled) {

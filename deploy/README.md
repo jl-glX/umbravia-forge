@@ -94,8 +94,11 @@ protegida y validación previa.
    El comprobador exige Linux, Node 24, npm 11.18.0 o posterior dentro de la
    rama 11, Caddy, `systemd`, los artefactos
    compilados, dependencias de producción instaladas, configuración sin
-   marcadores y permisos `0600` o `0640` para los secretos. Si algo falla, la
-   versión no debe activarse.
+   marcadores y permisos `0600` o `0640` para los secretos. Si Stripe Billing
+   está activo, también contrasta el modo con el perfil de despliegue y exige
+   prefijos coherentes para la clave restringida, el secreto de webhook y dos
+   Prices distintos, sin imprimir sus valores. Si algo falla, la versión no
+   debe activarse.
 
 7. Comprobar la salud desde el servidor y mediante el dominio configurado:
 

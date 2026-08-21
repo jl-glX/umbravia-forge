@@ -17,6 +17,8 @@ export interface CommercialEntitlements {
   };
 }
 
+export type CommercialCapability = keyof CommercialEntitlements["capabilities"];
+
 export async function getCommercialEntitlements(
   facilityId: string,
 ): Promise<CommercialEntitlements> {

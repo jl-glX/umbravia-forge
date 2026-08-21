@@ -77,9 +77,13 @@ describe("commercial subscriptions", () => {
     event: Stripe.Event,
     retrievedSubscription?: Stripe.Subscription,
   ) {
-    if (event.type.startsWith("customer.subscription.")) {
-      currentSubscription =
-        retrievedSubscription ?? (event.data.object as Stripe.Subscription);
+    if (retrievedSubscription) {
+      currentSubscription = retrievedSubscription;
+    } else if (event.type.startsWith("customer.subscription.")) {
+      currentSubscription = {
+        ...(event.data.object as Stripe.Subscription),
+        livemode: event.livemode,
+      };
     }
     return service.ingestStripeWebhookEvent(event);
   }
@@ -116,6 +120,16 @@ describe("commercial subscriptions", () => {
       status: "checkout_pending",
       stripePriceId: "price_monthly",
       stripeCheckoutSessionId: "cs_test_facility_alpha",
+    });
+    await expect(
+      service.createCommercialCheckout({
+        facilityId: "facility-alpha",
+        email: "owner@example.com",
+        plan: "annual",
+      }),
+    ).rejects.toMatchObject({
+      code: "CHECKOUT_ALREADY_PENDING",
+      statusCode: 409,
     });
 
     const event = {
@@ -157,6 +171,7 @@ describe("commercial subscriptions", () => {
       status: "active",
       plan: "monthly",
       canOpenPortal: true,
+      canReconcile: true,
     });
     expect(overview.entitlements).toMatchObject({
       source: "stripe",
@@ -275,6 +290,178 @@ describe("commercial subscriptions", () => {
       } as unknown as Stripe.Event),
     ).rejects.toMatchObject({
       code: "STRIPE_EVENT_MODE_MISMATCH",
+      statusCode: 400,
+    });
+  });
+
+  it("stores only operational invoice attention and reconciles current Stripe state", async () => {
+    const invoiceSubscription = {
+      id: "sub_facility_alpha",
+      object: "subscription",
+      livemode: false,
+      customer: "cus_facility_alpha",
+      metadata: { facility_id: "facility-alpha", plan_key: "annual" },
+      status: "past_due",
+      cancel_at_period_end: false,
+      items: {
+        data: [
+          {
+            price: { id: "price_annual" },
+            current_period_end: 1_834_128_000,
+          },
+        ],
+      },
+    } as unknown as Stripe.Subscription;
+    type InvoiceEventType =
+      | "invoice.finalization_failed"
+      | "invoice.marked_uncollectible"
+      | "invoice.overdue"
+      | "invoice.paid"
+      | "invoice.payment_action_required"
+      | "invoice.payment_failed"
+      | "invoice.payment_succeeded";
+    const invoiceEvent = (
+      type: InvoiceEventType,
+      id: string,
+      created = 1_900_000_200,
+    ) =>
+      ({
+        id,
+        type,
+        created,
+        livemode: false,
+        data: {
+          object: {
+            id: `in_${id}`,
+            object: "invoice",
+            parent: {
+              type: "subscription_details",
+              subscription_details: {
+                metadata: { facility_id: "facility-alpha" },
+                subscription: "sub_facility_alpha",
+              },
+              quote_details: null,
+            },
+          },
+        },
+      }) as unknown as Stripe.Event;
+
+    await ingest(
+      invoiceEvent(
+        "invoice.payment_failed",
+        "evt_invoice_failed",
+        1_900_000_000,
+      ),
+      invoiceSubscription,
+    );
+    await expect(
+      service.getCommercialSubscriptionOverview("facility-alpha"),
+    ).resolves.toMatchObject({
+      subscription: {
+        status: "past_due",
+        billingAttention: "payment_failed",
+        lastInvoiceEventAt: 1_900_000_000_000,
+      },
+      entitlements: {
+        capabilities: { analytics: false, crm: false },
+      },
+    });
+    await expect(
+      service.createCommercialCheckout({
+        facilityId: "facility-alpha",
+        email: "owner@example.com",
+        plan: "monthly",
+      }),
+    ).rejects.toMatchObject({
+      code: "SUBSCRIPTION_REQUIRES_PORTAL",
+      statusCode: 409,
+    });
+
+    await ingest(
+      invoiceEvent(
+        "invoice.payment_action_required",
+        "evt_invoice_action_required",
+      ),
+      invoiceSubscription,
+    );
+    await expect(
+      service.getCommercialSubscriptionOverview("facility-alpha"),
+    ).resolves.toMatchObject({
+      subscription: { billingAttention: "payment_action_required" },
+    });
+
+    const recoveredSubscription = {
+      ...invoiceSubscription,
+      status: "active",
+    } as unknown as Stripe.Subscription;
+    await ingest(
+      invoiceEvent("invoice.paid", "evt_invoice_paid"),
+      recoveredSubscription,
+    );
+    await expect(
+      service.getCommercialSubscriptionOverview("facility-alpha"),
+    ).resolves.toMatchObject({
+      subscription: { status: "active", billingAttention: "none" },
+    });
+
+    const staleLocalTime = Date.now();
+    await database.db
+      .updateTable("facilityCommercialSubscriptions")
+      .set({ status: "past_due", lastReconciledAt: null })
+      .where("facilityId", "=", "facility-alpha")
+      .execute();
+    currentSubscription = recoveredSubscription;
+    await expect(
+      service.reconcileCommercialSubscription("facility-alpha"),
+    ).resolves.toMatchObject({
+      subscription: {
+        status: "active",
+        plan: "annual",
+        lastReconciledAt: expect.any(Number),
+      },
+    });
+    expect(
+      (await service.getCommercialSubscriptionOverview("facility-alpha"))
+        .subscription.lastReconciledAt,
+    ).toBeGreaterThanOrEqual(staleLocalTime);
+  });
+
+  it("rejects a retrieved subscription from the other Stripe mode", async () => {
+    await expect(
+      ingest(
+        {
+          id: "evt_invoice_wrong_subscription_mode",
+          type: "invoice.payment_failed",
+          created: 1_900_000_300,
+          livemode: false,
+          data: {
+            object: {
+              id: "in_wrong_mode",
+              object: "invoice",
+              parent: {
+                type: "subscription_details",
+                subscription_details: {
+                  metadata: { facility_id: "facility-alpha" },
+                  subscription: "sub_facility_alpha",
+                },
+                quote_details: null,
+              },
+            },
+          },
+        } as unknown as Stripe.Event,
+        {
+          id: "sub_facility_alpha",
+          object: "subscription",
+          livemode: true,
+          customer: "cus_facility_alpha",
+          metadata: { facility_id: "facility-alpha", plan_key: "annual" },
+          status: "active",
+          cancel_at_period_end: false,
+          items: { data: [] },
+        } as unknown as Stripe.Subscription,
+      ),
+    ).rejects.toMatchObject({
+      code: "STRIPE_SUBSCRIPTION_MODE_MISMATCH",
       statusCode: 400,
     });
   });

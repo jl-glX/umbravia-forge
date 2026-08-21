@@ -1078,6 +1078,12 @@ export type CommercialSubscriptionStatus =
   | "incomplete"
   | "incomplete_expired";
 
+export type CommercialBillingAttention =
+  | "none"
+  | "payment_failed"
+  | "payment_action_required"
+  | "invoice_finalization_failed";
+
 interface FacilityCommercialSubscription {
   facilityId: string;
   stripeLivemode: number;
@@ -1089,6 +1095,9 @@ interface FacilityCommercialSubscription {
   status: CommercialSubscriptionStatus;
   currentPeriodEnd: number | null;
   cancelAtPeriodEnd: number;
+  billingAttention: CommercialBillingAttention;
+  lastInvoiceEventAt: number | null;
+  lastReconciledAt: number | null;
   lastStripeEventCreatedAt: number | null;
   lastStripeEventId: string | null;
   createdAt: number;

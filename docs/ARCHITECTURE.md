@@ -58,11 +58,17 @@ Development uses a single launcher for Vite and Express. Production builds the c
 
 ## Roles
 
-- `member`: browses classes, manages personal bookings and sees personal analytics.
-- `trainer`: sees assigned classes, attendees, waitlists and trainer analytics.
-- `admin`: manages users, classes, billing records and system-wide analytics; it does not reserve member places.
+The account role (`member`, `trainer` or `admin`) describes the broad portal an
+identity may enter. Every tenant operation additionally resolves an active
+facility membership with a facility role (`owner`, `admin`, `trainer` or
+`member`). Owners and facility administrators can manage that centre's users,
+activities, operational billing records, subscription, Analytics and CRM;
+trainers and members receive narrower centre-scoped views. A global `admin`
+account is not permission to read another facility.
 
-Roles describe authorization. Authentication proves the current identity; server-side middleware decides which actions that identity may perform.
+Authentication proves the current identity. Server-side facility resolution,
+membership checks and capability middleware decide what that identity may do;
+hiding an action in React is never an authorization control.
 
 ## Localization
 
@@ -84,9 +90,12 @@ Known demo classes are localized at display time. User-created names and descrip
   the customer portal and signed webhooks now manage the centre's SaaS
   subscription in an explicitly selected Test or Live mode. Local billing
   records separate both modes and reject mismatched events or unconfigured
-  Prices. Commercial entitlements are derived by a separate service and never
-  by Analytics or CRM. Live-capable code does not prove that Live account
-  objects, secrets or end-to-end payments are configured.
+  Prices. Operational invoice events retain only a minimal attention state,
+  while a privileged reconciliation reads the current Stripe Subscription
+  without treating the browser return as proof of payment. Commercial
+  entitlements are derived by a separate service and enforced by Analytics and
+  CRM middleware. Live-capable code does not prove that Live account objects,
+  secrets or end-to-end payments are configured.
 - Invoice details, archived records and custom billing cycles belong to Umbravia Forge's financial domain. The visible interface does not expose App-ProTrack as a product name.
 - Facility profile settings store the centre name, logo and accent colour separately from Umbravia Forge's product identity. Logo updates are admin-only and accept PNG, JPEG or WebP images up to 512 KB.
 - There is no implicit or privileged compatibility facility. Every operational

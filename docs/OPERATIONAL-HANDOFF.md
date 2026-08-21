@@ -9,7 +9,7 @@ de claves.
 El estado vivo prevalece siempre sobre este documento y sobre cualquier
 historial de trabajo.
 
-## Continuidad del cambio activo — 20 de agosto de 2026
+## Continuidad del cambio activo — 21 de agosto de 2026
 
 - El código activo ya no crea ni reconoce un centro implícito o privilegiado.
   Las rutas de tenant exigen un perfil y una membresía activos; los permisos de
@@ -28,6 +28,14 @@ historial de trabajo.
   membresías activas, altas, participación y cancelación en el periodo. Esa
   vista permanece aislada por tenant y no se entrega al contrato del
   entrenador.
+- El alta inicial de administradores y la creación posterior de pruebas usan
+  el mismo interruptor `COMMERCIAL_TRIALS_ENABLED` en producción. La API
+  pública expone solo su disponibilidad booleana para que la interfaz falle
+  cerrada, sin revelar configuración privada.
+- Los eventos operativos de factura de Stripe conservan solo una alerta mínima
+  y reconcilian la Subscription actual. Analytics y CRM aplican en el servidor
+  los permisos comerciales del centro; tarjetas, facturas, reintentos,
+  reembolsos y disputas permanecen en Stripe.
 - Las migraciones y pruebas del repositorio no demuestran que una base
   PostgreSQL externa se haya migrado. Siguen pendientes la copia/restauración y
   la validación cruzada en un entorno autorizado antes de producción.
@@ -82,9 +90,11 @@ Al empezar una tarea que pueda afectar al código o a producción:
    base implicada antes de editar migraciones.
 
 Para activar Stripe Live, verificar además Product y Prices activos, portal,
-endpoint y eventos Live, permisos mínimos de la clave restringida, secreto de
-firma, origen HTTPS y recorrido completo de pago, renovación, fallo y
-cancelación. Nunca reutilizar objetos ni Customers de Test.
+endpoint y eventos Live —incluidos los estados de factura enumerados en
+`docs/STRIPE-BILLING.md`—, permisos mínimos de la clave restringida, secreto de
+firma, origen HTTPS y recorrido completo de pago, renovación, autenticación,
+fallo, reconciliación y cancelación. Nunca reutilizar objetos ni Customers de
+Test.
 
 El hostname configurado dentro de Linux y el nombre del recurso en el panel del
 proveedor son identificadores diferentes. Ambos pueden ser válidos y deben

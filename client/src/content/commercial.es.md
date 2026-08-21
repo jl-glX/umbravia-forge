@@ -14,7 +14,9 @@ La idea es sencilla:
 
 Las funciones descritas en esta página forman parte del producto y de sus pruebas automatizadas. Antes de un lanzamiento comercial general todavía deben validarse en un entorno PostgreSQL autorizado la migración, el aislamiento entre centros, las copias y la restauración, el correo de extremo a extremo y la operación continuada.
 
-Los pagos, las suscripciones y los reembolsos reales no están activados. La prueba permite conocer el producto, pero no debe confundirse con una producción validada para datos reales.
+El código de suscripción SaaS admite Stripe en modos Test y Live aislados, con Checkout, portal y confirmaciones firmadas. Eso no significa que esta instalación esté cobrando: los precios, la moneda, la fiscalidad, las credenciales y el recorrido Live deben configurarse y validarse expresamente en el entorno autorizado. La prueba permite conocer el producto, pero no debe confundirse con una producción validada para datos o pagos reales.
+
+La base web y sus servicios críticos se someten a pruebas, compilación y auditoría de dependencias antes de publicarse. Esas comprobaciones acreditan el repositorio, pero no sustituyen la validación humana de infraestructura, correo, copias, fiscalidad ni pagos Live de cada instalación.
 
 ---
 
@@ -394,11 +396,24 @@ El centro puede:
 - organizar conceptos;
 - exportar información.
 
-La plataforma busca mantener flexibilidad para que cada centro pueda reflejar su propia operativa.
+La plataforma busca mantener flexibilidad para que cada centro pueda reflejar su propia operativa. Este libro es administrativo: registra estados y documentos, pero no mueve dinero, no almacena tarjetas y no demuestra que un cobro se haya producido.
 
-Actualmente Umbravia Forge no procesa todavía pagos reales, suscripciones ni reembolsos.
+## Suscripción del centro a Umbravia Forge
 
-La integración con sistemas de pago forma parte de una fase posterior, después de validar el producto con centros reales.
+La suscripción SaaS del centro está separada de los cobros que el centro realice a sus socios. Umbravia Forge delega en Stripe:
+
+- Checkout mensual o anual;
+- Customer independiente por centro y por modo;
+- métodos de pago y autenticaciones;
+- renovaciones, facturas alojadas y portal del cliente;
+- cancelaciones, fallos de cobro, disputas y reembolsos autorizados;
+- entrega de eventos firmados.
+
+Umbravia Forge conserva solo el vínculo comercial mínimo necesario para saber qué tiene contratado cada centro. Los webhooks son firmados e idempotentes, los Prices proceden de la configuración del servidor y una vuelta del navegador desde Checkout no se toma como prueba de pago. Los administradores pueden abrir el portal, ver alertas operativas mínimas y contrastar el estado actual con Stripe sin copiar tarjetas, importes ni facturas a la base local.
+
+Cuando el control comercial está activado, Analytics y CRM comprueban en el servidor que el centro tenga una suscripción o prueba válida. El modo Live ya está contemplado por el código, pero solo debe habilitarse después de decidir precios, moneda, impuestos y condiciones, crear los objetos Live, cargar secretos mediante el mecanismo autorizado y probar el ciclo completo con validación humana.
+
+Los cobros del centro a sus socios, el reparto de dinero y Stripe Connect no forman parte de esta base. Si se incorporan más adelante, se hará mediante un proveedor regulado; Umbravia Forge no pretende construir un procesador financiero propio.
 
 ---
 
@@ -432,6 +447,18 @@ El objetivo es responder preguntas útiles:
 > ¿Cuántas plazas recuperamos gracias a la lista de espera?
 
 Las encuestas mensuales permiten contrastar estas métricas con la percepción de los usuarios. Los resultados ayudan a revisar horarios, aforos y decisiones operativas, sin presentar una correlación como causa demostrada.
+
+## Base de CRM para el centro
+
+Forge CRM reutiliza las membresías y la actividad autorizada del centro para organizar:
+
+- altas y acompañamiento inicial;
+- segmentos sugeridos y ajustes manuales;
+- responsables internos;
+- próximos seguimientos;
+- tareas de incorporación, servicio, retención o reactivación.
+
+La segmentación es una ayuda operativa, no una decisión automática sobre la persona. Las rutas están aisladas por centro, requieren una función administrativa activa y no conceden acceso por el mero hecho de ocultar o mostrar un campo en la interfaz.
 
 ---
 

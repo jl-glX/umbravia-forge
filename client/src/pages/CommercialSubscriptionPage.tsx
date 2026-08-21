@@ -28,13 +28,22 @@ type SubscriptionStatus =
 interface SubscriptionOverview {
   configured: boolean;
   testMode: boolean;
+  mode: "disabled" | "test" | "live";
   plans: Record<PlanKey, boolean>;
   subscription: {
     plan: PlanKey | null;
     status: SubscriptionStatus;
     currentPeriodEnd: number | null;
     cancelAtPeriodEnd: boolean;
+    billingAttention:
+      | "none"
+      | "payment_failed"
+      | "payment_action_required"
+      | "invoice_finalization_failed";
+    lastInvoiceEventAt: number | null;
+    lastReconciledAt: number | null;
     canOpenPortal: boolean;
+    canReconcile: boolean;
   };
   entitlements: {
     enforcementEnabled: boolean;
@@ -54,7 +63,9 @@ export function CommercialSubscriptionPage() {
   const [searchParams] = useSearchParams();
   const [overview, setOverview] = useState<SubscriptionOverview | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<PlanKey | "portal" | null>(null);
+  const [busy, setBusy] = useState<PlanKey | "portal" | "reconcile" | null>(
+    null,
+  );
   const [error, setError] = useState("");
 
   const loadOverview = useCallback(async () => {
@@ -98,6 +109,22 @@ export function CommercialSubscriptionPage() {
       window.location.assign(result.url);
     } catch {
       setError(t("subscription.actionError"));
+      setBusy(null);
+    }
+  };
+
+  const reconcileSubscription = async () => {
+    setBusy("reconcile");
+    setError("");
+    try {
+      const response = await authFetch(`${API_PATH}/reconcile`, {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("reconciliation unavailable");
+      setOverview((await response.json()) as SubscriptionOverview);
+    } catch {
+      setError(t("subscription.reconcileError"));
+    } finally {
       setBusy(null);
     }
   };
@@ -157,6 +184,36 @@ export function CommercialSubscriptionPage() {
               {t("subscription.testMode")}
             </div>
           )}
+          {overview.mode === "live" && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+              {t("subscription.liveMode")}
+            </div>
+          )}
+
+          {overview.subscription.billingAttention !== "none" && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+              <p className="font-bold">
+                {t(
+                  `subscription.attention.${overview.subscription.billingAttention}.title`,
+                )}
+              </p>
+              <p className="mt-1 text-sm leading-6">
+                {t(
+                  `subscription.attention.${overview.subscription.billingAttention}.description`,
+                )}
+              </p>
+              {overview.subscription.lastInvoiceEventAt && (
+                <p className="mt-2 text-xs text-amber-800">
+                  {t("subscription.lastInvoiceEvent", {
+                    date: new Intl.DateTimeFormat(
+                      i18n.resolvedLanguage ?? i18n.language,
+                      { dateStyle: "medium", timeStyle: "short" },
+                    ).format(overview.subscription.lastInvoiceEventAt),
+                  })}
+                </p>
+              )}
+            </div>
+          )}
 
           <Card className="p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -186,12 +243,14 @@ export function CommercialSubscriptionPage() {
                   </p>
                 )}
               </div>
-              <Button variant="outline" onClick={() => void loadOverview()}>
-                <RefreshCw /> {t("common.refresh")}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => void loadOverview()}>
+                  <RefreshCw /> {t("common.refresh")}
+                </Button>
+              </div>
             </div>
             {overview.subscription.canOpenPortal && (
-              <VerifiedForm className="mt-5">
+              <VerifiedForm className="mt-5 flex flex-wrap gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -203,11 +262,36 @@ export function CommercialSubscriptionPage() {
                     ? t("subscription.opening")
                     : t("subscription.manage")}
                 </Button>
+                {overview.subscription.canReconcile && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy !== null}
+                    onClick={() => void reconcileSubscription()}
+                  >
+                    <RefreshCw />
+                    {busy === "reconcile"
+                      ? t("subscription.reconciling")
+                      : t("subscription.reconcile")}
+                  </Button>
+                )}
               </VerifiedForm>
+            )}
+            {overview.subscription.lastReconciledAt && (
+              <p className="mt-3 text-xs text-slate-500">
+                {t("subscription.lastReconciled", {
+                  date: new Intl.DateTimeFormat(
+                    i18n.resolvedLanguage ?? i18n.language,
+                    { dateStyle: "medium", timeStyle: "short" },
+                  ).format(overview.subscription.lastReconciledAt),
+                })}
+              </p>
             )}
           </Card>
 
-          {!["active", "trialing"].includes(overview.subscription.status) && (
+          {["inactive", "canceled", "incomplete_expired"].includes(
+            overview.subscription.status,
+          ) && (
             <section>
               <h2 className="text-xl font-black text-slate-950">
                 {t("subscription.choosePlan")}

@@ -351,10 +351,14 @@ export function BillingPage() {
               className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4"
             >
               <div className="relative md:col-span-2 lg:col-span-4">
-                <Label>{t("billing.memberSearch")}</Label>
+                <Label htmlFor="billing-member-search">
+                  {t("billing.memberSearch")}
+                </Label>
                 <div className="mt-1 flex gap-2">
                   <Input
+                    id="billing-member-search"
                     value={memberQuery}
+                    maxLength={120}
                     onChange={(event) => setMemberQuery(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
@@ -406,6 +410,7 @@ export function BillingPage() {
               <Field label={t("billing.customer")}>
                 <Input
                   required
+                  maxLength={120}
                   value={form.customerName}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -419,6 +424,7 @@ export function BillingPage() {
               <Field label={t("common.email")}>
                 <Input
                   type="email"
+                  maxLength={254}
                   value={form.customerEmail}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -432,6 +438,7 @@ export function BillingPage() {
               <Field label={t("billing.concept")}>
                 <Input
                   required
+                  maxLength={160}
                   value={form.concept}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -446,6 +453,7 @@ export function BillingPage() {
                   required
                   type="number"
                   min="0"
+                  max="1000000"
                   step="0.01"
                   value={form.amount}
                   onChange={(event) =>
@@ -502,6 +510,7 @@ export function BillingPage() {
                 <Field label={t("billing.customCycleLabel")}>
                   <Input
                     required
+                    maxLength={160}
                     value={form.customCycleLabel}
                     placeholder={t("billing.customCyclePlaceholder")}
                     onChange={(event) =>
@@ -546,6 +555,7 @@ export function BillingPage() {
               <Field label={t("billing.invoiceNumber")}>
                 <Input
                   value={form.invoiceNumber}
+                  maxLength={80}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
@@ -561,6 +571,7 @@ export function BillingPage() {
                     spellCheck
                     className="min-h-24 w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-100"
                     value={form.notes}
+                    maxLength={1000}
                     placeholder={t("billing.notesPlaceholder")}
                     onChange={(event) =>
                       setForm((current) => ({
@@ -588,6 +599,7 @@ export function BillingPage() {
                 </p>
               </div>
               <select
+                aria-label={t("billing.recordsDescription")}
                 className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
                 value={recordFilter}
                 onChange={(event) =>
@@ -799,9 +811,9 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
+    <Label className="block space-y-2">
+      <span className="block">{label}</span>
       {children}
-    </div>
+    </Label>
   );
 }

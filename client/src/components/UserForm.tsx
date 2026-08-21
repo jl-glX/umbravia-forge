@@ -88,12 +88,17 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
 
         <VerifiedForm onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="managed-user-email"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               {t("common.email")}
             </label>
             <input
               type="email"
+              id="managed-user-email"
               required
+              maxLength={254}
               value={formData.email}
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
@@ -103,12 +108,17 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="managed-user-name"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               {t("common.name")}
             </label>
             <input
               type="text"
+              id="managed-user-name"
               required
+              maxLength={100}
               value={formData.name}
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
@@ -118,13 +128,18 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="managed-user-password"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               {user ? t("admin.passwordOptional") : t("common.password")}
             </label>
             <PasswordInput
+              id="managed-user-password"
               required={!user}
               value={formData.password}
-              maxLength={256}
+              minLength={formData.password ? 12 : undefined}
+              maxLength={128}
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
               }
@@ -133,10 +148,14 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="managed-user-role"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               {t("common.role")}
             </label>
             <select
+              id="managed-user-role"
               value={formData.role}
               onChange={(e) => {
                 if (isUserRole(e.target.value)) {
@@ -152,10 +171,15 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
           </div>
 
           <div className="flex gap-2 justify-end pt-4">
-            <Button variant="outline" onClick={onClose} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={loading}
+            >
               {t("common.cancel")}
             </Button>
-            <Button disabled={loading}>
+            <Button type="submit" disabled={loading}>
               {loading ? t("common.saving") : t("common.save")}
             </Button>
           </div>

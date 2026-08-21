@@ -500,6 +500,8 @@ export function CommercialTrialPage() {
                   <Input
                     id="facilityName"
                     required
+                    minLength={2}
+                    maxLength={120}
                     value={form.facilityName}
                     onChange={(e) =>
                       setForm({ ...form, facilityName: e.target.value })
@@ -543,7 +545,16 @@ export function CommercialTrialPage() {
                     <Input
                       id={field}
                       type="number"
-                      min="0"
+                      min={field === "usualCapacity" ? "1" : "0"}
+                      max={
+                        field === "approximateMembers"
+                          ? "1000000"
+                          : field === "trainerCount"
+                            ? "100000"
+                            : field === "spaceCount"
+                              ? "10000"
+                              : "100000"
+                      }
                       value={form[field]}
                       onChange={(e) =>
                         setForm({ ...form, [field]: e.target.value })
@@ -557,6 +568,7 @@ export function CommercialTrialPage() {
                   </Label>
                   <Input
                     id="classTypes"
+                    maxLength={1618}
                     value={form.classTypes}
                     onChange={(e) =>
                       setForm({ ...form, classTypes: e.target.value })
@@ -571,6 +583,7 @@ export function CommercialTrialPage() {
                   <Input
                     id="currency"
                     maxLength={3}
+                    pattern="[A-Za-z]{3}"
                     value={form.currency}
                     onChange={(e) =>
                       setForm({
@@ -607,6 +620,7 @@ export function CommercialTrialPage() {
                   </Label>
                   <textarea
                     id="scheduleNotes"
+                    maxLength={2000}
                     className="mt-2 min-h-24 w-full rounded-md border border-slate-200 p-3"
                     value={form.scheduleNotes}
                     onChange={(e) =>

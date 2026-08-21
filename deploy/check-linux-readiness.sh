@@ -139,6 +139,65 @@ if [ -f "$ENV_FILE" ]; then
     fail "TURNSTILE_SECRET_KEY ausente o demasiado corto"
   fi
 
+  STRIPE_BILLING_ENABLED_VALUE=$(sed -n 's/^STRIPE_BILLING_ENABLED=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
+  case "$STRIPE_BILLING_ENABLED_VALUE" in
+    ""|false)
+      warn "Stripe Billing permanece desactivado; no se habilitaran suscripciones SaaS ni permisos comerciales"
+      ;;
+    true)
+      STRIPE_BILLING_MODE_VALUE=$(sed -n 's/^STRIPE_BILLING_MODE=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
+      STRIPE_BILLING_MODE_VALUE=${STRIPE_BILLING_MODE_VALUE:-test}
+      case "$STRIPE_BILLING_MODE_VALUE" in
+        test) STRIPE_KEY_PREFIX='rk_test_' ;;
+        live)
+          STRIPE_KEY_PREFIX='rk_live_'
+          if grep -Eq '^APP_ENV=production$' "$ENV_FILE"; then
+            pass "Stripe Live limitado al perfil de produccion"
+          else
+            fail "Stripe Live requiere APP_ENV=production"
+          fi
+          ;;
+        *)
+          STRIPE_KEY_PREFIX=''
+          fail "STRIPE_BILLING_MODE debe ser test o live"
+          ;;
+      esac
+
+      if [ -n "$STRIPE_KEY_PREFIX" ] && grep -Eq "^STRIPE_RESTRICTED_API_KEY=${STRIPE_KEY_PREFIX}.+" "$ENV_FILE"; then
+        pass "clave restringida de Stripe coherente con el modo"
+      else
+        fail "STRIPE_RESTRICTED_API_KEY ausente o incoherente con el modo"
+      fi
+      if grep -Eq '^STRIPE_WEBHOOK_SECRET=whsec_.+' "$ENV_FILE"; then
+        pass "secreto de firma del webhook Stripe configurado"
+      else
+        fail "STRIPE_WEBHOOK_SECRET ausente o invalido"
+      fi
+      for STRIPE_PRICE_ENV in STRIPE_PRICE_FORGE_MONTHLY STRIPE_PRICE_FORGE_ANNUAL; do
+        if grep -Eq "^${STRIPE_PRICE_ENV}=price_.+" "$ENV_FILE"; then
+          pass "$STRIPE_PRICE_ENV configurado"
+        else
+          fail "$STRIPE_PRICE_ENV ausente o invalido"
+        fi
+      done
+      STRIPE_MONTHLY_PRICE=$(sed -n 's/^STRIPE_PRICE_FORGE_MONTHLY=//p' "$ENV_FILE" | tail -n 1)
+      STRIPE_ANNUAL_PRICE=$(sed -n 's/^STRIPE_PRICE_FORGE_ANNUAL=//p' "$ENV_FILE" | tail -n 1)
+      if [ -n "$STRIPE_MONTHLY_PRICE" ] && [ "$STRIPE_MONTHLY_PRICE" != "$STRIPE_ANNUAL_PRICE" ]; then
+        pass "Prices mensual y anual de Stripe son independientes"
+      else
+        fail "los Prices mensual y anual de Stripe deben ser distintos"
+      fi
+      if grep -Eq '^STRIPE_PORTAL_CONFIGURATION_ID=bpc_.+' "$ENV_FILE"; then
+        pass "configuracion explicita del portal Stripe disponible"
+      else
+        warn "Stripe usara la configuracion predeterminada del portal; validela antes de cobrar"
+      fi
+      ;;
+    *)
+      fail "STRIPE_BILLING_ENABLED debe ser true o false"
+      ;;
+  esac
+
   if grep -Eq '^EMAIL_VERIFICATION_ENABLED=true$' "$ENV_FILE"; then
     pass "EMAIL_VERIFICATION_ENABLED activo"
   else

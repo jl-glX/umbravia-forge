@@ -5,6 +5,12 @@ the repository is the historical review of 12 August 2026, documented in
 [SECURITY-AUDIT-2026-08-12.md](./SECURITY-AUDIT-2026-08-12.md). The manager
 console received a later, narrower review in
 [MANAGER-CONSOLE-SECURITY-AUDIT-2026-08-15.md](./MANAGER-CONSOLE-SECURITY-AUDIT-2026-08-15.md).
+The code, versioned infrastructure, documentation and interface contracts
+affected by the Stripe and commercial-capability work received a narrower
+readiness review on 21 August 2026 in
+[INTEGRAL-READINESS-AUDIT-2026-08-21.md](./INTEGRAL-READINESS-AUDIT-2026-08-21.md).
+It is not a new production black-box assessment and does not replace live
+environment verification.
 
 Future reviews follow the
 [`SECURITY-AUDIT-STANDARD.md`](./SECURITY-AUDIT-STANDARD.md) internal standard.
@@ -52,8 +58,8 @@ security audit or a future legally required record.
 
 Umbravia Forge presents members and centre staff with separate sign-in portals. The
 member portal accepts only member accounts. The staff portal accepts trainer
-and administrator accounts and can identify a centre account by its corporate
-email address or registered centre phone number. This separation is enforced
+and administrator accounts and can identify the professional user account by
+its email address or registered phone number. This separation is enforced
 by the API as well as the interface; choosing a different portal cannot elevate
 an account's role or permissions.
 

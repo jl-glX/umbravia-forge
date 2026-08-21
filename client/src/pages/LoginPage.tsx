@@ -263,6 +263,9 @@ export function LoginPage() {
               value={mfaCode}
               onChange={(e) => setMfaCode(e.target.value)}
               placeholder="123456"
+              maxLength={13}
+              pattern="(?:[0-9]{6}|[A-Fa-f0-9]{6}-?[A-Fa-f0-9]{6})"
+              required
               autoFocus
             />
             <p className="text-xs text-slate-500">
@@ -324,19 +327,21 @@ export function LoginPage() {
               <div className="space-y-2">
                 <Label htmlFor="identifier" className="text-slate-700">
                   {accessPortal === "member"
-                    ? t("auth.emailAddress")
+                    ? t("auth.accountIdentifier")
                     : t("auth.centerIdentifier")}
                 </Label>
                 <Input
                   id="identifier"
-                  type={accessPortal === "member" ? "email" : "text"}
+                  type="text"
                   autoComplete="username"
                   placeholder={
                     accessPortal === "member"
-                      ? "juan@example.com"
+                      ? "juan@example.com / +34 600 000 000"
                       : "centro@umbravia-forge.com / +34 953 000 000"
                   }
                   value={identifier}
+                  maxLength={254}
+                  required
                   onChange={(e) => setIdentifier(e.target.value)}
                   disabled={isLoading}
                   className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 focus-visible:bg-white"
@@ -359,7 +364,8 @@ export function LoginPage() {
                   id="password"
                   placeholder="••••••••"
                   value={password}
-                  maxLength={256}
+                  maxLength={128}
+                  required
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
                   className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 focus-visible:bg-white"
@@ -434,6 +440,8 @@ export function LoginPage() {
                       value={mfaCode}
                       onChange={(event) => setMfaCode(event.target.value)}
                       placeholder={t("auth.verificationCodePlaceholder")}
+                      maxLength={13}
+                      pattern="(?:[0-9]{6}|[A-Fa-f0-9]{6}-?[A-Fa-f0-9]{6})"
                       disabled={isLoading}
                       className="h-11 rounded-xl border-slate-200 bg-white px-3"
                     />

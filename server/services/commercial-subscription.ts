@@ -1,6 +1,9 @@
 import type Stripe from "stripe";
 import { db } from "../db/client.js";
-import type { CommercialSubscriptionStatus } from "../db/types.js";
+import type {
+  CommercialBillingAttention,
+  CommercialSubscriptionStatus,
+} from "../db/types.js";
 import {
   resolveStripeBillingConfiguration,
   type CommercialPlanKey,
@@ -69,6 +72,53 @@ function stripeObjectId(value: { id: string } | string | null): string | null {
   return typeof value === "string" ? value : (value?.id ?? null);
 }
 
+type OperationalInvoiceEvent =
+  | Stripe.InvoiceFinalizationFailedEvent
+  | Stripe.InvoiceMarkedUncollectibleEvent
+  | Stripe.InvoiceOverdueEvent
+  | Stripe.InvoicePaidEvent
+  | Stripe.InvoicePaymentActionRequiredEvent
+  | Stripe.InvoicePaymentFailedEvent
+  | Stripe.InvoicePaymentSucceededEvent;
+
+function isOperationalInvoiceEvent(
+  event: Stripe.Event,
+): event is OperationalInvoiceEvent {
+  return [
+    "invoice.finalization_failed",
+    "invoice.marked_uncollectible",
+    "invoice.overdue",
+    "invoice.paid",
+    "invoice.payment_action_required",
+    "invoice.payment_failed",
+    "invoice.payment_succeeded",
+  ].includes(event.type);
+}
+
+function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  return stripeObjectId(
+    invoice.parent?.subscription_details?.subscription ?? null,
+  );
+}
+
+function billingAttentionFromInvoiceEvent(
+  event: OperationalInvoiceEvent,
+): CommercialBillingAttention {
+  if (
+    event.type === "invoice.paid" ||
+    event.type === "invoice.payment_succeeded"
+  ) {
+    return "none";
+  }
+  if (event.type === "invoice.payment_action_required") {
+    return "payment_action_required";
+  }
+  if (event.type === "invoice.finalization_failed") {
+    return "invoice_finalization_failed";
+  }
+  return "payment_failed";
+}
+
 function planFromMetadata(
   value: string | undefined,
   priceId: string | null,
@@ -79,6 +129,19 @@ function planFromMetadata(
   if (priceId !== null) return null;
   if (value === "monthly" || value === "annual") return value;
   return null;
+}
+
+function requireSubscriptionMode(
+  subscription: Stripe.Subscription,
+  configuration: StripeBillingConfiguration,
+): void {
+  if (subscription.livemode !== configuration.liveMode) {
+    throw requestError(
+      "The Stripe subscription mode does not match this billing environment",
+      "STRIPE_SUBSCRIPTION_MODE_MISMATCH",
+      400,
+    );
+  }
 }
 
 function trustedClientOrigin(
@@ -122,14 +185,22 @@ export async function getCommercialSubscriptionOverview(facilityId: string) {
           status: subscription.status,
           currentPeriodEnd: subscription.currentPeriodEnd,
           cancelAtPeriodEnd: subscription.cancelAtPeriodEnd === 1,
+          billingAttention: subscription.billingAttention,
+          lastInvoiceEventAt: subscription.lastInvoiceEventAt,
+          lastReconciledAt: subscription.lastReconciledAt,
           canOpenPortal: Boolean(subscription.stripeCustomerId),
+          canReconcile: Boolean(subscription.stripeSubscriptionId),
         }
       : {
           plan: null,
           status: "inactive" as const,
           currentPeriodEnd: null,
           cancelAtPeriodEnd: false,
+          billingAttention: "none" as const,
+          lastInvoiceEventAt: null,
+          lastReconciledAt: null,
           canOpenPortal: false,
+          canReconcile: false,
         },
     entitlements,
   };
@@ -179,6 +250,9 @@ async function ensureStripeCustomer(input: {
       status: existing?.status ?? "inactive",
       currentPeriodEnd: null,
       cancelAtPeriodEnd: 0,
+      billingAttention: "none",
+      lastInvoiceEventAt: null,
+      lastReconciledAt: null,
       lastStripeEventCreatedAt: null,
       lastStripeEventId: null,
       createdAt: now,
@@ -195,6 +269,9 @@ async function ensureStripeCustomer(input: {
         status: "inactive",
         currentPeriodEnd: null,
         cancelAtPeriodEnd: 0,
+        billingAttention: "none",
+        lastInvoiceEventAt: null,
+        lastReconciledAt: null,
         lastStripeEventCreatedAt: null,
         lastStripeEventId: null,
         updatedAt: now,
@@ -214,7 +291,7 @@ export async function createCommercialCheckout(input: {
   const gateway = gatewayFactory(configuration);
   const existing = await db
     .selectFrom("facilityCommercialSubscriptions")
-    .select("status")
+    .select(["status", "stripeSubscriptionId", "stripeCheckoutSessionId"])
     .where("facilityId", "=", input.facilityId)
     .where("stripeLivemode", "=", configuration.liveMode ? 1 : 0)
     .executeTakeFirst();
@@ -222,6 +299,26 @@ export async function createCommercialCheckout(input: {
     throw requestError(
       "The centre already has an active subscription",
       "SUBSCRIPTION_ALREADY_ACTIVE",
+      409,
+    );
+  }
+  if (
+    existing?.stripeSubscriptionId &&
+    !["canceled", "incomplete_expired"].includes(existing.status)
+  ) {
+    throw requestError(
+      "The existing Stripe subscription must be recovered or managed in the customer portal",
+      "SUBSCRIPTION_REQUIRES_PORTAL",
+      409,
+    );
+  }
+  if (
+    existing?.status === "checkout_pending" &&
+    existing.stripeCheckoutSessionId
+  ) {
+    throw requestError(
+      "The centre already has a pending Stripe Checkout session",
+      "CHECKOUT_ALREADY_PENDING",
       409,
     );
   }
@@ -285,6 +382,70 @@ export async function createCommercialPortal(facilityId: string) {
   return { url: session.url };
 }
 
+export async function reconcileCommercialSubscription(facilityId: string) {
+  const configuration = requireConfiguration();
+  const local = await db
+    .selectFrom("facilityCommercialSubscriptions")
+    .select(["stripeCustomerId", "stripeSubscriptionId", "stripeLivemode"])
+    .where("facilityId", "=", facilityId)
+    .where("stripeLivemode", "=", configuration.liveMode ? 1 : 0)
+    .executeTakeFirst();
+  if (!local?.stripeCustomerId || !local.stripeSubscriptionId) {
+    throw requestError(
+      "The centre does not have a Stripe subscription to reconcile",
+      "STRIPE_SUBSCRIPTION_NOT_FOUND",
+      409,
+    );
+  }
+
+  const subscription = await gatewayFactory(configuration).retrieveSubscription(
+    local.stripeSubscriptionId,
+  );
+  requireSubscriptionMode(subscription, configuration);
+  const customerId = stripeObjectId(subscription.customer);
+  if (
+    subscription.metadata.facility_id !== facilityId ||
+    customerId !== local.stripeCustomerId ||
+    subscription.id !== local.stripeSubscriptionId
+  ) {
+    throw requestError(
+      "Stripe returned a subscription outside the centre billing boundary",
+      "STRIPE_SUBSCRIPTION_BOUNDARY_MISMATCH",
+      409,
+    );
+  }
+
+  const item = subscription.items.data[0];
+  const priceId = item ? stripeObjectId(item.price) : null;
+  const plan = planFromMetadata(
+    subscription.metadata.plan_key,
+    priceId,
+    configuration,
+  );
+  const status =
+    plan === null ? "incomplete" : subscriptionStatus(subscription.status);
+  await db
+    .updateTable("facilityCommercialSubscriptions")
+    .set({
+      stripePriceId: priceId,
+      planKey: plan,
+      status,
+      currentPeriodEnd: item?.current_period_end
+        ? item.current_period_end * 1000
+        : null,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end ? 1 : 0,
+      lastReconciledAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+    .where("facilityId", "=", facilityId)
+    .where("stripeCustomerId", "=", customerId)
+    .where("stripeSubscriptionId", "=", subscription.id)
+    .where("stripeLivemode", "=", configuration.liveMode ? 1 : 0)
+    .execute();
+
+  return getCommercialSubscriptionOverview(facilityId);
+}
+
 export function constructStripeWebhookEvent(
   body: Buffer,
   signature: string,
@@ -317,6 +478,8 @@ export async function ingestStripeWebhookEvent(event: Stripe.Event) {
   let status: CommercialSubscriptionStatus | null = null;
   let currentPeriodEnd: number | null = null;
   let cancelAtPeriodEnd = 0;
+  let billingAttention: CommercialBillingAttention | null = null;
+  let lastInvoiceEventAt: number | null = null;
 
   if (
     event.type === "checkout.session.completed" ||
@@ -344,6 +507,7 @@ export async function ingestStripeWebhookEvent(event: Stripe.Event) {
     const subscription = await gatewayFactory(
       configuration,
     ).retrieveSubscription(eventSubscription.id);
+    requireSubscriptionMode(subscription, configuration);
     facilityId = subscription.metadata.facility_id ?? null;
     customerId = stripeObjectId(subscription.customer);
     subscriptionId = subscription.id;
@@ -364,6 +528,33 @@ export async function ingestStripeWebhookEvent(event: Stripe.Event) {
       ? item.current_period_end * 1000
       : null;
     cancelAtPeriodEnd = subscription.cancel_at_period_end ? 1 : 0;
+  } else if (isOperationalInvoiceEvent(event)) {
+    const invoice = event.data.object;
+    subscriptionId = invoiceSubscriptionId(invoice);
+    if (subscriptionId) {
+      const subscription =
+        await gatewayFactory(configuration).retrieveSubscription(
+          subscriptionId,
+        );
+      requireSubscriptionMode(subscription, configuration);
+      facilityId = subscription.metadata.facility_id ?? null;
+      customerId = stripeObjectId(subscription.customer);
+      const item = subscription.items.data[0];
+      priceId = item ? stripeObjectId(item.price) : null;
+      plan = planFromMetadata(
+        subscription.metadata.plan_key,
+        priceId,
+        configuration,
+      );
+      status =
+        plan === null ? "incomplete" : subscriptionStatus(subscription.status);
+      currentPeriodEnd = item?.current_period_end
+        ? item.current_period_end * 1000
+        : null;
+      cancelAtPeriodEnd = subscription.cancel_at_period_end ? 1 : 0;
+      billingAttention = billingAttentionFromInvoiceEvent(event);
+      lastInvoiceEventAt = eventCreatedAt;
+    }
   }
 
   const duplicate = await db.transaction().execute(async (transaction) => {
@@ -383,11 +574,14 @@ export async function ingestStripeWebhookEvent(event: Stripe.Event) {
           "stripeSubscriptionId",
           "stripeCheckoutSessionId",
           "status",
+          "lastInvoiceEventAt",
           "lastStripeEventCreatedAt",
         ])
         .where("facilityId", "=", facilityId)
         .executeTakeFirst();
       const checkoutEvent = event.type.startsWith("checkout.session.");
+      const subscriptionEvent = event.type.startsWith("customer.subscription.");
+      const invoiceEvent = isOperationalInvoiceEvent(event);
       const checkoutFailed =
         event.type === "checkout.session.async_payment_failed" ||
         event.type === "checkout.session.expired";
@@ -403,8 +597,11 @@ export async function ingestStripeWebhookEvent(event: Stripe.Event) {
         currentCheckout &&
         currentSubscription &&
         (checkoutEvent ||
-          local.lastStripeEventCreatedAt === null ||
-          eventCreatedAt >= local.lastStripeEventCreatedAt);
+          (invoiceEvent
+            ? local.lastInvoiceEventAt === null ||
+              eventCreatedAt >= local.lastInvoiceEventAt
+            : local.lastStripeEventCreatedAt === null ||
+              eventCreatedAt >= local.lastStripeEventCreatedAt));
       if (trustedMapping) {
         const checkoutCanChangeStatus =
           checkoutEvent &&
@@ -417,16 +614,25 @@ export async function ingestStripeWebhookEvent(event: Stripe.Event) {
               ? { stripeCheckoutSessionId: null }
               : {}),
             ...(priceId ? { stripePriceId: priceId } : {}),
-            ...(plan ? { planKey: plan } : {}),
-            ...(!checkoutEvent || checkoutCanChangeStatus ? { status } : {}),
             ...(!checkoutEvent
+              ? { planKey: plan }
+              : plan
+                ? { planKey: plan }
+                : {}),
+            ...(!checkoutEvent || checkoutCanChangeStatus ? { status } : {}),
+            ...(billingAttention !== null
+              ? { billingAttention, lastInvoiceEventAt }
+              : {}),
+            ...(subscriptionEvent
               ? {
                   currentPeriodEnd,
                   cancelAtPeriodEnd,
                   lastStripeEventCreatedAt: eventCreatedAt,
                   lastStripeEventId: event.id,
                 }
-              : {}),
+              : invoiceEvent
+                ? { currentPeriodEnd, cancelAtPeriodEnd }
+                : {}),
             updatedAt: Date.now(),
           })
           .where("facilityId", "=", facilityId)

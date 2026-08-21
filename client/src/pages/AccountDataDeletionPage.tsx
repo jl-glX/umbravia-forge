@@ -353,7 +353,7 @@ export function AccountDataDeletionPage() {
                     name="password"
                     autoComplete="current-password"
                     value={password}
-                    maxLength={256}
+                    maxLength={128}
                     required
                     onChange={(event) => setPassword(event.target.value)}
                     className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5"

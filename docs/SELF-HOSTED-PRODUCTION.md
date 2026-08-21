@@ -125,6 +125,15 @@ SUPPORT_ATTACHMENT_MAX_BYTES=5242880
 SUPPORT_MUTATION_RATE_LIMIT_MAX_REQUESTS=30
 SEED_DEMO_DATA=false
 COMMERCIAL_TRIALS_ENABLED=false
+
+# Suscripcion SaaS del centro; mantener cerrada hasta completar Stripe Live.
+STRIPE_BILLING_ENABLED=false
+STRIPE_BILLING_MODE=live
+STRIPE_RESTRICTED_API_KEY=<clave restringida Live, solo en el gestor de secretos>
+STRIPE_WEBHOOK_SECRET=<secreto del endpoint Live>
+STRIPE_PRICE_FORGE_MONTHLY=<Price recurrente mensual Live>
+STRIPE_PRICE_FORGE_ANNUAL=<Price recurrente anual Live distinto>
+STRIPE_PORTAL_CONFIGURATION_ID=<configuracion Live opcional del portal>
 ```
 
 `DATABASE_SSL=false` solo corresponde a PostgreSQL en el mismo servidor y
@@ -141,6 +150,14 @@ La clave de contenido privado es independiente de las claves MFA y de correo;
 la automatización no la genera ni la rota. Su activación y la frontera futura
 de Signal Protocol se documentan en
 [`PRIVATE-COMMUNICATION-SECURITY.md`](PRIVATE-COMMUNICATION-SECURITY.md).
+
+Stripe Billing no es un requisito para arrancar una instalación que todavía no
+ofrece suscripciones SaaS: `STRIPE_BILLING_ENABLED=false` mantiene cerradas sus
+rutas de pago. Si se activa, el arranque falla ante una clave, modo, Prices o
+secreto incompletos. Staging solo admite objetos Test. Producción Live requiere
+además el recorrido humano de pago, renovación, autenticación, impago,
+cancelación, factura, webhook retrasado y reconciliación descrito en
+[`STRIPE-BILLING.md`](STRIPE-BILLING.md).
 
 ## Verificación de correo y entrega transaccional
 

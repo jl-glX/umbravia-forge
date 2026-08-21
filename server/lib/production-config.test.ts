@@ -179,6 +179,15 @@ describe("production configuration", () => {
     ).toThrow(/SEED_DEMO_DATA/);
   });
 
+  it("fails closed when enabled Stripe billing is incomplete", () => {
+    expect(() =>
+      validateProductionConfiguration({
+        ...validEnvironment,
+        STRIPE_BILLING_ENABLED: "true",
+      }),
+    ).toThrow(/STRIPE_RESTRICTED_API_KEY/);
+  });
+
   it("rejects public binding, Turnstile test data and invalid encryption keys", () => {
     expect(() =>
       validateProductionConfiguration({
