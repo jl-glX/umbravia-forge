@@ -135,9 +135,13 @@ export function UmfSupportAccessPage() {
         setCaptchaToken("");
         setCaptchaResetSignal((value) => value + 1);
       } else {
-        await verifySupportEmail(code);
-        await logoutSupport();
+        const verification = await verifySupportEmail(code);
         setCode("");
+        if (verification.access === "company_head_approved") {
+          await finishSupportLogin();
+          return;
+        }
+        await logoutSupport();
         setMode("login");
         setNotice(t("umfSupportAccess.awaitingAdministratorApproval"));
       }

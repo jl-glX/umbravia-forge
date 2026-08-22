@@ -1,4 +1,5 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
@@ -13,6 +14,7 @@ describe("UMF Support verified account registration", () => {
     directory = await mkdtemp(join(tmpdir(), "umf-verified-registration-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256", "");
     vi.resetModules();
     database = await import("../db/client.js");
     await database.initializeDatabase();
@@ -144,5 +146,40 @@ describe("UMF Support verified account registration", () => {
         .where("userId", "in", [first.userId, later.userId])
         .execute(),
     ).resolves.toEqual([]);
+  });
+
+  it("activates only the verified account explicitly configured as the first head", async () => {
+    const email = "designated-head@example.com";
+    vi.stubEnv(
+      "UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256",
+      createHash("sha256").update(email).digest("hex"),
+    );
+    const browser = request.agent(app);
+    const registered = await browser
+      .post("/api/umf-support/register")
+      .send({
+        email,
+        name: "Designated",
+        lastName: "Head",
+        password: "DesignatedSupportPassword123",
+        countryCode: "ES",
+        locale: "es",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+      })
+      .expect(201);
+    await browser
+      .post("/api/umf-support/verify-email")
+      .send({ code: registered.body.demoVerificationCode })
+      .expect(200, { verified: true, access: "company_head_approved" });
+    await browser
+      .get("/api/umf-support/session")
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.user).toMatchObject({
+          id: registered.body.user.id,
+          accessApproved: true,
+        });
+      });
   });
 });

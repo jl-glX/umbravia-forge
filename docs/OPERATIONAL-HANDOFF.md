@@ -51,10 +51,13 @@ historial de trabajo.
   de seguridad. Tickets, correo operativo y administración exigen además una
   pertenencia activa en `umfSupportStaff`; `platformOperators` queda en el
   ámbito comercial. El registro crea una cuenta corporativa separada y exige
-  verificar el buzón, pero no concede pertenencia ni rol. Dirección aprueba
-  después las cuentas administrativas. La primera jefatura se designa mediante
-  una orden local sobre una identidad corporativa ya verificada. Una cuenta
-  administradora de centro no recibe acceso corporativo por su rol.
+  verificar el buzón, pero no concede pertenencia ni rol a cuentas ordinarias.
+  Dirección aprueba después las cuentas administrativas. La primera jefatura
+  es la única excepción: el correo corporativo cuya huella SHA-256 está
+  configurada fuera del repositorio recibe de forma transaccional `director` y
+  `platform_head` tras verificar el correo o al volver a autenticarse si ya
+  estaba verificado. Una cuenta administradora de centro no recibe acceso
+  corporativo por su rol.
 - Ambas aplicaciones usan el proveedor de datos configurado; en producción,
   UMF Support está dentro del mismo PostgreSQL, con realms, relaciones y tablas
   lógicamente separados. No debe afirmarse que existe una segunda base física.
@@ -78,9 +81,16 @@ historial de trabajo.
   `director`/`agent`, más espacios de colaboración de privilegio reducido. El
   organigrama amplio queda como borrador no publicado. `companyStaffProfiles`
   conserva la señal mínima `platform_head`, separada de los permisos diarios.
-  `company:designate-head` funciona primero en simulación, exige PostgreSQL,
-  repite el correo y solo actúa sobre una identidad `corporate_support` activa
-  y verificada. No traslada autoridad desde una cuenta comercial. Las rutas y
+  El bootstrap automático exige una huella válida en
+  `UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256`, falla cerrado ante otra jefatura y
+  no consulta ni modifica identidades `commercial`. `company:designate-head`
+  permanece como recuperación local: funciona primero en simulación, exige
+  PostgreSQL, repite el correo y solo actúa sobre una identidad
+  `corporate_support` activa y verificada. Si detecta relaciones de jefatura
+  históricas en la identidad `commercial` del mismo correo, el bootstrap
+  retira solo esas relaciones inválidas y conserva usuario, credenciales,
+  membresías y borrado comercial. Cualquier otra persona sigue bloqueando la
+  operación. Las rutas y
   comandos antiguos de solicitud, activación, provisión y reanudación se han
   retirado. El saneamiento
   `company:reset-support-identity` funciona primero en simulación, conserva
@@ -154,7 +164,7 @@ historial de trabajo.
   vigente del correo y las alertas está en
   `docs/UMF-SUPPORT-MAIL-AND-NOTIFICATIONS-AUDIT-2026-08-22.md`. En esta sesión,
   `npm run ci:validate` pasó 49 controles de portabilidad, formato, lint, los
-  tres `typecheck`, 114 archivos con 561 pruebas favorables y una prueba POSIX
+  tres `typecheck`, 115 archivos con 565 pruebas favorables y una prueba POSIX
   omitida por ejecutarse en Windows, las tres compilaciones, el paquete Windows
   y la auditoría de dependencias. La validación remota de cada publicación y la
   comprobación del entorno desplegado siguen siendo controles independientes.

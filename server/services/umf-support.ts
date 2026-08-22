@@ -47,6 +47,7 @@ import {
   discardPendingSignup,
   verifyEmailCode,
 } from "./email-verification.js";
+import { ensureConfiguredCompanyHead } from "./company-head-designation.js";
 
 const priorities = new Set<UmfSupportTicketPriority>([
   "low",
@@ -352,7 +353,10 @@ export async function registerUmfSupportAccount(
 export async function verifyUmfSupportRegistration(
   userId: string,
   code: string,
-): Promise<{ verified: true; access: "awaiting_administrator_approval" }> {
+): Promise<{
+  verified: true;
+  access: "company_head_approved" | "awaiting_administrator_approval";
+}> {
   const user = await db
     .selectFrom("users")
     .select(["accountStatus", "emailVerifiedAt", "identityRealm"])
@@ -375,11 +379,15 @@ export async function verifyUmfSupportRegistration(
       "UMF_SUPPORT_EMAIL_VERIFICATION_INVALID",
     );
   }
+  const bootstrap = await ensureConfiguredCompanyHead(userId);
+  const access = bootstrap.isCompanyHead
+    ? "company_head_approved"
+    : "awaiting_administrator_approval";
   await recordSecurityEvent("umf_support_account_activated", userId, {
     mode: "verified_email_self_registration",
-    access: "awaiting_administrator_approval",
+    access,
   });
-  return { verified: true, access: "awaiting_administrator_approval" };
+  return { verified: true, access };
 }
 
 export async function listUmfSupportStaff(auth: AuthenticatedUser) {
