@@ -26,6 +26,7 @@ import {
 } from "./facility-context.js";
 import { commercialFacilityTypes } from "../lib/commercial-trial.js";
 import type { CommercialFacilityType } from "../db/types.js";
+import { ensureConfiguredCompanyHead } from "./company-head-designation.js";
 
 export { isStrongPassword } from "../lib/password-policy.js";
 
@@ -432,6 +433,10 @@ export async function login(
     return { mfaRequired: true, challengeToken };
   }
 
+  if (accessPortal === "support") {
+    await ensureConfiguredCompanyHead(user.id);
+  }
+
   const result = await createSession(
     {
       id: user.id,
@@ -510,6 +515,9 @@ export async function completeMfaLogin(
     .set({ consumedAt: now })
     .where("id", "=", challengeId)
     .execute();
+  if (expectedIdentityRealm === "corporate_support") {
+    await ensureConfiguredCompanyHead(challenge.userId);
+  }
   const result = await createSession(
     {
       id: challenge.userId,

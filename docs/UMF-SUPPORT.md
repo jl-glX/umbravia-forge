@@ -55,9 +55,10 @@ decisión explícita, firma y nueva validación humana; véase
   iniciar sesión para gestionar contraseña, MFA, passkeys, sesiones y correo
   de acceso, pero sigue sin permisos sobre tickets, correo operativo ni
   administración hasta que dirección la aprueba;
-- designación de la primera jefatura mediante una orden local, limitada a una
-  identidad `corporate_support` ya existente y verificada, con simulación por
-  defecto, doble confirmación del correo y rechazo si ya existe otra jefatura;
+- bootstrap único de la primera jefatura para el correo corporativo cuya huella
+  SHA-256 está declarada fuera del repositorio. Solo actúa después de verificar
+  el buzón o de autenticar de nuevo una cuenta ya verificada, y rechaza otra
+  identidad o una jefatura previamente reclamada;
 - personal corporativo con roles `director` y `agent`, revocable sin alterar
   las membresías de centros;
 - panel de altas y bajas de cuentas administrativas y espacios de colaboración
@@ -93,20 +94,34 @@ corporativas. Ninguna ruta de soporte consulta una contraseña, cookie,
 membresía o solicitud de eliminación comercial para completar el alta.
 
 El registro y la verificación crean exclusivamente la identidad
-`corporate_support`. No crean `umfSupportStaff`, `facilityMemberships`,
-`platformOperators` ni un cargo de empresa. Una cuenta verificada puede abrir
-una sesión corporativa limitada a su propio centro de cuenta. La autorización
-operativa sigue fallando cerrada hasta que una dirección activa la incorpore
-como administradora en `umfSupportStaff`. La cuenta comercial que use el mismo
-correo, incluida cualquier solicitud de borrado programada, no se consulta ni
-se modifica durante ese inicio de sesión.
+`corporate_support`. Para cuentas ordinarias no crean `umfSupportStaff`,
+`facilityMemberships`, `platformOperators` ni un cargo de empresa: una cuenta
+verificada puede abrir una sesión corporativa limitada a su propio centro de
+cuenta y la autorización operativa sigue fallando cerrada hasta que dirección
+la aprueba. La única excepción es el bootstrap inicial descrito a continuación.
+La cuenta comercial que use el mismo correo, incluida cualquier solicitud de
+borrado programada, no se consulta ni se modifica durante estos flujos.
 
-La excepción inicial no depende de una cuenta comercial ni de la antigüedad de
-la identidad. La jefatura se designa localmente sobre una cuenta corporativa ya
-verificada. `npm run company:designate-head -- --email <correo> --confirm-email
-<correo>` solo muestra el plan; añadir `--apply` materializa de forma
-transaccional la dirección y el cargo `platform_head`. El comando exige
-PostgreSQL explícito y falla si encuentra una jefatura distinta.
+La excepción inicial no depende de una cuenta comercial, del orden de registro
+ni de la antigüedad. `UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256` contiene fuera
+del repositorio la huella del correo normalizado elegido por la instalación.
+Tras verificar ese buzón, o en el siguiente acceso correcto si ya estaba
+verificado, una transacción idempotente crea la dirección activa, el cargo
+`platform_head` y el marcador singleton. Un valor ausente o inválido, otro
+correo o una jefatura ya reclamada fallan cerrados. La contraseña, 2FA y
+passkeys siguen siendo propios del realm corporativo.
+
+Si una versión anterior dejó las tres relaciones de jefatura ligadas a la
+identidad `commercial` del mismo correo, el bootstrap retira únicamente esas
+relaciones corporativas inválidas antes de crear las correctas. La fila
+comercial, sus credenciales, membresías y solicitud de borrado permanecen
+intactas. Una relación perteneciente a otro correo o a otra identidad
+corporativa no se sanea automáticamente y bloquea la operación.
+
+`npm run company:designate-head -- --email <correo> --confirm-email <correo>`
+permanece como herramienta local de diagnóstico y recuperación: solo muestra
+el plan salvo que se añada `--apply`, exige PostgreSQL explícito y no puede
+transferir una jefatura existente.
 
 ## Administración mínima y colaboración
 
@@ -200,8 +215,9 @@ Solo después de revisar el JSON de simulación se repite el comando exacto con
 la jefatura pertenece a una identidad distinta de las declaradas o si no puede
 resolver con precisión el propietario del estado. Tras el saneamiento, la
 cuenta corporativa se registra desde cero, verifica su buzón por el flujo web
-vigente y, si debe ser la primera jefatura, se designa después mediante la orden
-local documentada.
+vigente y, si su correo coincide con la huella configurada y no existe otra
+jefatura, completa automáticamente el bootstrap. La orden local queda como vía
+de recuperación explícita si el automatismo no puede aplicarse.
 
 ## Flujo de una solicitud de privacidad
 
@@ -322,7 +338,8 @@ corporativo.
 
 Las pruebas del repositorio demuestran la separación frente a administradores
 de centros, la independencia de credenciales y cookies, la aprobación separada
-del buzón verificado, la designación local de jefatura, el cifrado de
+del buzón verificado, el bootstrap configurado e idempotente de jefatura y su
+recuperación local, el cifrado de
 borradores, la programación y cancelación, el saneamiento de hiperenlaces, el
 ámbito de las entregas y las preferencias de alertas por persona. Las
 migraciones PostgreSQL 47 y 48 incorporan borradores, preferencias y

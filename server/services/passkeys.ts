@@ -19,6 +19,7 @@ import {
 } from "./auth.js";
 import { recordSecurityEvent } from "./security-events.js";
 import { completeAccountRecovery } from "./account-recovery.js";
+import { ensureConfiguredCompanyHead } from "./company-head-designation.js";
 
 const RP_NAME = "Umbravia Forge";
 
@@ -289,6 +290,9 @@ export async function finishPasskeyAuthentication(
     .execute();
   await consumeChallenge(token);
   await recordSecurityEvent("passkey_login_succeeded", user.id);
+  if (accessPortal === "support") {
+    await ensureConfiguredCompanyHead(user.id);
+  }
   const session = await createSession(
     user,
     metadata,

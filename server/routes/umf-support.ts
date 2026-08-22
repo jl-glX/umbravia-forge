@@ -74,6 +74,7 @@ import {
   revokeUmfSupportPushSubscription,
   updateUmfSupportNotificationSettings,
 } from "../services/umf-support-notifications.js";
+import { ensureConfiguredCompanyHead } from "../services/company-head-designation.js";
 
 export const umfSupportRouter = express.Router();
 
@@ -385,6 +386,7 @@ umfSupportRouter.use(authenticateCorporateSupport);
 
 umfSupportRouter.get("/session", async (_req, res) => {
   const session = getAuthenticatedUser(res);
+  await ensureConfiguredCompanyHead(session.userId);
   const accessApproved = (await getUmfSupportRole(session.userId)) !== null;
   res.json({
     user: {

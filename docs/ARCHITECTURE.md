@@ -91,11 +91,22 @@ does not make a commercial account a corporate identity.
 Corporate registration creates an independent `corporate_support` identity and
 requires the ordinary bounded mailbox-verification challenge. Verification does
 not create `umfSupportStaff`, a company position, a facility membership or a
-commercial operator. A verified account remains unable to enter the staff
-application until an active director approves it. The first company head is
-designated separately through a local, PostgreSQL-only command that defaults to
-dry-run, confirms the mailbox twice and rejects an existing different head. A
-persistent singleton marker records that designation.
+commercial operator for ordinary accounts. They remain unable to enter the
+staff application until an active director approves them. The one-time initial
+head is the sole exception: after mailbox verification, or after the next
+successful password, MFA or passkey login of an already verified account, the
+server compares its normalized email with the externally configured SHA-256
+digest. An exact match atomically creates the active director, `platform_head`
+and persistent singleton marker. Missing or invalid configuration, a different
+email and an existing different head fail closed. The local PostgreSQL-only
+designation command remains an explicit recovery tool.
+
+If historical code attached the support director, company head or bootstrap
+marker to the `commercial` identity with the same normalized email, this exact
+configured bootstrap may delete only those invalid corporate relations before
+claiming the corporate identity. It does not update or delete the commercial
+user, credentials, memberships or deletion request. A different email or a
+different corporate owner is never repaired automatically.
 
 There is no compatibility path that transfers corporate authority from a
 `commercial` user. Historical misplaced relations must first be removed by the

@@ -230,7 +230,7 @@ export function registerSupportAccount(input: {
 export function verifySupportEmail(code: string) {
   return request<{
     verified: true;
-    access: "awaiting_administrator_approval";
+    access: "company_head_approved" | "awaiting_administrator_approval";
   }>("/verify-email", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

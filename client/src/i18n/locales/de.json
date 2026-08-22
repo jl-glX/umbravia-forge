@@ -1554,6 +1554,11 @@
       "all_other_sessions_revoked": "Andere Sitzungen geschlossen",
       "account_compromise_reported": "Mögliche Kompromittierung gemeldet",
       "email_verified": "E-Mail verifiziert",
+      "verification_email_sent": "Bestätigungscode gesendet",
+      "umf_support_access_requested": "Unternehmenskonto angefordert",
+      "umf_support_account_activated": "Unternehmenskonto bestätigt",
+      "umf_support_administrator_approved": "Administrativer Zugriff genehmigt",
+      "company_head_bootstrapped": "Anfängliche Unternehmensleitung aktiviert",
       "support_id_rotated": "Öffentliche Support-ID erneuert",
       "session_revoked": "Sitzung geschlossen"
     }

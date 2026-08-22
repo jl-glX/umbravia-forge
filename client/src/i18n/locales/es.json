@@ -1554,6 +1554,11 @@
       "all_other_sessions_revoked": "Se cerraron las demás sesiones",
       "account_compromise_reported": "Posible vulneración declarada",
       "email_verified": "Correo verificado",
+      "verification_email_sent": "Código de verificación enviado",
+      "umf_support_access_requested": "Cuenta corporativa solicitada",
+      "umf_support_account_activated": "Cuenta corporativa verificada",
+      "umf_support_administrator_approved": "Acceso administrativo aprobado",
+      "company_head_bootstrapped": "Jefatura inicial activada",
       "support_id_rotated": "ID público de soporte renovado"
     }
   },

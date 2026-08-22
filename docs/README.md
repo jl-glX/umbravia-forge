@@ -32,7 +32,8 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Forge Support](./FORGE-SUPPORT.md)
 - [UMF Support corporativo](./UMF-SUPPORT.md), incluidas las cuentas
   corporativas verificadas con centro de seguridad limitado antes de la
-  aprobación humana, la designación local de jefatura, los espacios de
+  aprobación humana, el bootstrap único de la jefatura configurada y su
+  herramienta local de recuperación, los espacios de
   colaboración de privilegio reducido, el panel de correo, las alertas
   configurables, los realms independientes y el saneamiento que preserva la
   cuenta comercial y sus solicitudes de borrado

@@ -164,11 +164,22 @@ calcularse fuera del repositorio e incorporarse al entorno protegido antes del
 registro. La cuenta crea una contraseña propia y debe verificar el buzón con el
 reto ordinario de seis cifras. Solo entonces se insertan dirección y jefatura.
 
-El flujo falla cerrado si existe `corporateBootstrapState`, personal de soporte
-o plantilla corporativa. No puede migrar autoridad desde una identidad
-`commercial`, aunque el correo coincida. Antes de recrear una jefatura afectada
-por versiones anteriores se ejecuta primero, con el entorno real del servicio,
-la simulación del saneamiento:
+El flujo falla cerrado si `corporateBootstrapState` o un cargo activo de
+jefatura pertenecen a otra identidad. Puede completar de forma idempotente las
+relaciones parciales de la misma cuenta designada, pero no migra autoridad
+desde una identidad `commercial`, aunque el correo coincida. La comprobación se
+ejecuta tras verificar el buzón y también al autenticar por contraseña, 2FA,
+passkey o una sesión corporativa aún válida; esto permite recuperar una cuenta
+ya verificada después de desplegar la corrección sin recrearla.
+
+La única limpieza automática admitida es el caso histórico inequívoco en el
+que `umfSupportStaff`, `companyStaffProfiles` o `corporateBootstrapState`
+apuntan a la identidad `commercial` con exactamente el mismo correo que la
+cuenta corporativa configurada y verificada. Se retiran solo esas relaciones;
+el usuario comercial, su contraseña, membresías y borrado programado se
+conservan. Los conflictos con otra dirección no se reparan automáticamente.
+Antes de sanear una jefatura afectada por cualquier otro conflicto se ejecuta
+primero, con el entorno real del servicio, la simulación:
 
 ```text
 npm run company:reset-support-identity -- --corporate-email <correo-soporte> --confirm-corporate-email <correo-soporte> --legacy-commercial-email <correo-comercial-con-relaciones-mal-ubicadas> --confirm-legacy-commercial-email <mismo-correo-comercial>

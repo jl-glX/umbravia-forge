@@ -1538,6 +1538,11 @@
       "all_other_sessions_revoked": "Other sessions closed",
       "account_compromise_reported": "Possible compromise reported",
       "email_verified": "Email verified",
+      "verification_email_sent": "Verification code sent",
+      "umf_support_access_requested": "Corporate account requested",
+      "umf_support_account_activated": "Corporate account verified",
+      "umf_support_administrator_approved": "Administrative access approved",
+      "company_head_bootstrapped": "Initial company head activated",
       "support_id_rotated": "Public support ID rotated"
     }
   },

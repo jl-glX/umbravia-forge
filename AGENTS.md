@@ -34,6 +34,10 @@ las fronteras de seguridad o la organización documental.
 - Preservar los cambios del usuario y revisar el estado de Git antes de editar.
 - Mantener autorización y aislamiento multi-tenant en el servidor; ocultar una
   acción en la interfaz no es un control de seguridad.
+- No convertir la primera cuenta corporativa registrada en jefatura por orden
+  de llegada. El bootstrap inicial solo puede usar la huella externa del correo
+  designado o la herramienta local explícita, y debe conservar separado el
+  realm comercial.
 - Validar entradas externas y mantener las reglas de negocio fuera de los
   componentes React.
 - Añadir texto visible a los catálogos español, inglés y alemán; usar `de-CH`
