@@ -4,6 +4,7 @@ import {
   evaluateUnconfiguredInactivityReviews,
 } from "./account-lifecycle.js";
 import { evaluateDueCommercialTrialCleanups } from "./commercial-trial.js";
+import { purgeExpiredSecurityEvents } from "./security-events.js";
 
 const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
 let timer: NodeJS.Timeout | null = null;
@@ -18,6 +19,7 @@ type AccountLifecycleReviewResult = {
   commercialTrialCleanup: Awaited<
     ReturnType<typeof evaluateDueCommercialTrialCleanups>
   >;
+  expiredSecurityEventsDeleted: number;
 };
 let currentRun: Promise<AccountLifecycleReviewResult> | null = null;
 let lastRunAt: number | null = null;
@@ -40,13 +42,20 @@ export function runAccountLifecycleReview() {
     evaluateDueInactivityDeletions(),
     evaluateUnconfiguredInactivityReviews(),
     evaluateDueCommercialTrialCleanups(),
+    purgeExpiredSecurityEvents(),
   ])
     .then(
-      async ([accountResult, inactivityReview, commercialTrialCleanup]) => ({
+      async ([
+        accountResult,
+        inactivityReview,
+        commercialTrialCleanup,
+        expiredSecurityEventsDeleted,
+      ]) => ({
         ...accountResult,
         inactivityReview,
         deletionExecution: await executeDueAccountDeletionJobs(),
         commercialTrialCleanup,
+        expiredSecurityEventsDeleted,
       }),
     )
     .then((result) => {

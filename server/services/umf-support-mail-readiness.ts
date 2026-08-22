@@ -16,6 +16,7 @@ export interface UmfSupportMailEvidence {
 export interface UmfSupportMailReadiness {
   outbound: boolean;
   inbound: boolean;
+  address: string | null;
   addressConfigured: boolean;
   configurationValid: boolean;
   outboundState: UmfSupportMailConfigurationState;
@@ -42,6 +43,8 @@ export function resolveUmfSupportMailReadiness(
   return {
     outbound: delivery.capabilities.supportNotifications,
     inbound: inboundState === "configured",
+    address:
+      environment.UMF_SUPPORT_EMAIL_ADDRESS?.trim().toLowerCase() || null,
     addressConfigured: Boolean(environment.UMF_SUPPORT_EMAIL_ADDRESS?.trim()),
     configurationValid: inboundState !== "invalid",
     outboundState: delivery.outbound.state,

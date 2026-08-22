@@ -45,9 +45,11 @@ import { recordSecurityEvent } from "./security-events.js";
 import {
   createEmailVerificationChallenge,
   discardPendingSignup,
+  getPendingEmailVerificationProfile,
   verifyEmailCode,
 } from "./email-verification.js";
 import { ensureConfiguredCompanyHead } from "./company-head-designation.js";
+import { commercialTrialProvisioningIsEnabled } from "../lib/commercial-trial.js";
 
 const priorities = new Set<UmfSupportTicketPriority>([
   "low",
@@ -219,8 +221,30 @@ async function requireDirector(auth: AuthenticatedUser): Promise<void> {
   }
 }
 
+async function requirePlatformHeadDirector(
+  auth: AuthenticatedUser,
+): Promise<void> {
+  await requireDirector(auth);
+  const companyHead = await db
+    .selectFrom("companyStaffProfiles")
+    .select("userId")
+    .where("userId", "=", auth.userId)
+    .where("position", "=", "platform_head")
+    .where("status", "=", "active")
+    .executeTakeFirst();
+  if (!companyHead) {
+    throw new UmfSupportAccessError("Platform head access is required");
+  }
+}
+
 export async function getUmfSupportCapabilities(auth: AuthenticatedUser) {
   const role = await requireStaff(auth);
+  const staff = await db
+    .selectFrom("umfSupportStaff")
+    .select("workspaceName")
+    .where("userId", "=", auth.userId)
+    .where("status", "=", "active")
+    .executeTakeFirstOrThrow();
   const companyHead = await db
     .selectFrom("companyStaffProfiles")
     .select("userId")
@@ -231,13 +255,143 @@ export async function getUmfSupportCapabilities(auth: AuthenticatedUser) {
   const email = await getUmfSupportMailReadiness();
   return {
     role,
+    workspaceName: staff.workspaceName,
     canManageAdministrators: role === "director",
     canManageCollaborationSpaces: role === "director",
     isPlatformHead: Boolean(companyHead),
+    canManageCommercialTrials: role === "director" && Boolean(companyHead),
+    commercialTrialProvisioningEnabled: commercialTrialProvisioningIsEnabled(),
     email,
     deliveryOperationallyVerified:
       email.outboundOperationallyVerified && email.inboundOperationallyVerified,
   };
+}
+
+export async function updateUmfSupportWorkspaceName(
+  auth: AuthenticatedUser,
+  input: Record<string, unknown>,
+) {
+  await requireStaff(auth);
+  const workspaceName = requiredText(input.workspaceName, "workspaceName", 80);
+  const result = await db
+    .updateTable("umfSupportStaff")
+    .set({ workspaceName, updatedAt: Date.now() })
+    .where("userId", "=", auth.userId)
+    .where("status", "=", "active")
+    .executeTakeFirst();
+  if (Number(result.numUpdatedRows) !== 1) {
+    throw new UmfSupportNotFoundError("UMF Support workspace not found");
+  }
+  return { workspaceName };
+}
+
+export async function listCommercialTrialAdministratorAccounts(
+  auth: AuthenticatedUser,
+) {
+  await requirePlatformHeadDirector(auth);
+  const accounts = await db
+    .selectFrom("users")
+    .select([
+      "id as userId",
+      "name",
+      "lastName",
+      "email",
+      "accountStatus",
+      "emailVerifiedAt",
+      "createdAt",
+    ])
+    .where("identityRealm", "=", "commercial")
+    .where("role", "=", "admin")
+    .orderBy("createdAt", "desc")
+    .execute();
+
+  return Promise.all(
+    accounts.map(async (account) => {
+      const [pending, trial] = await Promise.all([
+        db
+          .selectFrom("administratorSignupProvisioning")
+          .select(["facilityName", "facilityType"])
+          .where("userId", "=", account.userId)
+          .executeTakeFirst(),
+        db
+          .selectFrom("commercialTrials")
+          .select([
+            "id",
+            "facilityName",
+            "facilityType",
+            "status",
+            "realDataDeclaration",
+            "startedAt",
+            "expiresAt",
+          ])
+          .where("ownerUserId", "=", account.userId)
+          .orderBy("createdAt", "desc")
+          .executeTakeFirst(),
+      ]);
+      return {
+        ...account,
+        pendingProvisioning: pending ?? null,
+        trial: trial ?? null,
+      };
+    }),
+  );
+}
+
+export async function resendCommercialTrialAdministratorVerification(
+  auth: AuthenticatedUser,
+  userId: string,
+) {
+  await requirePlatformHeadDirector(auth);
+  const candidate = await db
+    .selectFrom("users")
+    .innerJoin(
+      "administratorSignupProvisioning",
+      "administratorSignupProvisioning.userId",
+      "users.id",
+    )
+    .select([
+      "users.id",
+      "users.identityRealm",
+      "users.role",
+      "users.accountStatus",
+      "users.emailVerifiedAt",
+    ])
+    .where("users.id", "=", userId)
+    .executeTakeFirst();
+  if (
+    !candidate ||
+    candidate.identityRealm !== "commercial" ||
+    candidate.role !== "admin" ||
+    candidate.accountStatus !== "pending_verification" ||
+    candidate.emailVerifiedAt !== null
+  ) {
+    throw new UmfSupportValidationError(
+      "A pending commercial trial administrator is required",
+      "COMMERCIAL_TRIAL_ADMIN_NOT_PENDING",
+    );
+  }
+  const profile = await getPendingEmailVerificationProfile(userId);
+  if (!profile) {
+    throw new UmfSupportValidationError(
+      "A pending commercial trial administrator is required",
+      "COMMERCIAL_TRIAL_ADMIN_NOT_PENDING",
+    );
+  }
+  const challenge = await createEmailVerificationChallenge(userId);
+  const deliveryId = await queueEmailVerificationCode({
+    userId,
+    platformScope: "commercial",
+    ...profile,
+    code: challenge.code,
+    expiresAt: challenge.expiresAt,
+  });
+  const sent = await deliverQueuedEmail(deliveryId).catch(() => false);
+  await recordSecurityEvent(
+    "commercial_trial_administrator_verification_resent",
+    auth.userId,
+    { subjectUserId: userId, deliveryQueued: true, sent },
+  );
+  return { sent, queued: !sent };
 }
 
 export function getUmfSupportDistribution() {
@@ -387,6 +541,7 @@ export async function listUmfSupportStaff(auth: AuthenticatedUser) {
     .select([
       "umfSupportStaff.userId",
       "umfSupportStaff.role",
+      "umfSupportStaff.workspaceName",
       "umfSupportStaff.status",
       "umfSupportStaff.createdAt",
       "users.name",
@@ -1491,6 +1646,33 @@ export async function listUmfSupportMailDrafts(auth: AuthenticatedUser) {
   const deliveryIds = drafts.flatMap((draft) =>
     parseDeliveryIds(draft.deliveryIds),
   );
+  const attachmentRows =
+    drafts.length === 0
+      ? []
+      : await db
+          .selectFrom("umfSupportMailAttachments")
+          .select([
+            "id",
+            "draftId",
+            "uploadedByUserId",
+            "fileName",
+            "mimeType",
+            "sizeBytes",
+            "createdAt",
+          ])
+          .where(
+            "draftId",
+            "in",
+            drafts.map((draft) => draft.id),
+          )
+          .orderBy("createdAt", "asc")
+          .execute();
+  const attachmentsByDraft = new Map<string, typeof attachmentRows>();
+  for (const attachment of attachmentRows) {
+    const current = attachmentsByDraft.get(attachment.draftId) ?? [];
+    current.push(attachment);
+    attachmentsByDraft.set(attachment.draftId, current);
+  }
   const deliveries =
     deliveryIds.length === 0
       ? []
@@ -1529,6 +1711,7 @@ export async function listUmfSupportMailDrafts(auth: AuthenticatedUser) {
       deliveryIssueCount: draftDeliveries.filter(
         (delivery) => delivery.lastError !== null,
       ).length,
+      attachments: attachmentsByDraft.get(draft.id) ?? [],
       createdAt: draft.createdAt,
       updatedAt: draft.updatedAt,
     };
@@ -1608,6 +1791,12 @@ export async function sendUmfSupportMailDraft(
     );
   }
   const content = revealMailDraftContent(draft.content, draft.id);
+  const attachments = await db
+    .selectFrom("umfSupportMailAttachments")
+    .select("id")
+    .where("draftId", "=", draft.id)
+    .orderBy("createdAt", "asc")
+    .execute();
   const recipients = [...content.to, ...content.cc, ...content.bcc];
   if (recipients.length === 0) {
     throw new UmfSupportValidationError("At least one recipient is required");
@@ -1631,6 +1820,7 @@ export async function sendUmfSupportMailDraft(
           subject: content.subject,
           message: content.body,
           scheduledAt: dispatchAt,
+          attachmentIds: attachments.map((attachment) => attachment.id),
         }),
       );
     }

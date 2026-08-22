@@ -20,6 +20,7 @@ import {
   type ManagerPlatformScope,
 } from "./manager-coordinator.js";
 import { recordSecurityEvent } from "./security-events.js";
+import { readUmfSupportMailDeliveryAttachments } from "./umf-support-mail-attachments.js";
 
 type SupportedLocale = "es" | "en" | "de" | "de-CH";
 type EmailDeliveryPayload = {
@@ -34,6 +35,7 @@ type EmailDeliveryPayload = {
   purpose?: "account_inactivity_review" | "account_deletion_preparation";
   reminder?: boolean;
   reviewDeliveryId?: string;
+  attachmentIds?: string[];
 };
 type EmailDeliveryKind =
   | "email_verification"
@@ -65,9 +67,11 @@ export const MAX_EMAIL_DELIVERY_ATTEMPTS = 5;
 
 type EmailAttachment = {
   filename: string;
-  path: string;
-  cid: string;
-  contentDisposition: "inline";
+  path?: string;
+  content?: Buffer;
+  contentType?: string;
+  cid?: string;
+  contentDisposition: "inline" | "attachment";
 };
 
 const VERIFICATION_HEADER_FILENAME = "umbravia-forge-email-header.jpg";
@@ -1127,6 +1131,7 @@ export async function queueUmfSupportComposedEmail(input: {
   message: string;
   scheduledAt?: number;
   replyTo?: string;
+  attachmentIds?: string[];
 }): Promise<string> {
   const now = Date.now();
   const scheduledAt =
@@ -1149,6 +1154,7 @@ export async function queueUmfSupportComposedEmail(input: {
       text: input.message,
       html: renderControlledSupportMessageHtml(input.message),
       replyTo: input.replyTo,
+      attachmentIds: input.attachmentIds,
     },
   });
   publishManagerSignal(
@@ -1470,6 +1476,10 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
       row.kind as EmailDeliveryKind,
       row.payloadEncrypted,
     );
+    const attachments =
+      row.platformScope === "support" && payload.attachmentIds?.length
+        ? await readUmfSupportMailDeliveryAttachments(payload.attachmentIds)
+        : undefined;
     const delivery =
       row.kind === "email_verification"
         ? await sendEmailVerificationCode({
@@ -1485,6 +1495,7 @@ export async function deliverQueuedEmail(deliveryId: string): Promise<boolean> {
             text: payload.text ?? "",
             html: payload.html ?? "",
             replyTo: payload.replyTo,
+            attachments,
           });
     if (!delivery.delivered) throw new EmailDeliveryUnavailableError();
     await db

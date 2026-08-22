@@ -3,6 +3,7 @@ import {
   BookOpen,
   CheckCircle2,
   Download,
+  Eye,
   FileText,
   LifeBuoy,
   MessageSquareText,
@@ -17,6 +18,11 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../components/ui/confirm-dialog";
+import { AttachmentPreviewDialog } from "../components/AttachmentPreviewDialog";
+import {
+  attachmentCanBePreviewed,
+  type AttachmentPreviewSource,
+} from "../lib/attachment-preview";
 import { useAuth } from "../hooks/useAuth";
 import { localizedApiErrorCodeMessage } from "../lib/api-error";
 import {
@@ -121,6 +127,8 @@ export function SupportPage() {
     id: string;
     fileName: string;
   } | null>(null);
+  const [attachmentPreview, setAttachmentPreview] =
+    useState<AttachmentPreviewSource | null>(null);
 
   const isStaff = capabilities?.staff === true || selected?.staff === true;
 
@@ -745,6 +753,27 @@ export function SupportPage() {
                               </span>
                             </span>
                             <span className="flex items-center gap-1">
+                              {attachmentCanBePreviewed(
+                                attachment.mimeType,
+                              ) && (
+                                <button
+                                  type="button"
+                                  className="rounded-lg p-2 text-blue-700 hover:bg-blue-50"
+                                  aria-label={t("attachmentPreview.open")}
+                                  onClick={() =>
+                                    setAttachmentPreview({
+                                      fileName: attachment.fileName,
+                                      mimeType: attachment.mimeType,
+                                      url: supportAttachmentUrl(
+                                        selected.id,
+                                        attachment.id,
+                                      ),
+                                    })
+                                  }
+                                >
+                                  <Eye size={17} />
+                                </button>
+                              )}
                               <a
                                 href={supportAttachmentUrl(
                                   selected.id,
@@ -804,7 +833,7 @@ export function SupportPage() {
                           {t("support.addAttachment")}
                           <input
                             type="file"
-                            accept="image/png,image/jpeg,image/webp,application/pdf,text/plain"
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.json,.gzip,.odt,.txt,.csv,.html,.xml,.jpg,.jpeg,.png,.svg,.heic,.webp,.bmp,.psd"
                             className="sr-only"
                             onChange={(event) =>
                               void attachFile(event.target.files?.[0])
@@ -1060,6 +1089,10 @@ export function SupportPage() {
         busy={working}
         onConfirm={() => void removeAttachment()}
         onCancel={() => setAttachmentToDelete(null)}
+      />
+      <AttachmentPreviewDialog
+        source={attachmentPreview}
+        onClose={() => setAttachmentPreview(null)}
       />
     </main>
   );

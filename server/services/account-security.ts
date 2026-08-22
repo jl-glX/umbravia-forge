@@ -3,6 +3,7 @@ import { mfaStatus } from "./mfa.js";
 import { recordSecurityEvent } from "./security-events.js";
 import { passkeyStatus } from "./passkeys.js";
 import { rotateSupportIdentifier } from "./support-identifiers.js";
+import { SECURITY_EVENT_RETENTION_MS } from "./security-events.js";
 
 export async function getSecurityOverview(userId: string, sessionId: string) {
   const [mfa, passkeys, user, sessions, events] = await Promise.all([
@@ -32,6 +33,7 @@ export async function getSecurityOverview(userId: string, sessionId: string) {
       .selectFrom("securityEvents")
       .select(["id", "type", "createdAt"])
       .where("userId", "=", userId)
+      .where("createdAt", ">=", Date.now() - SECURITY_EVENT_RETENTION_MS)
       .orderBy("createdAt", "desc")
       .limit(10)
       .execute(),

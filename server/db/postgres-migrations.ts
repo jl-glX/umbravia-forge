@@ -2570,6 +2570,33 @@ CREATE INDEX IF NOT EXISTS "idx_umfSupportPushSubscriptions_user"
   ON "umfSupportPushSubscriptions" ("userId", "status", "updatedAt" DESC);
 `,
   },
+  {
+    version: 49,
+    name: "umf-support-mail-attachments",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "umfSupportMailAttachments" (
+  "id" TEXT PRIMARY KEY,
+  "draftId" TEXT NOT NULL REFERENCES "umfSupportMailDrafts" ("id") ON DELETE CASCADE,
+  "uploadedByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "fileName" TEXT NOT NULL,
+  "mimeType" TEXT NOT NULL,
+  "sizeBytes" BIGINT NOT NULL,
+  "storageKey" TEXT NOT NULL UNIQUE,
+  "checksumSha256" TEXT NOT NULL,
+  "createdAt" BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_umfSupportMailAttachments_draft"
+  ON "umfSupportMailAttachments" ("draftId", "createdAt");
+`,
+  },
+  {
+    version: 50,
+    name: "umf-support-personal-workspace-name",
+    sql: String.raw`
+ALTER TABLE "umfSupportStaff"
+  ADD COLUMN IF NOT EXISTS "workspaceName" TEXT;
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

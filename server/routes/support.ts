@@ -22,6 +22,7 @@ import {
   supportAttachmentLimitBytes,
   updateSupportTicket,
 } from "../services/support.js";
+import { supportAttachmentAcceptedMimeTypes } from "../lib/support-attachment-policy.js";
 
 export const supportRouter = express.Router();
 
@@ -150,13 +151,7 @@ supportRouter.post(
   "/tickets/:ticketId/attachments",
   supportMutationLimiter,
   express.raw({
-    type: [
-      "image/png",
-      "image/jpeg",
-      "image/webp",
-      "application/pdf",
-      "text/plain",
-    ],
+    type: supportAttachmentAcceptedMimeTypes,
     limit: supportAttachmentLimitBytes(),
   }),
   async (req, res, next) => {
@@ -201,6 +196,7 @@ supportRouter.get(
         `attachment; filename*=UTF-8''${encodeURIComponent(result.attachment.fileName)}`,
       );
       res.setHeader("Content-Length", String(result.body.length));
+      res.setHeader("X-Content-Type-Options", "nosniff");
       res.send(result.body);
     } catch (error) {
       next(error);

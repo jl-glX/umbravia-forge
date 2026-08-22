@@ -170,6 +170,64 @@ describe("production configuration", () => {
     ).toThrow(/SUPPORT_EMAIL_WEBHOOK_SECRET/);
   });
 
+  it("validates the separate UMF Support corporate mailbox", () => {
+    const corporateInboundEnvironment = {
+      ...validEnvironment,
+      EMAIL_PUBLIC_INBOUND_ENABLED: "true",
+      EMAIL_PUBLIC_INBOUND_PROVIDER: "cloudflare",
+      UMF_SUPPORT_EMAIL_INBOUND_ENABLED: "true",
+      UMF_SUPPORT_EMAIL_ADDRESS: "corporate-support@example.invalid",
+      UMF_SUPPORT_EMAIL_REPLY_TOKEN_KEY: Buffer.alloc(32, 33).toString(
+        "base64",
+      ),
+      UMF_SUPPORT_EMAIL_WEBHOOK_SECRET: Buffer.alloc(32, 34).toString("base64"),
+    };
+
+    expect(
+      validateProductionConfiguration(
+        corporateInboundEnvironment,
+        "postgresql",
+      ),
+    ).toMatchObject({ deploymentProfile: "production" });
+    expect(() =>
+      validateProductionConfiguration(
+        {
+          ...corporateInboundEnvironment,
+          UMF_SUPPORT_EMAIL_ADDRESS: "",
+          SUPPORT_EMAIL_ADDRESS: "support@example.invalid",
+        },
+        "postgresql",
+      ),
+    ).toThrow(/UMF_SUPPORT_EMAIL_ADDRESS/);
+  });
+
+  it("rejects one public mailbox routed to both support applications", () => {
+    expect(() =>
+      validateProductionConfiguration(
+        {
+          ...validEnvironment,
+          EMAIL_PUBLIC_INBOUND_ENABLED: "true",
+          EMAIL_PUBLIC_INBOUND_PROVIDER: "cloudflare",
+          SUPPORT_EMAIL_INBOUND_ENABLED: "true",
+          SUPPORT_EMAIL_ADDRESS: "support@example.invalid",
+          SUPPORT_EMAIL_REPLY_TOKEN_KEY: Buffer.alloc(32, 31).toString(
+            "base64",
+          ),
+          SUPPORT_EMAIL_WEBHOOK_SECRET: Buffer.alloc(32, 32).toString("base64"),
+          UMF_SUPPORT_EMAIL_INBOUND_ENABLED: "true",
+          UMF_SUPPORT_EMAIL_ADDRESS: "support@example.invalid",
+          UMF_SUPPORT_EMAIL_REPLY_TOKEN_KEY: Buffer.alloc(32, 33).toString(
+            "base64",
+          ),
+          UMF_SUPPORT_EMAIL_WEBHOOK_SECRET: Buffer.alloc(32, 34).toString(
+            "base64",
+          ),
+        },
+        "postgresql",
+      ),
+    ).toThrow(/must be different/i);
+  });
+
   it("rejects public demo credentials in production", () => {
     expect(() =>
       validateProductionConfiguration({

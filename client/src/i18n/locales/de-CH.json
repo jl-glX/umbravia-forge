@@ -1535,7 +1535,7 @@
     "sessionRevoked": "Die Sitzung wurde geschlossen.",
     "otherSessionsRevoked": "Die anderen Sitzungen wurden geschlossen.",
     "noActivity": "Es gibt noch keine Sicherheitsaktivitäten.",
-    "activityDescription": "Letzte Änderungen und Versuche im Zusammenhang mit dem Zugriff auf Ihr Konto.",
+    "activityDescription": "Änderungen, Zugriffe und Versuche der letzten 30 Tage im Zusammenhang mit Ihrem Konto.",
     "activity": "Sicherheitsaktivität",
     "events": {
       "login_succeeded": "Erfolgreiche Anmeldung",
@@ -1552,6 +1552,7 @@
       "all_other_sessions_revoked": "Andere Sitzungen geschlossen",
       "account_compromise_reported": "Mögliche Kompromittierung gemeldet",
       "email_verified": "E-Mail verifiziert",
+      "private_content_accessed": "Autorisierter Zugriff auf geschützte Inhalte",
       "support_id_rotated": "Öffentliche Support-ID erneuert",
       "session_revoked": "Sitzung geschlossen"
     }
@@ -2026,6 +2027,11 @@
     },
     "privacyTitle": "Datenschutzgrenze",
     "privacyDescription": "Das CRM zeigt keine individuellen Umfrageantworten und kombiniert keine Daten verschiedener Zentren. Umfragen bleiben anonym und werden nur aggregiert dargestellt."
+  },
+  "umfSupport": {
+    "commercialTrials": {
+      "boundaryNotice": "UMF Support verwaltet nur die betriebliche Nachverfolgung. Konto, Passwort, Sitzung und Berechtigungen bleiben ausschliesslich in der kommerziellen Umbravia-Forge-Plattform."
+    }
   },
   "unauthorized": {
     "title": "Zugriff verweigert",

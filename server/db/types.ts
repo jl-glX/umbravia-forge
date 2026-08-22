@@ -930,6 +930,7 @@ interface CompanyStaffProfile {
 interface UmfSupportStaff {
   userId: string;
   role: UmfSupportRole;
+  workspaceName: Generated<string | null>;
   status: "active" | "revoked";
   approvedByUserId: string | null;
   createdAt: number;
@@ -957,6 +958,18 @@ interface UmfSupportMailDraft {
   scheduledAt: number | null;
   createdAt: number;
   updatedAt: number;
+}
+
+interface UmfSupportMailAttachment {
+  id: string;
+  draftId: string;
+  uploadedByUserId: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  storageKey: string;
+  checksumSha256: string;
+  createdAt: number;
 }
 
 export type UmfSupportNotificationEvent =
@@ -1367,6 +1380,7 @@ export interface Database {
   umfSupportStaff: UmfSupportStaff;
   umfSupportCollaborationSpaces: UmfSupportCollaborationSpace;
   umfSupportMailDrafts: UmfSupportMailDraft;
+  umfSupportMailAttachments: UmfSupportMailAttachment;
   umfSupportNotificationPreferences: UmfSupportNotificationPreference;
   umfSupportPushSubscriptions: UmfSupportPushSubscription;
   umfSupportAccessRequests: UmfSupportAccessRequest;

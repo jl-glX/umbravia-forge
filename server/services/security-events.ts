@@ -1,6 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { db } from "../db/client.js";
 
+export const SECURITY_EVENT_RETENTION_DAYS = 30;
+export const SECURITY_EVENT_RETENTION_MS =
+  SECURITY_EVENT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
 export type SecurityEventType =
   | "login_succeeded"
   | "email_verified"
@@ -68,6 +72,7 @@ export type SecurityEventType =
   | "corporate_role_self_enabled"
   | "company_staff_updated"
   | "company_head_bootstrapped"
+  | "commercial_trial_administrator_verification_resent"
   | "email_change_requested"
   | "email_change_cancelled"
   | "email_change_expired"
@@ -88,4 +93,14 @@ export async function recordSecurityEvent(
       metadata: JSON.stringify(metadata),
     })
     .execute();
+}
+
+export async function purgeExpiredSecurityEvents(
+  now = Date.now(),
+): Promise<number> {
+  const result = await db
+    .deleteFrom("securityEvents")
+    .where("createdAt", "<", now - SECURITY_EVENT_RETENTION_MS)
+    .executeTakeFirst();
+  return Number(result.numDeletedRows);
 }

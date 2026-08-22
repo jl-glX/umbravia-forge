@@ -126,6 +126,13 @@ retained as a future draft rather than exposed as an active API or interface.
 the local manager boundary; a company position alone never grants technical
 access.
 
+The product surface treats UMF Support as an individual work panel. Each active
+staff record may persist its own `workspaceName`; this preference carries no
+authority. The legacy `director` and `agent` values remain only as an internal
+authorization compatibility layer. They are deliberate technical debt and must
+not grow into a public organisation model; a future migration should replace
+them with panel ownership and explicit capabilities.
+
 Domain managers are shared internal infrastructure, not another account
 portal. Their single administrator is available only from the local Linux
 interface and every operation is explicitly scoped as `commercial` or
@@ -153,6 +160,21 @@ includes all three. Notification preferences are off by default and a verified
 or approved account is not subscribed automatically. Email is the primary
 alert channel; Web Push is optional and requires per-device consent plus VAPID
 configuration outside the repository.
+
+PostgreSQL migration 49 adds encrypted outbound attachments for corporate mail.
+They use a corporate-only table and storage directory, distinct from tenant
+ticket attachments. The shared format policy validates both extension and MIME,
+but authorization remains domain-specific. Safe previews are authenticated and
+non-executable. The inbound webhook still rejects attachments, so the outbound
+composer must not be represented as a completed inbound attachment pipeline.
+
+PostgreSQL migration 50 adds the optional per-person workspace label. Existing
+records remain valid with a null value and use the localized default in the
+client.
+
+Security activity shown in either account centre is a bounded product history.
+Queries expose only the last thirty days and the existing hourly lifecycle
+scheduler removes older `securityEvents` across all event types.
 
 Account email changes belong to the identity boundary rather than facility
 administration. They require the current password and a bounded code delivered
