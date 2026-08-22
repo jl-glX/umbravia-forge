@@ -354,9 +354,12 @@ Las compilaciones de ramas no productivas y Cloudflare Access permanecen
 desactivados durante la primera activación. El token de compilación puede ser
 generado por Cloudflare con un nombre limitado a este Worker. Los campos de
 variables del formulario de compilación no sustituyen a los enlaces de tiempo
-de ejecución: tras crear el Worker, `SUPPORT_INBOUND_ENDPOINT` se configura
-como variable y `SUPPORT_INBOUND_WEBHOOK_SECRET` como secreto en
-`Settings > Variables and Secrets`.
+de ejecución. `SUPPORT_INBOUND_ENDPOINT` se versiona como texto no sensible en
+`cloudflare/wrangler.jsonc`; `SUPPORT_INBOUND_WEBHOOK_SECRET` se conserva
+exclusivamente como secreto de ejecución en `Settings > Variables and
+Secrets`. Esta separación es obligatoria porque cada despliegue con Wrangler
+vuelve a aplicar el archivo versionado y puede retirar una variable de texto
+creada solo desde el panel, mientras mantiene el secreto cifrado.
 
 Como el webhook público vive en la misma zona de Cloudflare que el Worker, la
 configuración versionada activa `global_fetch_strictly_public`. Esta barrera
@@ -366,7 +369,9 @@ mensaje en `application_delivery` sin que exista una respuesta HTTP del
 servidor.
 
 La configuración versionada activa Workers Logs con muestreo completo durante
-esta primera validación operativa. Un rechazo registra solo la etapa
+esta primera validación operativa. La prueba de despliegue fija también el
+endpoint público para impedir que un despliegue futuro vuelva a dejar el
+Worker únicamente con el secreto. Un rechazo registra solo la etapa
 `endpoint_configuration`, `message_validation`, `webhook_signing` o
 `application_delivery`, el estado HTTP del webhook cuando exista y una causa
 controlada. No registra remitente, destinatario, asunto, cuerpo, identificador
