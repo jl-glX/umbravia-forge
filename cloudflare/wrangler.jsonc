@@ -1,0 +1,6 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "umbravia-forge-umf-support-email",
+  "main": "support-email/src/index.ts",
+  "compatibility_date": "2026-08-22",
+}

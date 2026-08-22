@@ -169,6 +169,14 @@ historial de trabajo.
   `UMF_SUPPORT_EMAIL_ADDRESS`; nunca reutiliza `SUPPORT_EMAIL_ADDRESS`, que
   pertenece al soporte de los centros. Habilitar la entrada exige además los
   interruptores públicos, Email Routing y secretos corporativos exclusivos.
+- Workers Builds dispone de una raíz reproducible en `cloudflare/` para la
+  instancia `umbravia-forge-umf-support-email`. Reutiliza la entrada genérica
+  de `cloudflare/support-email/src/index.ts`, mientras la configuración anidada
+  conserva `umbravia-forge-support-email` para los centros. El proyecto se
+  importa con raíz `/cloudflare`, sin comando de compilación ni Cloudflare
+  Access; el endpoint se guarda como variable de ejecución y el secreto del
+  webhook como secreto de ejecución. Esta preparación versionada no demuestra
+  que el Worker, su regla de Email Routing o el flujo real estén activos.
 - La política de privacidad mantenida está en `docs/PRIVACY-POLICY.md`, pero
   sigue pendiente completar el canal verificado, el domicilio publicable, el
   inventario de encargados y transferencias, los criterios de conservación y

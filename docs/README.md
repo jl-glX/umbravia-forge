@@ -40,8 +40,9 @@ auditoría histórica entra en conflicto con un documento vigente.
   evidencia operativa separadas para entrada y salida, los adjuntos salientes
   cifrados y aislados de cada centro, la administración limitada de altas
   comerciales de prueba, las alertas configurables, el historial de seguridad
-  limitado a treinta días, los realms independientes y el saneamiento que
-  preserva la cuenta comercial y sus solicitudes de borrado
+  limitado a treinta días, el despliegue independiente y reproducible de su
+  Worker de correo mediante Workers Builds, los realms independientes y el
+  saneamiento que preserva la cuenta comercial y sus solicitudes de borrado
 - [Forge Notify](./FORGE-NOTIFY.md), incluida la separación persistente de
   entregas y señales entre `commercial` y `support`
 - [Gestor de bases y entornos](./DATABASE-ENVIRONMENT-MANAGER.md)
