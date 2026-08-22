@@ -99,25 +99,29 @@ scoped to the user, stored as hashes, expire after 15 minutes and stop after
 five failures. Production rejects a configuration that disables this control
 or lacks SMTP and queue encryption.
 
-## Closed corporate support registration
+## Corporate support registration and approval
 
 UMF Support does not use sports-centre signup and does not accept a public role
-request. Registration is allowlist-based. Before the first corporate account
-exists, only the normalized mailbox whose SHA-256 is configured outside the
-repository may register. Afterwards, an active director must preauthorize the
-exact email address, name, surname, locale and support role.
+request. Registration creates an independent corporate identity after the
+person provides their name, surname, mailbox, password and required policy
+acknowledgements. It does not infer authority from a commercial account that
+uses the same normalized mailbox.
 
 Registration creates only a `corporate_support` user in
 `pending_verification`, a separate password and a corporate session. A normal
-six-digit mailbox challenge activates the user and materializes the
-preauthorized support role. The challenge is hashed, expires after fifteen
-minutes and stops after five failed attempts. An uninvited email creates no
-user, role request or queued delivery.
+six-digit mailbox challenge activates the user without materializing a staff
+role. The challenge is hashed, expires after fifteen minutes and stops after
+five failed attempts. Once verified, the identity may authenticate into a
+restricted account centre for its own password, MFA, passkeys, sessions and
+verified email changes. Operational tickets, mail and administration still
+require a separate active `umfSupportStaff` assignment approved by management.
 
 The commercial account lifecycle is not consulted or mutated by this flow.
 Commercial passwords, sessions, recovery, memberships and deletion requests
 remain independent. In particular, signing in to or verifying UMF Support
-cannot cancel a scheduled commercial deletion.
+cannot cancel a scheduled commercial deletion. Regression coverage signs in
+an account-only corporate identity with the same email while confirming that
+the commercial deletion request remains scheduled.
 
 Historical pre-enrolment and 24-hour activation-code rows remain schema-level
 migration evidence only. Current routes and services neither issue nor consume

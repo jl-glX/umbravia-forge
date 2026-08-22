@@ -31,7 +31,7 @@ export interface UmfSupportDistribution {
   installer: null;
 }
 
-export interface UmfSupportSessionUser {
+export interface UmfSupportIdentityUser {
   id: string;
   email: string;
   name: string;
@@ -39,6 +39,10 @@ export interface UmfSupportSessionUser {
   role: "admin";
   accountStatus: "pending_verification" | "active" | "security_review";
   identityRealm: "corporate_support";
+}
+
+export interface UmfSupportSessionUser extends UmfSupportIdentityUser {
+  accessApproved: boolean;
 }
 
 export interface UmfSupportAccessRequest {
@@ -213,7 +217,7 @@ export function registerSupportAccount(input: {
   captchaToken: string;
 }) {
   return request<{
-    user: UmfSupportSessionUser;
+    user: UmfSupportIdentityUser;
     verificationRequired: true;
     verificationEmailSent: boolean;
   }>("/register", {
@@ -247,7 +251,7 @@ export function loginSupport(input: {
   captchaToken: string;
 }) {
   return request<{
-    user?: UmfSupportSessionUser;
+    user?: UmfSupportIdentityUser;
     mfaRequired: boolean;
   }>("/login", {
     method: "POST",
@@ -257,7 +261,7 @@ export function loginSupport(input: {
 }
 
 export function verifySupportMfa(code: string) {
-  return request<{ user: UmfSupportSessionUser }>("/mfa/verify", {
+  return request<{ user: UmfSupportIdentityUser }>("/mfa/verify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code }),
@@ -273,7 +277,7 @@ export function beginSupportPasskey(email: string, rememberDevice = false) {
 }
 
 export function finishSupportPasskey(response: unknown) {
-  return request<{ user: UmfSupportSessionUser }>("/passkeys/verify", {
+  return request<{ user: UmfSupportIdentityUser }>("/passkeys/verify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ response }),

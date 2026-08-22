@@ -33,12 +33,14 @@ export function UmfCorporateAccountPage() {
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <header className="border-b border-slate-300 bg-slate-950 text-white">
         <div className="mx-auto flex max-w-[112rem] items-center gap-4 px-4 py-3 sm:px-6">
-          <Link
-            to="/umf-support"
-            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
-          >
-            <ArrowLeft size={17} /> {t("umfCorporateAccount.back")}
-          </Link>
+          {user.accessApproved ? (
+            <Link
+              to="/umf-support"
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+            >
+              <ArrowLeft size={17} /> {t("umfCorporateAccount.back")}
+            </Link>
+          ) : null}
           <div className="min-w-0 flex-1">
             <p className="truncate font-bold">
               {t("umfCorporateAccount.title")}
@@ -59,6 +61,16 @@ export function UmfCorporateAccountPage() {
       </header>
 
       <section className="mx-auto max-w-[96rem] px-4 pt-8 sm:px-6">
+        {!user.accessApproved ? (
+          <div className="mb-5 rounded-3xl border border-amber-300 bg-amber-50 p-6 shadow-sm">
+            <h1 className="text-xl font-black text-slate-950">
+              {t("umfCorporateAccount.pendingApprovalTitle")}
+            </h1>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-700">
+              {t("umfCorporateAccount.pendingApprovalBody")}
+            </p>
+          </div>
+        ) : null}
         <div className="rounded-3xl border border-cyan-200 bg-cyan-50 p-6 shadow-sm">
           <div className="flex items-start gap-3">
             <KeyRound className="mt-1 shrink-0 text-cyan-800" />

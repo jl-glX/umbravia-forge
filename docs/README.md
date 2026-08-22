@@ -31,10 +31,11 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Forge Analytics](./FORGE-ANALYTICS.md)
 - [Forge Support](./FORGE-SUPPORT.md)
 - [UMF Support corporativo](./UMF-SUPPORT.md), incluidas las cuentas
-  administrativas verificadas con aprobación humana, la designación local de
-  jefatura, los espacios de colaboración de privilegio reducido, el panel de
-  correo, las alertas configurables, los realms independientes y el
-  saneamiento que preserva la cuenta comercial
+  corporativas verificadas con centro de seguridad limitado antes de la
+  aprobación humana, la designación local de jefatura, los espacios de
+  colaboración de privilegio reducido, el panel de correo, las alertas
+  configurables, los realms independientes y el saneamiento que preserva la
+  cuenta comercial y sus solicitudes de borrado
 - [Forge Notify](./FORGE-NOTIFY.md), incluida la separación persistente de
   entregas y señales entre `commercial` y `support`
 - [Gestor de bases y entornos](./DATABASE-ENVIRONMENT-MANAGER.md)

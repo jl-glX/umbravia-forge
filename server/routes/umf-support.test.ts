@@ -178,6 +178,15 @@ describe("UMF Support corporate API", () => {
       kind: "email_verification",
     });
 
+    await request(app)
+      .post("/api/umf-support/login")
+      .send({
+        email: "new-agent@example.com",
+        password: "DifferentPassword123",
+        rememberDevice: false,
+      })
+      .expect(401);
+
     await browser
       .post("/api/umf-support/verify-email")
       .send({ code: registered.body.demoVerificationCode })
@@ -211,7 +220,23 @@ describe("UMF Support corporate API", () => {
         password: "DifferentPassword123",
         rememberDevice: false,
       });
-    expect(loginBeforeApproval.status).toBe(401);
+    expect(loginBeforeApproval.status).toBe(200);
+    const accountOnlyCookie = loginBeforeApproval.headers["set-cookie"][0];
+    await request(app)
+      .get("/api/umf-support/session")
+      .set("Cookie", accountOnlyCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.user).toMatchObject({
+          id: registered.body.user.id,
+          identityRealm: "corporate_support",
+          accessApproved: false,
+        });
+      });
+    await request(app)
+      .get("/api/umf-support/capabilities")
+      .set("Cookie", accountOnlyCookie)
+      .expect(403);
 
     const pendingAccounts = await request(app)
       .get("/api/umf-support/administrator-accounts")
@@ -240,6 +265,13 @@ describe("UMF Support corporate API", () => {
     });
     expect(login.status).toBe(200);
     const agentCookie = login.headers["set-cookie"][0];
+    await request(app)
+      .get("/api/umf-support/session")
+      .set("Cookie", agentCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.user.accessApproved).toBe(true);
+      });
     const capabilities = await request(app)
       .get("/api/umf-support/capabilities")
       .set("Cookie", agentCookie)

@@ -51,9 +51,10 @@ decisión explícita, firma y nueva validación humana; véase
 - contraseña corporativa creada en el registro y reto ordinario de verificación
   del buzón, con código de seis cifras, hash en reposo, quince minutos de
   vigencia y cinco intentos;
-- acceso cerrado después de verificar el correo: una cuenta verificada sigue
-  sin pertenencia ni permisos hasta que dirección la aprueba desde el panel de
-  cuentas administrativas;
+- centro de cuenta reducido después de verificar el correo: la persona puede
+  iniciar sesión para gestionar contraseña, MFA, passkeys, sesiones y correo
+  de acceso, pero sigue sin permisos sobre tickets, correo operativo ni
+  administración hasta que dirección la aprueba;
 - designación de la primera jefatura mediante una orden local, limitada a una
   identidad `corporate_support` ya existente y verificada, con simulación por
   defecto, doble confirmación del correo y rechazo si ya existe otra jefatura;
@@ -93,9 +94,12 @@ membresía o solicitud de eliminación comercial para completar el alta.
 
 El registro y la verificación crean exclusivamente la identidad
 `corporate_support`. No crean `umfSupportStaff`, `facilityMemberships`,
-`platformOperators` ni un cargo de empresa. Una cuenta verificada queda en
-espera de aprobación y no puede iniciar una sesión de personal hasta que una
-dirección activa la incorpore como administradora.
+`platformOperators` ni un cargo de empresa. Una cuenta verificada puede abrir
+una sesión corporativa limitada a su propio centro de cuenta. La autorización
+operativa sigue fallando cerrada hasta que una dirección activa la incorpore
+como administradora en `umfSupportStaff`. La cuenta comercial que use el mismo
+correo, incluida cualquier solicitud de borrado programada, no se consulta ni
+se modifica durante ese inicio de sesión.
 
 La excepción inicial no depende de una cuenta comercial ni de la antigüedad de
 la identidad. La jefatura se designa localmente sobre una cuenta corporativa ya

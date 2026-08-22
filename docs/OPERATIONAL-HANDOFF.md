@@ -46,12 +46,14 @@ historial de trabajo.
   PostgreSQL externa se haya migrado. Siguen pendientes la copia/restauración y
   la validación cruzada en un entorno autorizado antes de producción.
 - UMF Support es una aplicación web corporativa distinta del soporte de cada
-  centro. Solo una identidad `corporate_support` con una pertenencia activa en
-  `umfSupportStaff` puede entrar; `platformOperators` queda en el ámbito
-  comercial. El registro crea una cuenta corporativa separada y exige verificar
-  el buzón, pero no concede pertenencia ni rol. Dirección aprueba después las
-  cuentas administrativas. La primera jefatura se designa mediante una orden
-  local sobre una identidad corporativa ya verificada. Una cuenta
+  centro. Una identidad `corporate_support` activa y verificada puede iniciar
+  sesión únicamente en su centro de cuenta y gestionar sus propios controles
+  de seguridad. Tickets, correo operativo y administración exigen además una
+  pertenencia activa en `umfSupportStaff`; `platformOperators` queda en el
+  ámbito comercial. El registro crea una cuenta corporativa separada y exige
+  verificar el buzón, pero no concede pertenencia ni rol. Dirección aprueba
+  después las cuentas administrativas. La primera jefatura se designa mediante
+  una orden local sobre una identidad corporativa ya verificada. Una cuenta
   administradora de centro no recibe acceso corporativo por su rol.
 - Ambas aplicaciones usan el proveedor de datos configurado; en producción,
   UMF Support está dentro del mismo PostgreSQL, con realms, relaciones y tablas
@@ -67,6 +69,11 @@ historial de trabajo.
   filtra también los trabajos vencidos por realm. La regresión automatizada
   elimina una cuenta comercial y confirma que la cuenta de UMF Support con el
   mismo correo permanece activa y puede iniciar sesión.
+- La autenticación corporativa pendiente de aprobación tampoco consulta la
+  solicitud de borrado comercial. La regresión específica mantiene el trabajo
+  comercial en estado `scheduled`, abre solo el centro de cuenta corporativo y
+  confirma que las capacidades operativas responden con acceso denegado hasta
+  que dirección active la pertenencia de soporte.
 - La administración corporativa vigente se limita a altas, bajas y roles
   `director`/`agent`, más espacios de colaboración de privilegio reducido. El
   organigrama amplio queda como borrador no publicado. `companyStaffProfiles`

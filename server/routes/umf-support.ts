@@ -46,6 +46,7 @@ import {
   cancelUmfSupportScheduledMail,
   getUmfSupportCapabilities,
   getUmfSupportDistribution,
+  getUmfSupportRole,
   getUmfSupportTicket,
   listUmfSupportAdministratorAccounts,
   listUmfSupportCollaborationSpaces,
@@ -382,8 +383,9 @@ umfSupportRouter.post(
 
 umfSupportRouter.use(authenticateCorporateSupport);
 
-umfSupportRouter.get("/session", (_req, res) => {
+umfSupportRouter.get("/session", async (_req, res) => {
   const session = getAuthenticatedUser(res);
+  const accessApproved = (await getUmfSupportRole(session.userId)) !== null;
   res.json({
     user: {
       id: session.userId,
@@ -393,6 +395,7 @@ umfSupportRouter.get("/session", (_req, res) => {
       role: session.role,
       accountStatus: session.accountStatus,
       identityRealm: session.identityRealm,
+      accessApproved,
     },
   });
 });

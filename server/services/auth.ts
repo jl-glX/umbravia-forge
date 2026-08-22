@@ -375,18 +375,12 @@ export async function login(
         )
         .executeTakeFirst()
     : null;
-  const supportMembership = user
-    ? await db
-        .selectFrom("umfSupportStaff")
-        .select("userId")
-        .where("userId", "=", user.id)
-        .where("status", "=", "active")
-        .executeTakeFirst()
-    : null;
   const portalMatches =
     user &&
     (accessPortal === "support"
-      ? Boolean(supportMembership)
+      ? user.role === "admin" &&
+        user.accountStatus === "active" &&
+        user.emailVerifiedAt !== null
       : portalMembership !== undefined ||
         (accessPortal === "member"
           ? user.role === "member"
@@ -478,6 +472,7 @@ export async function completeMfaLogin(
       "users.avatarDataUrl",
       "users.role",
       "users.accountStatus",
+      "users.emailVerifiedAt",
       "users.identityRealm",
     ])
     .where("authChallenges.id", "=", challengeId)
@@ -486,24 +481,15 @@ export async function completeMfaLogin(
   if (
     !challenge ||
     challenge.identityRealm !== expectedIdentityRealm ||
+    (expectedIdentityRealm === "corporate_support" &&
+      (challenge.accountStatus !== "active" ||
+        challenge.emailVerifiedAt === null)) ||
     challenge.consumedAt !== null ||
     challenge.expiresAt <= now ||
     challenge.attempts >= MFA_MAX_ATTEMPTS
   ) {
     throw new Error("Invalid or expired verification challenge");
   }
-  if (expectedIdentityRealm === "corporate_support") {
-    const membership = await db
-      .selectFrom("umfSupportStaff")
-      .select("userId")
-      .where("userId", "=", challenge.userId)
-      .where("status", "=", "active")
-      .executeTakeFirst();
-    if (!membership) {
-      throw new Error("Invalid or expired verification challenge");
-    }
-  }
-
   const verification = await verifyMfaCode(
     challenge.userId,
     challenge.email,

@@ -329,7 +329,7 @@ describe("account lifecycle", () => {
     });
   });
 
-  it("keeps a commercial deletion scheduled after same-email UMF Support login", async () => {
+  it("keeps a commercial deletion scheduled after same-email account-only UMF Support login", async () => {
     const email = "lifecycle-login-separated@example.com";
     const commercial = await auth.signup(
       email,
@@ -352,18 +352,6 @@ describe("account lifecycle", () => {
       },
     );
     const now = Date.now();
-    await database.db
-      .insertInto("umfSupportStaff")
-      .values({
-        userId: corporate.user.id,
-        role: "agent",
-        status: "active",
-        approvedByUserId: corporate.user.id,
-        createdAt: now,
-        updatedAt: now,
-        revokedAt: null,
-      })
-      .execute();
     await lifecycle.scheduleAccountDeletion(commercial.user.id, "manual", now);
 
     await expect(
@@ -374,6 +362,9 @@ describe("account lifecycle", () => {
         identityRealm: "corporate_support",
       },
     });
+    await expect(
+      auth.login(email, "CommercialPassword123", "support"),
+    ).rejects.toThrow("Invalid email or password");
     await expect(
       lifecycle.hasScheduledAccountDeletion(commercial.user.id),
     ).resolves.toBe(true);
