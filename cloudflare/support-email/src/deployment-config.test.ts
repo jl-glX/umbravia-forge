@@ -5,6 +5,7 @@ interface WranglerConfig {
   name: string;
   main: string;
   compatibility_flags?: string[];
+  vars?: Record<string, string>;
   observability?: {
     enabled?: boolean;
     head_sampling_rate?: number;
@@ -32,6 +33,10 @@ describe("Cloudflare email Worker deployment boundaries", () => {
       name: "umbravia-forge-umf-support-email",
       main: "support-email/src/index.ts",
       compatibility_flags: ["global_fetch_strictly_public"],
+      vars: {
+        SUPPORT_INBOUND_ENDPOINT:
+          "https://www.umbraviaforge.com/api/internal/umf-support-email",
+      },
       observability: {
         enabled: true,
         head_sampling_rate: 1,

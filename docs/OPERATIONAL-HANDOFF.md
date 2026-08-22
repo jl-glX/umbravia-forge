@@ -174,9 +174,11 @@ historial de trabajo.
   de `cloudflare/support-email/src/index.ts`, mientras la configuración anidada
   conserva `umbravia-forge-support-email` para los centros. El proyecto se
   importa con raíz `/cloudflare`, sin comando de compilación ni Cloudflare
-  Access; el endpoint se guarda como variable de ejecución y el secreto del
-  webhook como secreto de ejecución. Esta preparación versionada no demuestra
-  que el Worker, su regla de Email Routing o el flujo real estén activos.
+  Access; el endpoint público no sensible se fija en `cloudflare/wrangler.jsonc`
+  y el secreto del webhook permanece como secreto de ejecución. Esta frontera
+  evita que un despliegue de Wrangler retire el endpoint añadido manualmente en
+  el panel. La preparación versionada no demuestra que el Worker, su regla de
+  Email Routing o el flujo real estén activos.
 - La entrega desde el Worker corporativo hacia el webhook público de la misma
   zona requiere `global_fetch_strictly_public`. Sin ese indicador, Cloudflare
   detiene la subsolicitud antes de obtener estado HTTP y el registro queda en

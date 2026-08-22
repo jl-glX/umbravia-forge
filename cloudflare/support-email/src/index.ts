@@ -25,6 +25,7 @@ type InboundFailureStage =
   | "application_delivery";
 
 const SAFE_FAILURE_REASONS = new Set([
+  "Support inbound endpoint is missing or invalid",
   "Invalid support email webhook secret",
   "Support inbound endpoint must use HTTPS",
   "Message is too large",
@@ -161,7 +162,12 @@ export const supportEmailWorker = {
     let failureStage: InboundFailureStage = "endpoint_configuration";
     let applicationStatus: number | null = null;
     try {
-      const endpoint = new URL(environment.SUPPORT_INBOUND_ENDPOINT);
+      let endpoint: URL;
+      try {
+        endpoint = new URL(environment.SUPPORT_INBOUND_ENDPOINT);
+      } catch {
+        throw new Error("Support inbound endpoint is missing or invalid");
+      }
       if (endpoint.protocol !== "https:") {
         throw new Error("Support inbound endpoint must use HTTPS");
       }

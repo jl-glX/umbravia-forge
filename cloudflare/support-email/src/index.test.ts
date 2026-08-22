@@ -172,4 +172,35 @@ describe("Cloudflare support email Worker", () => {
       "member@example.com",
     );
   });
+
+  it("reports a missing endpoint without exposing configuration", async () => {
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { email, rejected } = message(
+      [
+        "From: Member <member@example.com>",
+        "To: support@example.com",
+        "Subject: Endpoint ausente",
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        "Este mensaje no debe abandonar el Worker.",
+      ].join("\r\n"),
+    );
+
+    await supportEmailWorker.email(email, {
+      SUPPORT_INBOUND_ENDPOINT: undefined as unknown as string,
+      SUPPORT_INBOUND_WEBHOOK_SECRET: webhookSecret,
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(rejected).toHaveBeenCalledOnce();
+    expect(errorLog).toHaveBeenCalledWith("umf_support_inbound_email_failed", {
+      failureStage: "endpoint_configuration",
+      applicationStatus: null,
+      reason: "Support inbound endpoint is missing or invalid",
+    });
+  });
 });
