@@ -177,6 +177,13 @@ historial de trabajo.
   Access; el endpoint se guarda como variable de ejecución y el secreto del
   webhook como secreto de ejecución. Esta preparación versionada no demuestra
   que el Worker, su regla de Email Routing o el flujo real estén activos.
+- La instancia corporativa activa Workers Logs con muestreo completo durante
+  la validación inicial. Los fallos se clasifican por etapa y, cuando el
+  webhook responde, por estado HTTP, sin registrar correo, asunto, cuerpo,
+  `Message-ID`, direcciones ni configuración. El Activity log del proveedor
+  debe confirmar primero que la regla marcó el mensaje como `Handled`; después,
+  la ausencia o presencia de `umf_support_inbound_email_failed` separa un
+  rechazo del Worker de una aceptación y persistencia en la aplicación.
 - La política de privacidad mantenida está en `docs/PRIVACY-POLICY.md`, pero
   sigue pendiente completar el canal verificado, el domicilio publicable, el
   inventario de encargados y transferencias, los criterios de conservación y

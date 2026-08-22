@@ -3,4 +3,8 @@
   "name": "umbravia-forge-umf-support-email",
   "main": "support-email/src/index.ts",
   "compatibility_date": "2026-08-22",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+  },
 }

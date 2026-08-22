@@ -358,6 +358,16 @@ de ejecución: tras crear el Worker, `SUPPORT_INBOUND_ENDPOINT` se configura
 como variable y `SUPPORT_INBOUND_WEBHOOK_SECRET` como secreto en
 `Settings > Variables and Secrets`.
 
+La configuración versionada activa Workers Logs con muestreo completo durante
+esta primera validación operativa. Un rechazo registra solo la etapa
+`endpoint_configuration`, `message_validation`, `webhook_signing` o
+`application_delivery`, el estado HTTP del webhook cuando exista y una causa
+controlada. No registra remitente, destinatario, asunto, cuerpo, identificador
+del mensaje ni valores de configuración. El registro debe revisarse junto al
+Activity log de Email Routing: `Handled` demuestra que la regla invocó el
+Worker, mientras que la primera fila persistida `email/inbound` es la evidencia
+de que la aplicación aceptó el recorrido completo.
+
 En el servidor, los nombres `UMF_SUPPORT_*` pueden agruparse junto a las demás
 líneas de soporte porque el orden del archivo de entorno no es significativo.
 No deben renombrarse como `SUPPORT_*`, ni compartir dirección o secretos con

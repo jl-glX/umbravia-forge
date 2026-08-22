@@ -4,6 +4,10 @@ import { describe, expect, it } from "vitest";
 interface WranglerConfig {
   name: string;
   main: string;
+  observability?: {
+    enabled?: boolean;
+    head_sampling_rate?: number;
+  };
 }
 
 async function readConfig(path: string): Promise<WranglerConfig> {
@@ -26,6 +30,10 @@ describe("Cloudflare email Worker deployment boundaries", () => {
     expect(umfSupport).toMatchObject({
       name: "umbravia-forge-umf-support-email",
       main: "support-email/src/index.ts",
+      observability: {
+        enabled: true,
+        head_sampling_rate: 1,
+      },
     });
     expect(umfSupport.name).not.toBe(tenantSupport.name);
   });
