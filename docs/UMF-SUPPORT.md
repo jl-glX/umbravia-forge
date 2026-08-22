@@ -341,6 +341,19 @@ La configuración histórica de Forge Support permanece en
 de configuración impide que las dos instancias converjan accidentalmente. El
 código se comparte; no se copia la lógica de recepción.
 
+La recepción no usa una vinculación `send_email`: Email Routing invoca el
+handler `email()` mediante la regla de la dirección corporativa y el Worker
+entrega después el webhook firmado a la aplicación. Una vinculación de
+Servicio de correo electrónico creada manualmente en Cloudflare solo concede
+una API de **envío** al Worker; no repara ni sustituye este recorrido de entrada.
+La vinculación opcional de salida observada como
+`UMF_SUPPORT_EMAIL_SERVICE` usa un identificador JavaScript válido, pero no está
+declarada ni consumida por el código actual y no constituye evidencia de
+entrega. Puede conservarse como complemento para una integración futura de
+envío desde el Worker. Si se activa esa capacidad, el cambio deberá versionar
+el binding, integrar explícitamente su API, mantener los estados y reintentos y
+validar el flujo extremo a extremo antes de retirar el transporte del servidor.
+
 Al importar `jl-glX/umbravia-forge` desde Workers Builds se usa:
 
 ```text
@@ -381,8 +394,12 @@ endpoint público para impedir que un despliegue futuro vuelva a dejar el
 Worker únicamente con el secreto. Un rechazo registra solo la etapa
 `endpoint_configuration`, `message_validation`, `webhook_signing` o
 `application_delivery`, el estado HTTP del webhook cuando exista y una causa
-controlada. No registra remitente, destinatario, asunto, cuerpo, identificador
-del mensaje ni valores de configuración. El registro debe revisarse junto al
+controlada. Cuando `fetch()` falla antes de obtener respuesta, la causa se
+reduce a una categoría segura de DNS, TLS, conexión, redirección, tiempo de
+espera o transporte, o a un código de red incluido expresamente en una lista
+permitida. No registra el mensaje bruto de la excepción, remitente,
+destinatario, asunto, cuerpo, identificador del mensaje, endpoint ni valores de
+configuración. El registro debe revisarse junto al
 Activity log de Email Routing: `Handled` demuestra que la regla invocó el
 Worker, mientras que la primera fila persistida `email/inbound` es la evidencia
 de que la aplicación aceptó el recorrido completo.

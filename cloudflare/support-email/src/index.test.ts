@@ -173,6 +173,88 @@ describe("Cloudflare support email Worker", () => {
     );
   });
 
+  it("classifies a fetch failure without logging message data or configuration", async () => {
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError(
+          "Network connection failed for member@example.com and secret-value",
+        );
+      }),
+    );
+    const { email, rejected } = message(
+      [
+        "From: Member <member@example.com>",
+        "To: support@example.com",
+        "Subject: Diagnostico seguro",
+        "Message-ID: <worker-fetch-failure@example.com>",
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        "Necesito ayuda con mi cuenta.",
+      ].join("\r\n"),
+    );
+
+    await supportEmailWorker.email(email, {
+      SUPPORT_INBOUND_ENDPOINT:
+        "https://app.example.com/api/internal/support-email",
+      SUPPORT_INBOUND_WEBHOOK_SECRET: webhookSecret,
+    });
+
+    expect(rejected).toHaveBeenCalledOnce();
+    expect(errorLog).toHaveBeenCalledWith("umf_support_inbound_email_failed", {
+      failureStage: "application_delivery",
+      applicationStatus: null,
+      reason: "application_delivery_fetch",
+    });
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain(
+      "member@example.com",
+    );
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain("secret-value");
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain(
+      "app.example.com",
+    );
+  });
+
+  it("allowlists a transport error code without exposing its raw message", async () => {
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const error = new TypeError("fetch failed", {
+          cause: { code: "ECONNREFUSED" },
+        });
+        throw error;
+      }),
+    );
+    const { email } = message(
+      [
+        "From: Member <member@example.com>",
+        "To: support@example.com",
+        "Subject: Diagnostico de transporte",
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        "Necesito ayuda con mi cuenta.",
+      ].join("\r\n"),
+    );
+
+    await supportEmailWorker.email(email, {
+      SUPPORT_INBOUND_ENDPOINT:
+        "https://app.example.com/api/internal/support-email",
+      SUPPORT_INBOUND_WEBHOOK_SECRET: webhookSecret,
+    });
+
+    expect(errorLog).toHaveBeenCalledWith("umf_support_inbound_email_failed", {
+      failureStage: "application_delivery",
+      applicationStatus: null,
+      reason: "application_delivery_econnrefused",
+    });
+  });
+
   it("reports a missing endpoint without exposing configuration", async () => {
     const errorLog = vi
       .spyOn(console, "error")

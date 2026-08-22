@@ -190,11 +190,21 @@ historial de trabajo.
   error ese recorrido.
 - La instancia corporativa activa Workers Logs con muestreo completo durante
   la validación inicial. Los fallos se clasifican por etapa y, cuando el
-  webhook responde, por estado HTTP, sin registrar correo, asunto, cuerpo,
-  `Message-ID`, direcciones ni configuración. El Activity log del proveedor
-  debe confirmar primero que la regla marcó el mensaje como `Handled`; después,
-  la ausencia o presencia de `umf_support_inbound_email_failed` separa un
-  rechazo del Worker de una aceptación y persistencia en la aplicación.
+  webhook responde, por estado HTTP. Si el salto de red falla antes de una
+  respuesta, el Worker conserva únicamente una categoría segura de DNS, TLS,
+  conexión, redirección, tiempo de espera o transporte, o un código de red
+  incluido en una lista permitida. No registra el texto bruto de la excepción,
+  correo, asunto, cuerpo, `Message-ID`, endpoint, direcciones ni configuración.
+  El Activity log del proveedor debe confirmar primero que la regla marcó el
+  mensaje como `Handled`; después, la ausencia o presencia de
+  `umf_support_inbound_email_failed` separa un rechazo del Worker de una
+  aceptación y persistencia en la aplicación.
+- La recepción no depende de una vinculación `send_email`: la regla de Email
+  Routing dispara `email()` y este handler entrega el webhook firmado. La
+  vinculación opcional de salida `UMF_SUPPORT_EMAIL_SERVICE` usa un identificador
+  JavaScript válido, pero no está versionada ni consumida por el Worker actual.
+  Puede conservarse como complemento para una integración futura de envío, pero
+  no debe usarse como indicador de que la entrada está operativa.
 - La política de privacidad mantenida está en `docs/PRIVACY-POLICY.md`, pero
   sigue pendiente completar el canal verificado, el domicilio publicable, el
   inventario de encargados y transferencias, los criterios de conservación y

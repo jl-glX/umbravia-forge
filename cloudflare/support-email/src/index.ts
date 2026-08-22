@@ -35,9 +35,63 @@ const SAFE_FAILURE_REASONS = new Set([
   "Support application rejected the message",
 ]);
 
-function safeFailureReason(error: unknown): string {
-  return error instanceof Error && SAFE_FAILURE_REASONS.has(error.message)
-    ? error.message
+const SAFE_DELIVERY_ERROR_CODES = new Set([
+  "CERT_HAS_EXPIRED",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "ETIMEDOUT",
+  "ERR_FR_TOO_MANY_REDIRECTS",
+  "ERR_TLS_CERT_ALTNAME_INVALID",
+  "SELF_SIGNED_CERT_IN_CHAIN",
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+]);
+
+function deliveryErrorCode(error: unknown): string | null {
+  if (!(error instanceof Error)) return null;
+  const cause = error.cause;
+  if (!cause || typeof cause !== "object" || !("code" in cause)) return null;
+  const code = String(cause.code).trim().toUpperCase();
+  return SAFE_DELIVERY_ERROR_CODES.has(code) ? code : null;
+}
+
+function deliveryFailureCategory(error: unknown): string {
+  const code = deliveryErrorCode(error);
+  if (code) return `application_delivery_${code.toLowerCase()}`;
+  if (!(error instanceof Error)) return "application_delivery_unknown";
+
+  const message = error.message.toLowerCase();
+  if (message.includes("redirect")) return "application_delivery_redirect";
+  if (message.includes("certificate") || message.includes("tls")) {
+    return "application_delivery_tls";
+  }
+  if (message.includes("dns") || message.includes("resolve")) {
+    return "application_delivery_dns";
+  }
+  if (message.includes("timeout") || message.includes("timed out")) {
+    return "application_delivery_timeout";
+  }
+  if (
+    message.includes("connect") ||
+    message.includes("network") ||
+    error.name === "TypeError"
+  ) {
+    return "application_delivery_fetch";
+  }
+  return "application_delivery_unknown";
+}
+
+function safeFailureReason(
+  error: unknown,
+  failureStage: InboundFailureStage,
+): string {
+  if (error instanceof Error && SAFE_FAILURE_REASONS.has(error.message)) {
+    return error.message;
+  }
+  return failureStage === "application_delivery"
+    ? deliveryFailureCategory(error)
     : "Unexpected Worker failure";
 }
 
@@ -198,7 +252,7 @@ export const supportEmailWorker = {
       console.error("umf_support_inbound_email_failed", {
         failureStage,
         applicationStatus,
-        reason: safeFailureReason(error),
+        reason: safeFailureReason(error, failureStage),
       });
       message.setReject("The support message could not be accepted.");
     }
