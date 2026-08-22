@@ -600,9 +600,17 @@ async function queueEncryptedDelivery(input: {
   locale: SupportedLocale;
   payload: EmailDeliveryPayload;
   expiresAt: number;
+  nextAttemptAt?: number;
   supersedePending?: boolean;
 }): Promise<string> {
   const now = Date.now();
+  const nextAttemptAt = input.nextAttemptAt ?? now;
+  if (
+    input.nextAttemptAt !== undefined &&
+    (nextAttemptAt < now || nextAttemptAt >= input.expiresAt)
+  ) {
+    throw new Error("Email delivery schedule is outside its retention window");
+  }
   const id = `email-delivery-${randomUUID()}`;
   await db.transaction().execute(async (transaction) => {
     if (input.supersedePending && input.userId) {
@@ -633,7 +641,7 @@ async function queueEncryptedDelivery(input: {
         status: "queued",
         attempts: 0,
         maxAttempts: MAX_EMAIL_DELIVERY_ATTEMPTS,
-        nextAttemptAt: now,
+        nextAttemptAt,
         messageId: null,
         lastError: null,
         createdAt: now,
@@ -1083,6 +1091,76 @@ export async function queueUmfSupportReplyEmail(input: {
     "info",
     "UMF_SUPPORT_REPLY_QUEUED",
     "A UMF Support reply was queued for delivery.",
+  );
+  return id;
+}
+
+export function renderControlledSupportMessageHtml(message: string): string {
+  const linkPattern =
+    /\[([^\]\r\n]{1,120})\]\((https:\/\/[^\s)]+|mailto:[^\s)]+)\)/gi;
+  let html = "";
+  let cursor = 0;
+  for (const match of message.matchAll(linkPattern)) {
+    const index = match.index ?? 0;
+    html += escapeHtml(message.slice(cursor, index));
+    const label = match[1] ?? "";
+    const href = match[2] ?? "";
+    try {
+      const parsed = new URL(href);
+      if (!new Set(["https:", "mailto:"]).has(parsed.protocol)) {
+        throw new Error("Unsupported hyperlink protocol");
+      }
+      html += `<a href="${escapeHtml(parsed.toString())}" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
+    } catch {
+      html += escapeHtml(match[0]);
+    }
+    cursor = index + match[0].length;
+  }
+  html += escapeHtml(message.slice(cursor));
+  return `<p>${html.replace(/\n/g, "<br>")}</p>`;
+}
+
+export async function queueUmfSupportComposedEmail(input: {
+  email: string;
+  locale: SupportedLocale;
+  subject: string;
+  message: string;
+  scheduledAt?: number;
+  replyTo?: string;
+}): Promise<string> {
+  const now = Date.now();
+  const scheduledAt =
+    input.scheduledAt !== undefined && input.scheduledAt > now
+      ? input.scheduledAt
+      : undefined;
+  const expiresAt = (scheduledAt ?? now) + 7 * 24 * 60 * 60 * 1000;
+  const id = await queueEncryptedDelivery({
+    userId: null,
+    platformScope: "support",
+    kind: "support_update",
+    recipient: input.email,
+    locale: input.locale,
+    nextAttemptAt: scheduledAt,
+    expiresAt,
+    payload: {
+      email: input.email,
+      locale: input.locale,
+      subject: input.subject,
+      text: input.message,
+      html: renderControlledSupportMessageHtml(input.message),
+      replyTo: input.replyTo,
+    },
+  });
+  publishManagerSignal(
+    "email",
+    "support",
+    "info",
+    scheduledAt !== undefined
+      ? "UMF_SUPPORT_MESSAGE_SCHEDULED"
+      : "UMF_SUPPORT_MESSAGE_QUEUED",
+    scheduledAt !== undefined
+      ? "An UMF Support message was scheduled for delivery."
+      : "An UMF Support message was queued for delivery.",
   );
   return id;
 }

@@ -7,6 +7,7 @@ import {
   buildEmailChangeVerificationMessage,
   buildEmailVerificationMessage,
   buildAccountRecoveryMessage,
+  renderControlledSupportMessageHtml,
   resetEmailTransportForTests,
   resolveEmailDeliveryConfiguration,
   sendEmailVerificationCode,
@@ -228,6 +229,20 @@ describe("email delivery configuration", () => {
     expect(
       buildEmailVerificationMessage("Member", "123456", "en", false).html,
     ).not.toContain("cid:umbravia-forge-email-header");
+  });
+
+  it("renders only controlled support hyperlinks and escapes arbitrary markup", () => {
+    const html = renderControlledSupportMessageHtml(
+      "Consulta [el ticket](https://www.umbraviaforge.com/umf-support) " +
+        "o [escribe](mailto:privacy@umbraviaforge.com).\n" +
+        "<script>alert(1)</script> [mal](javascript:alert(2))",
+    );
+    expect(html).toContain('href="https://www.umbraviaforge.com/umf-support"');
+    expect(html).toContain('href="mailto:privacy@umbraviaforge.com"');
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>");
+    expect(html).not.toContain('href="javascript:');
+    expect(html).toContain("[mal](javascript:alert(2))");
   });
 
   it("builds a localized recovery message without allowing name markup", () => {

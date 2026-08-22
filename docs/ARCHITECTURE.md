@@ -88,34 +88,32 @@ architecture. Its isolation comes from realm-qualified account relations,
 corporate-only tables and server authorization; sharing a PostgreSQL service
 does not make a commercial account a corporate identity.
 
-The only exception is the one-time company-head bootstrap. Before any
-corporate initialization exists, the normalized mailbox whose SHA-256 is
-configured outside the repository may register a new `corporate_support`
-identity. It creates its own password and must complete the ordinary bounded
-mailbox-verification challenge before the initial support director and
-company-head records are inserted. It creates no facility membership or
-commercial operator. A persistent singleton marker keeps that path closed
-after the first claim even if roles are later removed.
+Corporate registration creates an independent `corporate_support` identity and
+requires the ordinary bounded mailbox-verification challenge. Verification does
+not create `umfSupportStaff`, a company position, a facility membership or a
+commercial operator. A verified account remains unable to enter the staff
+application until an active director approves it. The first company head is
+designated separately through a local, PostgreSQL-only command that defaults to
+dry-run, confirms the mailbox twice and rejects an existing different head. A
+persistent singleton marker records that designation.
 
 There is no compatibility path that transfers corporate authority from a
 `commercial` user. Historical misplaced relations must first be removed by the
 audited support-identity reset, which is forbidden from deleting or changing
 the commercial user, credentials, facility data or deletion lifecycle. Later
-support accounts require an exact preauthorization created by direction; role
-selection is not exposed to the registering person.
+support accounts register and verify independently, then remain denied until an
+active director approves the administrative membership. The public form never
+selects a staff role.
 
-The visible company directory is a separate module. `companyStaffProfiles`
-models reporting lines and business positions, `umfSupportStaff` scopes support
-operations, and `platformOperators` remains commercial authority. Module
-delegations require an explicit recipient decision before creating a corporate
-role assignment. The platform head covers unoccupied modules automatically,
-but an active assignment or actionable pending delegation suspends that
-fallback only for its module. Rejection, revocation, renunciation or removal
-restores the fallback when no active decision-maker remains.
-Approved support accounts join the company directory only through an explicit
-head action. Removing a person retains the audit record, revokes their active
-module assignments and withdraws their actionable delegations; a company
-position alone never grants technical access.
+The active corporate administration is intentionally small:
+`umfSupportStaff` scopes support operations, `platformOperators` remains
+commercial authority, and directors approve or revoke administrator accounts.
+Collaboration spaces expose only explicitly selected, reduced capabilities and
+can be disabled independently. The wider organisation and delegation model is
+retained as a future draft rather than exposed as an active API or interface.
+`companyStaffProfiles` currently retains the `platform_head` signal required by
+the local manager boundary; a company position alone never grants technical
+access.
 
 Domain managers are shared internal infrastructure, not another account
 portal. Their single administrator is available only from the local Linux
@@ -134,6 +132,16 @@ signals retain that stored scope. PostgreSQL migration 44 prepares the column
 and only reclassifies legacy rows when a persisted UMF Support relationship is
 unambiguous. Repository migrations do not prove that the live database has
 already applied it.
+
+UMF Support mail drafts are a separate encrypted domain. The application
+stores To, CC, BCC, subject and body encrypted, renders only controlled HTTPS or
+`mailto:` links, and creates support-scoped deliveries for immediate or future
+dispatch. PostgreSQL migrations 47 and 48 add drafts, per-user notification
+preferences and encrypted push subscriptions; the SQLite-to-PostgreSQL bridge
+includes all three. Notification preferences are off by default and a verified
+or approved account is not subscribed automatically. Email is the primary
+alert channel; Web Push is optional and requires per-device consent plus VAPID
+configuration outside the repository.
 
 Account email changes belong to the identity boundary rather than facility
 administration. They require the current password and a bounded code delivered

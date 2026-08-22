@@ -208,7 +208,6 @@
       "general": "Allgemein"
     },
     "notices": {
-      "invitationCreated": "E-Mail-Adresse und Rolle wurden vorab autorisiert. Die Person kann nun ihr Unternehmenskonto erstellen und bestätigen.",
       "created": "Anfrage {{id}} erstellt.",
       "replySaved": "Die Antwort wurde gespeichert.",
       "attachmentSaved": "Die Datei wurde privat gespeichert.",
@@ -2104,20 +2103,20 @@
     "login": {
       "eyebrow": "Geschützter Zugang",
       "title": "Anmelden",
-      "description": "Der Zugriff basiert auf Unternehmenskonten und Berechtigungen. Die festgelegte erste Leitung kann hier die einmalige Einrichtung abschliessen.",
+      "description": "Zugriff über ein bestätigtes UMF-Support-Unternehmenskonto.",
       "action": "UMF Support öffnen"
     },
     "register": {
-      "eyebrow": "Geschlossene Unternehmensregistrierung",
-      "title": "Autorisiertes Konto erstellen",
-      "description": "Nur von der Leitung vorab autorisierte Adressen können sich registrieren. Erstellen Sie Ihr Passwort und bestätigen Sie danach das Unternehmenspostfach.",
+      "eyebrow": "Unternehmenskonto",
+      "title": "UMF-Support-Konto erstellen",
+      "description": "Erstellen Sie ein unabhängiges Unternehmenskonto und bestätigen Sie danach das Postfach. Der administrative Zugriff wird separat im UMF-Support-Panel vergeben.",
       "action": "Konto erstellen"
     },
     "verify": {
       "eyebrow": "Postfachbestätigung",
       "title": "E-Mail-Adresse bestätigen",
-      "description": "Geben Sie den sechsstelligen Code aus dem autorisierten Postfach ein. Die Bestätigung aktiviert das Konto und die von der Leitung zugewiesene Rolle.",
-      "action": "Bestätigen und anmelden"
+      "description": "Geben Sie den sechsstelligen Code aus dem Postfach ein. Die E-Mail-Bestätigung vergibt keine administrativen Berechtigungen.",
+      "action": "E-Mail bestätigen"
     },
     "fullName": "Vollständiger Vorname",
     "lastName": "Nachname",
@@ -2127,16 +2126,16 @@
     "acceptTerms": "Ich akzeptiere die",
     "terms": "Nutzungsbedingungen",
     "acceptPrivacy": "Ich habe die folgende Erklärung gelesen:",
-    "verificationSent": "Das Konto wurde erstellt. Geben Sie den Code aus dem autorisierten Unternehmenspostfach ein.",
+    "verificationSent": "Das Konto wurde erstellt. Geben Sie den Code aus dem Unternehmenspostfach ein.",
     "verificationQueued": "Das Konto wurde erstellt, aber die sofortige E-Mail-Zustellung wurde nicht bestätigt. Der Code bleibt in der Warteschlange und Sie können einen neuen anfordern.",
     "verificationResent": "Wir haben einen neuen Bestätigungscode gesendet.",
     "verificationResendQueued": "Die sofortige Zustellung wurde nicht bestätigt. Der neue Code bleibt in der Warteschlange und Sie können es erneut versuchen.",
     "resendVerification": "Bestätigungscode erneut senden",
     "verificationInvalid": "Der Bestätigungscode ist ungültig, abgelaufen oder hat alle Versuche aufgebraucht.",
-    "registrationClosed": "Für diese Adresse liegt keine Unternehmensautorisierung vor. Die Leitung muss sie vor der Registrierung freigeben.",
+    "awaitingAdministratorApproval": "Die E-Mail-Adresse wurde bestätigt. Das Konto wartet darauf, dass die Leitung den administrativen Zugriff in UMF Support freigibt.",
     "passwordMismatch": "Die Passwörter stimmen nicht überein.",
     "invalidCredentials": "E-Mail-Adresse oder Passwort von UMF Support sind nicht korrekt. Zugangsdaten von Umbravia Forge Commercial gewähren keinen Zugriff auf dieses Unternehmenskonto.",
-    "restrictedNotice": "Konto, Zugehörigkeit, Position und Berechtigungen werden getrennt verwaltet",
+    "restrictedNotice": "Das Unternehmenskonto ist von jedem kommerziellen Konto getrennt; erhöhte Positionen werden separat zugewiesen",
     "passkeyLogin": "Mit einem Unternehmens-Passkey anmelden",
     "privacy": "Datenschutz",
     "error": "Der Vorgang konnte nicht abgeschlossen werden."
@@ -2180,29 +2179,142 @@
     "tabs": {
       "tickets": "Tickets",
       "inbox": "Eingang",
-      "outbox": "Gesendet",
+      "drafts": "Entwürfe",
+      "scheduled": "Geplant",
+      "outbox": "Postausgang",
+      "sent": "Gesendet",
+      "notifications": "Meldungen",
       "access": "Zugänge",
-      "team": "Team",
-      "company": "Belegschaft"
+      "team": "Administratoren",
+      "company": "Belegschaft",
+      "collaboration": "Zusammenarbeit"
     },
     "headings": {
       "tickets": "Ticket-Warteschlange",
       "inbox": "Empfangene E-Mails",
-      "outbox": "Gesendete E-Mails",
+      "drafts": "E-Mail-Entwürfe",
+      "scheduled": "Geplante Zustellungen",
+      "outbox": "Postausgang",
+      "sent": "Gesendete E-Mails",
+      "notifications": "Betriebliche Meldungen",
       "access": "Zugangsanträge",
-      "team": "Supportpersonal",
-      "company": "Unternehmensbelegschaft"
+      "team": "Administratorzugänge",
+      "company": "Unternehmensbelegschaft",
+      "collaboration": "Bereiche für Zusammenarbeit"
     },
     "descriptions": {
       "tickets": "Plattformvorfälle getrennt vom eigenen Support der einzelnen Zentren.",
       "inbox": "Nachrichten aus den konfigurierten Unternehmenskanälen.",
-      "outbox": "Vorbereitete Antworten und ihr Zustellstatus.",
+      "drafts": "Gespeicherte Mitteilungen, die noch nicht in die Versandwarteschlange gelangt sind.",
+      "scheduled": "Verschlüsselte Nachrichten, die der Server zum gewählten Zeitpunkt zustellt.",
+      "outbox": "Ausstehende Nachrichten, Wiederholungen und Zustellfehler, die Aufmerksamkeit erfordern.",
+      "sent": "Supportmitteilungen mit erfasstem Zustellstatus.",
+      "notifications": "Wählen Sie je Ereignis E-Mail, Web Push, beide Kanäle oder keinen.",
       "access": "E-Mail-Adressen vorab autorisieren und ihre Rolle festlegen, bevor ein Konto erstellt werden kann.",
-      "team": "Unternehmensberechtigungen unabhängig von Rechten eines Zentrums.",
-      "company": "Sichtbare Unternehmensfunktionen getrennt von technischen Berechtigungen."
+      "team": "Administrativen Zugriff für bestätigte Unternehmenskonten freigeben oder widerrufen.",
+      "company": "Organisationsentwurf ohne operative Befugnisse.",
+      "collaboration": "Informative Entwürfe ohne technische Berechtigungen; Sie entscheiden, was das Personal sieht."
     },
-    "role": { "director": "Leitung", "agent": "Mitarbeiter" },
-    "createInvitation": "Konto vorab autorisieren",
+    "compose": "E-Mail verfassen",
+    "composeHint": "Editor für betriebliche Mitteilungen von UMF Support; beliebiges HTML ist nicht zulässig.",
+    "mail": {
+      "to": "An",
+      "cc": "CC",
+      "bcc": "BCC",
+      "showCopies": "CC und BCC",
+      "recipientPlaceholder": "Mehrere Adressen mit Semikolon trennen",
+      "linkText": "Linktext",
+      "linkUrl": "HTTPS- oder mailto-Adresse",
+      "insertLink": "Link einfügen",
+      "saveDraft": "Entwurf speichern",
+      "scheduleAt": "Datum und Uhrzeit",
+      "schedule": "Planen",
+      "sendNow": "Jetzt senden",
+      "cancelSchedule": "Versand abbrechen",
+      "noRecipient": "Kein Empfänger",
+      "ccCount": "{{count}} in CC",
+      "bccCount": "{{count}} in BCC",
+      "deliveryIssues": "{{count}} Zustellung erfordert Aufmerksamkeit",
+      "deliveryIssues_other": "{{count}} Zustellungen erfordern Aufmerksamkeit",
+      "emptyFolder": "Dieser Ordner enthält keine Mitteilungen."
+    },
+    "mailStatus": {
+      "draft": "Entwurf",
+      "scheduled": "Geplant",
+      "outbox": "Zustellung ausstehend",
+      "sent": "Gesendet",
+      "partially_failed": "Teilweise zugestellt",
+      "failed": "Zustellung fehlgeschlagen",
+      "cancelled": "Abgebrochen"
+    },
+    "deliveryStatus": {
+      "queued": "In Warteschlange",
+      "processing": "In Bearbeitung",
+      "retry": "Wiederholung ausstehend",
+      "sent": "Vom Empfängerserver angenommen",
+      "failed": "Zustellung fehlgeschlagen",
+      "superseded": "Ersetzt oder abgebrochen"
+    },
+    "notifications": {
+      "masterTitle": "Meldungseinstellungen",
+      "masterHint": "Meldungen bleiben je Kanal deaktiviert, bis Sie sie ausdrücklich einschalten.",
+      "enabled": "Meldungen aktiv",
+      "event": "Ereignis",
+      "email": "E-Mail",
+      "push": "Web Push",
+      "pushDevices": "Autorisierte Browser und Mobilgeräte",
+      "pushHint": "Web Push wird vom Server an die von Ihnen autorisierten Geräte gesendet.",
+      "pushUnavailable": "Web Push bleibt deaktiviert, bis die VAPID-Zugangsdaten des Servers konfiguriert und validiert sind.",
+      "enableDevice": "Dieses Gerät autorisieren",
+      "revokeDevice": "Widerrufen",
+      "noDevices": "Es sind keine Geräte autorisiert.",
+      "deviceStatus": {
+        "active": "Aktiv",
+        "revoked": "Widerrufen"
+      },
+      "events": {
+        "ticket_created": {
+          "title": "Neues Ticket",
+          "hint": "Eine neue Anfrage gelangt in die Warteschlange.",
+          "email": "E-Mail bei neuem Ticket",
+          "push": "Push bei neuem Ticket"
+        },
+        "conversation_received": {
+          "title": "Neue Unterhaltung oder Antwort",
+          "hint": "Ein Kunde ergänzt Informationen zu einem Vorfall.",
+          "email": "E-Mail bei neuer Unterhaltung",
+          "push": "Push bei neuer Unterhaltung"
+        },
+        "inbound_email": {
+          "title": "Eingehende E-Mail",
+          "hint": "Das Unternehmenspostfach empfängt eine authentifizierte Nachricht.",
+          "email": "E-Mail bei Posteingang",
+          "push": "Push bei Posteingang"
+        },
+        "feedback_received": {
+          "title": "Feedback",
+          "hint": "Über das öffentliche Formular geht ein Beitrag ein.",
+          "email": "E-Mail bei Feedback",
+          "push": "Push bei Feedback"
+        },
+        "problem_reported": {
+          "title": "Gemeldetes Problem",
+          "hint": "Ein Benutzer meldet ein technisches oder sicherheitsrelevantes Problem.",
+          "email": "E-Mail bei Problem",
+          "push": "Push bei Problem"
+        }
+      }
+    },
+    "browser": {
+      "edge": "Microsoft Edge",
+      "firefox": "Firefox",
+      "brave": "Brave",
+      "duckduckgo": "DuckDuckGo Browser",
+      "chrome": "Google Chrome",
+      "librewolf": "LibreWolf"
+    },
+    "thisDevice": "dieses Gerät",
+    "role": { "director": "Plattformleitung", "agent": "Administrator" },
     "companyPosition": {
       "platform_head": "Plattformleitung",
       "area_head": "Bereichsleitung",
@@ -2211,6 +2323,18 @@
       "external_collaborator": "Externe Mitarbeit"
     },
     "staffStatus": { "active": "Aktiv", "revoked": "Widerrufen" },
+    "pendingAdministratorAccounts": "Bestätigte Konten warten auf Zugriff",
+    "pendingAdministratorAccountsHint": "Die E-Mail-Bestätigung weist das Postfach nach, gewährt aber keinen Plattformzugriff.",
+    "approveAdministrator": "Als Administrator freigeben",
+    "emptyPendingAdministrators": "Keine bestätigten Konten warten auf Freigabe.",
+    "emptyAdministrators": "Es wurden noch keine Administratoren registriert.",
+    "collaborationDraftNotice": "Organigramm und Abteilungen bleiben als Entwurf zurückgestellt. Diese Bereiche sind nur informativ und vergeben niemals technische Berechtigungen.",
+    "collaborationName": "Name des Bereichs",
+    "collaborationDescription": "Kurzbeschreibung",
+    "createCollaborationDraft": "Verborgenen Entwurf erstellen",
+    "showCollaboration": "Dem Personal anzeigen",
+    "hideCollaboration": "Ausblenden und als Entwurf zurücksetzen",
+    "emptyCollaborationSpaces": "Es gibt noch keine Bereiche für Zusammenarbeit.",
     "reportsTo": "Untersteht {{name}}",
     "unknownManager": "nicht verfügbare Leitung",
     "emptyCompanyStaff": "Der Unternehmensbelegschaft wurde noch niemand hinzugefügt.",
@@ -2310,6 +2434,15 @@
     "notices": {
       "ticketCreated": "Ticket {{id}} erstellt.",
       "replySaved": "Antwort gespeichert.",
+      "administratorApproved": "Das Konto wurde als Administrator mit eingeschränkten Rechten freigegeben.",
+      "collaborationDraftCreated": "Der Bereich wurde verborgen und als Entwurf erstellt.",
+      "collaborationPublished": "Der Bereich ist nun für das Personal sichtbar, ohne zugehörige technische Berechtigungen.",
+      "collaborationHidden": "Der Bereich wurde ausgeblendet und als Entwurf zurückgesetzt.",
+      "mailDraftSaved": "Der Entwurf wurde verschlüsselt gespeichert.",
+      "mailScheduled": "Die E-Mail wurde auf dem Server geplant.",
+      "mailQueued": "Die E-Mail wurde in den Postausgang gestellt.",
+      "notificationSettingsSaved": "Meldungseinstellungen aktualisiert.",
+      "pushEnabled": "Dieses Gerät kann jetzt Web Push von UMF Support empfangen.",
       "roleDelegated": "Delegation angeboten; sie gewährt noch keinen Zugang.",
       "roleAccepted": "Delegation angenommen und Berechtigung aktiviert.",
       "roleRejected": "Delegation abgelehnt, ohne Zugang zu gewähren.",
@@ -2320,7 +2453,20 @@
     },
     "errors": {
       "load": "UMF Support konnte nicht geladen werden.",
-      "save": "Die Änderung konnte nicht gespeichert werden."
+      "save": "Die Änderung konnte nicht gespeichert werden.",
+      "invalidSchedule": "Wählen Sie ein gültiges Datum und eine gültige Uhrzeit.",
+      "invalidLink": "Der Link benötigt Text und eine gültige HTTPS- oder mailto-Adresse.",
+      "browserNotAllowed": "Dieser Browser ist für Web Push von UMF Support nicht freigeschaltet.",
+      "pushUnsupported": "Dieser Browser oder dieses Gerät unterstützt Web Push nicht.",
+      "pushPermissionDenied": "Das Gerät hat keine Berechtigung zum Anzeigen von Meldungen erteilt.",
+      "codes": {
+        "REQUEST_ERROR": "Die E-Mail-Daten sind ungültig oder ihr Zustand hat sich vor Abschluss des Vorgangs geändert.",
+        "FORM_VERIFICATION_REQUIRED": "Bestätigen Sie das Formular erneut, bevor Sie die E-Mail senden oder abbrechen.",
+        "SUPPORT_RATE_LIMITED": "Es wurden zu viele Vorgänge nacheinander ausgeführt. Warten Sie kurz und versuchen Sie es erneut.",
+        "UNAUTHENTICATED": "Die Sitzung von UMF Support ist abgelaufen. Melden Sie sich erneut an.",
+        "ACCOUNT_NOT_ACTIVE": "Das Unternehmenskonto ist nicht aktiv.",
+        "INTERNAL_ERROR": "UMF Support konnte den Vorgang aufgrund eines internen Fehlers nicht abschliessen."
+      }
     }
   },
   "unauthorized": {

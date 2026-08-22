@@ -204,7 +204,6 @@
       "general": "General"
     },
     "notices": {
-      "invitationCreated": "Email address and role pre-authorized. The person can now create and verify their corporate account.",
       "created": "Request {{id}} created.",
       "replySaved": "The reply has been saved.",
       "attachmentSaved": "The file has been stored privately.",
@@ -2093,20 +2092,20 @@
     "login": {
       "eyebrow": "Restricted access",
       "title": "Sign in",
-      "description": "Access is based on corporate accounts and permissions. The designated first head can complete the one-time setup here.",
+      "description": "Access through a verified UMF Support corporate account.",
       "action": "Open UMF Support"
     },
     "register": {
-      "eyebrow": "Closed corporate registration",
-      "title": "Create an authorized account",
-      "description": "Only addresses pre-authorized by management can register. Create your password and then verify the corporate inbox.",
+      "eyebrow": "Corporate account",
+      "title": "Create a UMF Support account",
+      "description": "Create an independent corporate account and then verify the inbox. Administrative access is granted separately from the UMF Support panel.",
       "action": "Create account"
     },
     "verify": {
       "eyebrow": "Inbox verification",
       "title": "Verify email",
-      "description": "Enter the six-digit code sent to the authorized inbox. Verification activates the account and the role assigned by management.",
-      "action": "Verify and sign in"
+      "description": "Enter the six-digit code sent to the inbox. Email verification does not grant administrative permissions.",
+      "action": "Verify email"
     },
     "fullName": "Full name",
     "lastName": "Last name",
@@ -2116,16 +2115,16 @@
     "acceptTerms": "I accept the",
     "terms": "terms and conditions",
     "acceptPrivacy": "I have read the",
-    "verificationSent": "The account was created. Enter the code sent to the authorized corporate inbox.",
+    "verificationSent": "The account was created. Enter the code sent to the corporate inbox.",
     "verificationQueued": "The account was created, but immediate email delivery was not confirmed. The code remains queued and you can request another one.",
     "verificationResent": "We sent a new verification code.",
     "verificationResendQueued": "Immediate delivery was not confirmed. The new code remains queued and you can try again.",
     "resendVerification": "Resend verification code",
     "verificationInvalid": "The verification code is invalid, expired or has used all its attempts.",
-    "registrationClosed": "This address has no available corporate authorization. Management must authorize it before registration.",
+    "awaitingAdministratorApproval": "The email has been verified. The account is waiting for management to approve administrative access from UMF Support.",
     "passwordMismatch": "The passwords do not match.",
     "invalidCredentials": "The UMF Support email or password is incorrect. Commercial Umbravia Forge credentials cannot access this corporate account.",
-    "restrictedNotice": "Account, membership, position and permissions are managed separately",
+    "restrictedNotice": "The corporate account is separate from every commercial account; elevated positions are assigned separately",
     "passkeyLogin": "Sign in with a corporate passkey",
     "privacy": "Privacy",
     "error": "The operation could not be completed."
@@ -2169,29 +2168,142 @@
     "tabs": {
       "tickets": "Tickets",
       "inbox": "Inbox",
-      "outbox": "Sent",
+      "drafts": "Drafts",
+      "scheduled": "Scheduled",
+      "outbox": "Outbox",
+      "sent": "Sent",
+      "notifications": "Alerts",
       "access": "Access",
-      "team": "Team",
-      "company": "Company"
+      "team": "Administrators",
+      "company": "Company",
+      "collaboration": "Collaboration"
     },
     "headings": {
       "tickets": "Ticket queue",
       "inbox": "Received mail",
-      "outbox": "Sent mail",
+      "drafts": "Mail drafts",
+      "scheduled": "Scheduled delivery",
+      "outbox": "Outbox",
+      "sent": "Sent mail",
+      "notifications": "Operational alerts",
       "access": "Access requests",
-      "team": "Support staff",
-      "company": "Company staff"
+      "team": "Administrator access",
+      "company": "Company staff",
+      "collaboration": "Collaboration spaces"
     },
     "descriptions": {
       "tickets": "Platform incidents kept separate from each facility's own support.",
       "inbox": "Messages received through configured corporate channels.",
-      "outbox": "Prepared replies and their delivery state.",
+      "drafts": "Saved communications that have not entered the delivery queue yet.",
+      "scheduled": "Encrypted messages that the server will deliver at the selected time.",
+      "outbox": "Pending messages, retries and delivery errors that require attention.",
+      "sent": "Support communications whose delivery has been recorded.",
+      "notifications": "Choose per event whether to receive email, Web Push, both or neither.",
       "access": "Pre-authorize email addresses and choose their role before they can create an account.",
-      "team": "Corporate authority independent from facility permissions.",
-      "company": "Visible company positions kept separate from technical permissions."
+      "team": "Approve or revoke administrative access for verified corporate accounts.",
+      "company": "Organizational draft without operational authority.",
+      "collaboration": "Informational drafts without technical permissions; you choose what staff can see."
     },
-    "role": { "director": "Director", "agent": "Agent" },
-    "createInvitation": "Pre-authorize account",
+    "compose": "Compose email",
+    "composeHint": "UMF Support operational communication composer; arbitrary HTML is not accepted.",
+    "mail": {
+      "to": "To",
+      "cc": "CC",
+      "bcc": "BCC",
+      "showCopies": "CC and BCC",
+      "recipientPlaceholder": "Separate multiple addresses with semicolons",
+      "linkText": "Link text",
+      "linkUrl": "HTTPS or mailto address",
+      "insertLink": "Insert link",
+      "saveDraft": "Save draft",
+      "scheduleAt": "Date and time",
+      "schedule": "Schedule",
+      "sendNow": "Send now",
+      "cancelSchedule": "Cancel delivery",
+      "noRecipient": "No recipient",
+      "ccCount": "{{count}} in CC",
+      "bccCount": "{{count}} in BCC",
+      "deliveryIssues": "{{count}} delivery needs attention",
+      "deliveryIssues_other": "{{count}} deliveries need attention",
+      "emptyFolder": "There are no communications in this folder."
+    },
+    "mailStatus": {
+      "draft": "Draft",
+      "scheduled": "Scheduled",
+      "outbox": "Pending delivery",
+      "sent": "Sent",
+      "partially_failed": "Partial delivery",
+      "failed": "Delivery failed",
+      "cancelled": "Cancelled"
+    },
+    "deliveryStatus": {
+      "queued": "Queued",
+      "processing": "Processing",
+      "retry": "Awaiting retry",
+      "sent": "Accepted by the recipient server",
+      "failed": "Delivery failed",
+      "superseded": "Replaced or cancelled"
+    },
+    "notifications": {
+      "masterTitle": "Alert preferences",
+      "masterHint": "Alerts remain disabled per channel until you enable them explicitly.",
+      "enabled": "Alerts enabled",
+      "event": "Event",
+      "email": "Email",
+      "push": "Web Push",
+      "pushDevices": "Authorized browsers and mobile devices",
+      "pushHint": "Web Push is sent by the server to the devices you authorize.",
+      "pushUnavailable": "Web Push remains disabled until the server VAPID credentials are configured and validated.",
+      "enableDevice": "Authorize this device",
+      "revokeDevice": "Revoke",
+      "noDevices": "There are no authorized devices.",
+      "deviceStatus": {
+        "active": "Active",
+        "revoked": "Revoked"
+      },
+      "events": {
+        "ticket_created": {
+          "title": "New ticket",
+          "hint": "A new request enters the queue.",
+          "email": "Email for a new ticket",
+          "push": "Push for a new ticket"
+        },
+        "conversation_received": {
+          "title": "New conversation or reply",
+          "hint": "A customer adds information to an incident.",
+          "email": "Email for a new conversation",
+          "push": "Push for a new conversation"
+        },
+        "inbound_email": {
+          "title": "Inbound email",
+          "hint": "The corporate mailbox receives an authenticated message.",
+          "email": "Email for inbound mail",
+          "push": "Push for inbound mail"
+        },
+        "feedback_received": {
+          "title": "Feedback",
+          "hint": "A contribution is received from the public form.",
+          "email": "Email for feedback",
+          "push": "Push for feedback"
+        },
+        "problem_reported": {
+          "title": "Reported problem",
+          "hint": "A user reports a technical or security problem.",
+          "email": "Email for a problem",
+          "push": "Push for a problem"
+        }
+      }
+    },
+    "browser": {
+      "edge": "Microsoft Edge",
+      "firefox": "Firefox",
+      "brave": "Brave",
+      "duckduckgo": "DuckDuckGo Browser",
+      "chrome": "Google Chrome",
+      "librewolf": "LibreWolf"
+    },
+    "thisDevice": "this device",
+    "role": { "director": "Platform head", "agent": "Administrator" },
     "companyPosition": {
       "platform_head": "Head of platform",
       "area_head": "Head of area",
@@ -2200,6 +2312,18 @@
       "external_collaborator": "External collaborator"
     },
     "staffStatus": { "active": "Active", "revoked": "Revoked" },
+    "pendingAdministratorAccounts": "Verified accounts awaiting access",
+    "pendingAdministratorAccountsHint": "Email verification proves control of the inbox but does not grant platform access.",
+    "approveAdministrator": "Approve as administrator",
+    "emptyPendingAdministrators": "There are no verified accounts awaiting approval.",
+    "emptyAdministrators": "No administrators have been registered yet.",
+    "collaborationDraftNotice": "The organization chart and departments are parked as a draft. These spaces are informational only and never grant technical permissions.",
+    "collaborationName": "Space name",
+    "collaborationDescription": "Short description",
+    "createCollaborationDraft": "Create hidden draft",
+    "showCollaboration": "Show to staff",
+    "hideCollaboration": "Hide and return to draft",
+    "emptyCollaborationSpaces": "There are no collaboration spaces yet.",
     "reportsTo": "Reports to {{name}}",
     "unknownManager": "unavailable manager",
     "emptyCompanyStaff": "No one has been added to the company staff yet.",
@@ -2299,6 +2423,15 @@
     "notices": {
       "ticketCreated": "Ticket {{id}} created.",
       "replySaved": "Reply saved.",
+      "administratorApproved": "The account has been approved as a reduced-privilege administrator.",
+      "collaborationDraftCreated": "The space was created hidden and in draft.",
+      "collaborationPublished": "The space is now visible to staff without associated technical permissions.",
+      "collaborationHidden": "The space was hidden and returned to draft.",
+      "mailDraftSaved": "The draft was stored in encrypted form.",
+      "mailScheduled": "The email has been scheduled on the server.",
+      "mailQueued": "The email has entered the outbox.",
+      "notificationSettingsSaved": "Alert preferences updated.",
+      "pushEnabled": "This device can now receive UMF Support Web Push.",
       "roleDelegated": "Delegation offered; it does not grant access yet.",
       "roleAccepted": "Delegation accepted and permission enabled.",
       "roleRejected": "Delegation rejected without granting access.",
@@ -2309,7 +2442,20 @@
     },
     "errors": {
       "load": "UMF Support could not be loaded.",
-      "save": "The change could not be saved."
+      "save": "The change could not be saved.",
+      "invalidSchedule": "Choose a valid date and time.",
+      "invalidLink": "The link needs text and a valid HTTPS or mailto address.",
+      "browserNotAllowed": "This browser is not enabled for UMF Support Web Push.",
+      "pushUnsupported": "This browser or device does not support Web Push.",
+      "pushPermissionDenied": "The device has not granted permission to display notifications.",
+      "codes": {
+        "REQUEST_ERROR": "The email data is invalid or its state changed before the operation completed.",
+        "FORM_VERIFICATION_REQUIRED": "Verify the form again before sending or cancelling the email.",
+        "SUPPORT_RATE_LIMITED": "Too many operations were performed in succession. Wait a moment and try again.",
+        "UNAUTHENTICATED": "The UMF Support session has expired. Sign in again.",
+        "ACCOUNT_NOT_ACTIVE": "The corporate account is not active.",
+        "INTERNAL_ERROR": "UMF Support could not complete the operation because of an internal error."
+      }
     }
   },
   "unauthorized": {

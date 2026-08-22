@@ -6,6 +6,7 @@ import { feedbackLimiter } from "../middleware/security.js";
 import { readSessionToken } from "../lib/session-cookie.js";
 import { verifyToken } from "../services/auth.js";
 import { requireCaptcha } from "../middleware/captcha.js";
+import { notifyUmfSupportAdministrators } from "../services/umf-support-notifications.js";
 
 export const feedbackRouter = express.Router();
 
@@ -33,6 +34,12 @@ feedbackRouter.post(
           createdAt: Date.now(),
         })
         .execute();
+      void notifyUmfSupportAdministrators({
+        event: "feedback_received",
+        title: "Nueva retroalimentación para Umbravia Forge",
+        message: `Se ha recibido una aportación en la categoría ${req.body.category}.`,
+        url: "/umf-support",
+      }).catch(() => undefined);
       res.status(201).json({ submitted: true });
     } catch (error) {
       next(error);

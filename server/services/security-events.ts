@@ -59,6 +59,8 @@ export type SecurityEventType =
   | "umf_support_activation_failed"
   | "umf_support_account_activated"
   | "umf_support_staff_changed"
+  | "umf_support_administrator_approved"
+  | "umf_support_collaboration_space_changed"
   | "corporate_role_delegated"
   | "corporate_role_accepted"
   | "corporate_role_rejected"

@@ -937,6 +937,56 @@ interface UmfSupportStaff {
   revokedAt: number | null;
 }
 
+interface UmfSupportCollaborationSpace {
+  id: string;
+  name: string;
+  description: string;
+  visibility: "hidden" | "staff";
+  status: "draft" | "published";
+  createdByUserId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface UmfSupportMailDraft {
+  id: string;
+  authorUserId: string;
+  content: string;
+  status: "draft" | "scheduled" | "queued" | "cancelled";
+  deliveryIds: string;
+  scheduledAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type UmfSupportNotificationEvent =
+  | "ticket_created"
+  | "conversation_received"
+  | "inbound_email"
+  | "feedback_received"
+  | "problem_reported";
+
+interface UmfSupportNotificationPreference {
+  userId: string;
+  enabled: number;
+  eventPreferences: string;
+  updatedAt: number;
+}
+
+interface UmfSupportPushSubscription {
+  id: string;
+  userId: string;
+  endpointHash: string;
+  subscriptionProtected: string;
+  browserFamily:
+    "edge" | "firefox" | "brave" | "duckduckgo" | "chrome" | "librewolf";
+  deviceName: string;
+  status: "active" | "revoked";
+  createdAt: number;
+  updatedAt: number;
+  revokedAt: number | null;
+}
+
 interface UmfSupportAccessRequest {
   id: string;
   email: string;
@@ -1315,6 +1365,10 @@ export interface Database {
   corporateBootstrapState: CorporateBootstrapState;
   companyStaffProfiles: CompanyStaffProfile;
   umfSupportStaff: UmfSupportStaff;
+  umfSupportCollaborationSpaces: UmfSupportCollaborationSpace;
+  umfSupportMailDrafts: UmfSupportMailDraft;
+  umfSupportNotificationPreferences: UmfSupportNotificationPreference;
+  umfSupportPushSubscriptions: UmfSupportPushSubscription;
   umfSupportAccessRequests: UmfSupportAccessRequest;
   umfSupportAccessCredentials: UmfSupportAccessCredential;
   umfSupportTickets: UmfSupportTicket;

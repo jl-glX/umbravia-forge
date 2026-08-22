@@ -2265,6 +2265,46 @@ CREATE INDEX IF NOT EXISTS "idx_umfSupportMessages_mailbox"
   ON "umfSupportMessages" ("direction", "createdAt" DESC);
 CREATE INDEX IF NOT EXISTS "idx_umfSupportMessages_ticket"
   ON "umfSupportMessages" ("ticketId", "createdAt");
+
+CREATE TABLE IF NOT EXISTS "umfSupportMailDrafts" (
+  "id" TEXT PRIMARY KEY,
+  "authorUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "content" TEXT NOT NULL,
+  "status" TEXT NOT NULL DEFAULT 'draft'
+    CHECK ("status" IN ('draft', 'scheduled', 'queued', 'cancelled')),
+  "deliveryIds" TEXT NOT NULL DEFAULT '[]',
+  "scheduledAt" BIGINT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_umfSupportMailDrafts_status"
+  ON "umfSupportMailDrafts" ("status", "updatedAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_umfSupportMailDrafts_author"
+  ON "umfSupportMailDrafts" ("authorUserId", "updatedAt" DESC);
+
+CREATE TABLE IF NOT EXISTS "umfSupportNotificationPreferences" (
+  "userId" TEXT PRIMARY KEY REFERENCES "users" ("id") ON DELETE CASCADE,
+  "enabled" INTEGER NOT NULL DEFAULT 0 CHECK ("enabled" IN (0, 1)),
+  "eventPreferences" TEXT NOT NULL DEFAULT '{}',
+  "updatedAt" BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "umfSupportPushSubscriptions" (
+  "id" TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "endpointHash" TEXT NOT NULL UNIQUE,
+  "subscriptionProtected" TEXT NOT NULL,
+  "browserFamily" TEXT NOT NULL
+    CHECK ("browserFamily" IN ('edge', 'firefox', 'brave', 'duckduckgo', 'chrome', 'librewolf')),
+  "deviceName" TEXT NOT NULL DEFAULT '',
+  "status" TEXT NOT NULL DEFAULT 'active'
+    CHECK ("status" IN ('active', 'revoked')),
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  "revokedAt" BIGINT
+);
+CREATE INDEX IF NOT EXISTS "idx_umfSupportPushSubscriptions_user"
+  ON "umfSupportPushSubscriptions" ("userId", "status", "updatedAt" DESC);
 `,
   },
   {
@@ -2459,6 +2499,75 @@ ALTER TABLE "umfSupportAccessRequests"
 ALTER TABLE "umfSupportAccessRequests"
   ADD CONSTRAINT "umfSupportAccessRequests_activationKind_check"
   CHECK ("activationKind" IN ('staff', 'designated_head'));
+`,
+  },
+  {
+    version: 46,
+    name: "umf-support-minimal-collaboration-spaces",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "umfSupportCollaborationSpaces" (
+  "id" TEXT PRIMARY KEY,
+  "name" TEXT NOT NULL,
+  "description" TEXT NOT NULL DEFAULT '',
+  "visibility" TEXT NOT NULL DEFAULT 'hidden'
+    CHECK ("visibility" IN ('hidden', 'staff')),
+  "status" TEXT NOT NULL DEFAULT 'draft'
+    CHECK ("status" IN ('draft', 'published')),
+  "createdByUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_umfSupportCollaborationSpaces_visibility"
+  ON "umfSupportCollaborationSpaces" ("status", "visibility", "updatedAt" DESC);
+`,
+  },
+  {
+    version: 47,
+    name: "umf-support-mail-drafts-and-scheduling",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "umfSupportMailDrafts" (
+  "id" TEXT PRIMARY KEY,
+  "authorUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE RESTRICT,
+  "content" TEXT NOT NULL,
+  "status" TEXT NOT NULL DEFAULT 'draft'
+    CHECK ("status" IN ('draft', 'scheduled', 'queued', 'cancelled')),
+  "deliveryIds" TEXT NOT NULL DEFAULT '[]',
+  "scheduledAt" BIGINT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_umfSupportMailDrafts_status"
+  ON "umfSupportMailDrafts" ("status", "updatedAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_umfSupportMailDrafts_author"
+  ON "umfSupportMailDrafts" ("authorUserId", "updatedAt" DESC);
+`,
+  },
+  {
+    version: 48,
+    name: "umf-support-configurable-email-and-push-alerts",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "umfSupportNotificationPreferences" (
+  "userId" TEXT PRIMARY KEY REFERENCES "users" ("id") ON DELETE CASCADE,
+  "enabled" INTEGER NOT NULL DEFAULT 0 CHECK ("enabled" IN (0, 1)),
+  "eventPreferences" TEXT NOT NULL DEFAULT '{}',
+  "updatedAt" BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS "umfSupportPushSubscriptions" (
+  "id" TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "endpointHash" TEXT NOT NULL UNIQUE,
+  "subscriptionProtected" TEXT NOT NULL,
+  "browserFamily" TEXT NOT NULL
+    CHECK ("browserFamily" IN ('edge', 'firefox', 'brave', 'duckduckgo', 'chrome', 'librewolf')),
+  "deviceName" TEXT NOT NULL DEFAULT '',
+  "status" TEXT NOT NULL DEFAULT 'active'
+    CHECK ("status" IN ('active', 'revoked')),
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  "revokedAt" BIGINT
+);
+CREATE INDEX IF NOT EXISTS "idx_umfSupportPushSubscriptions_user"
+  ON "umfSupportPushSubscriptions" ("userId", "status", "updatedAt" DESC);
 `,
   },
 ];

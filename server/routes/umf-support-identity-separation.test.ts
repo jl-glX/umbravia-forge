@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,10 +14,6 @@ describe("UMF Support and commercial identity separation", () => {
     directory = await mkdtemp(join(tmpdir(), "umf-identity-separation-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
-    vi.stubEnv(
-      "UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256",
-      createHash("sha256").update("support-head@example.com").digest("hex"),
-    );
     vi.resetModules();
     database = await import("../db/client.js");
     await database.initializeDatabase();
@@ -235,6 +230,15 @@ describe("UMF Support and commercial identity separation", () => {
       .post("/api/umf-support/verify-email")
       .send({ code: registration.body.demoVerificationCode })
       .expect(200);
+    const designation = await import("../services/company-head-designation.js");
+    await expect(
+      designation.applyCompanyHeadDesignation("support-head@example.com"),
+    ).resolves.toMatchObject({
+      identityRealm: "corporate_support",
+      supportRole: "director",
+      supportStatus: "active",
+      companyPosition: "platform_head",
+    });
 
     const supportUserId = registration.body.user.id as string;
     expect(supportUserId).not.toBe(commercialUserId);
@@ -281,15 +285,13 @@ describe("UMF Support and commercial identity separation", () => {
       .expect(401);
   });
 
-  it("blocks a reset that targets neither the active head nor all corporate staff", async () => {
+  it("blocks a reset aimed at a different email once the head is designated", async () => {
     const reset = await import("../services/umf-support-identity-reset.js");
     await expect(
       reset.planUmfSupportIdentityReset({
         corporateEmail: "other-support-account@example.com",
       }),
-    ).rejects.toThrow(
-      "corporate reset is blocked because the company head belongs to another identity",
-    );
+    ).rejects.toThrow("company head belongs to another identity");
     await expect(
       database.db
         .selectFrom("users")

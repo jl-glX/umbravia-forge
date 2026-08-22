@@ -3,24 +3,6 @@ import { authFetch } from "./api";
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export type UmfSupportRole = "director" | "agent";
-export type CompanyPosition =
-  | "platform_head"
-  | "area_head"
-  | "team_lead"
-  | "staff"
-  | "external_collaborator";
-export type CorporateModuleProfile =
-  | "manager-core"
-  | "manager-coordinator"
-  | "manager-flow-administrator"
-  | "manager-account"
-  | "manager-security"
-  | "manager-resource"
-  | "manager-encryption"
-  | "manager-environment"
-  | "manager-email"
-  | "manager-notification"
-  | "manager-support";
 export type UmfTicketStatus =
   "open" | "in_progress" | "waiting_on_requester" | "resolved" | "closed";
 export type UmfTicketPriority = "low" | "normal" | "high" | "urgent";
@@ -29,9 +11,9 @@ export type UmfTicketCategory =
 
 export interface UmfSupportCapabilities {
   role: UmfSupportRole;
-  canReviewAccess: boolean;
-  canManageTeam: boolean;
-  canManageCompanyRoles: boolean;
+  canManageAdministrators: boolean;
+  canManageCollaborationSpaces: boolean;
+  isPlatformHead: boolean;
   email: {
     outbound: boolean;
     inbound: boolean;
@@ -81,28 +63,27 @@ export interface UmfSupportStaffMember {
   createdAt: number;
 }
 
-export interface CompanyStaffMember {
+export interface UmfSupportAdministratorAccount {
   userId: string;
   name: string;
   lastName: string;
   email: string;
-  position: CompanyPosition;
-  reportsToUserId: string | null;
-  managerName: string | null;
-  managerLastName: string | null;
-  status: "active" | "revoked";
+  accountStatus: "pending_verification" | "active" | "security_review";
+  emailVerifiedAt: number | null;
   createdAt: number;
+  role: UmfSupportRole | null;
+  staffStatus: "active" | "revoked" | null;
 }
 
-export interface CompanyRoleDelegation {
+export interface UmfSupportCollaborationSpace {
   id: string;
-  profileId: CorporateModuleProfile;
-  recipientUserId: string;
-  recipientName: string;
-  recipientLastName: string;
-  status: "pending" | "accepted" | "rejected" | "withdrawn" | "renounced";
+  name: string;
+  description: string;
+  visibility: "hidden" | "staff";
+  status: "draft" | "published";
+  createdByUserId: string;
   createdAt: number;
-  respondedAt: number | null;
+  updatedAt: number;
 }
 
 export interface UmfSupportTicketSummary {
@@ -153,6 +134,62 @@ export interface UmfMailboxMessage {
   createdAt: number;
 }
 
+export type UmfSupportMailStatus =
+  | "draft"
+  | "scheduled"
+  | "outbox"
+  | "sent"
+  | "partially_failed"
+  | "failed"
+  | "cancelled";
+
+export interface UmfSupportMailDraft {
+  id: string;
+  authorUserId: string;
+  authorName: string | null;
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  subject: string;
+  body: string;
+  status: UmfSupportMailStatus;
+  scheduledAt: number | null;
+  sentAt: number | null;
+  deliveryIssueCount: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type UmfSupportNotificationEvent =
+  | "ticket_created"
+  | "conversation_received"
+  | "inbound_email"
+  | "feedback_received"
+  | "problem_reported";
+
+export type UmfSupportBrowserFamily =
+  "edge" | "firefox" | "brave" | "duckduckgo" | "chrome" | "librewolf";
+
+export interface UmfSupportNotificationSettings {
+  enabled: boolean;
+  preferences: Record<
+    UmfSupportNotificationEvent,
+    { email: boolean; push: boolean }
+  >;
+  push: {
+    available: boolean;
+    publicKey: string | null;
+    devices: Array<{
+      id: string;
+      browserFamily: UmfSupportBrowserFamily;
+      deviceName: string;
+      status: "active" | "revoked";
+      createdAt: number;
+      updatedAt: number;
+    }>;
+  };
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await authFetch(`${API_BASE}/api/umf-support${path}`, init);
   const payload = (await response.json().catch(() => ({}))) as T & {
@@ -187,7 +224,10 @@ export function registerSupportAccount(input: {
 }
 
 export function verifySupportEmail(code: string) {
-  return request<{ verified: true; role: UmfSupportRole }>("/verify-email", {
+  return request<{
+    verified: true;
+    access: "awaiting_administrator_approval";
+  }>("/verify-email", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code }),
@@ -252,6 +292,44 @@ export async function fetchCapabilities() {
   return (
     await request<{ capabilities: UmfSupportCapabilities }>("/capabilities")
   ).capabilities;
+}
+
+export async function fetchNotificationSettings() {
+  return (
+    await request<{ settings: UmfSupportNotificationSettings }>(
+      "/notification-settings",
+    )
+  ).settings;
+}
+
+export function updateNotificationSettings(input: {
+  enabled: boolean;
+  preferences: UmfSupportNotificationSettings["preferences"];
+}) {
+  return request<{ updated: true }>("/notification-settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function registerPushSubscription(input: {
+  subscription: PushSubscriptionJSON;
+  deviceName: string;
+  browserFamily: UmfSupportBrowserFamily;
+}) {
+  return request<{ id: string }>("/push-subscriptions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function revokePushSubscription(subscriptionId: string) {
+  return request<{ revoked: true }>(
+    `/push-subscriptions/${encodeURIComponent(subscriptionId)}`,
+    { method: "DELETE" },
+  );
 }
 
 export async function fetchTickets(filters?: { status?: string; q?: string }) {
@@ -334,103 +412,110 @@ export async function fetchMailbox(direction: "inbound" | "outbound") {
   ).messages;
 }
 
-export async function fetchAccessRequests() {
-  return (
-    await request<{ requests: UmfSupportAccessRequest[] }>("/access-requests")
-  ).requests;
+export async function fetchMailDrafts() {
+  return (await request<{ drafts: UmfSupportMailDraft[] }>("/mail/drafts"))
+    .drafts;
 }
 
-export function inviteSupportAccount(input: {
-  email: string;
-  name: string;
-  lastName: string;
-  requestedRole: UmfSupportRole;
-  locale: string;
-}) {
-  return request<UmfSupportAccessRequest>("/access-requests/invite", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
+export function saveMailDraft(
+  input: {
+    to: string[];
+    cc: string[];
+    bcc: string[];
+    subject: string;
+    body: string;
+  },
+  draftId?: string,
+) {
+  return request<{ draft: { id: string } }>(
+    draftId ? `/mail/drafts/${encodeURIComponent(draftId)}` : "/mail/drafts",
+    {
+      method: draftId ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function submitMailDraft(draftId: string, scheduledAt?: number) {
+  return request<{ queued: true; scheduledAt: number | null }>(
+    `/mail/drafts/${encodeURIComponent(draftId)}/send`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(scheduledAt === undefined ? {} : { scheduledAt }),
+    },
+  );
+}
+
+export function cancelScheduledMail(draftId: string) {
+  return request<{ cancelled: true }>(
+    `/mail/drafts/${encodeURIComponent(draftId)}/cancel`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    },
+  );
 }
 
 export async function fetchStaff() {
   return (await request<{ staff: UmfSupportStaffMember[] }>("/staff")).staff;
 }
 
-export async function fetchCompanyStaff() {
-  return (await request<{ staff: CompanyStaffMember[] }>("/company-staff"))
-    .staff;
+export async function fetchAdministratorAccounts() {
+  return (
+    await request<{ accounts: UmfSupportAdministratorAccount[] }>(
+      "/administrator-accounts",
+    )
+  ).accounts;
 }
 
-export function updateCompanyStaff(
-  userId: string,
+export function approveAdministratorAccount(userId: string) {
+  return request<void>(
+    `/administrator-accounts/${encodeURIComponent(userId)}/approve`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    },
+  );
+}
+
+export async function fetchCollaborationSpaces() {
+  return (
+    await request<{ spaces: UmfSupportCollaborationSpace[] }>(
+      "/collaboration-spaces",
+    )
+  ).spaces;
+}
+
+export function createCollaborationSpace(input: {
+  name: string;
+  description: string;
+}) {
+  return request<{ space: UmfSupportCollaborationSpace }>(
+    "/collaboration-spaces",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function updateCollaborationSpace(
+  spaceId: string,
   input: {
-    position: Exclude<CompanyPosition, "platform_head">;
-    reportsToUserId?: string | null;
-    status: "active" | "revoked";
+    visibility: "hidden" | "staff";
+    status: "draft" | "published";
   },
 ) {
-  return request<void>(`/company-staff/${encodeURIComponent(userId)}`, {
+  return request<void>(`/collaboration-spaces/${encodeURIComponent(spaceId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-}
-
-export async function fetchCompanyRoleDelegations() {
-  return (
-    await request<{ delegations: CompanyRoleDelegation[] }>(
-      "/company-delegations",
-    )
-  ).delegations;
-}
-
-export function delegateCompanyRole(input: {
-  profileId: CorporateModuleProfile;
-  recipientUserId: string;
-}) {
-  return request<{ id: string; pending: true }>("/company-delegations", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-}
-
-export function respondToCompanyRoleDelegation(
-  delegationId: string,
-  decision: "accept" | "reject",
-) {
-  return request<{ status: "accepted" | "rejected" }>(
-    `/company-delegations/${encodeURIComponent(delegationId)}/respond`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ decision }),
-    },
-  );
-}
-
-export function renounceCompanyRole(profileId: CorporateModuleProfile) {
-  return request<void>(
-    `/company-roles/${encodeURIComponent(profileId)}/renounce`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    },
-  );
-}
-
-export function selfEnableCompanyRole(profileId: CorporateModuleProfile) {
-  return request<void>(
-    `/company-roles/${encodeURIComponent(profileId)}/self-enable`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    },
-  );
 }
 
 export function updateStaff(

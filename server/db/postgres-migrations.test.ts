@@ -67,6 +67,26 @@ describe("PostgreSQL migrations", () => {
     expect(migration).toContain("'staff', 'designated_head'");
   });
 
+  it("creates support mail and opt-in notification storage in maintained migrations", () => {
+    const mailMigration = postgresMigrationSql().find((sql) =>
+      sql.includes('CREATE TABLE IF NOT EXISTS "umfSupportMailDrafts"'),
+    );
+    expect(mailMigration).toContain('"content" TEXT NOT NULL');
+    expect(mailMigration).toContain('"deliveryIds" TEXT NOT NULL');
+    const notificationMigration = postgresMigrationSql().find((sql) =>
+      sql.includes(
+        'CREATE TABLE IF NOT EXISTS "umfSupportNotificationPreferences"',
+      ),
+    );
+    expect(notificationMigration).toContain(
+      'CREATE TABLE IF NOT EXISTS "umfSupportPushSubscriptions"',
+    );
+    expect(notificationMigration).toContain(
+      '"enabled" INTEGER NOT NULL DEFAULT 0',
+    );
+    expect(notificationMigration).toContain('"subscriptionProtected" TEXT');
+  });
+
   it("keeps legacy activity identifiers out of the resulting schema", () => {
     const activityMigration =
       postgresMigrationSql().find((sql) =>

@@ -48,10 +48,11 @@ historial de trabajo.
 - UMF Support es una aplicación web corporativa distinta del soporte de cada
   centro. Solo una identidad `corporate_support` con una pertenencia activa en
   `umfSupportStaff` puede entrar; `platformOperators` queda en el ámbito
-  comercial. El registro está cerrado: la primera jefatura se limita al correo
-  designado en el entorno y el resto del personal requiere una preautorización
-  exacta de dirección. Una cuenta administradora de centro no recibe acceso
-  corporativo por su rol.
+  comercial. El registro crea una cuenta corporativa separada y exige verificar
+  el buzón, pero no concede pertenencia ni rol. Dirección aprueba después las
+  cuentas administrativas. La primera jefatura se designa mediante una orden
+  local sobre una identidad corporativa ya verificada. Una cuenta
+  administradora de centro no recibe acceso corporativo por su rol.
 - Ambas aplicaciones usan el proveedor de datos configurado; en producción,
   UMF Support está dentro del mismo PostgreSQL, con realms, relaciones y tablas
   lógicamente separados. No debe afirmarse que existe una segunda base física.
@@ -66,23 +67,18 @@ historial de trabajo.
   filtra también los trabajos vencidos por realm. La regresión automatizada
   elimina una cuenta comercial y confirma que la cuenta de UMF Support con el
   mismo correo permanece activa y puede iniciar sesión.
-- La plantilla empresarial usa `companyStaffProfiles` y queda separada de los
-  permisos. Dirección preautoriza correo, nombre, apellidos, idioma y rol; la
-  persona invitada crea una contraseña corporativa y verifica el buzón con el
-  reto ordinario. El rol no se elige públicamente. La excepción inicial admite
-  únicamente el correo cuyo hash coincide con
-  `UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256` y solo mientras no existe estado,
-  personal ni plantilla corporativa. No traslada autoridad desde una cuenta
-  comercial. Las rutas y comandos antiguos de solicitud, activación,
-  provisión y reanudación se han retirado. El saneamiento
+- La administración corporativa vigente se limita a altas, bajas y roles
+  `director`/`agent`, más espacios de colaboración de privilegio reducido. El
+  organigrama amplio queda como borrador no publicado. `companyStaffProfiles`
+  conserva la señal mínima `platform_head`, separada de los permisos diarios.
+  `company:designate-head` funciona primero en simulación, exige PostgreSQL,
+  repite el correo y solo actúa sobre una identidad `corporate_support` activa
+  y verificada. No traslada autoridad desde una cuenta comercial. Las rutas y
+  comandos antiguos de solicitud, activación, provisión y reanudación se han
+  retirado. El saneamiento
   `company:reset-support-identity` funciona primero en simulación, conserva
   expresamente la identidad comercial y se bloquea ante otra persona o
-  jefatura no declarada. Los módulos vacantes quedan bajo cobertura automática de la
-  jefatura; una asignación activa o delegación pendiente la suspende solo para
-  ese módulo. Aceptación, rechazo, renuncia y revocación son estados auditables.
-  Las cuentas aprobadas de soporte se incorporan expresamente a la plantilla;
-  retirarlas conserva el registro, revoca sus asignaciones y devuelve los
-  módulos sin responsable a la cobertura de la jefatura.
+  jefatura no declarada.
 - La terminal web/API de gestores y su tabla de credenciales se retiran. Los
   gestores son infraestructura interna compartida y disponen de un único
   administrador local Linux; cada flujo debe marcarse expresamente como
@@ -111,10 +107,15 @@ historial de trabajo.
   invalida retos anteriores y vuelve a avisar al correo sustituido. La interfaz
   pertenece a `Cuenta > Seguridad` para cualquier cuenta activa y verificada;
   no forma parte de la plantilla de UMF Support.
-- UMF Support incorpora tickets, bandejas de entrada y salida, mensajes
-  cifrados, categoría de privacidad y un webhook de correo firmado. El código
-  y sus pruebas no demuestran que el buzón, DNS, Worker, SMTP, rebotes o
-  entregabilidad estén configurados en el entorno vivo.
+- UMF Support incorpora tickets, entrada, borradores, programados, salida y
+  enviados; Para/CC/CCO; hiperenlaces HTTPS o `mailto:` saneados; contenido y
+  borradores cifrados; categoría de privacidad y un webhook firmado. Las
+  alertas por tickets, conversaciones, entrada, retroalimentación e informes
+  son preferencias personales y comienzan desactivadas. El correo es el canal
+  prioritario; Web Push es opcional y requiere VAPID y autorización por
+  dispositivo. Las migraciones 47 y 48 y el puente de datos cubren las tablas
+  nuevas, pero el código y las pruebas no demuestran que el esquema vivo,
+  buzón, DNS, Worker, SMTP, rebotes, push o entregabilidad estén configurados.
 - La política de privacidad mantenida está en `docs/PRIVACY-POLICY.md`, pero
   sigue pendiente completar el canal verificado, el domicilio publicable, el
   inventario de encargados y transferencias, los criterios de conservación y
@@ -142,13 +143,14 @@ historial de trabajo.
   solicitudes de rol está en
   `docs/UMF-SUPPORT-ROLE-ACTIVATION-AUDIT-2026-08-22.md`; el registro cerrado y
   el reinicio de identidad se auditan en
-  `docs/UMF-SUPPORT-CLOSED-REGISTRATION-AUDIT-2026-08-22.md`. La última puerta
-  integral revisó 48 archivos de portabilidad y pasó formato, lint, los tres
-  `typecheck`, 112 archivos de pruebas con 555 pruebas favorables y una prueba
-  POSIX omitida por ejecutarse en Windows, las tres compilaciones, el paquete
-  Windows y la auditoría de dependencias. La validación remota de cada
-  publicación y la comprobación del entorno desplegado siguen siendo controles
-  independientes.
+  `docs/UMF-SUPPORT-CLOSED-REGISTRATION-AUDIT-2026-08-22.md`. La revisión
+  vigente del correo y las alertas está en
+  `docs/UMF-SUPPORT-MAIL-AND-NOTIFICATIONS-AUDIT-2026-08-22.md`. En esta sesión,
+  `npm run ci:validate` pasó 49 controles de portabilidad, formato, lint, los
+  tres `typecheck`, 114 archivos con 561 pruebas favorables y una prueba POSIX
+  omitida por ejecutarse en Windows, las tres compilaciones, el paquete Windows
+  y la auditoría de dependencias. La validación remota de cada publicación y la
+  comprobación del entorno desplegado siguen siendo controles independientes.
 
 ## Fuentes y orden de autoridad
 

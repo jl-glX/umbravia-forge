@@ -41,23 +41,23 @@ import {
 import { deliverQueuedEmail } from "../services/email-delivery.js";
 import {
   createUmfSupportTicket,
-  delegateCompanyRole,
+  approveUmfSupportAdministrator,
+  createUmfSupportCollaborationSpace,
+  cancelUmfSupportScheduledMail,
   getUmfSupportCapabilities,
   getUmfSupportDistribution,
   getUmfSupportTicket,
-  inviteUmfSupportAccount,
-  listCompanyStaff,
-  listCompanyRoleDelegations,
-  listUmfSupportAccessRequests,
+  listUmfSupportAdministratorAccounts,
+  listUmfSupportCollaborationSpaces,
   listUmfSupportMailbox,
+  listUmfSupportMailDrafts,
   listUmfSupportStaff,
   listUmfSupportTickets,
   registerUmfSupportAccount,
-  renounceCompanyRole,
   replyToUmfSupportTicket,
-  respondToCompanyRoleDelegation,
-  selfEnableCompanyRole,
-  updateCompanyStaff,
+  saveUmfSupportMailDraft,
+  sendUmfSupportMailDraft,
+  updateUmfSupportCollaborationSpace,
   updateUmfSupportStaff,
   updateUmfSupportTicket,
   verifyUmfSupportRegistration,
@@ -67,6 +67,12 @@ import {
   getPendingEmailVerificationProfile,
 } from "../services/email-verification.js";
 import { queueEmailVerificationCode } from "../services/email-delivery.js";
+import {
+  getUmfSupportNotificationSettings,
+  registerUmfSupportPushSubscription,
+  revokeUmfSupportPushSubscription,
+  updateUmfSupportNotificationSettings,
+} from "../services/umf-support-notifications.js";
 
 export const umfSupportRouter = express.Router();
 
@@ -420,34 +426,73 @@ umfSupportRouter.get("/capabilities", async (_req, res, next) => {
   }
 });
 
-umfSupportRouter.get("/access-requests", async (_req, res, next) => {
+umfSupportRouter.get("/notification-settings", async (_req, res, next) => {
   try {
     res.json({
-      requests: await listUmfSupportAccessRequests(getAuthenticatedUser(res)),
+      settings: await getUmfSupportNotificationSettings(
+        getAuthenticatedUser(res),
+      ),
     });
   } catch (error) {
     next(error);
   }
 });
 
+umfSupportRouter.put(
+  "/notification-settings",
+  supportMutationLimiter,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, ["enabled", "preferences"]);
+      res.json(
+        await updateUmfSupportNotificationSettings(
+          getAuthenticatedUser(res),
+          req.body,
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 umfSupportRouter.post(
-  "/access-requests/invite",
+  "/push-subscriptions",
   supportMutationLimiter,
   requireRecentFormVerification,
   async (req, res, next) => {
     try {
       requireOnlyFields(req.body, [
-        "email",
-        "name",
-        "lastName",
-        "requestedRole",
-        "locale",
+        "subscription",
+        "deviceName",
+        "browserFamily",
       ]);
       res
         .status(201)
         .json(
-          await inviteUmfSupportAccount(getAuthenticatedUser(res), req.body),
+          await registerUmfSupportPushSubscription(
+            getAuthenticatedUser(res),
+            req.body,
+          ),
         );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.delete(
+  "/push-subscriptions/:subscriptionId",
+  supportMutationLimiter,
+  requireRecentFormVerification,
+  async (req, res, next) => {
+    try {
+      res.json(
+        await revokeUmfSupportPushSubscription(
+          getAuthenticatedUser(res),
+          req.params.subscriptionId,
+        ),
+      );
     } catch (error) {
       next(error);
     }
@@ -462,37 +507,12 @@ umfSupportRouter.get("/staff", async (_req, res, next) => {
   }
 });
 
-umfSupportRouter.get("/company-staff", async (_req, res, next) => {
-  try {
-    res.json({ staff: await listCompanyStaff(getAuthenticatedUser(res)) });
-  } catch (error) {
-    next(error);
-  }
-});
-
-umfSupportRouter.patch(
-  "/company-staff/:userId",
-  supportMutationLimiter,
-  requireRecentFormVerification,
-  async (req, res, next) => {
-    try {
-      requireOnlyFields(req.body, ["position", "reportsToUserId", "status"]);
-      await updateCompanyStaff(
-        getAuthenticatedUser(res),
-        req.params.userId,
-        req.body,
-      );
-      res.status(204).end();
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-umfSupportRouter.get("/company-delegations", async (_req, res, next) => {
+umfSupportRouter.get("/administrator-accounts", async (_req, res, next) => {
   try {
     res.json({
-      delegations: await listCompanyRoleDelegations(getAuthenticatedUser(res)),
+      accounts: await listUmfSupportAdministratorAccounts(
+        getAuthenticatedUser(res),
+      ),
     });
   } catch (error) {
     next(error);
@@ -500,51 +520,15 @@ umfSupportRouter.get("/company-delegations", async (_req, res, next) => {
 });
 
 umfSupportRouter.post(
-  "/company-delegations",
-  supportMutationLimiter,
-  requireRecentFormVerification,
-  async (req, res, next) => {
-    try {
-      requireOnlyFields(req.body, ["profileId", "recipientUserId"]);
-      res
-        .status(201)
-        .json(await delegateCompanyRole(getAuthenticatedUser(res), req.body));
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-umfSupportRouter.post(
-  "/company-delegations/:delegationId/respond",
-  supportMutationLimiter,
-  requireRecentFormVerification,
-  async (req, res, next) => {
-    try {
-      requireOnlyFields(req.body, ["decision"]);
-      res.json(
-        await respondToCompanyRoleDelegation(
-          getAuthenticatedUser(res),
-          req.params.delegationId,
-          req.body.decision,
-        ),
-      );
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-umfSupportRouter.post(
-  "/company-roles/:profileId/renounce",
+  "/administrator-accounts/:userId/approve",
   supportMutationLimiter,
   requireRecentFormVerification,
   async (req, res, next) => {
     try {
       requireOnlyFields(req.body, []);
-      await renounceCompanyRole(
+      await approveUmfSupportAdministrator(
         getAuthenticatedUser(res),
-        req.params.profileId,
+        req.params.userId,
       );
       res.status(204).end();
     } catch (error) {
@@ -553,16 +537,48 @@ umfSupportRouter.post(
   },
 );
 
+umfSupportRouter.get("/collaboration-spaces", async (_req, res, next) => {
+  try {
+    res.json({
+      spaces: await listUmfSupportCollaborationSpaces(
+        getAuthenticatedUser(res),
+      ),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 umfSupportRouter.post(
-  "/company-roles/:profileId/self-enable",
+  "/collaboration-spaces",
   supportMutationLimiter,
   requireRecentFormVerification,
   async (req, res, next) => {
     try {
-      requireOnlyFields(req.body, []);
-      await selfEnableCompanyRole(
+      requireOnlyFields(req.body, ["name", "description"]);
+      res.status(201).json({
+        space: await createUmfSupportCollaborationSpace(
+          getAuthenticatedUser(res),
+          req.body,
+        ),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.patch(
+  "/collaboration-spaces/:spaceId",
+  supportMutationLimiter,
+  requireRecentFormVerification,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, ["visibility", "status"]);
+      await updateUmfSupportCollaborationSpace(
         getAuthenticatedUser(res),
-        req.params.profileId,
+        req.params.spaceId,
+        req.body,
       );
       res.status(204).end();
     } catch (error) {
@@ -705,3 +721,93 @@ umfSupportRouter.get("/mailbox/:direction", async (req, res, next) => {
     next(error);
   }
 });
+
+umfSupportRouter.get("/mail/drafts", async (_req, res, next) => {
+  try {
+    res.json({
+      drafts: await listUmfSupportMailDrafts(getAuthenticatedUser(res)),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+umfSupportRouter.post(
+  "/mail/drafts",
+  supportMutationLimiter,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, ["to", "cc", "bcc", "subject", "body"]);
+      res.status(201).json({
+        draft: await saveUmfSupportMailDraft(
+          getAuthenticatedUser(res),
+          req.body,
+        ),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.put(
+  "/mail/drafts/:draftId",
+  supportMutationLimiter,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, ["to", "cc", "bcc", "subject", "body"]);
+      res.json({
+        draft: await saveUmfSupportMailDraft(
+          getAuthenticatedUser(res),
+          req.body,
+          req.params.draftId,
+        ),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.post(
+  "/mail/drafts/:draftId/send",
+  supportMutationLimiter,
+  requireRecentFormVerification,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, ["scheduledAt"]);
+      const scheduledAt =
+        req.body.scheduledAt === undefined ? undefined : req.body.scheduledAt;
+      res
+        .status(202)
+        .json(
+          await sendUmfSupportMailDraft(
+            getAuthenticatedUser(res),
+            req.params.draftId,
+            scheduledAt,
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.post(
+  "/mail/drafts/:draftId/cancel",
+  supportMutationLimiter,
+  requireRecentFormVerification,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, []);
+      res.json(
+        await cancelUmfSupportScheduledMail(
+          getAuthenticatedUser(res),
+          req.params.draftId,
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
