@@ -2151,6 +2151,8 @@
     "heading": "Identidad independiente de UMF Support",
     "boundary": "Esta cuenta, sus sesiones, sus métodos de acceso y sus permisos corporativos están separados de cualquier cuenta de socio, entrenador o centro deportivo, aunque ambas utilicen el mismo correo.",
     "back": "Volver a soporte",
+    "pendingApprovalTitle": "Acceso administrativo pendiente",
+    "pendingApprovalBody": "La identidad corporativa está verificada y ya puedes gestionar su seguridad. Los tickets, el correo y la administración permanecerán cerrados hasta que una jefatura active tu acceso. Una cuenta comercial con el mismo correo y su posible solicitud de borrado se gestionan por separado.",
     "highlights": {
       "identity": "Identidad corporativa separada",
       "roles": "Cargos y permisos revocables",

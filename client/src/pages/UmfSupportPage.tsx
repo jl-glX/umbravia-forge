@@ -265,7 +265,7 @@ export function UmfSupportPage() {
   }, []);
 
   useEffect(() => {
-    if (user) void refresh();
+    if (user?.accessApproved) void refresh();
     // Selected tickets are refreshed explicitly after mutations.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, view, query, status]);
@@ -574,6 +574,8 @@ export function UmfSupportPage() {
   if (user === undefined)
     return <p className="p-8 text-slate-600">{t("common.loading")}</p>;
   if (!user) return <Navigate to="/umf-support/access" replace />;
+  if (!user.accessApproved)
+    return <Navigate to="/umf-support/account" replace />;
 
   const tabs: Array<{ id: View; icon: typeof Inbox; hidden?: boolean }> = [
     { id: "tickets", icon: ClipboardList },

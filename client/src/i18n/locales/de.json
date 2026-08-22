@@ -2146,6 +2146,8 @@
     "heading": "Unabhängige Identität für UMF Support",
     "boundary": "Dieses Konto, seine Sitzungen, Zugriffsmethoden und Unternehmensberechtigungen sind von allen Mitglieds-, Trainer- und Studiokonten getrennt, auch wenn dieselbe E-Mail-Adresse verwendet wird.",
     "back": "Zurück zum Support",
+    "pendingApprovalTitle": "Administrativer Zugriff ausstehend",
+    "pendingApprovalBody": "Die Unternehmensidentität ist bestätigt und ihre Sicherheitseinstellungen sind verfügbar. Tickets, E-Mail und Verwaltung bleiben geschlossen, bis die Leitung den Zugriff genehmigt. Ein kommerzielles Konto mit derselben E-Mail-Adresse und ein dazugehöriger Löschantrag werden getrennt verwaltet.",
     "highlights": {
       "identity": "Getrennte Unternehmensidentität",
       "roles": "Widerrufbare Positionen und Berechtigungen",

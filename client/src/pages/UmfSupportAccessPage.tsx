@@ -16,6 +16,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import {
   beginSupportPasskey,
+  fetchSupportSession,
   finishSupportPasskey,
   loginSupport,
   logoutSupport,
@@ -66,7 +67,10 @@ export function UmfSupportAccessPage() {
       .catch(() => setPasskeyAvailable(false));
   }, []);
   const finishSupportLogin = async () => {
-    navigate("/umf-support", { replace: true });
+    const session = await fetchSupportSession();
+    navigate(session.accessApproved ? "/umf-support" : "/umf-support/account", {
+      replace: true,
+    });
   };
 
   const submit = async (event: FormEvent) => {

@@ -2135,6 +2135,8 @@
     "heading": "Independent UMF Support identity",
     "boundary": "This account, its sessions, access methods and corporate permissions are separate from every member, trainer or facility account, even when both use the same email address.",
     "back": "Back to support",
+    "pendingApprovalTitle": "Administrative access pending",
+    "pendingApprovalBody": "The corporate identity is verified and its security settings are now available. Tickets, email and administration remain closed until management approves access. A commercial account using the same email and any deletion request associated with it are handled separately.",
     "highlights": {
       "identity": "Separate corporate identity",
       "roles": "Revocable positions and permissions",

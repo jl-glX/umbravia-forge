@@ -108,8 +108,23 @@ describe("UMF Support verified account registration", () => {
       password: "VerifiedSupportPassword123",
       rememberDevice: false,
     });
-    expect(login.status).toBe(401);
-    expect(login.headers["set-cookie"]).toBeUndefined();
+    expect(login.status).toBe(200);
+    const accountOnlyCookie = login.headers["set-cookie"][0];
+    await request(app)
+      .get("/api/umf-support/session")
+      .set("Cookie", accountOnlyCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.user).toMatchObject({
+          id: userId,
+          identityRealm: "corporate_support",
+          accessApproved: false,
+        });
+      });
+    await request(app)
+      .get("/api/umf-support/capabilities")
+      .set("Cookie", accountOnlyCookie)
+      .expect(403);
   });
 
   it("does not elevate the first or a later verified account by registration order", async () => {

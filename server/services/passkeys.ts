@@ -36,7 +36,7 @@ async function findPortalUser(identifier: string, accessPortal: AccessPortal) {
     accessPortal === "support" ? "corporate_support" : "commercial";
   const user = await db
     .selectFrom("users")
-    .select(["id", "email", "name", "role"])
+    .select(["id", "email", "name", "role", "accountStatus", "emailVerifiedAt"])
     .where("identityRealm", "=", identityRealm)
     .where((expression) =>
       expression.or([
@@ -49,21 +49,14 @@ async function findPortalUser(identifier: string, accessPortal: AccessPortal) {
   if (
     !user ||
     (accessPortal === "support"
-      ? user.role !== "admin"
+      ? user.role !== "admin" ||
+        user.accountStatus !== "active" ||
+        user.emailVerifiedAt === null
       : accessPortal === "member"
         ? user.role !== "member"
         : user.role !== "trainer" && user.role !== "admin")
   ) {
     throw new Error("Passkey access is not available");
-  }
-  if (accessPortal === "support") {
-    const membership = await db
-      .selectFrom("umfSupportStaff")
-      .select("userId")
-      .where("userId", "=", user.id)
-      .where("status", "=", "active")
-      .executeTakeFirst();
-    if (!membership) throw new Error("Passkey access is not available");
   }
   return user;
 }
@@ -253,6 +246,7 @@ export async function finishPasskeyAuthentication(
         "avatarDataUrl",
         "role",
         "accountStatus",
+        "emailVerifiedAt",
         "identityRealm",
       ])
       .where("id", "=", challenge.userId)
@@ -264,14 +258,13 @@ export async function finishPasskeyAuthentication(
   if (user.identityRealm !== expectedRealm) {
     throw new Error("Passkey verification failed");
   }
-  if (accessPortal === "support") {
-    const membership = await db
-      .selectFrom("umfSupportStaff")
-      .select("userId")
-      .where("userId", "=", user.id)
-      .where("status", "=", "active")
-      .executeTakeFirst();
-    if (!membership) throw new Error("Passkey verification failed");
+  if (
+    accessPortal === "support" &&
+    (user.role !== "admin" ||
+      user.accountStatus !== "active" ||
+      user.emailVerifiedAt === null)
+  ) {
+    throw new Error("Passkey verification failed");
   }
   const verification = await verifyAuthenticationResponse({
     response,
