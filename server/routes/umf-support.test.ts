@@ -138,78 +138,14 @@ describe("UMF Support corporate API", () => {
     expect(login.headers["set-cookie"]).toBeUndefined();
   });
 
-  it("exposes company positions without deriving technical permissions from them", async () => {
-    const directory = await request(app)
-      .get("/api/umf-support/company-staff")
-      .set("Cookie", directorCookie)
-      .expect(200);
-    expect(directory.body.staff).toEqual([
-      expect.objectContaining({
-        userId: "umf-director",
-        position: "platform_head",
-        reportsToUserId: null,
-        status: "active",
-      }),
-    ]);
-
-    const tenantProfile = await database.db
-      .insertInto("companyStaffProfiles")
-      .values({
-        userId: "tenant-admin-only",
-        position: "area_head",
-        reportsToUserId: "umf-director",
-        status: "active",
-        appointedByUserId: "umf-director",
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        revokedAt: null,
-      })
-      .executeTakeFirst();
-    expect(Number(tenantProfile.numInsertedOrUpdatedRows)).toBe(1);
-
-    const login = await request(app).post("/api/auth/login").send({
-      identifier: "tenant-admin@example.com",
-      password: "TenantAdminPassword123",
-      accessPortal: "support",
-      rememberDevice: false,
-    });
-    expect(login.status).toBe(400);
-  });
-
-  it("lets direction preauthorize an exact identity and role before registration", async () => {
-    const invited = await request(app)
-      .post("/api/umf-support/access-requests/invite")
-      .set("Cookie", directorCookie)
-      .send({
-        email: "new-agent@example.com",
-        name: "New",
-        lastName: "Agent",
-        requestedRole: "agent",
-        locale: "es",
-      })
-      .expect(201);
-    expect(invited.body).toMatchObject({
-      email: "new-agent@example.com",
-      status: "approved",
-      requestedRole: "agent",
-      activatedUserId: null,
-    });
-    await expect(
-      database.db
-        .selectFrom("users")
-        .select("id")
-        .where("email", "=", "new-agent@example.com")
-        .where("identityRealm", "=", "corporate_support")
-        .executeTakeFirst(),
-    ).resolves.toBeUndefined();
-
+  it("creates an agent account after mailbox verification without preauthorization", async () => {
     const browser = request.agent(app);
     const registered = await browser
       .post("/api/umf-support/register")
       .send({
         email: "new-agent@example.com",
-        name: "Ignored",
-        lastName: "Ignored",
+        name: "New",
+        lastName: "Agent",
         password: "DifferentPassword123",
         countryCode: "ES",
         locale: "es",
@@ -268,6 +204,35 @@ describe("UMF Support corporate API", () => {
       })
       .expect(400);
 
+    const loginBeforeApproval = await request(app)
+      .post("/api/umf-support/login")
+      .send({
+        email: "new-agent@example.com",
+        password: "DifferentPassword123",
+        rememberDevice: false,
+      });
+    expect(loginBeforeApproval.status).toBe(401);
+
+    const pendingAccounts = await request(app)
+      .get("/api/umf-support/administrator-accounts")
+      .set("Cookie", directorCookie)
+      .expect(200);
+    expect(pendingAccounts.body.accounts).toContainEqual(
+      expect.objectContaining({
+        userId: registered.body.user.id,
+        email: "new-agent@example.com",
+        emailVerifiedAt: expect.any(Number),
+        staffStatus: null,
+      }),
+    );
+    await request(app)
+      .post(
+        `/api/umf-support/administrator-accounts/${registered.body.user.id}/approve`,
+      )
+      .set("Cookie", directorCookie)
+      .send({})
+      .expect(204);
+
     const login = await request(app).post("/api/umf-support/login").send({
       email: "new-agent@example.com",
       password: "DifferentPassword123",
@@ -280,27 +245,102 @@ describe("UMF Support corporate API", () => {
       .set("Cookie", agentCookie)
       .expect(200);
     expect(capabilities.body.capabilities.role).toBe("agent");
-    expect(capabilities.body.capabilities.canReviewAccess).toBe(false);
+    expect(capabilities.body.capabilities.canManageAdministrators).toBe(false);
+
+    const initialAlerts = await request(app)
+      .get("/api/umf-support/notification-settings")
+      .set("Cookie", agentCookie)
+      .expect(200);
+    expect(initialAlerts.body.settings).toMatchObject({
+      enabled: false,
+      preferences: {
+        ticket_created: { email: false, push: false },
+      },
+    });
+    await request(app)
+      .put("/api/umf-support/notification-settings")
+      .set("Cookie", agentCookie)
+      .send({
+        enabled: true,
+        preferences: {
+          ticket_created: { email: true, push: false },
+          conversation_received: { email: false, push: false },
+          inbound_email: { email: false, push: false },
+          feedback_received: { email: false, push: false },
+          problem_reported: { email: false, push: false },
+        },
+      })
+      .expect(200, { updated: true });
+    await expect(
+      database.db
+        .selectFrom("umfSupportNotificationPreferences")
+        .select("enabled")
+        .where("userId", "=", registered.body.user.id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ enabled: 1 });
 
     const events = await database.db
       .selectFrom("securityEvents")
       .select("type")
       .where("type", "in", [
         "umf_support_access_requested",
-        "umf_support_access_approved",
         "umf_support_account_activated",
       ])
       .execute();
     expect(new Set(events.map((event) => event.type))).toEqual(
       new Set([
         "umf_support_access_requested",
-        "umf_support_access_approved",
         "umf_support_account_activated",
       ]),
     );
+
+    const lateDraft = await request(app)
+      .post("/api/umf-support/mail/drafts")
+      .set("Cookie", directorCookie)
+      .send({
+        to: ["late@example.net"],
+        cc: [],
+        bcc: [],
+        subject: "Envío iniciado",
+        body: "Este envío ya ha alcanzado su hora de entrega.",
+      })
+      .expect(201);
+    const lateScheduledAt = Date.now() + 60 * 60 * 1000;
+    await request(app)
+      .post(`/api/umf-support/mail/drafts/${lateDraft.body.draft.id}/send`)
+      .set("Cookie", directorCookie)
+      .send({ scheduledAt: lateScheduledAt })
+      .expect(202);
+    const lateDelivery = await database.db
+      .selectFrom("emailDeliveries")
+      .select("id")
+      .where("recipient", "=", "late@example.net")
+      .executeTakeFirstOrThrow();
+    await database.db
+      .updateTable("emailDeliveries")
+      .set({ status: "processing" })
+      .where("id", "=", lateDelivery.id)
+      .execute();
+    await request(app)
+      .post(`/api/umf-support/mail/drafts/${lateDraft.body.draft.id}/cancel`)
+      .set("Cookie", directorCookie)
+      .send({})
+      .expect(400);
+    await expect(
+      database.db
+        .selectFrom("umfSupportMailDrafts")
+        .select("status")
+        .where("id", "=", lateDraft.body.draft.id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ status: "scheduled" });
   });
 
   it("keeps the former public request and activation endpoints closed", async () => {
+    await request(app)
+      .post("/api/umf-support/access-requests/invite")
+      .set("Cookie", directorCookie)
+      .send({ email: "public-request@example.com" })
+      .expect(404);
     await request(app)
       .post("/api/umf-support/access-requests")
       .send({ email: "public-request@example.com" })
@@ -309,137 +349,6 @@ describe("UMF Support corporate API", () => {
       .post("/api/umf-support/activate")
       .send({ email: "public-request@example.com", code: "123456" })
       .expect(401);
-  });
-
-  it("allows company roles to be rejected, accepted, renounced and self-enabled", async () => {
-    const agent = await database.db
-      .selectFrom("users")
-      .select("id")
-      .where("email", "=", "new-agent@example.com")
-      .executeTakeFirstOrThrow();
-    await request(app)
-      .patch(`/api/umf-support/company-staff/${agent.id}`)
-      .set("Cookie", directorCookie)
-      .send({
-        position: "area_head",
-        reportsToUserId: "umf-director",
-        status: "active",
-      })
-      .expect(204);
-    expect(
-      await database.db
-        .selectFrom("companyStaffProfiles")
-        .select(["position", "reportsToUserId", "status"])
-        .where("userId", "=", agent.id)
-        .executeTakeFirst(),
-    ).toEqual({
-      position: "area_head",
-      reportsToUserId: "umf-director",
-      status: "active",
-    });
-    const login = await request(app).post("/api/umf-support/login").send({
-      email: "new-agent@example.com",
-      password: "DifferentPassword123",
-      rememberDevice: false,
-    });
-    expect(login.status).toBe(200);
-    const agentCookie = login.headers["set-cookie"][0];
-
-    const offer = async () =>
-      request(app)
-        .post("/api/umf-support/company-delegations")
-        .set("Cookie", directorCookie)
-        .send({ profileId: "manager-support", recipientUserId: agent.id })
-        .expect(201);
-
-    const rejectedOffer = await offer();
-    await request(app)
-      .post(
-        `/api/umf-support/company-delegations/${rejectedOffer.body.id}/respond`,
-      )
-      .set("Cookie", agentCookie)
-      .send({ decision: "reject" })
-      .expect(200, { status: "rejected" });
-    expect(
-      await database.db
-        .selectFrom("corporateRoleAssignments")
-        .select("id")
-        .where("userId", "=", agent.id)
-        .where("profileId", "=", "manager-support")
-        .where("status", "=", "active")
-        .executeTakeFirst(),
-    ).toBeUndefined();
-
-    const acceptedOffer = await offer();
-    await request(app)
-      .post(
-        `/api/umf-support/company-delegations/${acceptedOffer.body.id}/respond`,
-      )
-      .set("Cookie", agentCookie)
-      .send({ decision: "accept" })
-      .expect(200, { status: "accepted" });
-    await request(app)
-      .post("/api/umf-support/company-roles/manager-support/renounce")
-      .set("Cookie", agentCookie)
-      .send({})
-      .expect(204);
-
-    await request(app)
-      .post("/api/umf-support/company-roles/manager-support/self-enable")
-      .set("Cookie", directorCookie)
-      .send({})
-      .expect(204);
-    expect(
-      await database.db
-        .selectFrom("corporateRoleAssignments")
-        .select("status")
-        .where("userId", "=", "umf-director")
-        .where("profileId", "=", "manager-support")
-        .where("status", "=", "active")
-        .executeTakeFirst(),
-    ).toEqual({ status: "active" });
-
-    const emailOffer = await request(app)
-      .post("/api/umf-support/company-delegations")
-      .set("Cookie", directorCookie)
-      .send({ profileId: "manager-email", recipientUserId: agent.id })
-      .expect(201);
-    await request(app)
-      .post(
-        `/api/umf-support/company-delegations/${emailOffer.body.id}/respond`,
-      )
-      .set("Cookie", agentCookie)
-      .send({ decision: "accept" })
-      .expect(200, { status: "accepted" });
-    await database.db
-      .updateTable("umfSupportStaff")
-      .set({ status: "revoked", revokedAt: Date.now() })
-      .where("userId", "=", agent.id)
-      .execute();
-    await request(app)
-      .patch(`/api/umf-support/company-staff/${agent.id}`)
-      .set("Cookie", directorCookie)
-      .send({
-        position: "area_head",
-        reportsToUserId: "umf-director",
-        status: "revoked",
-      })
-      .expect(204);
-    expect(
-      await database.db
-        .selectFrom("corporateRoleAssignments")
-        .select("status")
-        .where("userId", "=", agent.id)
-        .where("profileId", "=", "manager-email")
-        .executeTakeFirst(),
-    ).toEqual({ status: "revoked" });
-    expect(
-      await database.db
-        .selectFrom("corporateRoleDelegations")
-        .select("status")
-        .where("id", "=", emailOffer.body.id)
-        .executeTakeFirst(),
-    ).toEqual({ status: "withdrawn" });
   });
 
   it("keeps tickets and mailboxes inside the corporate application", async () => {
@@ -476,6 +385,91 @@ describe("UMF Support corporate API", () => {
       .select("id")
       .execute();
     expect(facilitySupportRows).toHaveLength(0);
+  });
+
+  it("stores mail drafts encrypted and schedules or cancels support-scoped delivery", async () => {
+    const created = await request(app)
+      .post("/api/umf-support/mail/drafts")
+      .set("Cookie", directorCookie)
+      .send({
+        to: ["customer@example.net"],
+        cc: ["accounting@example.net"],
+        bcc: ["audit@example.net"],
+        subject: "Seguimiento de la incidencia",
+        body: "Consulta [el ticket](https://www.umbraviaforge.com/umf-support).",
+      })
+      .expect(201);
+    const draftId = created.body.draft.id as string;
+    const storedDraft = await database.db
+      .selectFrom("umfSupportMailDrafts")
+      .select(["content", "status", "deliveryIds"])
+      .where("id", "=", draftId)
+      .executeTakeFirstOrThrow();
+    expect(storedDraft.status).toBe("draft");
+    expect(storedDraft.deliveryIds).toBe("[]");
+    expect(storedDraft.content).not.toContain("Seguimiento de la incidencia");
+    expect(storedDraft.content).not.toContain("audit@example.net");
+
+    const drafts = await request(app)
+      .get("/api/umf-support/mail/drafts")
+      .set("Cookie", directorCookie)
+      .expect(200);
+    expect(drafts.body.drafts).toContainEqual(
+      expect.objectContaining({
+        id: draftId,
+        to: ["customer@example.net"],
+        cc: ["accounting@example.net"],
+        bcc: ["audit@example.net"],
+        status: "draft",
+      }),
+    );
+
+    const scheduledAt = Date.now() + 60 * 60 * 1000;
+    await request(app)
+      .post(`/api/umf-support/mail/drafts/${draftId}/send`)
+      .set("Cookie", directorCookie)
+      .send({ scheduledAt })
+      .expect(202, { queued: true, scheduledAt });
+    const deliveries = await database.db
+      .selectFrom("emailDeliveries")
+      .select(["id", "recipient", "platformScope", "kind", "nextAttemptAt"])
+      .where("platformScope", "=", "support")
+      .where("kind", "=", "support_update")
+      .where("nextAttemptAt", "=", scheduledAt)
+      .execute();
+    expect(deliveries).toHaveLength(3);
+    expect(new Set(deliveries.map((delivery) => delivery.recipient))).toEqual(
+      new Set([
+        "customer@example.net",
+        "accounting@example.net",
+        "audit@example.net",
+      ]),
+    );
+
+    await request(app)
+      .post(`/api/umf-support/mail/drafts/${draftId}/cancel`)
+      .set("Cookie", directorCookie)
+      .send({})
+      .expect(200, { cancelled: true });
+    await expect(
+      database.db
+        .selectFrom("emailDeliveries")
+        .select(["status", "recipient", "payloadEncrypted"])
+        .where(
+          "id",
+          "in",
+          deliveries.map((delivery) => delivery.id),
+        )
+        .execute(),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "superseded",
+          recipient: "",
+          payloadEncrypted: "",
+        }),
+      ]),
+    );
   });
 
   it("authenticates, classifies and deduplicates privacy email", async () => {

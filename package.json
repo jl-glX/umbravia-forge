@@ -21,6 +21,7 @@
   "scripts": {
     "dev": "tsx scripts/dev.ts",
     "platform:managers": "tsx scripts/platform-manager-admin.ts",
+    "company:designate-head": "tsx scripts/designate-company-head.ts",
     "company:reset-support-identity": "tsx scripts/reset-umf-support-identity.ts",
     "build": "node scripts/run-project-scripts.mjs build:client build:server build:support-email-worker",
     "build:client": "vite build",
@@ -81,7 +82,8 @@
     "react-i18next": "17.0.11",
     "react-router-dom": "7.18.2",
     "stripe": "22.5.0",
-    "tailwind-merge": "3.6.0"
+    "tailwind-merge": "3.6.0",
+    "web-push": "3.6.7"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260811.1",
@@ -97,6 +99,7 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@types/supertest": "7.2.1",
+    "@types/web-push": "3.6.4",
     "@typescript/native": "npm:typescript@7.0.2",
     "@vitejs/plugin-react": "6.0.5",
     "esbuild": "0.28.1",

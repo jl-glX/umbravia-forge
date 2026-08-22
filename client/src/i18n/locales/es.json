@@ -214,7 +214,6 @@
       "general": "General"
     },
     "notices": {
-      "invitationCreated": "Correo y rol preautorizados. La persona ya puede crear y verificar su cuenta corporativa.",
       "created": "Solicitud {{id}} creada.",
       "replySaved": "La respuesta se ha guardado.",
       "attachmentSaved": "El archivo se ha guardado de forma privada.",
@@ -2109,20 +2108,20 @@
     "login": {
       "eyebrow": "Acceso restringido",
       "title": "Iniciar sesión",
-      "description": "Acceso por cuenta y permisos corporativos. La primera jefatura designada puede completar aquí la inicialización única.",
+      "description": "Acceso mediante una cuenta corporativa verificada de UMF Support.",
       "action": "Entrar en UMF Support"
     },
     "register": {
-      "eyebrow": "Registro corporativo cerrado",
-      "title": "Crear una cuenta autorizada",
-      "description": "Solo pueden registrarse direcciones preautorizadas por la jefatura. Crea tu contraseña y verifica después el buzón corporativo.",
+      "eyebrow": "Cuenta corporativa",
+      "title": "Crear una cuenta de UMF Support",
+      "description": "Crea una cuenta corporativa independiente y verifica después el buzón. El acceso administrativo se concede por separado desde el panel de UMF Support.",
       "action": "Crear cuenta"
     },
     "verify": {
       "eyebrow": "Verificación del buzón",
       "title": "Verificar el correo",
-      "description": "Introduce el código de seis cifras enviado al buzón autorizado. La verificación activa la cuenta y el rol asignado por dirección.",
-      "action": "Verificar y entrar"
+      "description": "Introduce el código de seis cifras enviado al buzón. Verificar el correo no concede permisos administrativos.",
+      "action": "Verificar correo"
     },
     "fullName": "Nombre completo",
     "lastName": "Apellidos",
@@ -2132,16 +2131,16 @@
     "acceptTerms": "Acepto los",
     "terms": "términos y condiciones",
     "acceptPrivacy": "He leído la",
-    "verificationSent": "La cuenta se ha creado. Introduce el código enviado al correo corporativo autorizado.",
+    "verificationSent": "La cuenta se ha creado. Introduce el código enviado al correo corporativo.",
     "verificationQueued": "La cuenta se ha creado, pero no se ha confirmado la entrega inmediata del correo. El código permanece en la cola de envío y puedes solicitar otro.",
     "verificationResent": "Hemos enviado un nuevo código de verificación.",
     "verificationResendQueued": "No se ha confirmado la entrega inmediata. El nuevo código permanece en la cola de envío y puedes volver a intentarlo.",
     "resendVerification": "Reenviar código de verificación",
     "verificationInvalid": "El código de verificación no es válido, ha caducado o ha agotado sus intentos.",
-    "registrationClosed": "Esta dirección no tiene una autorización corporativa disponible. La jefatura debe autorizarla antes del registro.",
+    "awaitingAdministratorApproval": "El correo se ha verificado. La cuenta queda pendiente de que la jefatura apruebe su acceso administrativo desde UMF Support.",
     "passwordMismatch": "Las contraseñas no coinciden.",
     "invalidCredentials": "El correo o la contraseña de UMF Support no son correctos. Las credenciales de Umbravia Forge comercial no permiten entrar en esta cuenta corporativa.",
-    "restrictedNotice": "Cuenta, pertenencia, cargo y permisos se gestionan por separado",
+    "restrictedNotice": "La cuenta corporativa está separada de cualquier cuenta comercial; los cargos elevados se asignan por separado",
     "passkeyLogin": "Entrar con una passkey corporativa",
     "privacy": "Privacidad",
     "error": "No se pudo completar la operación."
@@ -2185,29 +2184,43 @@
     "tabs": {
       "tickets": "Tickets",
       "inbox": "Entrada",
-      "outbox": "Enviados",
+      "drafts": "Borradores",
+      "scheduled": "Programados",
+      "outbox": "Bandeja de salida",
+      "sent": "Enviados",
+      "notifications": "Alertas",
       "access": "Altas",
-      "team": "Equipo",
-      "company": "Plantilla"
+      "team": "Administradores",
+      "company": "Plantilla",
+      "collaboration": "Colaboración"
     },
     "headings": {
       "tickets": "Cola de tickets",
       "inbox": "Correo recibido",
-      "outbox": "Correo enviado",
+      "drafts": "Borradores de correo",
+      "scheduled": "Envíos programados",
+      "outbox": "Bandeja de salida",
+      "sent": "Correo enviado",
+      "notifications": "Alertas operativas",
       "access": "Solicitudes de acceso",
-      "team": "Personal de soporte",
-      "company": "Plantilla de la empresa"
+      "team": "Altas de administrador",
+      "company": "Plantilla de la empresa",
+      "collaboration": "Espacios de colaboración"
     },
     "descriptions": {
       "tickets": "Incidencias de la plataforma separadas del soporte propio de cada centro.",
       "inbox": "Mensajes recibidos por los canales corporativos configurados.",
-      "outbox": "Respuestas preparadas y estado de su entrega.",
+      "drafts": "Comunicaciones guardadas que todavía no han entrado en la cola de envío.",
+      "scheduled": "Mensajes cifrados que el servidor entregará en la fecha indicada.",
+      "outbox": "Mensajes pendientes, reintentos y errores de entrega que requieren atención.",
+      "sent": "Comunicaciones de soporte cuya entrega ha quedado registrada.",
+      "notifications": "Elige por evento si quieres recibir correo, Web Push, ambos o ninguno.",
       "access": "Preautoriza correos y selecciona su rol antes de que puedan crear una cuenta.",
-      "team": "Autoridad corporativa independiente de los permisos de los centros.",
-      "company": "Cargos empresariales visibles, separados de los permisos técnicos."
+      "team": "Aprueba o revoca el acceso administrativo de cuentas corporativas ya verificadas.",
+      "company": "Borrador organizativo sin autoridad operativa.",
+      "collaboration": "Borradores informativos sin permisos técnicos; tú decides cuáles se muestran al personal."
     },
-    "role": { "director": "Dirección", "agent": "Agente" },
-    "createInvitation": "Preautorizar cuenta",
+    "role": { "director": "Jefatura", "agent": "Administrador" },
     "companyPosition": {
       "platform_head": "Jefe de plataforma",
       "area_head": "Responsable de área",
@@ -2216,6 +2229,18 @@
       "external_collaborator": "Colaborador externo"
     },
     "staffStatus": { "active": "Activo", "revoked": "Revocado" },
+    "pendingAdministratorAccounts": "Cuentas verificadas pendientes de alta",
+    "pendingAdministratorAccountsHint": "La verificación del correo acredita el buzón, pero no concede acceso a la plataforma.",
+    "approveAdministrator": "Dar de alta como administrador",
+    "emptyPendingAdministrators": "No hay cuentas verificadas pendientes de aprobación.",
+    "emptyAdministrators": "Todavía no hay administradores registrados.",
+    "collaborationDraftNotice": "El organigrama y los departamentos quedan aparcados como borrador. Estos espacios son únicamente informativos y nunca conceden permisos técnicos.",
+    "collaborationName": "Nombre del espacio",
+    "collaborationDescription": "Descripción breve",
+    "createCollaborationDraft": "Crear borrador oculto",
+    "showCollaboration": "Mostrar al personal",
+    "hideCollaboration": "Ocultar y devolver a borrador",
+    "emptyCollaborationSpaces": "Todavía no hay espacios de colaboración.",
     "reportsTo": "Depende de {{name}}",
     "unknownManager": "responsable no disponible",
     "emptyCompanyStaff": "Todavía no hay personas incorporadas a la plantilla.",
@@ -2285,6 +2310,8 @@
     "activeTickets": "{{count}} tickets activos",
     "urgentTickets": "{{count}} tickets urgentes",
     "refresh": "Actualizar",
+    "compose": "Redactar correo",
+    "composeHint": "Compositor de comunicaciones operativas de UMF Support; no admite HTML arbitrario.",
     "search": "Buscar por ticket, asunto o correo",
     "allStatuses": "Todos los estados",
     "newTicket": "Nuevo ticket",
@@ -2308,6 +2335,100 @@
     "saveReply": "Guardar respuesta",
     "selectTicket": "Selecciona un ticket para revisar su historial.",
     "emptyMailbox": "No hay mensajes en esta bandeja.",
+    "mail": {
+      "to": "Para",
+      "cc": "CC",
+      "bcc": "CCO",
+      "showCopies": "CC y CCO",
+      "recipientPlaceholder": "Separa varias direcciones con punto y coma",
+      "linkText": "Texto del enlace",
+      "linkUrl": "Dirección https o mailto",
+      "insertLink": "Insertar enlace",
+      "saveDraft": "Guardar borrador",
+      "scheduleAt": "Fecha y hora",
+      "schedule": "Programar",
+      "sendNow": "Enviar ahora",
+      "cancelSchedule": "Cancelar envío",
+      "noRecipient": "Sin destinatario",
+      "ccCount": "{{count}} en CC",
+      "bccCount": "{{count}} en CCO",
+      "deliveryIssues": "{{count}} entrega requiere atención",
+      "deliveryIssues_other": "{{count}} entregas requieren atención",
+      "emptyFolder": "No hay comunicaciones en esta carpeta."
+    },
+    "mailStatus": {
+      "draft": "Borrador",
+      "scheduled": "Programado",
+      "outbox": "Pendiente de entrega",
+      "sent": "Enviado",
+      "partially_failed": "Entrega parcial",
+      "failed": "Entrega fallida",
+      "cancelled": "Cancelado"
+    },
+    "deliveryStatus": {
+      "queued": "En cola",
+      "processing": "Procesando",
+      "retry": "Pendiente de reintento",
+      "sent": "Entregado al servidor destinatario",
+      "failed": "Entrega fallida",
+      "superseded": "Sustituido o cancelado"
+    },
+    "notifications": {
+      "masterTitle": "Preferencias de alertas",
+      "masterHint": "Las alertas están desactivadas por canal hasta que las habilites expresamente.",
+      "enabled": "Alertas activas",
+      "event": "Evento",
+      "email": "Correo",
+      "push": "Push web",
+      "pushDevices": "Navegadores y móviles autorizados",
+      "pushHint": "Web Push se emite desde el servidor y llega a los dispositivos que autorices.",
+      "pushUnavailable": "Web Push permanece desactivado hasta configurar y validar las credenciales VAPID del servidor.",
+      "enableDevice": "Autorizar este dispositivo",
+      "revokeDevice": "Revocar",
+      "noDevices": "No hay dispositivos autorizados.",
+      "deviceStatus": { "active": "Activo", "revoked": "Revocado" },
+      "events": {
+        "ticket_created": {
+          "title": "Nuevo ticket",
+          "hint": "Una solicitud nueva entra en la cola.",
+          "email": "Correo para nuevo ticket",
+          "push": "Push para nuevo ticket"
+        },
+        "conversation_received": {
+          "title": "Nueva conversación o respuesta",
+          "hint": "Un cliente añade información a una incidencia.",
+          "email": "Correo para nueva conversación",
+          "push": "Push para nueva conversación"
+        },
+        "inbound_email": {
+          "title": "Correo entrante",
+          "hint": "El buzón corporativo recibe un mensaje autenticado.",
+          "email": "Correo para entrada",
+          "push": "Push para entrada"
+        },
+        "feedback_received": {
+          "title": "Retroalimentación",
+          "hint": "Se recibe una aportación desde el formulario público.",
+          "email": "Correo para retroalimentación",
+          "push": "Push para retroalimentación"
+        },
+        "problem_reported": {
+          "title": "Problema informado",
+          "hint": "Un usuario comunica un problema técnico o de seguridad.",
+          "email": "Correo para problema",
+          "push": "Push para problema"
+        }
+      }
+    },
+    "browser": {
+      "edge": "Microsoft Edge",
+      "firefox": "Firefox",
+      "brave": "Brave",
+      "duckduckgo": "DuckDuckGo Browser",
+      "chrome": "Google Chrome",
+      "librewolf": "LibreWolf"
+    },
+    "thisDevice": "este dispositivo",
     "emptyRequests": "No hay solicitudes de acceso.",
     "revoke": "Revocar",
     "restore": "Restaurar",
@@ -2315,6 +2436,15 @@
     "notices": {
       "ticketCreated": "Ticket {{id}} creado.",
       "replySaved": "Respuesta guardada.",
+      "administratorApproved": "La cuenta se ha dado de alta como administrador con privilegios reducidos.",
+      "collaborationDraftCreated": "El espacio se ha creado oculto y en borrador.",
+      "collaborationPublished": "El espacio ya es visible para el personal, sin permisos técnicos asociados.",
+      "collaborationHidden": "El espacio se ha ocultado y vuelve a estar en borrador.",
+      "mailDraftSaved": "Borrador guardado de forma cifrada.",
+      "mailScheduled": "El correo ha quedado programado en el servidor.",
+      "mailQueued": "El correo ha entrado en la cola de salida.",
+      "notificationSettingsSaved": "Preferencias de alertas actualizadas.",
+      "pushEnabled": "Este dispositivo ya puede recibir Web Push de UMF Support.",
       "roleDelegated": "Delegación ofrecida; todavía no concede acceso.",
       "roleAccepted": "Delegación aceptada y permiso activado.",
       "roleRejected": "Delegación rechazada sin conceder acceso.",
@@ -2325,7 +2455,20 @@
     },
     "errors": {
       "load": "No se pudo cargar UMF Support.",
-      "save": "No se pudo guardar el cambio."
+      "save": "No se pudo guardar el cambio.",
+      "invalidSchedule": "Elige una fecha y hora válidas.",
+      "invalidLink": "El enlace necesita texto y una dirección https o mailto válida.",
+      "browserNotAllowed": "Este navegador no está habilitado para Web Push de UMF Support.",
+      "pushUnsupported": "Este navegador o dispositivo no admite Web Push.",
+      "pushPermissionDenied": "El dispositivo no ha concedido permiso para mostrar notificaciones.",
+      "codes": {
+        "REQUEST_ERROR": "Los datos del correo no son válidos o el estado cambió antes de completar la operación.",
+        "FORM_VERIFICATION_REQUIRED": "Vuelve a verificar el formulario antes de enviar o cancelar el correo.",
+        "SUPPORT_RATE_LIMITED": "Se han realizado demasiadas operaciones seguidas. Espera un momento y vuelve a intentarlo.",
+        "UNAUTHENTICATED": "La sesión de UMF Support ha caducado. Vuelve a iniciar sesión.",
+        "ACCOUNT_NOT_ACTIVE": "La cuenta corporativa no está activa.",
+        "INTERNAL_ERROR": "UMF Support no pudo completar la operación por un error interno."
+      }
     }
   },
   "unauthorized": {

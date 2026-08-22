@@ -1,9 +1,15 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
-  Building2,
+  Bell,
   ClipboardList,
+  Clock3,
+  Eye,
+  EyeOff,
+  FilePenLine,
   Inbox,
+  LayoutGrid,
+  Link2,
   LogOut,
   Mail,
   MessageSquare,
@@ -12,7 +18,7 @@ import {
   Search,
   Send,
   ShieldCheck,
-  UserRoundCheck,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -21,32 +27,37 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import {
+  approveAdministratorAccount,
+  cancelScheduledMail,
+  createCollaborationSpace,
   createTicket,
-  delegateCompanyRole,
-  fetchAccessRequests,
   fetchCapabilities,
-  fetchCompanyRoleDelegations,
-  fetchCompanyStaff,
+  fetchAdministratorAccounts,
+  fetchCollaborationSpaces,
   fetchMailbox,
+  fetchMailDrafts,
+  fetchNotificationSettings,
   fetchStaff,
   fetchSupportSession,
   fetchTicket,
   fetchTickets,
-  inviteSupportAccount,
   logoutSupport,
-  renounceCompanyRole,
+  registerPushSubscription,
   replyTicket,
-  respondToCompanyRoleDelegation,
-  selfEnableCompanyRole,
-  updateCompanyStaff,
+  revokePushSubscription,
+  saveMailDraft,
+  submitMailDraft,
+  updateCollaborationSpace,
   updateStaff,
   updateTicket,
+  updateNotificationSettings,
   type UmfMailboxMessage,
-  type CompanyStaffMember,
-  type CompanyRoleDelegation,
-  type CompanyPosition,
-  type CorporateModuleProfile,
-  type UmfSupportAccessRequest,
+  type UmfSupportBrowserFamily,
+  type UmfSupportAdministratorAccount,
+  type UmfSupportCollaborationSpace,
+  type UmfSupportMailDraft,
+  type UmfSupportNotificationEvent,
+  type UmfSupportNotificationSettings,
   type UmfSupportCapabilities,
   type UmfSupportStaffMember,
   type UmfSupportTicket,
@@ -57,7 +68,23 @@ import {
   type UmfTicketStatus,
 } from "../lib/umf-support";
 
-type View = "tickets" | "inbox" | "outbox" | "access" | "team" | "company";
+type View =
+  | "tickets"
+  | "inbox"
+  | "drafts"
+  | "scheduled"
+  | "outbox"
+  | "sent"
+  | "notifications"
+  | "team"
+  | "collaboration";
+const notificationEvents: UmfSupportNotificationEvent[] = [
+  "ticket_created",
+  "conversation_received",
+  "inbound_email",
+  "feedback_received",
+  "problem_reported",
+];
 const statuses: UmfTicketStatus[] = [
   "open",
   "in_progress",
@@ -74,27 +101,40 @@ const categories: UmfTicketCategory[] = [
   "technical",
   "security",
 ];
-const corporateModuleProfiles: CorporateModuleProfile[] = [
-  "manager-core",
-  "manager-coordinator",
-  "manager-flow-administrator",
-  "manager-account",
-  "manager-security",
-  "manager-resource",
-  "manager-encryption",
-  "manager-environment",
-  "manager-email",
-  "manager-notification",
-  "manager-support",
-];
-const assignableCompanyPositions: Exclude<CompanyPosition, "platform_head">[] =
-  ["area_head", "team_lead", "staff", "external_collaborator"];
-
 function formatDate(value: number, locale: string) {
   return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(value);
+}
+
+function recipients(value: string): string[] {
+  return value
+    .split(/[;,\n]/)
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function applicationServerKey(value: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  return Uint8Array.from(raw, (character) => character.charCodeAt(0));
+}
+
+async function browserFamily(): Promise<UmfSupportBrowserFamily | null> {
+  const userAgent = navigator.userAgent;
+  const braveNavigator = navigator as Navigator & {
+    brave?: { isBrave?: () => Promise<boolean> };
+  };
+  if (/Edg\//.test(userAgent)) return "edge";
+  if (/DuckDuckGo|Ddg/i.test(userAgent)) return "duckduckgo";
+  if (/LibreWolf/i.test(userAgent)) return "librewolf";
+  if (await braveNavigator.brave?.isBrave?.().catch(() => false))
+    return "brave";
+  if (/Firefox\//.test(userAgent)) return "firefox";
+  if (/(?:Chrome|CriOS)\//.test(userAgent)) return "chrome";
+  return null;
 }
 
 export function UmfSupportPage() {
@@ -109,18 +149,17 @@ export function UmfSupportPage() {
   const [tickets, setTickets] = useState<UmfSupportTicketSummary[]>([]);
   const [selected, setSelected] = useState<UmfSupportTicket | null>(null);
   const [mail, setMail] = useState<UmfMailboxMessage[]>([]);
-  const [requests, setRequests] = useState<UmfSupportAccessRequest[]>([]);
+  const [mailDrafts, setMailDrafts] = useState<UmfSupportMailDraft[]>([]);
+  const [notificationSettings, setNotificationSettings] =
+    useState<UmfSupportNotificationSettings | null>(null);
   const [staff, setStaff] = useState<UmfSupportStaffMember[]>([]);
-  const [companyStaff, setCompanyStaff] = useState<CompanyStaffMember[]>([]);
-  const [companyDelegations, setCompanyDelegations] = useState<
-    CompanyRoleDelegation[]
+  const [administratorAccounts, setAdministratorAccounts] = useState<
+    UmfSupportAdministratorAccount[]
   >([]);
-  const [delegationRecipient, setDelegationRecipient] = useState("");
-  const [companyCandidate, setCompanyCandidate] = useState("");
-  const [companyPosition, setCompanyPosition] =
-    useState<Exclude<CompanyPosition, "platform_head">>("staff");
-  const [delegationProfile, setDelegationProfile] =
-    useState<CorporateModuleProfile>("manager-support");
+  const [collaborationSpaces, setCollaborationSpaces] = useState<
+    UmfSupportCollaborationSpace[]
+  >([]);
+  const [newSpace, setNewSpace] = useState({ name: "", description: "" });
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -131,11 +170,17 @@ export function UmfSupportPage() {
   const [reply, setReply] = useState("");
   const [internal, setInternal] = useState(false);
   const [sendEmail, setSendEmail] = useState(true);
-  const [invitation, setInvitation] = useState({
-    email: "",
-    name: "",
-    lastName: "",
-    requestedRole: "agent" as "agent" | "director",
+  const [showCompose, setShowCompose] = useState(false);
+  const [editingDraftId, setEditingDraftId] = useState<string | undefined>();
+  const [showCopyFields, setShowCopyFields] = useState(false);
+  const [scheduleAt, setScheduleAt] = useState("");
+  const [linkEditor, setLinkEditor] = useState({ label: "", url: "" });
+  const [mailComposer, setMailComposer] = useState({
+    to: "",
+    cc: "",
+    bcc: "",
+    subject: "",
+    body: "",
   });
   const [newTicket, setNewTicket] = useState({
     requesterEmail: "",
@@ -146,6 +191,20 @@ export function UmfSupportPage() {
     category: "general" as UmfTicketCategory,
     priority: "normal" as UmfTicketPriority,
   });
+  const normalizedError = useCallback(
+    (
+      cause: unknown,
+      fallbackKey: "umfSupport.errors.load" | "umfSupport.errors.save",
+    ) => {
+      const fallback = t(fallbackKey);
+      return cause instanceof Error
+        ? t(`umfSupport.errors.codes.${cause.message}`, {
+            defaultValue: fallback,
+          })
+        : fallback;
+    },
+    [t],
+  );
 
   const refreshTickets = useCallback(async () => {
     setTickets(
@@ -169,31 +228,35 @@ export function UmfSupportPage() {
         ]);
         setStaff(currentStaff);
         if (selected) setSelected(await fetchTicket(selected.id));
-      } else if (view === "inbox" || view === "outbox") {
-        setMail(await fetchMailbox(view === "inbox" ? "inbound" : "outbound"));
-      } else if (view === "access" && current.canReviewAccess) {
-        setRequests(await fetchAccessRequests());
+      } else if (view === "inbox") {
+        setMail(await fetchMailbox("inbound"));
+      } else if (["drafts", "scheduled", "outbox", "sent"].includes(view)) {
+        const [drafts, sentMessages] = await Promise.all([
+          fetchMailDrafts(),
+          view === "sent" ? fetchMailbox("outbound") : Promise.resolve([]),
+        ]);
+        setMailDrafts(drafts);
+        setMail(sentMessages);
+      } else if (view === "notifications") {
+        setNotificationSettings(await fetchNotificationSettings());
       } else if (view === "team") {
-        setStaff(await fetchStaff());
-      } else if (view === "company") {
-        const [currentCompanyStaff, currentDelegations, currentSupportStaff] =
-          await Promise.all([
-            fetchCompanyStaff(),
-            fetchCompanyRoleDelegations(),
-            fetchStaff(),
-          ]);
-        setCompanyStaff(currentCompanyStaff);
-        setCompanyDelegations(currentDelegations);
-        setStaff(currentSupportStaff);
+        const [currentStaff, accounts] = await Promise.all([
+          fetchStaff(),
+          current.canManageAdministrators
+            ? fetchAdministratorAccounts()
+            : Promise.resolve([]),
+        ]);
+        setStaff(currentStaff);
+        setAdministratorAccounts(accounts);
+      } else if (view === "collaboration") {
+        setCollaborationSpaces(await fetchCollaborationSpaces());
       }
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : t("umfSupport.errors.load"),
-      );
+      setError(normalizedError(cause, "umfSupport.errors.load"));
     } finally {
       setLoading(false);
     }
-  }, [capabilities, refreshTickets, selected, t, view]);
+  }, [capabilities, normalizedError, refreshTickets, selected, view]);
 
   useEffect(() => {
     void fetchSupportSession()
@@ -214,9 +277,7 @@ export function UmfSupportPage() {
       setSelected(await fetchTicket(ticketId));
       setShowCreate(false);
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : t("umfSupport.errors.load"),
-      );
+      setError(normalizedError(cause, "umfSupport.errors.load"));
     } finally {
       setWorking(false);
     }
@@ -242,9 +303,7 @@ export function UmfSupportPage() {
         t("umfSupport.notices.ticketCreated", { id: created.publicId }),
       );
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
-      );
+      setError(normalizedError(cause, "umfSupport.errors.save"));
     } finally {
       setWorking(false);
     }
@@ -267,9 +326,7 @@ export function UmfSupportPage() {
       await refreshTickets();
       setNotice(t("umfSupport.notices.replySaved"));
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
-      );
+      setError(normalizedError(cause, "umfSupport.errors.save"));
     } finally {
       setWorking(false);
     }
@@ -287,35 +344,7 @@ export function UmfSupportPage() {
       setSelected(await updateTicket(selected.id, input));
       await refreshTickets();
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
-      );
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  const submitInvitation = async (event: FormEvent) => {
-    event.preventDefault();
-    setWorking(true);
-    setError("");
-    try {
-      await inviteSupportAccount({
-        ...invitation,
-        locale: i18n.resolvedLanguage ?? "es",
-      });
-      setInvitation({
-        email: "",
-        name: "",
-        lastName: "",
-        requestedRole: "agent",
-      });
-      setRequests(await fetchAccessRequests());
-      setNotice(t("umfSupport.notices.invitationCreated"));
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
-      );
+      setError(normalizedError(cause, "umfSupport.errors.save"));
     } finally {
       setWorking(false);
     }
@@ -335,111 +364,208 @@ export function UmfSupportPage() {
     [tickets],
   );
 
-  const refreshCompany = async () => {
-    const [currentCompanyStaff, currentDelegations, currentSupportStaff] =
-      await Promise.all([
-        fetchCompanyStaff(),
-        fetchCompanyRoleDelegations(),
+  const approveAdministrator = async (userId: string) => {
+    setWorking(true);
+    setError("");
+    try {
+      await approveAdministratorAccount(userId);
+      const [accounts, currentStaff] = await Promise.all([
+        fetchAdministratorAccounts(),
         fetchStaff(),
       ]);
-    setCompanyStaff(currentCompanyStaff);
-    setCompanyDelegations(currentDelegations);
-    setStaff(currentSupportStaff);
-  };
-
-  const changeCompanyStaff = async (
-    userId: string,
-    position: Exclude<CompanyPosition, "platform_head">,
-    status: "active" | "revoked",
-  ) => {
-    setWorking(true);
-    setError("");
-    try {
-      await updateCompanyStaff(userId, { position, status });
-      await refreshCompany();
-      setCompanyCandidate("");
-      setNotice(
-        t(
-          status === "active"
-            ? "umfSupport.notices.companyStaffAdded"
-            : "umfSupport.notices.companyStaffRevoked",
-        ),
-      );
+      setAdministratorAccounts(accounts);
+      setStaff(currentStaff);
+      setNotice(t("umfSupport.notices.administratorApproved"));
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
-      );
+      setError(normalizedError(cause, "umfSupport.errors.save"));
     } finally {
       setWorking(false);
     }
   };
 
-  const submitCompanyStaff = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!companyCandidate) return;
-    await changeCompanyStaff(companyCandidate, companyPosition, "active");
-  };
-
-  const submitDelegation = async (event: FormEvent) => {
+  const submitCollaborationSpace = async (event: FormEvent) => {
     event.preventDefault();
     setWorking(true);
     setError("");
     try {
-      await delegateCompanyRole({
-        profileId: delegationProfile,
-        recipientUserId: delegationRecipient,
+      await createCollaborationSpace(newSpace);
+      setNewSpace({ name: "", description: "" });
+      setCollaborationSpaces(await fetchCollaborationSpaces());
+      setNotice(t("umfSupport.notices.collaborationDraftCreated"));
+    } catch (cause) {
+      setError(normalizedError(cause, "umfSupport.errors.save"));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const changeCollaborationVisibility = async (
+    space: UmfSupportCollaborationSpace,
+  ) => {
+    setWorking(true);
+    setError("");
+    try {
+      const publishing =
+        space.status !== "published" || space.visibility !== "staff";
+      await updateCollaborationSpace(space.id, {
+        visibility: publishing ? "staff" : "hidden",
+        status: publishing ? "published" : "draft",
       });
-      await refreshCompany();
-      setNotice(t("umfSupport.notices.roleDelegated"));
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
-      );
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  const decideDelegation = async (
-    delegationId: string,
-    decision: "accept" | "reject",
-  ) => {
-    setWorking(true);
-    setError("");
-    try {
-      await respondToCompanyRoleDelegation(delegationId, decision);
-      await refreshCompany();
+      setCollaborationSpaces(await fetchCollaborationSpaces());
       setNotice(
         t(
-          decision === "accept"
-            ? "umfSupport.notices.roleAccepted"
-            : "umfSupport.notices.roleRejected",
+          publishing
+            ? "umfSupport.notices.collaborationPublished"
+            : "umfSupport.notices.collaborationHidden",
         ),
       );
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
-      );
+      setError(normalizedError(cause, "umfSupport.errors.save"));
     } finally {
       setWorking(false);
     }
   };
 
-  const changeOwnCompanyRole = async (
-    operation: () => Promise<unknown>,
-    noticeKey:
-      "umfSupport.notices.roleRenounced" | "umfSupport.notices.roleSelfEnabled",
-  ) => {
+  const draftInput = () => ({
+    to: recipients(mailComposer.to),
+    cc: recipients(mailComposer.cc),
+    bcc: recipients(mailComposer.bcc),
+    subject: mailComposer.subject,
+    body: mailComposer.body,
+  });
+
+  const resetComposer = () => {
+    setMailComposer({ to: "", cc: "", bcc: "", subject: "", body: "" });
+    setEditingDraftId(undefined);
+    setScheduleAt("");
+    setShowCopyFields(false);
+    setLinkEditor({ label: "", url: "" });
+  };
+
+  const openDraft = (draft: UmfSupportMailDraft) => {
+    if (draft.status !== "draft") return;
+    setMailComposer({
+      to: draft.to.join("; "),
+      cc: draft.cc.join("; "),
+      bcc: draft.bcc.join("; "),
+      subject: draft.subject,
+      body: draft.body,
+    });
+    setEditingDraftId(draft.id);
+    setShowCopyFields(draft.cc.length > 0 || draft.bcc.length > 0);
+    setShowCompose(true);
+  };
+
+  const saveComposerDraft = async () => {
     setWorking(true);
     setError("");
     try {
-      await operation();
-      await refreshCompany();
-      setNotice(t(noticeKey));
+      const result = await saveMailDraft(draftInput(), editingDraftId);
+      setEditingDraftId(result.draft.id);
+      setMailDrafts(await fetchMailDrafts());
+      setNotice(t("umfSupport.notices.mailDraftSaved"));
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
+      setError(normalizedError(cause, "umfSupport.errors.save"));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const dispatchComposer = async (scheduled: boolean) => {
+    setWorking(true);
+    setError("");
+    try {
+      const result = await saveMailDraft(draftInput(), editingDraftId);
+      const scheduledAt = scheduled
+        ? new Date(scheduleAt).getTime()
+        : undefined;
+      if (scheduled && (!scheduleAt || !Number.isFinite(scheduledAt))) {
+        throw new Error(t("umfSupport.errors.invalidSchedule"));
+      }
+      await submitMailDraft(result.draft.id, scheduledAt);
+      resetComposer();
+      setShowCompose(false);
+      setMailDrafts(await fetchMailDrafts());
+      setView(scheduled ? "scheduled" : "outbox");
+      setNotice(
+        t(
+          scheduled
+            ? "umfSupport.notices.mailScheduled"
+            : "umfSupport.notices.mailQueued",
+        ),
       );
+    } catch (cause) {
+      setError(normalizedError(cause, "umfSupport.errors.save"));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const insertControlledLink = () => {
+    const label = linkEditor.label.trim();
+    const url = linkEditor.url.trim();
+    if (!label || !/^(?:https:\/\/|mailto:)/i.test(url)) {
+      setError(t("umfSupport.errors.invalidLink"));
+      return;
+    }
+    setMailComposer((current) => ({
+      ...current,
+      body: `${current.body}${current.body && !current.body.endsWith("\n") ? "\n" : ""}[${label}](${url})`,
+    }));
+    setLinkEditor({ label: "", url: "" });
+  };
+
+  const saveNotificationPreferences = async (
+    next: UmfSupportNotificationSettings,
+  ) => {
+    setNotificationSettings(next);
+    try {
+      await updateNotificationSettings({
+        enabled: next.enabled,
+        preferences: next.preferences,
+      });
+      setNotice(t("umfSupport.notices.notificationSettingsSaved"));
+    } catch (cause) {
+      setError(normalizedError(cause, "umfSupport.errors.save"));
+      setNotificationSettings(await fetchNotificationSettings());
+    }
+  };
+
+  const enablePushForThisDevice = async () => {
+    if (!notificationSettings?.push.publicKey) return;
+    setWorking(true);
+    setError("");
+    try {
+      const family = await browserFamily();
+      if (!family) throw new Error(t("umfSupport.errors.browserNotAllowed"));
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        throw new Error(t("umfSupport.errors.pushUnsupported"));
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        throw new Error(t("umfSupport.errors.pushPermissionDenied"));
+      }
+      const registration = await navigator.serviceWorker.register(
+        "/umf-support-sw.js",
+        { scope: "/" },
+      );
+      const subscription =
+        (await registration.pushManager.getSubscription()) ??
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: applicationServerKey(
+            notificationSettings.push.publicKey,
+          ),
+        }));
+      await registerPushSubscription({
+        subscription: subscription.toJSON(),
+        browserFamily: family,
+        deviceName: `${t(`umfSupport.browser.${family}`)} · ${navigator.platform || t("umfSupport.thisDevice")}`,
+      });
+      setNotificationSettings(await fetchNotificationSettings());
+      setNotice(t("umfSupport.notices.pushEnabled"));
+    } catch (cause) {
+      setError(normalizedError(cause, "umfSupport.errors.save"));
     } finally {
       setWorking(false);
     }
@@ -452,14 +578,13 @@ export function UmfSupportPage() {
   const tabs: Array<{ id: View; icon: typeof Inbox; hidden?: boolean }> = [
     { id: "tickets", icon: ClipboardList },
     { id: "inbox", icon: Inbox },
+    { id: "drafts", icon: FilePenLine },
+    { id: "scheduled", icon: Clock3 },
     { id: "outbox", icon: Send },
-    {
-      id: "access",
-      icon: UserRoundCheck,
-      hidden: !capabilities?.canReviewAccess,
-    },
+    { id: "sent", icon: Mail },
+    { id: "notifications", icon: Bell },
     { id: "team", icon: Users },
-    { id: "company", icon: Building2 },
+    { id: "collaboration", icon: LayoutGrid },
   ];
 
   return (
@@ -552,14 +677,32 @@ export function UmfSupportPage() {
                 {t(`umfSupport.descriptions.${view}`)}
               </p>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => void refresh()}
-              disabled={loading}
-            >
-              <RefreshCw className={loading ? "animate-spin" : ""} size={16} />{" "}
-              {t("umfSupport.refresh")}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {["inbox", "drafts", "scheduled", "outbox", "sent"].includes(
+                view,
+              ) && (
+                <Button
+                  className="bg-slate-900 hover:bg-slate-800"
+                  onClick={() => {
+                    resetComposer();
+                    setShowCompose(true);
+                  }}
+                >
+                  <FilePenLine size={16} /> {t("umfSupport.compose")}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => void refresh()}
+                disabled={loading}
+              >
+                <RefreshCw
+                  className={loading ? "animate-spin" : ""}
+                  size={16}
+                />{" "}
+                {t("umfSupport.refresh")}
+              </Button>
+            </div>
           </div>
 
           {error && (
@@ -954,306 +1097,556 @@ export function UmfSupportPage() {
             </>
           )}
 
-          {(view === "inbox" || view === "outbox") && (
-            <div className="overflow-hidden rounded-lg border border-slate-200">
-              {mail.map((message) => (
-                <button
-                  key={message.id}
-                  type="button"
-                  onClick={() => {
-                    setView("tickets");
-                    void selectTicket(message.ticketId);
-                  }}
-                  className="grid w-full gap-2 border-b border-slate-200 p-4 text-left last:border-0 hover:bg-slate-50 sm:grid-cols-[10rem_minmax(0,1fr)_10rem]"
-                >
-                  <div>
-                    <p className="font-mono text-xs text-slate-500">
-                      {message.publicId}
-                    </p>
-                    <p className="mt-1 truncate text-sm font-semibold">
-                      {view === "inbox" ? message.sender : message.recipient}
-                    </p>
+          {["inbox", "drafts", "scheduled", "outbox", "sent"].includes(
+            view,
+          ) && (
+            <div className="space-y-5">
+              {showCompose && (
+                <section className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
+                    <div>
+                      <h2 className="font-bold">{t("umfSupport.compose")}</h2>
+                      <p className="text-xs text-slate-500">
+                        {t("umfSupport.composeHint")}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        resetComposer();
+                        setShowCompose(false);
+                      }}
+                    >
+                      {t("common.close")}
+                    </Button>
                   </div>
-                  <div>
-                    <p className="truncate text-sm font-semibold">
-                      {message.subject}
-                    </p>
-                    <p className="mt-1 truncate text-xs text-slate-500">
-                      {message.body}
-                    </p>
-                  </div>
-                  <div className="text-xs text-slate-500 sm:text-right">
-                    <p>{formatDate(message.createdAt, i18n.language)}</p>
-                    {message.deliveryStatus && (
-                      <p className="mt-1">{message.deliveryStatus}</p>
+                  <div className="space-y-4 p-4">
+                    <div className="grid gap-3 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:items-center">
+                      <Label htmlFor="mail-to">{t("umfSupport.mail.to")}</Label>
+                      <Input
+                        id="mail-to"
+                        type="text"
+                        value={mailComposer.to}
+                        onChange={(event) =>
+                          setMailComposer({
+                            ...mailComposer,
+                            to: event.target.value,
+                          })
+                        }
+                        placeholder={t("umfSupport.mail.recipientPlaceholder")}
+                      />
+                      <Button
+                        variant="ghost"
+                        onClick={() => setShowCopyFields(!showCopyFields)}
+                      >
+                        {t("umfSupport.mail.showCopies")}
+                      </Button>
+                    </div>
+                    {showCopyFields && (
+                      <div className="grid gap-3">
+                        <div className="grid gap-3 sm:grid-cols-[6rem_minmax(0,1fr)] sm:items-center">
+                          <Label htmlFor="mail-cc">
+                            {t("umfSupport.mail.cc")}
+                          </Label>
+                          <Input
+                            id="mail-cc"
+                            value={mailComposer.cc}
+                            onChange={(event) =>
+                              setMailComposer({
+                                ...mailComposer,
+                                cc: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-[6rem_minmax(0,1fr)] sm:items-center">
+                          <Label htmlFor="mail-bcc">
+                            {t("umfSupport.mail.bcc")}
+                          </Label>
+                          <Input
+                            id="mail-bcc"
+                            value={mailComposer.bcc}
+                            onChange={(event) =>
+                              setMailComposer({
+                                ...mailComposer,
+                                bcc: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
                     )}
+                    <div className="grid gap-3 sm:grid-cols-[6rem_minmax(0,1fr)] sm:items-center">
+                      <Label htmlFor="mail-subject">
+                        {t("umfSupport.subject")}
+                      </Label>
+                      <Input
+                        id="mail-subject"
+                        maxLength={200}
+                        value={mailComposer.subject}
+                        onChange={(event) =>
+                          setMailComposer({
+                            ...mailComposer,
+                            subject: event.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto]">
+                        <Input
+                          aria-label={t("umfSupport.mail.linkText")}
+                          placeholder={t("umfSupport.mail.linkText")}
+                          value={linkEditor.label}
+                          onChange={(event) =>
+                            setLinkEditor({
+                              ...linkEditor,
+                              label: event.target.value,
+                            })
+                          }
+                        />
+                        <Input
+                          aria-label={t("umfSupport.mail.linkUrl")}
+                          placeholder="https://"
+                          value={linkEditor.url}
+                          onChange={(event) =>
+                            setLinkEditor({
+                              ...linkEditor,
+                              url: event.target.value,
+                            })
+                          }
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={insertControlledLink}
+                        >
+                          <Link2 size={16} /> {t("umfSupport.mail.insertLink")}
+                        </Button>
+                      </div>
+                    </div>
+                    <textarea
+                      aria-label={t("umfSupport.message")}
+                      value={mailComposer.body}
+                      onChange={(event) =>
+                        setMailComposer({
+                          ...mailComposer,
+                          body: event.target.value,
+                        })
+                      }
+                      className="min-h-72 w-full resize-y rounded-lg border border-slate-300 p-4 text-sm leading-6"
+                      maxLength={20000}
+                    />
+                    <div className="flex flex-wrap items-end gap-3 border-t border-slate-200 pt-4">
+                      <Button
+                        variant="outline"
+                        disabled={working}
+                        onClick={() => void saveComposerDraft()}
+                      >
+                        <FilePenLine size={16} />{" "}
+                        {t("umfSupport.mail.saveDraft")}
+                      </Button>
+                      <div>
+                        <Label htmlFor="mail-schedule">
+                          {t("umfSupport.mail.scheduleAt")}
+                        </Label>
+                        <Input
+                          id="mail-schedule"
+                          type="datetime-local"
+                          value={scheduleAt}
+                          onChange={(event) =>
+                            setScheduleAt(event.target.value)
+                          }
+                        />
+                      </div>
+                      <Button
+                        variant="outline"
+                        disabled={working || !scheduleAt}
+                        onClick={() => void dispatchComposer(true)}
+                      >
+                        <Clock3 size={16} /> {t("umfSupport.mail.schedule")}
+                      </Button>
+                      <Button
+                        className="ml-auto bg-slate-900 hover:bg-slate-800"
+                        disabled={working}
+                        onClick={() => void dispatchComposer(false)}
+                      >
+                        <Send size={16} /> {t("umfSupport.mail.sendNow")}
+                      </Button>
+                    </div>
                   </div>
-                </button>
-              ))}
-              {!loading && mail.length === 0 && (
-                <p className="p-8 text-center text-sm text-slate-500">
-                  {t("umfSupport.emptyMailbox")}
-                </p>
+                </section>
+              )}
+
+              {view === "inbox" || view === "sent" ? (
+                <div className="overflow-hidden rounded-lg border border-slate-200">
+                  {mail.map((message) => (
+                    <button
+                      key={message.id}
+                      type="button"
+                      onClick={() => {
+                        setView("tickets");
+                        void selectTicket(message.ticketId);
+                      }}
+                      className="grid w-full gap-2 border-b border-slate-200 p-4 text-left last:border-0 hover:bg-slate-50 sm:grid-cols-[10rem_minmax(0,1fr)_10rem]"
+                    >
+                      <div>
+                        <p className="font-mono text-xs text-slate-500">
+                          {message.publicId}
+                        </p>
+                        <p className="mt-1 truncate text-sm font-semibold">
+                          {view === "inbox"
+                            ? message.sender
+                            : message.recipient}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="truncate text-sm font-semibold">
+                          {message.subject}
+                        </p>
+                        <p className="mt-1 truncate text-xs text-slate-500">
+                          {message.body}
+                        </p>
+                      </div>
+                      <div className="text-xs text-slate-500 sm:text-right">
+                        <p>{formatDate(message.createdAt, i18n.language)}</p>
+                        {message.deliveryStatus && (
+                          <p className="mt-1">
+                            {t(
+                              `umfSupport.deliveryStatus.${message.deliveryStatus}`,
+                              { defaultValue: message.deliveryStatus },
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                  {!loading && mail.length === 0 && view === "inbox" && (
+                    <p className="p-8 text-center text-sm text-slate-500">
+                      {t("umfSupport.emptyMailbox")}
+                    </p>
+                  )}
+                </div>
+              ) : null}
+
+              {view !== "inbox" && (
+                <div className="overflow-hidden rounded-lg border border-slate-200">
+                  {mailDrafts
+                    .filter((draft) =>
+                      view === "drafts"
+                        ? draft.status === "draft"
+                        : view === "scheduled"
+                          ? draft.status === "scheduled"
+                          : view === "outbox"
+                            ? [
+                                "outbox",
+                                "failed",
+                                "partially_failed",
+                                "cancelled",
+                              ].includes(draft.status)
+                            : draft.status === "sent",
+                    )
+                    .map((draft) => (
+                      <article
+                        key={draft.id}
+                        className="grid gap-3 border-b border-slate-200 p-4 last:border-0 sm:grid-cols-[minmax(0,1fr)_10rem_auto] sm:items-center"
+                      >
+                        <button
+                          type="button"
+                          disabled={draft.status !== "draft"}
+                          onClick={() => openDraft(draft)}
+                          className="min-w-0 text-left disabled:cursor-default"
+                        >
+                          <p className="truncate font-semibold">
+                            {draft.subject}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-slate-500">
+                            {draft.to.join("; ") ||
+                              t("umfSupport.mail.noRecipient")}
+                            {draft.cc.length > 0
+                              ? ` · ${t("umfSupport.mail.ccCount", { count: draft.cc.length })}`
+                              : ""}
+                            {draft.bcc.length > 0
+                              ? ` · ${t("umfSupport.mail.bccCount", { count: draft.bcc.length })}`
+                              : ""}
+                          </p>
+                        </button>
+                        <div className="text-xs text-slate-500">
+                          <p>{t(`umfSupport.mailStatus.${draft.status}`)}</p>
+                          <p className="mt-1">
+                            {formatDate(
+                              draft.scheduledAt ??
+                                draft.sentAt ??
+                                draft.updatedAt,
+                              i18n.language,
+                            )}
+                          </p>
+                          {draft.deliveryIssueCount > 0 && (
+                            <p className="mt-1 font-semibold text-red-700">
+                              {t("umfSupport.mail.deliveryIssues", {
+                                count: draft.deliveryIssueCount,
+                              })}
+                            </p>
+                          )}
+                        </div>
+                        {draft.status === "scheduled" && (
+                          <Button
+                            variant="outline"
+                            disabled={working}
+                            onClick={() =>
+                              void cancelScheduledMail(draft.id).then(refresh)
+                            }
+                          >
+                            {t("umfSupport.mail.cancelSchedule")}
+                          </Button>
+                        )}
+                      </article>
+                    ))}
+                  {!loading &&
+                    mailDrafts.filter((draft) =>
+                      view === "drafts"
+                        ? draft.status === "draft"
+                        : view === "scheduled"
+                          ? draft.status === "scheduled"
+                          : view === "outbox"
+                            ? [
+                                "outbox",
+                                "failed",
+                                "partially_failed",
+                                "cancelled",
+                              ].includes(draft.status)
+                            : draft.status === "sent",
+                    ).length === 0 &&
+                    (view !== "sent" || mail.length === 0) && (
+                      <p className="p-8 text-center text-sm text-slate-500">
+                        {t("umfSupport.mail.emptyFolder")}
+                      </p>
+                    )}
+                </div>
               )}
             </div>
           )}
 
-          {view === "access" && capabilities?.canReviewAccess && (
-            <div className="space-y-4">
-              <form
-                className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 lg:grid-cols-5"
-                onSubmit={submitInvitation}
-              >
-                <div>
-                  <Label htmlFor="support-invitation-email" className="sr-only">
-                    {t("common.email")}
-                  </Label>
-                  <Input
-                    id="support-invitation-email"
-                    type="email"
-                    value={invitation.email}
-                    onChange={(event) =>
-                      setInvitation((current) => ({
-                        ...current,
-                        email: event.target.value,
-                      }))
-                    }
-                    placeholder={t("common.email")}
-                    required
-                  />
+          {view === "notifications" && notificationSettings && (
+            <div className="space-y-5">
+              <section className="rounded-xl border border-slate-200 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="font-bold">
+                      {t("umfSupport.notifications.masterTitle")}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {t("umfSupport.notifications.masterHint")}
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={notificationSettings.enabled}
+                      onChange={(event) =>
+                        void saveNotificationPreferences({
+                          ...notificationSettings,
+                          enabled: event.target.checked,
+                        })
+                      }
+                    />
+                    {t("umfSupport.notifications.enabled")}
+                  </label>
                 </div>
-                <div>
-                  <Label htmlFor="support-invitation-name" className="sr-only">
-                    {t("umfSupportAccess.fullName")}
-                  </Label>
-                  <Input
-                    id="support-invitation-name"
-                    value={invitation.name}
-                    onChange={(event) =>
-                      setInvitation((current) => ({
-                        ...current,
-                        name: event.target.value,
-                      }))
-                    }
-                    placeholder={t("umfSupportAccess.fullName")}
-                    required
-                  />
+              </section>
+
+              <section className="overflow-hidden rounded-xl border border-slate-200">
+                <div className="grid grid-cols-[minmax(0,1fr)_5rem_5rem] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+                  <span>{t("umfSupport.notifications.event")}</span>
+                  <span className="text-center">
+                    {t("umfSupport.notifications.email")}
+                  </span>
+                  <span className="text-center">
+                    {t("umfSupport.notifications.push")}
+                  </span>
                 </div>
-                <div>
-                  <Label
-                    htmlFor="support-invitation-last-name"
-                    className="sr-only"
-                  >
-                    {t("umfSupportAccess.lastName")}
-                  </Label>
-                  <Input
-                    id="support-invitation-last-name"
-                    value={invitation.lastName}
-                    onChange={(event) =>
-                      setInvitation((current) => ({
-                        ...current,
-                        lastName: event.target.value,
-                      }))
-                    }
-                    placeholder={t("umfSupportAccess.lastName")}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="support-invitation-role" className="sr-only">
-                    {t("umfSupport.requestedRole")}
-                  </Label>
-                  <select
-                    id="support-invitation-role"
-                    value={invitation.requestedRole}
-                    onChange={(event) =>
-                      setInvitation((current) => ({
-                        ...current,
-                        requestedRole: event.target.value as
-                          "agent" | "director",
-                      }))
-                    }
-                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                  >
-                    <option value="agent">{t("umfSupport.role.agent")}</option>
-                    <option value="director">
-                      {t("umfSupport.role.director")}
-                    </option>
-                  </select>
-                </div>
-                <Button
-                  type="submit"
-                  disabled={working}
-                  className="bg-slate-900 hover:bg-slate-800"
-                >
-                  <UserRoundCheck size={16} />
-                  {t("umfSupport.createInvitation")}
-                </Button>
-              </form>
-              <div className="overflow-hidden rounded-lg border border-slate-200">
-                {requests.map((request) => (
+                {notificationEvents.map((event) => (
                   <div
-                    key={request.id}
-                    className="flex flex-col gap-3 border-b border-slate-200 p-4 last:border-0 sm:flex-row sm:items-center"
+                    key={event}
+                    className="grid grid-cols-[minmax(0,1fr)_5rem_5rem] gap-3 border-b border-slate-200 px-4 py-4 last:border-0"
                   >
-                    <div className="min-w-0 flex-1">
+                    <div>
                       <p className="font-semibold">
-                        {request.name} {request.lastName}
+                        {t(`umfSupport.notifications.events.${event}.title`)}
                       </p>
-                      <p className="truncate text-sm text-slate-500">
-                        {request.email}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-400">
-                        {formatDate(request.createdAt, i18n.language)} ·{" "}
-                        {t(`umfSupport.accessStatus.${request.status}`)} ·{" "}
-                        {t(`umfSupport.role.${request.requestedRole}`)}
+                      <p className="mt-1 text-xs text-slate-500">
+                        {t(`umfSupport.notifications.events.${event}.hint`)}
                       </p>
                     </div>
+                    {(["email", "push"] as const).map((channel) => (
+                      <label
+                        key={channel}
+                        className="grid place-items-center"
+                        aria-label={t(
+                          `umfSupport.notifications.events.${event}.${channel}`,
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={
+                            notificationSettings.preferences[event][channel]
+                          }
+                          disabled={
+                            !notificationSettings.enabled ||
+                            (channel === "push" &&
+                              !notificationSettings.push.available)
+                          }
+                          onChange={(change) =>
+                            void saveNotificationPreferences({
+                              ...notificationSettings,
+                              preferences: {
+                                ...notificationSettings.preferences,
+                                [event]: {
+                                  ...notificationSettings.preferences[event],
+                                  [channel]: change.target.checked,
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    ))}
                   </div>
                 ))}
-                {!loading && requests.length === 0 && (
-                  <p className="p-8 text-center text-sm text-slate-500">
-                    {t("umfSupport.emptyRequests")}
-                  </p>
-                )}
-              </div>
+              </section>
+
+              <section className="rounded-xl border border-slate-200 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 className="font-bold">
+                      {t("umfSupport.notifications.pushDevices")}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {notificationSettings.push.available
+                        ? t("umfSupport.notifications.pushHint")
+                        : t("umfSupport.notifications.pushUnavailable")}
+                    </p>
+                  </div>
+                  {notificationSettings.push.available && (
+                    <Button
+                      variant="outline"
+                      disabled={working}
+                      onClick={() => void enablePushForThisDevice()}
+                    >
+                      <Bell size={16} />
+                      {t("umfSupport.notifications.enableDevice")}
+                    </Button>
+                  )}
+                </div>
+                <div className="mt-4 divide-y divide-slate-200 rounded-lg border border-slate-200">
+                  {notificationSettings.push.devices.map((device) => (
+                    <div
+                      key={device.id}
+                      className="flex flex-wrap items-center gap-3 p-3"
+                    >
+                      <Bell className="text-slate-400" size={18} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">
+                          {device.deviceName}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {t(`umfSupport.browser.${device.browserFamily}`)} ·{" "}
+                          {t(
+                            `umfSupport.notifications.deviceStatus.${device.status}`,
+                          )}
+                        </p>
+                      </div>
+                      {device.status === "active" && (
+                        <Button
+                          variant="outline"
+                          onClick={() =>
+                            void revokePushSubscription(device.id).then(
+                              async () =>
+                                setNotificationSettings(
+                                  await fetchNotificationSettings(),
+                                ),
+                            )
+                          }
+                        >
+                          {t("umfSupport.notifications.revokeDevice")}
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  {notificationSettings.push.devices.length === 0 && (
+                    <p className="p-5 text-center text-sm text-slate-500">
+                      {t("umfSupport.notifications.noDevices")}
+                    </p>
+                  )}
+                </div>
+              </section>
             </div>
           )}
 
           {view === "team" && (
-            <div className="overflow-hidden rounded-lg border border-slate-200">
-              {staff.map((member) => (
-                <div
-                  key={member.userId}
-                  className="flex flex-col gap-3 border-b border-slate-200 p-4 last:border-0 sm:flex-row sm:items-center"
-                >
-                  <ShieldCheck className="text-slate-400" size={20} />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">
-                      {member.name} {member.lastName}
-                    </p>
-                    <p className="truncate text-sm text-slate-500">
-                      {member.email}
+            <div className="space-y-5">
+              {capabilities?.canManageAdministrators && (
+                <div className="overflow-hidden rounded-lg border border-slate-200">
+                  <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                    <h2 className="font-semibold">
+                      {t("umfSupport.pendingAdministratorAccounts")}
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {t("umfSupport.pendingAdministratorAccountsHint")}
                     </p>
                   </div>
-                  <span className="text-xs font-semibold text-slate-500">
-                    {t(`umfSupport.role.${member.role}`)} ·{" "}
-                    {t(`umfSupport.staffStatus.${member.status}`)}
-                  </span>
-                  {capabilities?.canManageTeam && member.userId !== user.id && (
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        void updateStaff(member.userId, {
-                          role: member.role,
-                          status:
-                            member.status === "active" ? "revoked" : "active",
-                        }).then(refresh)
-                      }
-                      disabled={working}
-                    >
-                      {member.status === "active"
-                        ? t("umfSupport.revoke")
-                        : t("umfSupport.restore")}
-                    </Button>
-                  )}
+                  {administratorAccounts
+                    .filter(
+                      (account) =>
+                        account.emailVerifiedAt !== null &&
+                        account.accountStatus === "active" &&
+                        account.staffStatus !== "active",
+                    )
+                    .map((account) => (
+                      <div
+                        key={account.userId}
+                        className="flex flex-col gap-3 border-b border-slate-200 p-4 last:border-0 sm:flex-row sm:items-center"
+                      >
+                        <UserPlus className="text-slate-400" size={20} />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold">
+                            {account.name} {account.lastName}
+                          </p>
+                          <p className="truncate text-sm text-slate-500">
+                            {account.email}
+                          </p>
+                        </div>
+                        <Button
+                          disabled={working}
+                          className="bg-slate-900 hover:bg-slate-800"
+                          onClick={() =>
+                            void approveAdministrator(account.userId)
+                          }
+                        >
+                          {t("umfSupport.approveAdministrator")}
+                        </Button>
+                      </div>
+                    ))}
+                  {!loading &&
+                    !administratorAccounts.some(
+                      (account) =>
+                        account.emailVerifiedAt !== null &&
+                        account.accountStatus === "active" &&
+                        account.staffStatus !== "active",
+                    ) && (
+                      <p className="p-6 text-center text-sm text-slate-500">
+                        {t("umfSupport.emptyPendingAdministrators")}
+                      </p>
+                    )}
                 </div>
-              ))}
-            </div>
-          )}
-
-          {view === "company" && (
-            <div className="space-y-5">
-              {capabilities?.canManageCompanyRoles &&
-                staff.some(
-                  (member) =>
-                    member.status === "active" &&
-                    member.userId !== user.id &&
-                    !companyStaff.some(
-                      (companyMember) =>
-                        companyMember.userId === member.userId &&
-                        companyMember.status === "active",
-                    ),
-                ) && (
-                  <form
-                    onSubmit={submitCompanyStaff}
-                    className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
-                  >
-                    <div>
-                      <Label htmlFor="company-staff-candidate">
-                        {t("umfSupport.companyStaffCandidate")}
-                      </Label>
-                      <select
-                        id="company-staff-candidate"
-                        required
-                        value={companyCandidate}
-                        onChange={(event) =>
-                          setCompanyCandidate(event.target.value)
-                        }
-                        className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                      >
-                        <option value="">
-                          {t("umfSupport.selectSupportStaff")}
-                        </option>
-                        {staff
-                          .filter(
-                            (member) =>
-                              member.status === "active" &&
-                              member.userId !== user.id &&
-                              !companyStaff.some(
-                                (companyMember) =>
-                                  companyMember.userId === member.userId &&
-                                  companyMember.status === "active",
-                              ),
-                          )
-                          .map((member) => (
-                            <option key={member.userId} value={member.userId}>
-                              {member.name} {member.lastName}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                    <div>
-                      <Label htmlFor="company-staff-position">
-                        {t("umfSupport.companyStaffPosition")}
-                      </Label>
-                      <select
-                        id="company-staff-position"
-                        value={companyPosition}
-                        onChange={(event) =>
-                          setCompanyPosition(
-                            event.target.value as Exclude<
-                              CompanyPosition,
-                              "platform_head"
-                            >,
-                          )
-                        }
-                        className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                      >
-                        {assignableCompanyPositions.map((position) => (
-                          <option key={position} value={position}>
-                            {t(`umfSupport.companyPosition.${position}`)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <Button
-                      type="submit"
-                      disabled={working || !companyCandidate}
-                      className="bg-slate-900 hover:bg-slate-800"
-                    >
-                      {t("umfSupport.addCompanyStaff")}
-                    </Button>
-                  </form>
-                )}
+              )}
 
               <div className="overflow-hidden rounded-lg border border-slate-200">
-                {companyStaff.map((member) => (
+                {staff.map((member) => (
                   <div
                     key={member.userId}
                     className="flex flex-col gap-3 border-b border-slate-200 p-4 last:border-0 sm:flex-row sm:items-center"
                   >
-                    <Building2 className="text-slate-400" size={20} />
+                    <ShieldCheck className="text-slate-400" size={20} />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold">
                         {member.name} {member.lastName}
@@ -1261,200 +1654,136 @@ export function UmfSupportPage() {
                       <p className="truncate text-sm text-slate-500">
                         {member.email}
                       </p>
-                      {member.reportsToUserId && (
-                        <p className="mt-1 text-xs text-slate-400">
-                          {t("umfSupport.reportsTo", {
-                            name:
-                              `${member.managerName ?? ""} ${member.managerLastName ?? ""}`.trim() ||
-                              t("umfSupport.unknownManager"),
-                          })}
-                        </p>
-                      )}
                     </div>
                     <span className="text-xs font-semibold text-slate-500">
-                      {t(`umfSupport.companyPosition.${member.position}`)} ·{" "}
+                      {t(`umfSupport.role.${member.role}`)} ·{" "}
                       {t(`umfSupport.staffStatus.${member.status}`)}
                     </span>
-                    {capabilities?.canManageCompanyRoles &&
-                      member.userId !== user.id &&
-                      member.status === "active" && (
+                    {capabilities?.canManageAdministrators &&
+                      member.userId !== user.id && (
                         <Button
                           variant="outline"
                           disabled={working}
                           onClick={() =>
-                            void changeCompanyStaff(
-                              member.userId,
-                              member.position as Exclude<
-                                CompanyPosition,
-                                "platform_head"
-                              >,
-                              "revoked",
-                            )
+                            void updateStaff(member.userId, {
+                              role: member.role,
+                              status:
+                                member.status === "active"
+                                  ? "revoked"
+                                  : "active",
+                            }).then(refresh)
                           }
                         >
-                          {t("umfSupport.removeCompanyStaff")}
+                          {member.status === "active"
+                            ? t("umfSupport.revoke")
+                            : t("umfSupport.restore")}
                         </Button>
                       )}
                   </div>
                 ))}
-                {!loading && companyStaff.length === 0 && (
+                {!loading && staff.length === 0 && (
                   <p className="p-8 text-center text-sm text-slate-500">
-                    {t("umfSupport.emptyCompanyStaff")}
+                    {t("umfSupport.emptyAdministrators")}
                   </p>
                 )}
               </div>
+            </div>
+          )}
 
-              {capabilities?.canManageCompanyRoles &&
-                companyStaff.some(
-                  (member) =>
-                    member.status === "active" && member.userId !== user.id,
-                ) && (
-                  <form
-                    onSubmit={submitDelegation}
-                    className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
+          {view === "collaboration" && (
+            <div className="space-y-5">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
+                {t("umfSupport.collaborationDraftNotice")}
+              </div>
+              {capabilities?.canManageCollaborationSpaces && (
+                <form
+                  onSubmit={submitCollaborationSpace}
+                  className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] md:items-end"
+                >
+                  <div>
+                    <Label htmlFor="collaboration-name">
+                      {t("umfSupport.collaborationName")}
+                    </Label>
+                    <Input
+                      id="collaboration-name"
+                      required
+                      maxLength={100}
+                      value={newSpace.name}
+                      onChange={(event) =>
+                        setNewSpace((current) => ({
+                          ...current,
+                          name: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="collaboration-description">
+                      {t("umfSupport.collaborationDescription")}
+                    </Label>
+                    <Input
+                      id="collaboration-description"
+                      required
+                      maxLength={500}
+                      value={newSpace.description}
+                      onChange={(event) =>
+                        setNewSpace((current) => ({
+                          ...current,
+                          description: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={working}
+                    className="bg-slate-900 hover:bg-slate-800"
                   >
-                    <div>
-                      <Label htmlFor="company-delegation-recipient">
-                        {t("umfSupport.delegationRecipient")}
-                      </Label>
-                      <select
-                        id="company-delegation-recipient"
-                        required
-                        value={delegationRecipient}
-                        onChange={(event) =>
-                          setDelegationRecipient(event.target.value)
-                        }
-                        className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                      >
-                        <option value="">
-                          {t("umfSupport.selectCompanyStaff")}
-                        </option>
-                        {companyStaff
-                          .filter(
-                            (member) =>
-                              member.status === "active" &&
-                              member.userId !== user.id,
-                          )
-                          .map((member) => (
-                            <option key={member.userId} value={member.userId}>
-                              {member.name} {member.lastName}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                    <div>
-                      <Label htmlFor="company-delegation-profile">
-                        {t("umfSupport.delegationModule")}
-                      </Label>
-                      <select
-                        id="company-delegation-profile"
-                        value={delegationProfile}
-                        onChange={(event) =>
-                          setDelegationProfile(
-                            event.target.value as CorporateModuleProfile,
-                          )
-                        }
-                        className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                      >
-                        {corporateModuleProfiles.map((profile) => (
-                          <option key={profile} value={profile}>
-                            {t(`umfSupport.moduleProfile.${profile}`)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <Button
-                      type="submit"
-                      disabled={working || !delegationRecipient}
-                      className="bg-slate-900 hover:bg-slate-800"
-                    >
-                      {t("umfSupport.delegateRole")}
-                    </Button>
-                  </form>
-                )}
+                    {t("umfSupport.createCollaborationDraft")}
+                  </Button>
+                </form>
+              )}
 
               <div className="overflow-hidden rounded-lg border border-slate-200">
-                <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-                  <h2 className="font-semibold">
-                    {t("umfSupport.roleDelegations")}
-                  </h2>
-                </div>
-                {companyDelegations.map((delegation) => (
+                {collaborationSpaces.map((space) => (
                   <div
-                    key={delegation.id}
+                    key={space.id}
                     className="flex flex-col gap-3 border-b border-slate-200 p-4 last:border-0 sm:flex-row sm:items-center"
                   >
+                    <LayoutGrid className="text-slate-400" size={20} />
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold">
-                        {t(`umfSupport.moduleProfile.${delegation.profileId}`)}
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        {delegation.recipientName}{" "}
-                        {delegation.recipientLastName}
+                      <p className="font-semibold">{space.name}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {space.description}
                       </p>
                     </div>
-                    <span className="text-xs font-semibold text-slate-500">
-                      {t(`umfSupport.delegationStatus.${delegation.status}`)}
-                    </span>
-                    {delegation.status === "pending" &&
-                      delegation.recipientUserId === user.id && (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            disabled={working}
-                            onClick={() =>
-                              void decideDelegation(delegation.id, "reject")
-                            }
-                          >
-                            {t("umfSupport.rejectDelegation")}
-                          </Button>
-                          <Button
-                            disabled={working}
-                            className="bg-slate-900 hover:bg-slate-800"
-                            onClick={() =>
-                              void decideDelegation(delegation.id, "accept")
-                            }
-                          >
-                            {t("umfSupport.acceptDelegation")}
-                          </Button>
-                        </div>
-                      )}
-                    {delegation.status === "accepted" &&
-                      delegation.recipientUserId === user.id && (
-                        <Button
-                          variant="outline"
-                          disabled={working}
-                          onClick={() =>
-                            void changeOwnCompanyRole(
-                              () => renounceCompanyRole(delegation.profileId),
-                              "umfSupport.notices.roleRenounced",
-                            )
-                          }
-                        >
-                          {t("umfSupport.renounceRole")}
-                        </Button>
-                      )}
-                    {capabilities?.canManageCompanyRoles &&
-                      delegation.recipientUserId !== user.id &&
-                      ["pending", "accepted"].includes(delegation.status) && (
-                        <Button
-                          variant="outline"
-                          disabled={working}
-                          onClick={() =>
-                            void changeOwnCompanyRole(
-                              () => selfEnableCompanyRole(delegation.profileId),
-                              "umfSupport.notices.roleSelfEnabled",
-                            )
-                          }
-                        >
-                          {t("umfSupport.keepRoleAccess")}
-                        </Button>
-                      )}
+                    {capabilities?.canManageCollaborationSpaces && (
+                      <Button
+                        variant="outline"
+                        disabled={working}
+                        onClick={() =>
+                          void changeCollaborationVisibility(space)
+                        }
+                      >
+                        {space.status === "published" &&
+                        space.visibility === "staff" ? (
+                          <>
+                            <EyeOff size={16} />
+                            {t("umfSupport.hideCollaboration")}
+                          </>
+                        ) : (
+                          <>
+                            <Eye size={16} />
+                            {t("umfSupport.showCollaboration")}
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </div>
                 ))}
-                {!loading && companyDelegations.length === 0 && (
+                {!loading && collaborationSpaces.length === 0 && (
                   <p className="p-8 text-center text-sm text-slate-500">
-                    {t("umfSupport.emptyDelegations")}
+                    {t("umfSupport.emptyCollaborationSpaces")}
                   </p>
                 )}
               </div>

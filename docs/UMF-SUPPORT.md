@@ -45,30 +45,36 @@ decisión explícita, firma y nueva validación humana; véase
 
 - inicio de sesión específico en el portal `support`, incluido el segundo
   factor cuando la cuenta lo tiene activo;
-- registro cerrado: una dirección no preautorizada no crea cuenta, solicitud,
-  contraseña retenida ni correo en cola;
-- inicialización única de la primera jefatura únicamente para el correo cuyo
-  SHA-256 normalizado está designado fuera del repositorio;
+- creación de una identidad corporativa independiente mediante nombre,
+  apellidos, correo y contraseña, sin consultar ni reutilizar cuentas del realm
+  comercial;
 - contraseña corporativa creada en el registro y reto ordinario de verificación
   del buzón, con código de seis cifras, hash en reposo, quince minutos de
   vigencia y cinco intentos;
-- preautorización posterior creada por dirección con correo, nombre, apellidos,
-  idioma y rol exactos; la persona invitada no puede modificar el rol ni la
-  identidad declarada al registrarse;
+- acceso cerrado después de verificar el correo: una cuenta verificada sigue
+  sin pertenencia ni permisos hasta que dirección la aprueba desde el panel de
+  cuentas administrativas;
+- designación de la primera jefatura mediante una orden local, limitada a una
+  identidad `corporate_support` ya existente y verificada, con simulación por
+  defecto, doble confirmación del correo y rechazo si ya existe otra jefatura;
 - personal corporativo con roles `director` y `agent`, revocable sin alterar
   las membresías de centros;
-- directorio de plantilla con cargos empresariales separados de la
-  autorización: jefe de plataforma, responsable de área, jefe de equipo,
-  personal y colaboración externa;
+- panel de altas y bajas de cuentas administrativas y espacios de colaboración
+  con capacidades explícitas, reducidas y revocables;
 - cola de tickets con categorías, prioridad, estado, asignación, objetivos de
   primera respuesta y resolución;
 - categoría propia de privacidad y derechos;
 - mensajes entrantes, salientes y notas internas cifrados con el dominio de
   contenido privado de UMF Support;
-- bandejas de entrada y enviados con el estado disponible de la cola de
-  entrega;
+- bandejas de entrada, borradores, programados, salida y enviados, con redacción
+  a múltiples destinatarios, CC/CCO, asuntos, texto e hiperenlaces HTTPS o
+  `mailto:` saneados;
+- borradores cifrados, envío inmediato o programado y cancelación segura antes
+  de que una entrega haya comenzado;
 - respuestas por la cola transaccional existente, sin guardar tarjetas ni
   credenciales de proveedor;
+- preferencias personales de alertas por tipo de evento y canal, desactivadas
+  por defecto; el correo es el canal prioritario y Web Push permanece opcional;
 - receptor servidor-a-servidor con firma HMAC reciente, deduplicación por
   `Message-ID`, rechazo de adjuntos y alias de respuesta ligados al ticket y al
   correo solicitante;
@@ -85,26 +91,32 @@ la plataforma comercial y no permite iniciar sesión ni autorizar operaciones
 corporativas. Ninguna ruta de soporte consulta una contraseña, cookie,
 membresía o solicitud de eliminación comercial para completar el alta.
 
-Mientras no exista `corporateBootstrapState`, personal corporativo ni plantilla
-corporativa, el correo que coincide con
-`UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256` puede registrarse. El código enviado
-al buzón verifica el correo y solo entonces se crean la dirección de soporte y
-el cargo `platform_head`. Si ya existe cualquier inicialización corporativa,
-la excepción falla cerrada: no traslada autoridad desde una cuenta comercial
-ni ofrece un camino de recuperación por compatibilidad.
+El registro y la verificación crean exclusivamente la identidad
+`corporate_support`. No crean `umfSupportStaff`, `facilityMemberships`,
+`platformOperators` ni un cargo de empresa. Una cuenta verificada queda en
+espera de aprobación y no puede iniciar una sesión de personal hasta que una
+dirección activa la incorpore como administradora.
 
-Las incorporaciones posteriores comienzan en el panel de dirección. La
-preautorización fija correo, nombre, apellidos y rol. La persona invitada crea
-su contraseña en la pantalla de registro y verifica ese mismo buzón. Disponer
-de una identidad `corporate_support` no concede acceso hasta que la
-verificación haya materializado la pertenencia autorizada.
+La excepción inicial no depende de una cuenta comercial ni de la antigüedad de
+la identidad. La jefatura se designa localmente sobre una cuenta corporativa ya
+verificada. `npm run company:designate-head -- --email <correo> --confirm-email
+<correo>` solo muestra el plan; añadir `--apply` materializa de forma
+transaccional la dirección y el cargo `platform_head`. El comando exige
+PostgreSQL explícito y falla si encuentra una jefatura distinta.
 
-## Plantilla, módulos y delegaciones
+## Administración mínima y colaboración
 
-`companyStaffProfiles` describe el organigrama visible. El cargo empresarial no
-abre rutas, no selecciona centros y no concede acceso a gestores. El trabajo
-diario de soporte se autoriza con `umfSupportStaff` y las responsabilidades
-corporativas delegadas se registran en `corporateRoleAssignments`.
+El flujo vigente mantiene una administración deliberadamente pequeña. La
+dirección consulta cuentas corporativas, aprueba las que ya verificaron su
+buzón, cambia entre `director` y `agent` y puede revocar el acceso sin modificar
+la identidad ni ninguna cuenta comercial. Los espacios de colaboración son
+contenedores separados, desactivables y con capacidades seleccionadas por la
+dirección; no convierten a la persona colaboradora en administradora general.
+
+`companyStaffProfiles` conserva únicamente la señal de `platform_head` que
+protege la jefatura inicial y la autoridad local de gestores. El organigrama
+amplio, las áreas y las delegaciones quedan como modelo de datos histórico o
+borrador futuro: no se publican como flujo vigente de la API ni de la interfaz.
 
 Los gestores internos son infraestructura compartida por la plataforma
 comercial y UMF Support. Tienen un único administrador local en Linux; no se
@@ -127,36 +139,38 @@ error. La migración PostgreSQL 44 prepara esta separación para datos
 existentes, pero su aplicación en producción requiere una comprobación
 operativa independiente.
 
-La jefatura de plataforma cubre automáticamente los módulos sin responsable.
-Una asignación activa o una delegación pendiente dirigida a personal activo
-detiene esa cobertura solo para el módulo correspondiente. La persona receptora
-puede aceptar o rechazar la delegación; después de aceptarla puede renunciar al
-permiso. Al revocar, rechazar, renunciar o eliminar legítimamente la asignación,
-el módulo vuelve a la cobertura automática si no existe otra persona capaz de
-decidir sobre una delegación pendiente. La jefatura puede habilitarse también
-de forma explícita en un módulo delegado.
+Las migraciones PostgreSQL 45 y 46 y sus equivalentes de SQLite conservan las
+solicitudes y estructuras organizativas anteriores para trazabilidad y
+saneamiento. El flujo vigente no lee ni escribe
+`umfSupportAccessCredentials`, no emite códigos de activación de 24 horas y no
+traslada relaciones desde usuarios `commercial`. Las rutas públicas antiguas
+de solicitud y activación y los comandos de provisión y reanudación siguen
+retirados.
 
-Una cuenta de soporte aprobada no entra por sí sola en la plantilla. La
-jefatura debe incorporarla desde el directorio y asignarle un cargo empresarial
-que, por sí mismo, no abre ningún módulo. Retirar a una persona conserva la
-trazabilidad, revoca sus asignaciones técnicas activas y retira sus delegaciones
-pendientes o aceptadas; los módulos vuelven entonces a la cobertura vacante.
-La jefatura inicial no puede modificarse desde este flujo ordinario.
+## Correo profesional y alertas
 
-La vía normal de incorporación posterior parte de una invitación creada por
-dirección. No existe una solicitud pública de rol ni una pantalla que permita
-a una persona elegir sus propios permisos. La invitación no guarda contraseña:
-solo preautoriza la identidad declarada y el rol. El registro crea una fila
-`corporate_support` pendiente, una contraseña independiente y una sesión
-corporativa; la verificación del buzón activa la cuenta y materializa el rol
-preautorizado. Nunca se crea una fila en `facilityMemberships`.
+El panel no pretende sustituir a un cliente de correo generalista. Reúne las
+operaciones necesarias para soporte: entrada, borradores, programados, salida,
+enviados y respuestas asociadas a tickets. Los borradores almacenan cifrados el
+asunto, el cuerpo y las listas Para/CC/CCO. Al enviar se crean entregas
+individuales `platformScope = support`; CCO nunca se expone a otros
+destinatarios. El editor acepta texto y enlaces Markdown controlados
+`[etiqueta](https://...)` o `mailto:` y escapa HTML arbitrario.
 
-La migración PostgreSQL 45 y la equivalente de SQLite mantienen legibles las
-solicitudes históricas para trazabilidad y saneamiento. El flujo vigente no
-lee ni escribe `umfSupportAccessCredentials`, no emite códigos de activación de
-24 horas y no traslada relaciones desde usuarios `commercial`. Las rutas
-públicas antiguas de solicitud y activación, los comandos de provisión y
-reanudación y sus servicios ejecutables se han retirado.
+La programación exige una fecha futura. La cancelación comprueba dentro de la
+transacción que todas las entregas sigan en cola y no hayan alcanzado su hora;
+si el trabajador ya comenzó una entrega, la operación falla cerrada. La
+interfaz no muestra errores SMTP privados: solo un estado normalizado y el
+número de incidencias de entrega.
+
+Cada miembro corporativo configura sus propias alertas para tickets,
+conversaciones, correo entrante, retroalimentación e informes de problema. El
+interruptor general y todos los canales empiezan desactivados; verificar o
+aprobar una cuenta no la suscribe. El correo se envía al buzón corporativo
+verificado de esa persona. Web Push requiere además configuración VAPID fuera
+del repositorio y autorización expresa de cada dispositivo; la lista de
+navegadores compatibles es una comprobación de cliente, no una frontera de
+autorización. No existe todavía una aplicación Android ni push nativo FCM/APNs.
 
 ## Saneamiento de una identidad corporativa anterior
 
@@ -181,8 +195,9 @@ Solo después de revisar el JSON de simulación se repite el comando exacto con
 `--apply`. Falla sin modificar datos si detecta otra persona corporativa, si
 la jefatura pertenece a una identidad distinta de las declaradas o si no puede
 resolver con precisión el propietario del estado. Tras el saneamiento, la
-primera jefatura se registra desde cero con el correo designado y verifica su
-buzón por el flujo web vigente.
+cuenta corporativa se registra desde cero, verifica su buzón por el flujo web
+vigente y, si debe ser la primera jefatura, se designa después mediante la orden
+local documentada.
 
 ## Flujo de una solicitud de privacidad
 
@@ -223,7 +238,6 @@ UMF_SUPPORT_EMAIL_INBOUND_ENABLED=true
 UMF_SUPPORT_EMAIL_ADDRESS=privacy@example.com
 UMF_SUPPORT_EMAIL_REPLY_TOKEN_KEY=<32 bytes aleatorios en base64>
 UMF_SUPPORT_EMAIL_WEBHOOK_SECRET=<otros 32 bytes aleatorios en base64>
-UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256=<sha256 hexadecimal del correo normalizado>
 ```
 
 Los dos secretos deben ser exclusivos de UMF Support. No se reutilizan las
@@ -263,23 +277,28 @@ POST   /api/umf-support/passkeys/verify
 GET    /api/umf-support/session
 POST   /api/umf-support/logout
 GET    /api/umf-support/capabilities
-GET    /api/umf-support/access-requests
-POST   /api/umf-support/access-requests/invite
 GET    /api/umf-support/staff
+GET    /api/umf-support/administrator-accounts
+POST   /api/umf-support/administrator-accounts/:userId/approve
 PATCH  /api/umf-support/staff/:userId
-GET    /api/umf-support/company-staff
-PATCH  /api/umf-support/company-staff/:userId
-GET    /api/umf-support/company-delegations
-POST   /api/umf-support/company-delegations
-POST   /api/umf-support/company-delegations/:delegationId/respond
-POST   /api/umf-support/company-roles/:profileId/renounce
-POST   /api/umf-support/company-roles/:profileId/self-enable
+GET    /api/umf-support/collaboration-spaces
+POST   /api/umf-support/collaboration-spaces
+PATCH  /api/umf-support/collaboration-spaces/:spaceId
 GET    /api/umf-support/tickets
 POST   /api/umf-support/tickets
 GET    /api/umf-support/tickets/:ticketId
 PATCH  /api/umf-support/tickets/:ticketId
 POST   /api/umf-support/tickets/:ticketId/messages
 GET    /api/umf-support/mailbox/:direction
+GET    /api/umf-support/mail/drafts
+POST   /api/umf-support/mail/drafts
+PUT    /api/umf-support/mail/drafts/:draftId
+POST   /api/umf-support/mail/drafts/:draftId/send
+POST   /api/umf-support/mail/drafts/:draftId/cancel
+GET    /api/umf-support/notification-settings
+PUT    /api/umf-support/notification-settings
+POST   /api/umf-support/push-subscriptions
+DELETE /api/umf-support/push-subscriptions/:subscriptionId
 POST   /api/internal/umf-support-email
 POST   /api/umf-support/account/security/email-change/request
 POST   /api/umf-support/account/security/email-change/confirm
@@ -298,10 +317,15 @@ corporativo.
 ## Validación y límites operativos
 
 Las pruebas del repositorio demuestran la separación frente a administradores
-de centros, el consumo único del código, el hash persistido, la independencia
-de tablas, la firma del correo entrante, su deduplicación y la clasificación de
-privacidad. No demuestran que DNS, Worker, SMTP, rebotes o entregabilidad estén
-activos en producción.
+de centros, la independencia de credenciales y cookies, la aprobación separada
+del buzón verificado, la designación local de jefatura, el cifrado de
+borradores, la programación y cancelación, el saneamiento de hiperenlaces, el
+ámbito de las entregas y las preferencias de alertas por persona. Las
+migraciones PostgreSQL 47 y 48 incorporan borradores, preferencias y
+suscripciones, y el puente de datos incluye las tres tablas. Nada de ello
+demuestra que esas migraciones estén aplicadas en una base viva ni que DNS,
+Worker, SMTP, rebotes, Web Push o entregabilidad estén operativos en
+producción.
 
 Antes de operar públicamente siguen siendo necesarias:
 

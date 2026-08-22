@@ -12,6 +12,7 @@ import {
   queueSupportStaffNotificationEmail,
   queueSupportUpdateEmail,
 } from "./email-delivery.js";
+import { notifyUmfSupportAdministrators } from "./umf-support-notifications.js";
 import { publishManagerSignal } from "./manager-coordinator.js";
 import {
   privateContentNeedsRewrap,
@@ -406,6 +407,16 @@ export async function createSupportTicket(
     );
   }
   await notifySupportInbox(ticket, message);
+  void notifyUmfSupportAdministrators({
+    event:
+      category === "technical" || category === "safety"
+        ? "problem_reported"
+        : "ticket_created",
+    title: `Nuevo aviso ${ticket.publicId}`,
+    message: `${ticket.subject} · prioridad ${ticket.priority}`,
+    url: "/umf-support",
+    excludeUserId: auth.userId,
+  }).catch(() => undefined);
   return ticket;
 }
 
@@ -694,6 +705,13 @@ export async function addSupportMessage(
     }
   } else if (!staff && visibility === "requester") {
     await notifySupportInbox(ticket, body);
+    void notifyUmfSupportAdministrators({
+      event: "conversation_received",
+      title: `Nueva respuesta en ${ticket.publicId}`,
+      message: ticket.subject,
+      url: "/umf-support",
+      excludeUserId: auth.userId,
+    }).catch(() => undefined);
   }
   return message;
 }

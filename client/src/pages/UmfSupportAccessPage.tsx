@@ -18,6 +18,7 @@ import {
   beginSupportPasskey,
   finishSupportPasskey,
   loginSupport,
+  logoutSupport,
   registerSupportAccount,
   resendSupportVerification,
   verifySupportEmail,
@@ -131,7 +132,10 @@ export function UmfSupportAccessPage() {
         setCaptchaResetSignal((value) => value + 1);
       } else {
         await verifySupportEmail(code);
-        navigate("/umf-support", { replace: true });
+        await logoutSupport();
+        setCode("");
+        setMode("login");
+        setNotice(t("umfSupportAccess.awaitingAdministratorApproval"));
       }
     } catch (cause) {
       if (!(mode === "login" && mfaRequired)) {
@@ -144,9 +148,6 @@ export function UmfSupportAccessPage() {
         UMF_SUPPORT_PASSWORD_POLICY: t("auth.passwordPolicy"),
         UMF_SUPPORT_EMAIL_VERIFICATION_INVALID: t(
           "umfSupportAccess.verificationInvalid",
-        ),
-        UMF_SUPPORT_REGISTRATION_UNAVAILABLE: t(
-          "umfSupportAccess.registrationClosed",
         ),
       };
       setError(

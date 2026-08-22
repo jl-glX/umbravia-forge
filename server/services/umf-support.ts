@@ -31,6 +31,7 @@ import {
 import {
   deliverQueuedEmail,
   queueEmailVerificationCode,
+  queueUmfSupportComposedEmail,
   queueUmfSupportReplyEmail,
 } from "./email-delivery.js";
 import {
@@ -39,10 +40,6 @@ import {
   type AuthResult,
 } from "./auth.js";
 import { isPasswordWithinHashLimit } from "../lib/password-policy.js";
-import {
-  bootstrapCompanyHead,
-  canRequestCompanyHeadBootstrap,
-} from "./company-bootstrap.js";
 import { getEmailManagerReadiness } from "./email-manager.js";
 import { recordSecurityEvent } from "./security-events.js";
 import {
@@ -157,17 +154,6 @@ function normalizedEmail(value: unknown): string {
   return email;
 }
 
-function requestedSupportRole(value: unknown): UmfSupportRole {
-  const role = requiredText(value ?? "agent", "requestedRole", 16);
-  if (role !== "agent" && role !== "director") {
-    throw new UmfSupportValidationError(
-      "requestedRole is invalid",
-      "UMF_SUPPORT_ROLE_INVALID",
-    );
-  }
-  return role;
-}
-
 function protectMessage(value: string, messageId: string): string {
   requireCorporateContentProtection();
   return protectPrivateText(value, `umf-support:message:${messageId}`);
@@ -251,9 +237,9 @@ export async function getUmfSupportCapabilities(auth: AuthenticatedUser) {
   }
   return {
     role,
-    canReviewAccess: role === "director",
-    canManageTeam: role === "director",
-    canManageCompanyRoles: Boolean(companyHead),
+    canManageAdministrators: role === "director",
+    canManageCollaborationSpaces: role === "director",
+    isPlatformHead: Boolean(companyHead),
     email: {
       outbound: readiness.capabilities.supportNotifications,
       inbound,
@@ -272,68 +258,6 @@ export function getUmfSupportDistribution() {
     available: true,
     installer: null,
   };
-}
-
-export async function inviteUmfSupportAccount(
-  auth: AuthenticatedUser,
-  input: Record<string, unknown>,
-) {
-  await requireDirector(auth);
-  const email = normalizedEmail(input.email);
-  const name = requiredText(input.name, "name", 100);
-  const lastName = requiredText(input.lastName, "lastName", 100);
-  const requestedRole = requestedSupportRole(input.requestedRole);
-  const locale = requiredText(input.locale ?? "es", "locale", 5) as
-    "es" | "en" | "de" | "de-CH";
-  if (!new Set(["es", "en", "de", "de-CH"]).has(locale)) {
-    throw new UmfSupportValidationError("locale is invalid");
-  }
-  const [existingUser, openRequest] = await Promise.all([
-    db
-      .selectFrom("users")
-      .select("id")
-      .where("email", "=", email)
-      .where("identityRealm", "=", "corporate_support")
-      .executeTakeFirst(),
-    db
-      .selectFrom("umfSupportAccessRequests")
-      .select("id")
-      .where("email", "=", email)
-      .where("status", "in", ["pending", "approved"])
-      .executeTakeFirst(),
-  ]);
-  if (existingUser || openRequest) {
-    throw new UmfSupportValidationError(
-      "A corporate account or open authorization already exists",
-      "UMF_SUPPORT_INVITATION_EXISTS",
-    );
-  }
-  const now = Date.now();
-  const request = {
-    id: `umf-support-access-${randomUUID()}`,
-    email,
-    name,
-    lastName,
-    requestedRole,
-    activationKind: "staff" as const,
-    locale,
-    status: "approved" as const,
-    activationCodeHash: null,
-    activationAttempts: 0,
-    activationExpiresAt: null,
-    reviewedByUserId: auth.userId,
-    reviewedAt: now,
-    activatedUserId: null,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await db.insertInto("umfSupportAccessRequests").values(request).execute();
-  await recordSecurityEvent("umf_support_access_approved", auth.userId, {
-    requestId: request.id,
-    mode: "closed_registration_invitation",
-    requestedRole,
-  });
-  return request;
 }
 
 export async function registerUmfSupportAccount(
@@ -366,107 +290,36 @@ export async function registerUmfSupportAccount(
   if (!new Set(["es", "en", "de", "de-CH"]).has(locale)) {
     throw new UmfSupportValidationError("locale is invalid");
   }
-  const designatedHead = await canRequestCompanyHeadBootstrap(email);
-  const authorization = await db
-    .selectFrom("umfSupportAccessRequests")
-    .selectAll()
-    .where("email", "=", email)
-    .where(
-      "status",
-      "in",
-      designatedHead ? ["pending", "approved"] : ["approved"],
-    )
-    .orderBy("updatedAt", "desc")
-    .executeTakeFirst();
-  if (!designatedHead && !authorization) {
-    throw new UmfSupportValidationError(
-      "Corporate registration requires prior authorization",
-      "UMF_SUPPORT_REGISTRATION_UNAVAILABLE",
-    );
-  }
-  if (authorization?.activatedUserId) {
-    throw new UmfSupportValidationError(
-      "The corporate authorization has already been used",
-      "UMF_SUPPORT_INVITATION_USED",
-    );
-  }
-  const name = authorization
-    ? authorization.name
-    : requiredText(input.name, "name", 100);
-  const lastName = authorization
-    ? authorization.lastName
-    : requiredText(input.lastName, "lastName", 100);
-  const result = await signupCorporateSupportAccount(
-    email,
-    name,
-    password,
-    metadata,
-    {
-      lastName,
-      countryCode,
-      locale,
-      acceptedTerms: input.acceptedTerms === true,
-      acceptedPrivacy: input.acceptedPrivacy === true,
-    },
-  );
-  let requestId: string | null = authorization?.id ?? null;
+  const name = requiredText(input.name, "name", 100);
+  const lastName = requiredText(input.lastName, "lastName", 100);
+  let result: AuthResult;
   try {
-    const now = Date.now();
-    await db.transaction().execute(async (transaction) => {
-      if (authorization) {
-        const updated = await transaction
-          .updateTable("umfSupportAccessRequests")
-          .set({
-            status: "approved",
-            requestedRole: designatedHead
-              ? "director"
-              : authorization.requestedRole,
-            activationKind: designatedHead
-              ? "designated_head"
-              : authorization.activationKind,
-            activationCodeHash: null,
-            activationAttempts: 0,
-            activationExpiresAt: null,
-            activatedUserId: result.user.id,
-            updatedAt: now,
-          })
-          .where("id", "=", authorization.id)
-          .where("activatedUserId", "is", null)
-          .executeTakeFirst();
-        if (Number(updated.numUpdatedRows) !== 1) {
-          throw new UmfSupportValidationError(
-            "The corporate authorization changed during registration",
-            "UMF_SUPPORT_INVITATION_USED",
-          );
-        }
-      } else {
-        requestId = `umf-support-access-${randomUUID()}`;
-        await transaction
-          .insertInto("umfSupportAccessRequests")
-          .values({
-            id: requestId,
-            email,
-            name,
-            lastName,
-            requestedRole: "director",
-            activationKind: "designated_head",
-            locale,
-            status: "approved",
-            activationCodeHash: null,
-            activationAttempts: 0,
-            activationExpiresAt: null,
-            reviewedByUserId: null,
-            reviewedAt: now,
-            activatedUserId: result.user.id,
-            createdAt: now,
-            updatedAt: now,
-          })
-          .execute();
-      }
-    });
-    if (!requestId) {
-      throw new Error("Corporate authorization was not persisted");
+    result = await signupCorporateSupportAccount(
+      email,
+      name,
+      password,
+      metadata,
+      {
+        lastName,
+        countryCode,
+        locale,
+        acceptedTerms: input.acceptedTerms === true,
+        acceptedPrivacy: input.acceptedPrivacy === true,
+      },
+    );
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "Unable to create account with these credentials"
+    ) {
+      throw new UmfSupportValidationError(
+        "A corporate account already exists for this email",
+        "UMF_SUPPORT_ACCOUNT_EXISTS",
+      );
     }
+    throw error;
+  }
+  try {
     const challenge = await createEmailVerificationChallenge(result.user.id);
     const deliveryId = await queueEmailVerificationCode({
       userId: result.user.id,
@@ -481,10 +334,7 @@ export async function registerUmfSupportAccount(
       () => false,
     );
     await recordSecurityEvent("umf_support_access_requested", result.user.id, {
-      requestId,
-      mode: designatedHead
-        ? "designated_head_closed_registration"
-        : "invitation_closed_registration",
+      mode: "verified_email_self_registration",
       verificationEmailSent,
     });
     return {
@@ -502,7 +352,7 @@ export async function registerUmfSupportAccount(
 export async function verifyUmfSupportRegistration(
   userId: string,
   code: string,
-): Promise<{ verified: true; role: UmfSupportRole }> {
+): Promise<{ verified: true; access: "awaiting_administrator_approval" }> {
   const user = await db
     .selectFrom("users")
     .select(["accountStatus", "emailVerifiedAt", "identityRealm"])
@@ -525,94 +375,11 @@ export async function verifyUmfSupportRegistration(
       "UMF_SUPPORT_EMAIL_VERIFICATION_INVALID",
     );
   }
-  const request = await db
-    .selectFrom("umfSupportAccessRequests")
-    .selectAll()
-    .where("activatedUserId", "=", userId)
-    .where("status", "in", ["approved", "activated"])
-    .orderBy("updatedAt", "desc")
-    .executeTakeFirst();
-  if (!request) {
-    throw new UmfSupportValidationError(
-      "The corporate authorization is not available",
-      "UMF_SUPPORT_REGISTRATION_UNAVAILABLE",
-    );
-  }
-  const existingStaff = await db
-    .selectFrom("umfSupportStaff")
-    .select(["role", "status"])
-    .where("userId", "=", userId)
-    .executeTakeFirst();
-  if (request.status === "activated" && existingStaff?.status === "active") {
-    return { verified: true, role: existingStaff.role };
-  }
-  if (request.activationKind === "designated_head") {
-    await bootstrapCompanyHead(userId, request.id);
-  } else {
-    const now = Date.now();
-    await db.transaction().execute(async (transaction) => {
-      const currentStaff = await transaction
-        .selectFrom("umfSupportStaff")
-        .select("userId")
-        .where("userId", "=", userId)
-        .executeTakeFirst();
-      if (!currentStaff) {
-        await transaction
-          .insertInto("umfSupportStaff")
-          .values({
-            userId,
-            role: request.requestedRole,
-            status: "active",
-            approvedByUserId: request.reviewedByUserId,
-            createdAt: now,
-            updatedAt: now,
-            revokedAt: null,
-          })
-          .execute();
-      }
-      await transaction
-        .updateTable("umfSupportAccessRequests")
-        .set({
-          status: "activated",
-          activationCodeHash: null,
-          activationExpiresAt: null,
-          updatedAt: now,
-        })
-        .where("id", "=", request.id)
-        .where("status", "=", "approved")
-        .execute();
-    });
-  }
   await recordSecurityEvent("umf_support_account_activated", userId, {
-    requestId: request.id,
-    mode: "verified_closed_registration",
-    requestedRole: request.requestedRole,
+    mode: "verified_email_self_registration",
+    access: "awaiting_administrator_approval",
   });
-  return { verified: true, role: request.requestedRole };
-}
-
-export async function listUmfSupportAccessRequests(auth: AuthenticatedUser) {
-  await requireDirector(auth);
-  return db
-    .selectFrom("umfSupportAccessRequests")
-    .select([
-      "id",
-      "email",
-      "name",
-      "lastName",
-      "requestedRole",
-      "locale",
-      "status",
-      "activationExpiresAt",
-      "reviewedByUserId",
-      "reviewedAt",
-      "activatedUserId",
-      "createdAt",
-      "updatedAt",
-    ])
-    .orderBy("createdAt", "desc")
-    .limit(200)
-    .execute();
+  return { verified: true, access: "awaiting_administrator_approval" };
 }
 
 export async function listUmfSupportStaff(auth: AuthenticatedUser) {
@@ -631,6 +398,162 @@ export async function listUmfSupportStaff(auth: AuthenticatedUser) {
     ])
     .orderBy("users.name")
     .execute();
+}
+
+export async function listUmfSupportAdministratorAccounts(
+  auth: AuthenticatedUser,
+) {
+  await requireDirector(auth);
+  return db
+    .selectFrom("users")
+    .leftJoin("umfSupportStaff", "umfSupportStaff.userId", "users.id")
+    .select([
+      "users.id as userId",
+      "users.name",
+      "users.lastName",
+      "users.email",
+      "users.accountStatus",
+      "users.emailVerifiedAt",
+      "users.createdAt",
+      "umfSupportStaff.role",
+      "umfSupportStaff.status as staffStatus",
+    ])
+    .where("users.identityRealm", "=", "corporate_support")
+    .orderBy("users.createdAt", "desc")
+    .execute();
+}
+
+export async function approveUmfSupportAdministrator(
+  auth: AuthenticatedUser,
+  userId: string,
+) {
+  await requireDirector(auth);
+  const candidate = await db
+    .selectFrom("users")
+    .select(["id", "accountStatus", "emailVerifiedAt", "identityRealm"])
+    .where("id", "=", userId)
+    .executeTakeFirst();
+  if (
+    !candidate ||
+    candidate.identityRealm !== "corporate_support" ||
+    candidate.accountStatus !== "active" ||
+    candidate.emailVerifiedAt === null
+  ) {
+    throw new UmfSupportValidationError(
+      "A verified corporate support account is required",
+      "UMF_SUPPORT_ACCOUNT_NOT_VERIFIED",
+    );
+  }
+  const now = Date.now();
+  await db
+    .insertInto("umfSupportStaff")
+    .values({
+      userId,
+      role: "agent",
+      status: "active",
+      approvedByUserId: auth.userId,
+      createdAt: now,
+      updatedAt: now,
+      revokedAt: null,
+    })
+    .onConflict((conflict) =>
+      conflict.column("userId").doUpdateSet({
+        role: "agent",
+        status: "active",
+        approvedByUserId: auth.userId,
+        updatedAt: now,
+        revokedAt: null,
+      }),
+    )
+    .execute();
+  await recordSecurityEvent("umf_support_administrator_approved", auth.userId, {
+    subjectUserId: userId,
+    role: "agent",
+    status: "active",
+    mode: "human_administrator_approval",
+  });
+}
+
+export async function listUmfSupportCollaborationSpaces(
+  auth: AuthenticatedUser,
+) {
+  const role = await requireStaff(auth);
+  let query = db
+    .selectFrom("umfSupportCollaborationSpaces")
+    .selectAll()
+    .orderBy("updatedAt", "desc");
+  if (role !== "director") {
+    query = query
+      .where("status", "=", "published")
+      .where("visibility", "=", "staff");
+  }
+  return query.execute();
+}
+
+export async function createUmfSupportCollaborationSpace(
+  auth: AuthenticatedUser,
+  input: Record<string, unknown>,
+) {
+  await requireDirector(auth);
+  const now = Date.now();
+  const space = {
+    id: `umf-collaboration-${randomBytes(12).toString("hex")}`,
+    name: requiredText(input.name, "name", 100),
+    description: requiredText(input.description, "description", 500),
+    visibility: "hidden" as const,
+    status: "draft" as const,
+    createdByUserId: auth.userId,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await db.insertInto("umfSupportCollaborationSpaces").values(space).execute();
+  await recordSecurityEvent(
+    "umf_support_collaboration_space_changed",
+    auth.userId,
+    {
+      collaborationSpaceId: space.id,
+      action: "created_as_hidden_draft",
+    },
+  );
+  return space;
+}
+
+export async function updateUmfSupportCollaborationSpace(
+  auth: AuthenticatedUser,
+  spaceId: string,
+  input: Record<string, unknown>,
+) {
+  await requireDirector(auth);
+  const visibility = requiredText(input.visibility, "visibility", 16);
+  const status = requiredText(input.status, "status", 16);
+  if (!new Set(["hidden", "staff"]).has(visibility)) {
+    throw new UmfSupportValidationError("Collaboration visibility is invalid");
+  }
+  if (!new Set(["draft", "published"]).has(status)) {
+    throw new UmfSupportValidationError("Collaboration status is invalid");
+  }
+  const result = await db
+    .updateTable("umfSupportCollaborationSpaces")
+    .set({
+      visibility: visibility as "hidden" | "staff",
+      status: status as "draft" | "published",
+      updatedAt: Date.now(),
+    })
+    .where("id", "=", spaceId)
+    .executeTakeFirst();
+  if (Number(result.numUpdatedRows) !== 1) {
+    throw new UmfSupportNotFoundError("Collaboration space not found");
+  }
+  await recordSecurityEvent(
+    "umf_support_collaboration_space_changed",
+    auth.userId,
+    {
+      collaborationSpaceId: spaceId,
+      action: "visibility_changed",
+      visibility,
+      status,
+    },
+  );
 }
 
 export async function listCompanyStaff(auth: AuthenticatedUser) {
@@ -1468,6 +1391,369 @@ export async function listUmfSupportMailbox(
     itemCount: rows.length,
   });
   return rows.map((row) => ({ ...row, body: revealMessage(row.body, row.id) }));
+}
+
+type UmfSupportMailDraftContent = {
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  subject: string;
+  body: string;
+};
+
+function recipientList(value: unknown, name: string): string[] {
+  if (!Array.isArray(value) || value.length > 25) {
+    throw new UmfSupportValidationError(`${name} recipients are invalid`);
+  }
+  return value.map((entry) => normalizedEmail(entry));
+}
+
+function mailDraftContent(input: unknown): UmfSupportMailDraftContent {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new UmfSupportValidationError("Mail draft content is invalid");
+  }
+  const candidate = input as Record<string, unknown>;
+  const to = recipientList(candidate.to, "To");
+  const cc = recipientList(candidate.cc, "CC");
+  const bcc = recipientList(candidate.bcc, "BCC");
+  const recipients = [...to, ...cc, ...bcc];
+  if (recipients.length > 25) {
+    throw new UmfSupportValidationError("Too many mail recipients");
+  }
+  const unique = new Set(recipients);
+  if (unique.size !== recipients.length) {
+    throw new UmfSupportValidationError(
+      "A recipient may only appear once across To, CC and BCC",
+    );
+  }
+  return {
+    to,
+    cc,
+    bcc,
+    subject: requiredText(candidate.subject, "subject", 200),
+    body: requiredText(candidate.body, "message", 20_000),
+  };
+}
+
+function revealMailDraftContent(
+  value: string,
+  draftId: string,
+): UmfSupportMailDraftContent {
+  try {
+    return mailDraftContent(JSON.parse(revealMessage(value, draftId)));
+  } catch (error) {
+    if (error instanceof UmfSupportValidationError) throw error;
+    throw new UmfSupportValidationError("Mail draft content is unavailable");
+  }
+}
+
+function parseDeliveryIds(value: string): string[] {
+  try {
+    const ids = JSON.parse(value) as unknown;
+    return Array.isArray(ids) && ids.every((id) => typeof id === "string")
+      ? ids
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function derivedMailStatus(
+  storedStatus: "draft" | "scheduled" | "queued" | "cancelled",
+  deliveryStatuses: string[],
+):
+  | "draft"
+  | "scheduled"
+  | "outbox"
+  | "sent"
+  | "partially_failed"
+  | "failed"
+  | "cancelled" {
+  if (storedStatus === "draft" || storedStatus === "cancelled") {
+    return storedStatus;
+  }
+  if (deliveryStatuses.length === 0) return "failed";
+  if (deliveryStatuses.every((status) => status === "sent")) return "sent";
+  const failed = deliveryStatuses.filter((status) => status === "failed");
+  if (failed.length === deliveryStatuses.length) return "failed";
+  if (failed.length > 0) return "partially_failed";
+  if (storedStatus === "scheduled") return "scheduled";
+  return "outbox";
+}
+
+export async function listUmfSupportMailDrafts(auth: AuthenticatedUser) {
+  await requireStaff(auth);
+  const drafts = await db
+    .selectFrom("umfSupportMailDrafts")
+    .leftJoin("users", "users.id", "umfSupportMailDrafts.authorUserId")
+    .selectAll("umfSupportMailDrafts")
+    .select("users.name as authorName")
+    .orderBy("umfSupportMailDrafts.updatedAt", "desc")
+    .limit(250)
+    .execute();
+  const deliveryIds = drafts.flatMap((draft) =>
+    parseDeliveryIds(draft.deliveryIds),
+  );
+  const deliveries =
+    deliveryIds.length === 0
+      ? []
+      : await db
+          .selectFrom("emailDeliveries")
+          .select(["id", "status", "lastError", "sentAt"])
+          .where("platformScope", "=", "support")
+          .where("id", "in", deliveryIds)
+          .execute();
+  const byId = new Map(deliveries.map((delivery) => [delivery.id, delivery]));
+  await recordSecurityEvent("private_content_accessed", auth.userId, {
+    domain: "umf_support",
+    mailbox: "drafts",
+    itemCount: drafts.length,
+  });
+  return drafts.map((draft) => {
+    const content = revealMailDraftContent(draft.content, draft.id);
+    const draftDeliveries = parseDeliveryIds(draft.deliveryIds)
+      .map((id) => byId.get(id))
+      .filter((delivery) => delivery !== undefined);
+    return {
+      id: draft.id,
+      authorUserId: draft.authorUserId,
+      authorName: draft.authorName,
+      ...content,
+      status: derivedMailStatus(
+        draft.status,
+        draftDeliveries.map((delivery) => delivery.status),
+      ),
+      scheduledAt: draft.scheduledAt,
+      sentAt:
+        draftDeliveries.length > 0 &&
+        draftDeliveries.every((delivery) => delivery.sentAt !== null)
+          ? Math.max(...draftDeliveries.map((delivery) => delivery.sentAt ?? 0))
+          : null,
+      deliveryIssueCount: draftDeliveries.filter(
+        (delivery) => delivery.lastError !== null,
+      ).length,
+      createdAt: draft.createdAt,
+      updatedAt: draft.updatedAt,
+    };
+  });
+}
+
+export async function saveUmfSupportMailDraft(
+  auth: AuthenticatedUser,
+  input: unknown,
+  draftId?: string,
+) {
+  await requireStaff(auth);
+  const content = mailDraftContent(input);
+  const now = Date.now();
+  const id = draftId ?? `umf-support-mail-${randomUUID()}`;
+  if (draftId) {
+    const existing = await db
+      .selectFrom("umfSupportMailDrafts")
+      .select("status")
+      .where("id", "=", draftId)
+      .executeTakeFirst();
+    if (!existing) throw new UmfSupportNotFoundError("Mail draft not found");
+    if (existing.status !== "draft") {
+      throw new UmfSupportValidationError("Only unsent drafts can be edited");
+    }
+    await db
+      .updateTable("umfSupportMailDrafts")
+      .set({
+        content: protectMessage(JSON.stringify(content), id),
+        updatedAt: now,
+      })
+      .where("id", "=", id)
+      .where("status", "=", "draft")
+      .execute();
+  } else {
+    await db
+      .insertInto("umfSupportMailDrafts")
+      .values({
+        id,
+        authorUserId: auth.userId,
+        content: protectMessage(JSON.stringify(content), id),
+        status: "draft",
+        deliveryIds: "[]",
+        scheduledAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+  }
+  return { id };
+}
+
+export async function sendUmfSupportMailDraft(
+  auth: AuthenticatedUser,
+  draftId: string,
+  scheduledAt?: number,
+) {
+  await requireStaff(auth);
+  const draft = await db
+    .selectFrom("umfSupportMailDrafts")
+    .selectAll()
+    .where("id", "=", draftId)
+    .executeTakeFirst();
+  if (!draft) throw new UmfSupportNotFoundError("Mail draft not found");
+  if (draft.status !== "draft") {
+    throw new UmfSupportValidationError("Mail draft was already submitted");
+  }
+  const now = Date.now();
+  const dispatchAt = scheduledAt ?? now;
+  if (
+    !Number.isSafeInteger(dispatchAt) ||
+    dispatchAt < now ||
+    dispatchAt > now + 90 * 24 * 60 * 60 * 1000
+  ) {
+    throw new UmfSupportValidationError(
+      "Scheduled delivery must be within the next 90 days",
+    );
+  }
+  const content = revealMailDraftContent(draft.content, draft.id);
+  const recipients = [...content.to, ...content.cc, ...content.bcc];
+  if (recipients.length === 0) {
+    throw new UmfSupportValidationError("At least one recipient is required");
+  }
+  const user = await db
+    .selectFrom("users")
+    .select("locale")
+    .where("id", "=", auth.userId)
+    .where("identityRealm", "=", "corporate_support")
+    .executeTakeFirst();
+  const locale = ["es", "en", "de", "de-CH"].includes(user?.locale ?? "")
+    ? (user!.locale as "es" | "en" | "de" | "de-CH")
+    : "es";
+  const deliveryIds: string[] = [];
+  try {
+    for (const email of recipients) {
+      deliveryIds.push(
+        await queueUmfSupportComposedEmail({
+          email,
+          locale,
+          subject: content.subject,
+          message: content.body,
+          scheduledAt: dispatchAt,
+        }),
+      );
+    }
+  } catch (error) {
+    if (deliveryIds.length > 0) {
+      await db
+        .updateTable("emailDeliveries")
+        .set({
+          status: "superseded",
+          recipient: "",
+          payloadEncrypted: "",
+          updatedAt: Date.now(),
+        })
+        .where("platformScope", "=", "support")
+        .where("id", "in", deliveryIds)
+        .where("status", "in", ["queued", "retry"])
+        .execute();
+    }
+    throw error;
+  }
+  const changed = await db
+    .updateTable("umfSupportMailDrafts")
+    .set({
+      status: dispatchAt > now ? "scheduled" : "queued",
+      deliveryIds: JSON.stringify(deliveryIds),
+      scheduledAt: dispatchAt > now ? dispatchAt : null,
+      updatedAt: Date.now(),
+    })
+    .where("id", "=", draftId)
+    .where("status", "=", "draft")
+    .executeTakeFirst();
+  if (Number(changed.numUpdatedRows) !== 1) {
+    await db
+      .updateTable("emailDeliveries")
+      .set({
+        status: "superseded",
+        recipient: "",
+        payloadEncrypted: "",
+        updatedAt: Date.now(),
+      })
+      .where("platformScope", "=", "support")
+      .where("id", "in", deliveryIds)
+      .where("status", "in", ["queued", "retry"])
+      .execute();
+    throw new UmfSupportValidationError("Mail draft changed before sending");
+  }
+  return { queued: true, scheduledAt: dispatchAt > now ? dispatchAt : null };
+}
+
+export async function cancelUmfSupportScheduledMail(
+  auth: AuthenticatedUser,
+  draftId: string,
+) {
+  await requireStaff(auth);
+  const draft = await db
+    .selectFrom("umfSupportMailDrafts")
+    .select(["status", "deliveryIds"])
+    .where("id", "=", draftId)
+    .executeTakeFirst();
+  if (!draft) throw new UmfSupportNotFoundError("Scheduled mail not found");
+  if (draft.status !== "scheduled") {
+    throw new UmfSupportValidationError("Only scheduled mail can be cancelled");
+  }
+  const deliveryIds = parseDeliveryIds(draft.deliveryIds);
+  if (deliveryIds.length === 0) {
+    throw new UmfSupportValidationError(
+      "Scheduled mail has no cancellable deliveries",
+    );
+  }
+  const now = Date.now();
+  const deliveries = await db
+    .selectFrom("emailDeliveries")
+    .select(["id", "status", "nextAttemptAt"])
+    .where("platformScope", "=", "support")
+    .where("id", "in", deliveryIds)
+    .execute();
+  if (
+    deliveries.length !== deliveryIds.length ||
+    deliveries.some(
+      (delivery) =>
+        !["queued", "retry"].includes(delivery.status) ||
+        delivery.nextAttemptAt <= now,
+    )
+  ) {
+    throw new UmfSupportValidationError(
+      "Scheduled mail delivery already started and cannot be cancelled",
+    );
+  }
+  await db.transaction().execute(async (transaction) => {
+    const cancelledDeliveries = await transaction
+      .updateTable("emailDeliveries")
+      .set({
+        status: "superseded",
+        recipient: "",
+        payloadEncrypted: "",
+        updatedAt: now,
+      })
+      .where("platformScope", "=", "support")
+      .where("id", "in", deliveryIds)
+      .where("status", "in", ["queued", "retry"])
+      .where("nextAttemptAt", ">", now)
+      .executeTakeFirst();
+    if (Number(cancelledDeliveries.numUpdatedRows) !== deliveryIds.length) {
+      throw new UmfSupportValidationError(
+        "Scheduled mail changed before cancellation",
+      );
+    }
+    const cancelledDraft = await transaction
+      .updateTable("umfSupportMailDrafts")
+      .set({ status: "cancelled", updatedAt: now })
+      .where("id", "=", draftId)
+      .where("status", "=", "scheduled")
+      .executeTakeFirst();
+    if (Number(cancelledDraft.numUpdatedRows) !== 1) {
+      throw new UmfSupportValidationError(
+        "Scheduled mail changed before cancellation",
+      );
+    }
+  });
+  return { cancelled: true };
 }
 
 export async function ingestUmfSupportInboundEmail(

@@ -47,7 +47,7 @@ Umbravia Forge reúne en una misma base técnica la actividad diaria de un centr
 - **Forge CRM:** segmentación operativa, responsables y seguimientos por centro, sin mezclar datos entre tenants.
 - **Suscripción SaaS:** Checkout, portal y señales firmadas de Stripe separados del libro administrativo de cobros a socios.
 - **Forge Support:** tickets, conversaciones privadas, notas internas, adjuntos protegidos, SLA y base de conocimiento.
-- **UMF Support:** aplicación web corporativa separada para incidencias de plataforma, registro cerrado con preautorización y correo de privacidad.
+- **UMF Support:** aplicación web corporativa separada para incidencias de plataforma, cuentas verificadas con aprobación administrativa, panel de correo y canal de privacidad.
 - **Cuentas y continuidad:** verificación de correo, recuperación de acceso, MFA, passkeys, sesiones revocables y cierre reversible de cuenta.
 - **Forge Notify:** cola transaccional cifrada, reintentos acotados, trazabilidad, saneamiento periódico y transporte de correo desacoplado.
 - **Plano de gestión interno:** coordinación de gestores, prioridades, control de conflictos y administración local Linux con allowlist operativa y ámbito `commercial` o `support` explícito; no publica consola web ni API remota.

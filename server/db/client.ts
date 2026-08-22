@@ -2555,6 +2555,20 @@ async function initializeSqliteSchema(
     CREATE INDEX IF NOT EXISTS idx_umfSupportStaff_status
       ON umfSupportStaff(status, role, userId);
 
+    CREATE TABLE IF NOT EXISTS umfSupportCollaborationSpaces (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      visibility TEXT NOT NULL DEFAULT 'hidden' CHECK(visibility IN ('hidden', 'staff')),
+      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'published')),
+      createdByUserId TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      FOREIGN KEY(createdByUserId) REFERENCES users(id) ON DELETE RESTRICT
+    );
+    CREATE INDEX IF NOT EXISTS idx_umfSupportCollaborationSpaces_visibility
+      ON umfSupportCollaborationSpaces(status, visibility, updatedAt DESC);
+
     CREATE TABLE IF NOT EXISTS umfSupportAccessRequests (
       id TEXT PRIMARY KEY,
       email TEXT NOT NULL,
@@ -2641,6 +2655,47 @@ async function initializeSqliteSchema(
       ON umfSupportMessages(direction, createdAt DESC);
     CREATE INDEX IF NOT EXISTS idx_umfSupportMessages_ticket
       ON umfSupportMessages(ticketId, createdAt);
+
+    CREATE TABLE IF NOT EXISTS umfSupportMailDrafts (
+      id TEXT PRIMARY KEY,
+      authorUserId TEXT NOT NULL,
+      content TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft'
+        CHECK(status IN ('draft', 'scheduled', 'queued', 'cancelled')),
+      deliveryIds TEXT NOT NULL DEFAULT '[]',
+      scheduledAt INTEGER,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      FOREIGN KEY(authorUserId) REFERENCES users(id) ON DELETE RESTRICT
+    );
+    CREATE INDEX IF NOT EXISTS idx_umfSupportMailDrafts_status
+      ON umfSupportMailDrafts(status, updatedAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_umfSupportMailDrafts_author
+      ON umfSupportMailDrafts(authorUserId, updatedAt DESC);
+
+    CREATE TABLE IF NOT EXISTS umfSupportNotificationPreferences (
+      userId TEXT PRIMARY KEY,
+      enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0, 1)),
+      eventPreferences TEXT NOT NULL DEFAULT '{}',
+      updatedAt INTEGER NOT NULL,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS umfSupportPushSubscriptions (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      endpointHash TEXT NOT NULL UNIQUE,
+      subscriptionProtected TEXT NOT NULL,
+      browserFamily TEXT NOT NULL CHECK(browserFamily IN ('edge', 'firefox', 'brave', 'duckduckgo', 'chrome', 'librewolf')),
+      deviceName TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      revokedAt INTEGER,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_umfSupportPushSubscriptions_user
+      ON umfSupportPushSubscriptions(userId, status, updatedAt DESC);
 
     CREATE TABLE IF NOT EXISTS facilityCommercialSubscriptions (
       facilityId TEXT PRIMARY KEY,

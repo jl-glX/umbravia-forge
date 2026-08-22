@@ -5,6 +5,7 @@ import {
 } from "../lib/support-email-inbound.js";
 import { resolveUmfSupportEmailConfiguration } from "../lib/umf-support-email.js";
 import { ingestUmfSupportInboundEmail } from "../services/umf-support.js";
+import { notifyUmfSupportAdministrators } from "../services/umf-support-notifications.js";
 
 export const umfSupportEmailInboundRouter = express.Router();
 
@@ -39,6 +40,15 @@ umfSupportEmailInboundRouter.post(
         parseSupportInboundEmailPayload(req.body),
         configuration,
       );
+      if (!result.duplicate) {
+        void notifyUmfSupportAdministrators({
+          event: "inbound_email",
+          title: `Correo recibido en ${result.ticketPublicId}`,
+          message:
+            "UMF Support ha recibido un correo nuevo o una respuesta autenticada.",
+          url: "/umf-support",
+        }).catch(() => undefined);
+      }
       res
         .status(result.duplicate ? 200 : 202)
         .json({ accepted: true, ...result });
