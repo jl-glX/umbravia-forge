@@ -505,6 +505,18 @@ describe("UMF Support corporate API", () => {
   });
 
   it("authenticates, classifies and deduplicates privacy email", async () => {
+    await request(app)
+      .get("/api/umf-support/capabilities")
+      .set("Cookie", directorCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.capabilities.email).toMatchObject({
+          inbound: true,
+          inboundState: "configured",
+          inboundOperationallyVerified: false,
+        });
+      });
+
     const payload = {
       version: 1,
       envelopeTo: "privacy@example.com",
@@ -545,6 +557,17 @@ describe("UMF Support corporate API", () => {
       duplicate: true,
       ticketPublicId: created.body.ticketPublicId,
     });
+    await request(app)
+      .get("/api/umf-support/capabilities")
+      .set("Cookie", directorCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.capabilities.email).toMatchObject({
+          inbound: true,
+          inboundState: "configured",
+          inboundOperationallyVerified: true,
+        });
+      });
 
     const ticket = await database.db
       .selectFrom("umfSupportTickets")

@@ -2439,7 +2439,17 @@
     "emptyRequests": "No hay solicitudes de acceso.",
     "revoke": "Revocar",
     "restore": "Restaurar",
-    "emailPending": "El panel está preparado, pero la recepción o el envío real de correo sigue cerrado hasta configurar y validar el buzón corporativo.",
+    "emailReadiness": {
+      "outboundMissing": "El envío está desactivado porque no hay un transporte de correo saliente configurado.",
+      "outboundInvalid": "El envío está bloqueado porque la configuración del transporte saliente no es válida.",
+      "queueMissing": "El envío está bloqueado porque la cola de correo no tiene protección cifrada configurada.",
+      "queueInvalid": "El envío está bloqueado porque la protección cifrada de la cola de correo no es válida.",
+      "outboundVerificationPending": "El envío está configurado, pero todavía no se ha registrado una entrega de UMF Support aceptada por el transporte de correo.",
+      "inboundAddressMissing": "La recepción está desactivada porque aún no se ha configurado una dirección para el buzón corporativo de UMF Support.",
+      "inboundDisabled": "La recepción está desactivada en el servidor. La dirección existe, pero Email Routing y su webhook corporativo todavía no están habilitados.",
+      "inboundInvalid": "La recepción está bloqueada porque la configuración del buzón corporativo es incompleta o no es válida.",
+      "inboundVerificationPending": "La recepción está configurada, pero todavía no se ha registrado ningún correo externo aceptado de extremo a extremo."
+    },
     "notices": {
       "ticketCreated": "Ticket {{id}} creado.",
       "replySaved": "Respuesta guardada.",

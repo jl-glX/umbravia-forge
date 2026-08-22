@@ -133,6 +133,13 @@ historial de trabajo.
   dispositivo. Las migraciones 47 y 48 y el puente de datos cubren las tablas
   nuevas, pero el código y las pruebas no demuestran que el esquema vivo,
   buzón, DNS, Worker, SMTP, rebotes, push o entregabilidad estén configurados.
+- La preparación del correo corporativo se informa por sentido. El estado
+  saliente separa transporte y cola cifrada; el entrante separa dirección,
+  Email Routing, webhook y validez de configuración. Una entrega enviada con
+  `platformScope = support` y un mensaje entrante persistido aportan evidencia
+  operativa independiente, pero no sustituyen la prueba humana en el buzón
+  final. La interfaz ya no presenta como fallo del envío una carencia exclusiva
+  de recepción ni oculta una configuración inválida bajo un aviso genérico.
 - La política de privacidad mantenida está en `docs/PRIVACY-POLICY.md`, pero
   sigue pendiente completar el canal verificado, el domicilio publicable, el
   inventario de encargados y transferencias, los criterios de conservación y
@@ -164,7 +171,7 @@ historial de trabajo.
   vigente del correo y las alertas está en
   `docs/UMF-SUPPORT-MAIL-AND-NOTIFICATIONS-AUDIT-2026-08-22.md`. En esta sesión,
   `npm run ci:validate` pasó 49 controles de portabilidad, formato, lint, los
-  tres `typecheck`, 115 archivos con 565 pruebas favorables y una prueba POSIX
+  tres `typecheck`, 117 archivos con 573 pruebas favorables y una prueba POSIX
   omitida por ejecutarse en Windows, las tres compilaciones, el paquete Windows
   y la auditoría de dependencias. La validación remota de cada publicación y la
   comprobación del entorno desplegado siguen siendo controles independientes.

@@ -34,7 +34,8 @@ auditoría histórica entra en conflicto con un documento vigente.
   corporativas verificadas con centro de seguridad limitado antes de la
   aprobación humana, el bootstrap único de la jefatura configurada y su
   herramienta local de recuperación, los espacios de
-  colaboración de privilegio reducido, el panel de correo, las alertas
+  colaboración de privilegio reducido, el panel de correo con preparación y
+  evidencia operativa separadas para entrada y salida, las alertas
   configurables, los realms independientes y el saneamiento que preserva la
   cuenta comercial y sus solicitudes de borrado
 - [Forge Notify](./FORGE-NOTIFY.md), incluida la separación persistente de

@@ -2426,7 +2426,17 @@
     "emptyRequests": "There are no access requests.",
     "revoke": "Revoke",
     "restore": "Restore",
-    "emailPending": "The panel is ready, but real inbound or outbound delivery remains closed until the corporate mailbox is configured and validated.",
+    "emailReadiness": {
+      "outboundMissing": "Outbound email is disabled because no outbound transport is configured.",
+      "outboundInvalid": "Outbound email is blocked because the outbound transport configuration is invalid.",
+      "queueMissing": "Outbound email is blocked because encrypted mail-queue protection is not configured.",
+      "queueInvalid": "Outbound email is blocked because encrypted mail-queue protection is invalid.",
+      "outboundVerificationPending": "Outbound email is configured, but no UMF Support delivery accepted by the mail transport has been recorded yet.",
+      "inboundAddressMissing": "Inbound email is disabled because no address has been configured for the UMF Support corporate mailbox yet.",
+      "inboundDisabled": "Inbound email is disabled on the server. The address exists, but Email Routing and its corporate webhook are not enabled yet.",
+      "inboundInvalid": "Inbound email is blocked because the corporate mailbox configuration is incomplete or invalid.",
+      "inboundVerificationPending": "Inbound email is configured, but no external message accepted end to end has been recorded yet."
+    },
     "notices": {
       "ticketCreated": "Ticket {{id}} created.",
       "replySaved": "Reply saved.",

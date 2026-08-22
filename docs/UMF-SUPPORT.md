@@ -182,6 +182,17 @@ si el trabajador ya comenzó una entrega, la operación falla cerrada. La
 interfaz no muestra errores SMTP privados: solo un estado normalizado y el
 número de incidencias de entrega.
 
+La disponibilidad del correo se calcula por sentido y no mediante un aviso
+genérico. El servidor distingue el transporte saliente, la protección cifrada
+de su cola, la dirección corporativa entrante, Email Routing y el webhook. La
+configuración tampoco se presenta como prueba operativa: una entrega
+`platformScope = support` marcada como enviada aporta evidencia saliente y un
+mensaje `email/inbound` aceptado y persistido aporta evidencia entrante. El
+panel explica exactamente qué condición falta y deja de mostrar el aviso de un
+sentido cuando existe configuración y evidencia para ese sentido. Ninguno de
+estos estados expone secretos ni convierte una fila en prueba de que el correo
+llegó a la bandeja final del destinatario.
+
 Cada miembro corporativo configura sus propias alertas para tickets,
 conversaciones, correo entrante, retroalimentación e informes de problema. El
 interruptor general y todos los canales empiezan desactivados; verificar o
@@ -341,7 +352,8 @@ de centros, la independencia de credenciales y cookies, la aprobación separada
 del buzón verificado, el bootstrap configurado e idempotente de jefatura y su
 recuperación local, el cifrado de
 borradores, la programación y cancelación, el saneamiento de hiperenlaces, el
-ámbito de las entregas y las preferencias de alertas por persona. Las
+ámbito de las entregas, la separación de preparación entrante/saliente y las
+preferencias de alertas por persona. Las
 migraciones PostgreSQL 47 y 48 incorporan borradores, preferencias y
 suscripciones, y el puente de datos incluye las tres tablas. Nada de ello
 demuestra que esas migraciones estén aplicadas en una base viva ni que DNS,

@@ -67,6 +67,7 @@ import {
   type UmfTicketCategory,
   type UmfTicketStatus,
 } from "../lib/umf-support";
+import { getUmfSupportMailNotices } from "../lib/umf-support-mail-readiness";
 
 type View =
   | "tickets"
@@ -205,6 +206,9 @@ export function UmfSupportPage() {
     },
     [t],
   );
+  const mailReadinessNotices = capabilities
+    ? getUmfSupportMailNotices(capabilities.email)
+    : [];
 
   const refreshTickets = useCallback(async () => {
     setTickets(
@@ -1792,13 +1796,19 @@ export function UmfSupportPage() {
             </div>
           )}
 
-          {capabilities &&
-            (!capabilities.email.inbound || !capabilities.email.outbound) && (
-              <p className="mt-5 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-                <Mail className="mt-0.5 shrink-0" size={16} />{" "}
-                {t("umfSupport.emailPending")}
-              </p>
-            )}
+          {mailReadinessNotices.length > 0 && (
+            <div className="mt-5 space-y-2" aria-live="polite">
+              {mailReadinessNotices.map((readinessNotice) => (
+                <p
+                  key={readinessNotice}
+                  className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900"
+                >
+                  <Mail className="mt-0.5 shrink-0" size={16} />
+                  {t(`umfSupport.emailReadiness.${readinessNotice}`)}
+                </p>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </main>

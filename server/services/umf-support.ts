@@ -40,7 +40,7 @@ import {
   type AuthResult,
 } from "./auth.js";
 import { isPasswordWithinHashLimit } from "../lib/password-policy.js";
-import { getEmailManagerReadiness } from "./email-manager.js";
+import { getUmfSupportMailReadiness } from "./umf-support-mail-readiness.js";
 import { recordSecurityEvent } from "./security-events.js";
 import {
   createEmailVerificationChallenge,
@@ -228,26 +228,15 @@ export async function getUmfSupportCapabilities(auth: AuthenticatedUser) {
     .where("position", "=", "platform_head")
     .where("status", "=", "active")
     .executeTakeFirst();
-  const readiness = getEmailManagerReadiness();
-  let inbound = false;
-  let configurationValid = true;
-  try {
-    inbound = resolveUmfSupportEmailConfiguration() !== null;
-  } catch {
-    configurationValid = false;
-  }
+  const email = await getUmfSupportMailReadiness();
   return {
     role,
     canManageAdministrators: role === "director",
     canManageCollaborationSpaces: role === "director",
     isPlatformHead: Boolean(companyHead),
-    email: {
-      outbound: readiness.capabilities.supportNotifications,
-      inbound,
-      addressConfigured: Boolean(process.env.UMF_SUPPORT_EMAIL_ADDRESS?.trim()),
-      configurationValid,
-    },
-    deliveryOperationallyVerified: false,
+    email,
+    deliveryOperationallyVerified:
+      email.outboundOperationallyVerified && email.inboundOperationallyVerified,
   };
 }
 
