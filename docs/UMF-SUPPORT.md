@@ -323,6 +323,47 @@ La instancia y la regla de Email Routing de UMF Support deben estar separadas
 de las usadas por Forge Support. No se habilita un `catch-all`. Configurar estos
 nombres no autoriza a crear o rotar secretos desde el repositorio.
 
+### Despliegue independiente mediante Workers Builds
+
+La raíz `cloudflare/` contiene una configuración de despliegue exclusiva para
+UMF Support:
+
+```text
+Proyecto de Cloudflare: umbravia-forge-umf-support-email
+Configuración: cloudflare/wrangler.jsonc
+Entrada compartida: cloudflare/support-email/src/index.ts
+Raíz de Workers Builds: /cloudflare
+```
+
+La configuración histórica de Forge Support permanece en
+`cloudflare/support-email/wrangler.jsonc` con el nombre
+`umbravia-forge-support-email`. Los nombres se mantienen distintos y una prueba
+de configuración impide que las dos instancias converjan accidentalmente. El
+código se comparte; no se copia la lógica de recepción.
+
+Al importar `jl-glX/umbravia-forge` desde Workers Builds se usa:
+
+```text
+Nombre del proyecto: umbravia-forge-umf-support-email
+Comando de compilación: vacío
+Ruta: /cloudflare
+Comando de despliegue: npx wrangler deploy
+```
+
+Las compilaciones de ramas no productivas y Cloudflare Access permanecen
+desactivados durante la primera activación. El token de compilación puede ser
+generado por Cloudflare con un nombre limitado a este Worker. Los campos de
+variables del formulario de compilación no sustituyen a los enlaces de tiempo
+de ejecución: tras crear el Worker, `SUPPORT_INBOUND_ENDPOINT` se configura
+como variable y `SUPPORT_INBOUND_WEBHOOK_SECRET` como secreto en
+`Settings > Variables and Secrets`.
+
+En el servidor, los nombres `UMF_SUPPORT_*` pueden agruparse junto a las demás
+líneas de soporte porque el orden del archivo de entorno no es significativo.
+No deben renombrarse como `SUPPORT_*`, ni compartir dirección o secretos con
+Forge Support. El valor del secreto del Worker debe coincidir exclusivamente
+con `UMF_SUPPORT_EMAIL_WEBHOOK_SECRET` del servidor.
+
 ## API
 
 ```text

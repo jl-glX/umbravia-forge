@@ -1,0 +1,20 @@
+{
+  "name": "umbravia-forge-cloudflare-workers",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "deploy:umf-support-email": "wrangler deploy",
+    "preview:umf-support-email": "wrangler versions upload"
+  },
+  "dependencies": {
+    "postal-mime": "2.7.6"
+  },
+  "devDependencies": {
+    "wrangler": "4.125.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "workerd@1.20260820.1": true
+  }
+}

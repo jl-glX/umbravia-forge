@@ -61,7 +61,12 @@ SUPPORT_INBOUND_WEBHOOK_SECRET=<mismo secreto del webhook de la aplicación>
 ```
 
 El código fuente está en `cloudflare/support-email/` y el artefacto se genera
-con `npm run build:support-email-worker`.
+con `npm run build:support-email-worker`. Su
+`cloudflare/support-email/wrangler.jsonc` conserva el nombre
+`umbravia-forge-support-email` y pertenece exclusivamente a Forge Support. La
+configuración `cloudflare/wrangler.jsonc` reutiliza el mismo código para la
+instancia separada `umbravia-forge-umf-support-email`; no debe usarse para la
+regla de correo de los centros.
 
 ## Orden de activación
 
