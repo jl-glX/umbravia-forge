@@ -11,12 +11,16 @@ export type UmfTicketCategory =
 
 export interface UmfSupportCapabilities {
   role: UmfSupportRole;
+  workspaceName: string | null;
   canManageAdministrators: boolean;
   canManageCollaborationSpaces: boolean;
+  canManageCommercialTrials: boolean;
+  commercialTrialProvisioningEnabled: boolean;
   isPlatformHead: boolean;
   email: {
     outbound: boolean;
     inbound: boolean;
+    address: string | null;
     addressConfigured: boolean;
     configurationValid: boolean;
     outboundState: "configured" | "disabled" | "missing" | "invalid";
@@ -26,6 +30,29 @@ export interface UmfSupportCapabilities {
     inboundOperationallyVerified: boolean;
   };
   deliveryOperationallyVerified: boolean;
+}
+
+export interface CommercialTrialAdministratorAccount {
+  userId: string;
+  name: string;
+  lastName: string;
+  email: string;
+  accountStatus: "pending_verification" | "active" | "security_review";
+  emailVerifiedAt: number | null;
+  createdAt: number;
+  pendingProvisioning: {
+    facilityName: string;
+    facilityType: string;
+  } | null;
+  trial: {
+    id: string;
+    facilityName: string;
+    facilityType: string;
+    status: string;
+    realDataDeclaration: string;
+    startedAt: number;
+    expiresAt: number;
+  } | null;
 }
 
 export interface UmfSupportDistribution {
@@ -68,6 +95,7 @@ export interface UmfSupportStaffMember {
   lastName: string;
   email: string;
   role: UmfSupportRole;
+  workspaceName: string | null;
   status: "active" | "revoked";
   createdAt: number;
 }
@@ -165,8 +193,19 @@ export interface UmfSupportMailDraft {
   scheduledAt: number | null;
   sentAt: number | null;
   deliveryIssueCount: number;
+  attachments: UmfSupportMailAttachment[];
   createdAt: number;
   updatedAt: number;
+}
+
+export interface UmfSupportMailAttachment {
+  id: string;
+  draftId: string;
+  uploadedByUserId: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: number;
 }
 
 export type UmfSupportNotificationEvent =
@@ -301,6 +340,14 @@ export async function fetchCapabilities() {
   return (
     await request<{ capabilities: UmfSupportCapabilities }>("/capabilities")
   ).capabilities;
+}
+
+export function updateWorkspaceName(workspaceName: string) {
+  return request<{ workspaceName: string }>("/workspace", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ workspaceName }),
+  });
 }
 
 export async function fetchNotificationSettings() {
@@ -446,6 +493,57 @@ export function saveMailDraft(
   );
 }
 
+export async function uploadUmfSupportMailAttachment(
+  draftId: string,
+  file: File,
+) {
+  const response = await fetch(
+    `${API_BASE}/api/umf-support/mail/drafts/${encodeURIComponent(draftId)}/attachments`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+        "X-File-Name": file.name,
+      },
+      body: file,
+    },
+  );
+  const payload = (await response.json().catch(() => ({}))) as {
+    attachment?: UmfSupportMailAttachment;
+    error?: string;
+    code?: string;
+  };
+  if (!response.ok) {
+    throw new Error(payload.code || payload.error || "REQUEST_ERROR");
+  }
+  return payload.attachment!;
+}
+
+export function umfSupportMailAttachmentUrl(
+  draftId: string,
+  attachmentId: string,
+) {
+  return `${API_BASE}/api/umf-support/mail/drafts/${encodeURIComponent(draftId)}/attachments/${encodeURIComponent(attachmentId)}`;
+}
+
+export async function deleteUmfSupportMailAttachment(
+  draftId: string,
+  attachmentId: string,
+) {
+  const response = await fetch(
+    umfSupportMailAttachmentUrl(draftId, attachmentId),
+    { method: "DELETE", credentials: "include" },
+  );
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      code?: string;
+    };
+    throw new Error(payload.code || payload.error || "REQUEST_ERROR");
+  }
+}
+
 export function submitMailDraft(draftId: string, scheduledAt?: number) {
   return request<{ queued: true; scheduledAt: number | null }>(
     `/mail/drafts/${encodeURIComponent(draftId)}/send`,
@@ -483,6 +581,25 @@ export async function fetchAdministratorAccounts() {
 export function approveAdministratorAccount(userId: string) {
   return request<void>(
     `/administrator-accounts/${encodeURIComponent(userId)}/approve`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    },
+  );
+}
+
+export async function fetchCommercialTrialAdministratorAccounts() {
+  return (
+    await request<{ accounts: CommercialTrialAdministratorAccount[] }>(
+      "/commercial-trial-administrators",
+    )
+  ).accounts;
+}
+
+export function resendCommercialTrialAdministratorVerification(userId: string) {
+  return request<{ sent: boolean; queued: boolean }>(
+    `/commercial-trial-administrators/${encodeURIComponent(userId)}/resend-verification`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

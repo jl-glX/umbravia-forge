@@ -1537,7 +1537,7 @@
     "sessionRevoked": "Die Sitzung wurde geschlossen.",
     "otherSessionsRevoked": "Die anderen Sitzungen wurden geschlossen.",
     "noActivity": "Es gibt noch keine Sicherheitsaktivitäten.",
-    "activityDescription": "Letzte Änderungen und Versuche im Zusammenhang mit dem Zugriff auf Ihr Konto.",
+    "activityDescription": "Änderungen, Zugriffe und Versuche der letzten 30 Tage im Zusammenhang mit Ihrem Konto.",
     "activity": "Sicherheitsaktivität",
     "events": {
       "login_succeeded": "Erfolgreiche Anmeldung",
@@ -1555,10 +1555,12 @@
       "account_compromise_reported": "Mögliche Kompromittierung gemeldet",
       "email_verified": "E-Mail verifiziert",
       "verification_email_sent": "Bestätigungscode gesendet",
-      "umf_support_access_requested": "Unternehmenskonto angefordert",
-      "umf_support_account_activated": "Unternehmenskonto bestätigt",
+      "umf_support_access_requested": "UMF-Support-Konto angefordert",
+      "umf_support_account_activated": "UMF-Support-Konto bestätigt",
       "umf_support_administrator_approved": "Administrativer Zugriff genehmigt",
       "company_head_bootstrapped": "Anfängliche Unternehmensleitung aktiviert",
+      "commercial_trial_administrator_verification_resent": "Bestätigung des kommerziellen Kontos erneut gesendet",
+      "private_content_accessed": "Autorisierter Zugriff auf geschützte Inhalte",
       "support_id_rotated": "Öffentliche Support-ID erneuert",
       "session_revoked": "Sitzung geschlossen"
     }
@@ -1648,6 +1650,13 @@
         "description": "Für ein künftiges Supportverfahren mit Identitätsprüfung vorgesehen."
       }
     }
+  },
+  "attachmentPreview": {
+    "open": "Anhang in Vorschau öffnen",
+    "protectedNotice": "Geschützte Vorschau: Die Datei wird im Panel nicht ausgeführt.",
+    "download": "Herunterladen",
+    "unavailable": "Keine sichere Vorschau verfügbar",
+    "unavailableHint": "Sie können die Datei herunterladen und mit einer geeigneten Anwendung prüfen. Aktive oder nicht unterstützte Formate werden hier nie dargestellt."
   },
   "feedback": {
     "footer": "Rückmeldung",
@@ -2099,7 +2108,7 @@
     "aepdInformation": "Informationsrecht — AEPD"
   },
   "umfSupportAccess": {
-    "corporateProgram": "Unternehmensweites Supportprogramm",
+    "corporateProgram": "Support-Arbeitsbereich",
     "tabs": {
       "login": "Anmelden",
       "register": "Konto erstellen",
@@ -2108,13 +2117,13 @@
     "login": {
       "eyebrow": "Geschützter Zugang",
       "title": "Anmelden",
-      "description": "Zugriff über ein bestätigtes UMF-Support-Unternehmenskonto.",
+      "description": "Zugriff über ein unabhängiges, bestätigtes UMF-Support-Konto.",
       "action": "UMF Support öffnen"
     },
     "register": {
-      "eyebrow": "Unternehmenskonto",
+      "eyebrow": "Arbeitsbereich",
       "title": "UMF-Support-Konto erstellen",
-      "description": "Erstellen Sie ein unabhängiges Unternehmenskonto und bestätigen Sie danach das Postfach. Der administrative Zugriff wird separat im UMF-Support-Panel vergeben.",
+      "description": "Erstellen Sie ein unabhängiges UMF-Support-Konto und bestätigen Sie danach das Postfach. Der Zugriff auf den Arbeitsbereich wird separat vergeben.",
       "action": "Konto erstellen"
     },
     "verify": {
@@ -2131,31 +2140,31 @@
     "acceptTerms": "Ich akzeptiere die",
     "terms": "Nutzungsbedingungen",
     "acceptPrivacy": "Ich habe die folgende Erklärung gelesen:",
-    "verificationSent": "Das Konto wurde erstellt. Geben Sie den Code aus dem Unternehmenspostfach ein.",
+    "verificationSent": "Das Konto wurde erstellt. Geben Sie den Code aus dem angegebenen Postfach ein.",
     "verificationQueued": "Das Konto wurde erstellt, aber die sofortige E-Mail-Zustellung wurde nicht bestätigt. Der Code bleibt in der Warteschlange und Sie können einen neuen anfordern.",
     "verificationResent": "Wir haben einen neuen Bestätigungscode gesendet.",
     "verificationResendQueued": "Die sofortige Zustellung wurde nicht bestätigt. Der neue Code bleibt in der Warteschlange und Sie können es erneut versuchen.",
     "resendVerification": "Bestätigungscode erneut senden",
     "verificationInvalid": "Der Bestätigungscode ist ungültig, abgelaufen oder hat alle Versuche aufgebraucht.",
-    "awaitingAdministratorApproval": "Die E-Mail-Adresse wurde bestätigt. Das Konto wartet darauf, dass die Leitung den administrativen Zugriff in UMF Support freigibt.",
+    "awaitingAdministratorApproval": "Die E-Mail-Adresse wurde bestätigt. Das Konto wartet auf die Freigabe durch den Eigentümer des Arbeitsbereichs.",
     "passwordMismatch": "Die Passwörter stimmen nicht überein.",
-    "invalidCredentials": "E-Mail-Adresse oder Passwort von UMF Support sind nicht korrekt. Zugangsdaten von Umbravia Forge Commercial gewähren keinen Zugriff auf dieses Unternehmenskonto.",
-    "restrictedNotice": "Das Unternehmenskonto ist von jedem kommerziellen Konto getrennt; erhöhte Positionen werden separat zugewiesen",
-    "passkeyLogin": "Mit einem Unternehmens-Passkey anmelden",
+    "invalidCredentials": "E-Mail-Adresse oder Passwort von UMF Support sind nicht korrekt. Zugangsdaten von Umbravia Forge Commercial gewähren keinen Zugriff auf diesen Arbeitsbereich.",
+    "restrictedNotice": "Das UMF-Support-Konto ist von jedem kommerziellen Konto getrennt und teilt keine Berechtigungen",
+    "passkeyLogin": "Mit einem UMF-Support-Passkey anmelden",
     "privacy": "Datenschutz",
     "error": "Der Vorgang konnte nicht abgeschlossen werden."
   },
   "umfCorporateAccount": {
-    "shortTitle": "Unternehmenskonto",
-    "title": "Zentrale für das Unternehmenskonto",
+    "shortTitle": "Mein Konto",
+    "title": "UMF-Support-Konto",
     "heading": "Unabhängige Identität für UMF Support",
-    "boundary": "Dieses Konto, seine Sitzungen, Zugriffsmethoden und Unternehmensberechtigungen sind von allen Mitglieds-, Trainer- und Studiokonten getrennt, auch wenn dieselbe E-Mail-Adresse verwendet wird.",
+    "boundary": "Dieses Konto, seine Sitzungen, Zugriffsmethoden und Berechtigungen des Arbeitsbereichs sind von allen Mitglieds-, Trainer- und Studiokonten getrennt, auch wenn dieselbe E-Mail-Adresse verwendet wird.",
     "back": "Zurück zum Support",
     "pendingApprovalTitle": "Administrativer Zugriff ausstehend",
-    "pendingApprovalBody": "Die Unternehmensidentität ist bestätigt und ihre Sicherheitseinstellungen sind verfügbar. Tickets, E-Mail und Verwaltung bleiben geschlossen, bis die Leitung den Zugriff genehmigt. Ein kommerzielles Konto mit derselben E-Mail-Adresse und ein dazugehöriger Löschantrag werden getrennt verwaltet.",
+    "pendingApprovalBody": "Die UMF-Support-Identität ist bestätigt und ihre Sicherheitseinstellungen sind verfügbar. Tickets, E-Mail und Verwaltung bleiben geschlossen, bis der Eigentümer des Arbeitsbereichs den Zugriff genehmigt. Ein kommerzielles Konto mit derselben E-Mail-Adresse und ein dazugehöriger Löschantrag werden getrennt verwaltet.",
     "highlights": {
-      "identity": "Getrennte Unternehmensidentität",
-      "roles": "Widerrufbare Positionen und Berechtigungen",
+      "identity": "Getrennte UMF-Support-Identität",
+      "roles": "Widerrufbarer Zugriff auf den Arbeitsbereich",
       "security": "Geschützte Sitzungen und Anmeldedaten"
     }
   },
@@ -2180,9 +2189,25 @@
     "error": "Die E-Mail-Adresse konnte nicht geändert werden."
   },
   "umfSupport": {
-    "corporateOperations": "Unternehmensweiter Support für die Plattform",
+    "corporateOperations": "Arbeitsbereich für den Umbravia-Forge-Support",
+    "workspace": {
+      "defaultName": "Mein Arbeitsbereich",
+      "nameLabel": "Name des Arbeitsbereichs",
+      "editName": "Name des Arbeitsbereichs bearbeiten",
+      "saved": "Der Name des Arbeitsbereichs wurde gespeichert.",
+      "owner": "Eigentümer des Arbeitsbereichs"
+    },
     "logout": "Abmelden",
     "navigation": "Navigation in UMF Support",
+    "functions": {
+      "title": "Funktionen",
+      "supportOperations": "Supportbetrieb",
+      "supportOperationsHint": "Tickets, E-Mails und Meldungen des Arbeitsbereichs.",
+      "commercialTrials": "Kommerzielle Testzugänge",
+      "commercialTrialsHint": "Status der Administratorkonten und Testzentren.",
+      "corporateAdministrators": "Administrative Zugänge",
+      "corporateAdministratorsHint": "Zugriff auf diesen Arbeitsbereich erteilen oder entziehen."
+    },
     "tabs": {
       "tickets": "Tickets",
       "inbox": "Eingang",
@@ -2191,6 +2216,7 @@
       "outbox": "Postausgang",
       "sent": "Gesendet",
       "notifications": "Meldungen",
+      "commercialTrials": "Kommerzielle Zugänge",
       "access": "Zugänge",
       "team": "Administratoren",
       "company": "Belegschaft",
@@ -2204,6 +2230,7 @@
       "outbox": "Postausgang",
       "sent": "Gesendete E-Mails",
       "notifications": "Betriebliche Meldungen",
+      "commercialTrials": "Kommerzielle Test-Administratorkonten",
       "access": "Zugangsanträge",
       "team": "Administratorzugänge",
       "company": "Unternehmensbelegschaft",
@@ -2211,16 +2238,43 @@
     },
     "descriptions": {
       "tickets": "Plattformvorfälle getrennt vom eigenen Support der einzelnen Zentren.",
-      "inbox": "Nachrichten aus den konfigurierten Unternehmenskanälen.",
+      "inbox": "Nachrichten aus den für diesen Arbeitsbereich konfigurierten Kanälen.",
       "drafts": "Gespeicherte Mitteilungen, die noch nicht in die Versandwarteschlange gelangt sind.",
       "scheduled": "Verschlüsselte Nachrichten, die der Server zum gewählten Zeitpunkt zustellt.",
       "outbox": "Ausstehende Nachrichten, Wiederholungen und Zustellfehler, die Aufmerksamkeit erfordern.",
       "sent": "Supportmitteilungen mit erfasstem Zustellstatus.",
       "notifications": "Wählen Sie je Ereignis E-Mail, Web Push, beide Kanäle oder keinen.",
+      "commercialTrials": "Kommerzielle Administratorkonten, ihre Bestätigung und das zugehörige Testzentrum prüfen.",
       "access": "E-Mail-Adressen vorab autorisieren und ihre Rolle festlegen, bevor ein Konto erstellt werden kann.",
-      "team": "Administrativen Zugriff für bestätigte Unternehmenskonten freigeben oder widerrufen.",
+      "team": "Administrativen Zugriff für bestätigte UMF-Support-Konten freigeben oder widerrufen.",
       "company": "Organisationsentwurf ohne operative Befugnisse.",
       "collaboration": "Informative Entwürfe ohne technische Berechtigungen; Sie entscheiden, was das Personal sieht."
+    },
+    "commercialTrials": {
+      "provisioningEnabled": "Kommerzielle Testzugänge sind aktiviert",
+      "provisioningDisabled": "Kommerzielle Testzugänge sind geschlossen",
+      "boundaryNotice": "UMF Support verwaltet nur die betriebliche Nachverfolgung. Konto, Passwort, Sitzung und Berechtigungen bleiben ausschließlich in der kommerziellen Umbravia-Forge-Plattform.",
+      "openSignup": "Registrierungsformular öffnen",
+      "accountList": "Kommerzielle Administratorkonten",
+      "accountListHint": "Nur für die Eigentümerin oder den Eigentümer des Arbeitsbereichs. Zugangsdaten werden nicht geteilt und eine UMF-Support-Sitzung wird nie zu einer kommerziellen Sitzung.",
+      "createdAt": "Registrierung begonnen: {{date}}",
+      "pendingVerification": "E-Mail-Bestätigung ausstehend",
+      "emailVerified": "E-Mail bestätigt",
+      "pendingFacility": "Ausstehendes Zentrum: {{facility}}",
+      "trialSummary": "{{facility}} · {{status}}",
+      "expiresAt": "Voraussichtliches Ende: {{date}}",
+      "noTrial": "Kein Testzentrum zugeordnet",
+      "resendVerification": "Bestätigung erneut senden",
+      "empty": "Keine kommerziellen Administratorkonten vorhanden.",
+      "trialStatus": {
+        "trial_created": "Test erstellt",
+        "trial_active": "Test aktiv",
+        "trial_paused_support": "Test durch Support pausiert",
+        "trial_conversion_review": "Umstellung wird geprüft",
+        "trial_expired": "Test abgelaufen",
+        "trial_converted": "Test umgestellt",
+        "trial_closed": "Test geschlossen"
+      }
     },
     "compose": "E-Mail verfassen",
     "composeHint": "Editor für betriebliche Mitteilungen von UMF Support; beliebiges HTML ist nicht zulässig.",
@@ -2229,10 +2283,18 @@
       "cc": "CC",
       "bcc": "BCC",
       "showCopies": "CC und BCC",
+      "corporateMailbox": "Postfach des Arbeitsbereichs: {{address}}",
       "recipientPlaceholder": "Mehrere Adressen mit Semikolon trennen",
       "linkText": "Linktext",
       "linkUrl": "HTTPS- oder mailto-Adresse",
       "insertLink": "Link einfügen",
+      "attachments": "Anhänge",
+      "attachmentHint": "GIF ist gesperrt. Unterstützte Bilder und PDF-Dateien können vor dem Herunterladen geprüft werden; andere Dateien werden ohne Ausführung im Panel heruntergeladen.",
+      "addAttachments": "Dateien anhängen",
+      "pendingAttachment": "noch nicht gespeichert",
+      "removeAttachment": "Anhang entfernen",
+      "attachmentCount": "{{count}} Anhang",
+      "attachmentCount_other": "{{count}} Anhänge",
       "saveDraft": "Entwurf speichern",
       "scheduleAt": "Datum und Uhrzeit",
       "schedule": "Planen",
@@ -2294,7 +2356,7 @@
         },
         "inbound_email": {
           "title": "Eingehende E-Mail",
-          "hint": "Das Unternehmenspostfach empfängt eine authentifizierte Nachricht.",
+          "hint": "Das Postfach des Arbeitsbereichs empfängt eine authentifizierte Nachricht.",
           "email": "E-Mail bei Posteingang",
           "push": "Push bei Posteingang"
         },
@@ -2443,9 +2505,9 @@
       "queueMissing": "Der E-Mail-Versand ist gesperrt, weil kein verschlüsselter Schutz für die Mail-Warteschlange konfiguriert ist.",
       "queueInvalid": "Der E-Mail-Versand ist gesperrt, weil der verschlüsselte Schutz der Mail-Warteschlange ungültig ist.",
       "outboundVerificationPending": "Der E-Mail-Versand ist konfiguriert, aber es wurde noch keine vom Mail-Transport akzeptierte UMF-Support-Zustellung erfasst.",
-      "inboundAddressMissing": "Der E-Mail-Empfang ist deaktiviert, weil noch keine Adresse für das Unternehmenspostfach von UMF Support konfiguriert ist.",
-      "inboundDisabled": "Der E-Mail-Empfang ist auf dem Server deaktiviert. Die Adresse ist vorhanden, aber Email Routing und der Unternehmens-Webhook sind noch nicht aktiviert.",
-      "inboundInvalid": "Der E-Mail-Empfang ist gesperrt, weil die Konfiguration des Unternehmenspostfachs unvollständig oder ungültig ist.",
+      "inboundAddressMissing": "Der E-Mail-Empfang ist deaktiviert, weil noch keine Adresse für das Postfach dieses UMF-Support-Arbeitsbereichs konfiguriert ist.",
+      "inboundDisabled": "Der E-Mail-Empfang ist auf dem Server deaktiviert. Die Adresse ist vorhanden, aber Email Routing und der Webhook des Arbeitsbereichs sind noch nicht aktiviert.",
+      "inboundInvalid": "Der E-Mail-Empfang ist gesperrt, weil die Konfiguration des Postfachs des Arbeitsbereichs unvollständig oder ungültig ist.",
       "inboundVerificationPending": "Der E-Mail-Empfang ist konfiguriert, aber es wurde noch keine extern eingegangene und vollständig akzeptierte Nachricht erfasst."
     },
     "notices": {
@@ -2458,6 +2520,7 @@
       "mailDraftSaved": "Der Entwurf wurde verschlüsselt gespeichert.",
       "mailScheduled": "Die E-Mail wurde auf dem Server geplant.",
       "mailQueued": "Die E-Mail wurde in den Postausgang gestellt.",
+      "mailAttachmentRemoved": "Der Anhang wurde aus dem Entwurf entfernt.",
       "notificationSettingsSaved": "Meldungseinstellungen aktualisiert.",
       "pushEnabled": "Dieses Gerät kann jetzt Web Push von UMF Support empfangen.",
       "roleDelegated": "Delegation angeboten; sie gewährt noch keinen Zugang.",
@@ -2466,7 +2529,9 @@
       "roleRenounced": "Berechtigung abgegeben und widerrufen.",
       "roleSelfEnabled": "Eigener Modulzugang ausdrücklich aktiviert.",
       "companyStaffAdded": "Person ohne automatische technische Berechtigungen zur Belegschaft hinzugefügt.",
-      "companyStaffRevoked": "Person aus der Belegschaft entfernt; Module fallen an die Leerstandsabdeckung zurück."
+      "companyStaffRevoked": "Person aus der Belegschaft entfernt; Module fallen an die Leerstandsabdeckung zurück.",
+      "commercialVerificationSent": "Der Bestätigungscode wurde erneut an die E-Mail-Adresse des kommerziellen Kontos gesendet.",
+      "commercialVerificationQueued": "Der neue Bestätigungscode wurde in die kommerzielle Mail-Warteschlange gestellt."
     },
     "errors": {
       "load": "UMF Support konnte nicht geladen werden.",
@@ -2481,7 +2546,8 @@
         "FORM_VERIFICATION_REQUIRED": "Bestätigen Sie das Formular erneut, bevor Sie die E-Mail senden oder abbrechen.",
         "SUPPORT_RATE_LIMITED": "Es wurden zu viele Vorgänge nacheinander ausgeführt. Warten Sie kurz und versuchen Sie es erneut.",
         "UNAUTHENTICATED": "Die Sitzung von UMF Support ist abgelaufen. Melden Sie sich erneut an.",
-        "ACCOUNT_NOT_ACTIVE": "Das Unternehmenskonto ist nicht aktiv.",
+        "ACCOUNT_NOT_ACTIVE": "Das UMF-Support-Konto ist nicht aktiv.",
+        "COMMERCIAL_TRIAL_ADMIN_NOT_PENDING": "Das kommerzielle Konto wartet nicht mehr auf Bestätigung oder gehört nicht zu einem Test-Administratorzugang.",
         "INTERNAL_ERROR": "UMF Support konnte den Vorgang aufgrund eines internen Fehlers nicht abschliessen."
       }
     }

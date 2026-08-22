@@ -99,6 +99,7 @@ export const migrationTableGroups = {
     "umfSupportTickets",
     "umfSupportMessages",
     "umfSupportMailDrafts",
+    "umfSupportMailAttachments",
     "umfSupportNotificationPreferences",
     "umfSupportPushSubscriptions",
   ],

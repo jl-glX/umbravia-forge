@@ -11,6 +11,7 @@ function email(
   return {
     outbound: true,
     inbound: true,
+    address: "corporate-support@example.com",
     addressConfigured: true,
     configurationValid: true,
     outboundState: "configured",

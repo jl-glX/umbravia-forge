@@ -1520,7 +1520,7 @@
     "sessionRevoked": "The session has been closed.",
     "otherSessionsRevoked": "The other sessions have been closed.",
     "activity": "Security activity",
-    "activityDescription": "Recent changes and attempts related to access to your account.",
+    "activityDescription": "Changes, access and attempts related to your account during the last 30 days.",
     "noActivity": "There is no security activity yet.",
     "events": {
       "login_succeeded": "Successful sign-in",
@@ -1539,12 +1539,21 @@
       "account_compromise_reported": "Possible compromise reported",
       "email_verified": "Email verified",
       "verification_email_sent": "Verification code sent",
-      "umf_support_access_requested": "Corporate account requested",
-      "umf_support_account_activated": "Corporate account verified",
+      "umf_support_access_requested": "UMF Support account requested",
+      "umf_support_account_activated": "UMF Support account verified",
       "umf_support_administrator_approved": "Administrative access approved",
       "company_head_bootstrapped": "Initial company head activated",
+      "commercial_trial_administrator_verification_resent": "Commercial account verification resent",
+      "private_content_accessed": "Authorized access to protected content",
       "support_id_rotated": "Public support ID rotated"
     }
+  },
+  "attachmentPreview": {
+    "open": "Preview attachment",
+    "protectedNotice": "Protected preview: the file is not executed inside the panel.",
+    "download": "Download",
+    "unavailable": "A safe preview is not available",
+    "unavailableHint": "You can download the file and review it with an appropriate application. Active or unsupported formats are never rendered here."
   },
   "feedback": {
     "footer": "Feedback",
@@ -2088,7 +2097,7 @@
     "aepdInformation": "Right to information — AEPD"
   },
   "umfSupportAccess": {
-    "corporateProgram": "Corporate support program",
+    "corporateProgram": "Support workspace",
     "tabs": {
       "login": "Sign in",
       "register": "Create account",
@@ -2097,13 +2106,13 @@
     "login": {
       "eyebrow": "Restricted access",
       "title": "Sign in",
-      "description": "Access through a verified UMF Support corporate account.",
+      "description": "Sign in with an independent, verified UMF Support account.",
       "action": "Open UMF Support"
     },
     "register": {
-      "eyebrow": "Corporate account",
+      "eyebrow": "Workspace",
       "title": "Create a UMF Support account",
-      "description": "Create an independent corporate account and then verify the inbox. Administrative access is granted separately from the UMF Support panel.",
+      "description": "Create an independent UMF Support account and then verify the inbox. Workspace access is granted separately.",
       "action": "Create account"
     },
     "verify": {
@@ -2120,31 +2129,31 @@
     "acceptTerms": "I accept the",
     "terms": "terms and conditions",
     "acceptPrivacy": "I have read the",
-    "verificationSent": "The account was created. Enter the code sent to the corporate inbox.",
+    "verificationSent": "The account was created. Enter the code sent to the specified inbox.",
     "verificationQueued": "The account was created, but immediate email delivery was not confirmed. The code remains queued and you can request another one.",
     "verificationResent": "We sent a new verification code.",
     "verificationResendQueued": "Immediate delivery was not confirmed. The new code remains queued and you can try again.",
     "resendVerification": "Resend verification code",
     "verificationInvalid": "The verification code is invalid, expired or has used all its attempts.",
-    "awaitingAdministratorApproval": "The email has been verified. The account is waiting for management to approve administrative access from UMF Support.",
+    "awaitingAdministratorApproval": "The email has been verified. The account is waiting for the workspace owner to approve access.",
     "passwordMismatch": "The passwords do not match.",
-    "invalidCredentials": "The UMF Support email or password is incorrect. Commercial Umbravia Forge credentials cannot access this corporate account.",
-    "restrictedNotice": "The corporate account is separate from every commercial account; elevated positions are assigned separately",
-    "passkeyLogin": "Sign in with a corporate passkey",
+    "invalidCredentials": "The UMF Support email or password is incorrect. Commercial Umbravia Forge credentials cannot access this workspace.",
+    "restrictedNotice": "The UMF Support account is separate from every commercial account and does not share its permissions",
+    "passkeyLogin": "Sign in with a UMF Support passkey",
     "privacy": "Privacy",
     "error": "The operation could not be completed."
   },
   "umfCorporateAccount": {
-    "shortTitle": "Corporate account",
-    "title": "Corporate account centre",
+    "shortTitle": "My account",
+    "title": "UMF Support account",
     "heading": "Independent UMF Support identity",
-    "boundary": "This account, its sessions, access methods and corporate permissions are separate from every member, trainer or facility account, even when both use the same email address.",
+    "boundary": "This account, its sessions, access methods and workspace permissions are separate from every member, trainer or facility account, even when both use the same email address.",
     "back": "Back to support",
     "pendingApprovalTitle": "Administrative access pending",
-    "pendingApprovalBody": "The corporate identity is verified and its security settings are now available. Tickets, email and administration remain closed until management approves access. A commercial account using the same email and any deletion request associated with it are handled separately.",
+    "pendingApprovalBody": "The UMF Support identity is verified and its security settings are now available. Tickets, email and administration remain closed until the workspace owner approves access. A commercial account using the same email and any deletion request associated with it are handled separately.",
     "highlights": {
-      "identity": "Separate corporate identity",
-      "roles": "Revocable positions and permissions",
+      "identity": "Separate UMF Support identity",
+      "roles": "Revocable workspace access",
       "security": "Protected sessions and credentials"
     }
   },
@@ -2169,9 +2178,25 @@
     "error": "The email could not be changed."
   },
   "umfSupport": {
-    "corporateOperations": "Corporate platform support operations",
+    "corporateOperations": "Umbravia Forge support workspace",
+    "workspace": {
+      "defaultName": "My workspace",
+      "nameLabel": "Workspace name",
+      "editName": "Edit workspace name",
+      "saved": "The workspace name has been saved.",
+      "owner": "Workspace owner"
+    },
     "logout": "Sign out",
     "navigation": "UMF Support navigation",
+    "functions": {
+      "title": "Functions",
+      "supportOperations": "Support operations",
+      "supportOperationsHint": "Workspace tickets, mail and alerts.",
+      "commercialTrials": "Commercial trial signups",
+      "commercialTrialsHint": "Administrator account and trial facility status.",
+      "corporateAdministrators": "Administrative access",
+      "corporateAdministratorsHint": "Grant or revoke access to this workspace."
+    },
     "tabs": {
       "tickets": "Tickets",
       "inbox": "Inbox",
@@ -2180,6 +2205,7 @@
       "outbox": "Outbox",
       "sent": "Sent",
       "notifications": "Alerts",
+      "commercialTrials": "Commercial signups",
       "access": "Access",
       "team": "Administrators",
       "company": "Company",
@@ -2193,6 +2219,7 @@
       "outbox": "Outbox",
       "sent": "Sent mail",
       "notifications": "Operational alerts",
+      "commercialTrials": "Commercial trial administrator signups",
       "access": "Access requests",
       "team": "Administrator access",
       "company": "Company staff",
@@ -2200,16 +2227,43 @@
     },
     "descriptions": {
       "tickets": "Platform incidents kept separate from each facility's own support.",
-      "inbox": "Messages received through configured corporate channels.",
+      "inbox": "Messages received through the channels configured for this workspace.",
       "drafts": "Saved communications that have not entered the delivery queue yet.",
       "scheduled": "Encrypted messages that the server will deliver at the selected time.",
       "outbox": "Pending messages, retries and delivery errors that require attention.",
       "sent": "Support communications whose delivery has been recorded.",
       "notifications": "Choose per event whether to receive email, Web Push, both or neither.",
+      "commercialTrials": "Review commercial administrator accounts, their verification and associated trial facility.",
       "access": "Pre-authorize email addresses and choose their role before they can create an account.",
-      "team": "Approve or revoke administrative access for verified corporate accounts.",
+      "team": "Approve or revoke administrative access for verified UMF Support accounts.",
       "company": "Organizational draft without operational authority.",
       "collaboration": "Informational drafts without technical permissions; you choose what staff can see."
+    },
+    "commercialTrials": {
+      "provisioningEnabled": "Commercial trial signups are enabled",
+      "provisioningDisabled": "Commercial trial signups are closed",
+      "boundaryNotice": "UMF Support only handles operational tracking. The account, password, session and permissions remain exclusively within commercial Umbravia Forge.",
+      "openSignup": "Open signup form",
+      "accountList": "Commercial administrator accounts",
+      "accountListHint": "Restricted to the workspace owner. Credentials are not shared and a UMF Support session never becomes a commercial session.",
+      "createdAt": "Signup started: {{date}}",
+      "pendingVerification": "Email verification pending",
+      "emailVerified": "Email verified",
+      "pendingFacility": "Pending facility: {{facility}}",
+      "trialSummary": "{{facility}} · {{status}}",
+      "expiresAt": "Expected end: {{date}}",
+      "noTrial": "No trial facility associated",
+      "resendVerification": "Resend verification",
+      "empty": "There are no commercial administrator signups.",
+      "trialStatus": {
+        "trial_created": "Trial created",
+        "trial_active": "Trial active",
+        "trial_paused_support": "Trial paused by support",
+        "trial_conversion_review": "Conversion under review",
+        "trial_expired": "Trial expired",
+        "trial_converted": "Trial converted",
+        "trial_closed": "Trial closed"
+      }
     },
     "compose": "Compose email",
     "composeHint": "UMF Support operational communication composer; arbitrary HTML is not accepted.",
@@ -2218,10 +2272,18 @@
       "cc": "CC",
       "bcc": "BCC",
       "showCopies": "CC and BCC",
+      "corporateMailbox": "Workspace mailbox: {{address}}",
       "recipientPlaceholder": "Separate multiple addresses with semicolons",
       "linkText": "Link text",
       "linkUrl": "HTTPS or mailto address",
       "insertLink": "Insert link",
+      "attachments": "Attachments",
+      "attachmentHint": "GIF is blocked. Supported images and PDFs can be reviewed before download; other files are downloaded without being executed in the panel.",
+      "addAttachments": "Attach files",
+      "pendingAttachment": "pending save",
+      "removeAttachment": "Remove attachment",
+      "attachmentCount": "{{count}} attachment",
+      "attachmentCount_other": "{{count}} attachments",
       "saveDraft": "Save draft",
       "scheduleAt": "Date and time",
       "schedule": "Schedule",
@@ -2283,7 +2345,7 @@
         },
         "inbound_email": {
           "title": "Inbound email",
-          "hint": "The corporate mailbox receives an authenticated message.",
+          "hint": "The workspace mailbox receives an authenticated message.",
           "email": "Email for inbound mail",
           "push": "Push for inbound mail"
         },
@@ -2432,9 +2494,9 @@
       "queueMissing": "Outbound email is blocked because encrypted mail-queue protection is not configured.",
       "queueInvalid": "Outbound email is blocked because encrypted mail-queue protection is invalid.",
       "outboundVerificationPending": "Outbound email is configured, but no UMF Support delivery accepted by the mail transport has been recorded yet.",
-      "inboundAddressMissing": "Inbound email is disabled because no address has been configured for the UMF Support corporate mailbox yet.",
-      "inboundDisabled": "Inbound email is disabled on the server. The address exists, but Email Routing and its corporate webhook are not enabled yet.",
-      "inboundInvalid": "Inbound email is blocked because the corporate mailbox configuration is incomplete or invalid.",
+      "inboundAddressMissing": "Inbound email is disabled because no address has been configured for this UMF Support workspace mailbox yet.",
+      "inboundDisabled": "Inbound email is disabled on the server. The address exists, but Email Routing and the workspace webhook are not enabled yet.",
+      "inboundInvalid": "Inbound email is blocked because the workspace mailbox configuration is incomplete or invalid.",
       "inboundVerificationPending": "Inbound email is configured, but no external message accepted end to end has been recorded yet."
     },
     "notices": {
@@ -2447,6 +2509,7 @@
       "mailDraftSaved": "The draft was stored in encrypted form.",
       "mailScheduled": "The email has been scheduled on the server.",
       "mailQueued": "The email has entered the outbox.",
+      "mailAttachmentRemoved": "The attachment was removed from the draft.",
       "notificationSettingsSaved": "Alert preferences updated.",
       "pushEnabled": "This device can now receive UMF Support Web Push.",
       "roleDelegated": "Delegation offered; it does not grant access yet.",
@@ -2455,7 +2518,9 @@
       "roleRenounced": "Permission renounced and revoked.",
       "roleSelfEnabled": "Own access to the module explicitly enabled.",
       "companyStaffAdded": "Person added to company staff without automatic technical permissions.",
-      "companyStaffRevoked": "Person removed from company staff and modules returned to vacancy coverage."
+      "companyStaffRevoked": "Person removed from company staff and modules returned to vacancy coverage.",
+      "commercialVerificationSent": "The verification code was resent to the commercial account email.",
+      "commercialVerificationQueued": "The new verification code was queued in the commercial mail channel."
     },
     "errors": {
       "load": "UMF Support could not be loaded.",
@@ -2470,7 +2535,8 @@
         "FORM_VERIFICATION_REQUIRED": "Verify the form again before sending or cancelling the email.",
         "SUPPORT_RATE_LIMITED": "Too many operations were performed in succession. Wait a moment and try again.",
         "UNAUTHENTICATED": "The UMF Support session has expired. Sign in again.",
-        "ACCOUNT_NOT_ACTIVE": "The corporate account is not active.",
+        "ACCOUNT_NOT_ACTIVE": "The UMF Support account is not active.",
+        "COMMERCIAL_TRIAL_ADMIN_NOT_PENDING": "The commercial account is no longer awaiting verification or is not a trial administrator signup.",
         "INTERNAL_ERROR": "UMF Support could not complete the operation because of an internal error."
       }
     }

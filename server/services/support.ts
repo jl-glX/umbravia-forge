@@ -36,6 +36,7 @@ import { getManagedEmailChannelCapabilities } from "./email-manager.js";
 import { stageStoredFilesForRemoval } from "../lib/staged-file-removal.js";
 import { SUPPORT_DATA_APPLICATION_TENANT_ID } from "../lib/application-tenancy.js";
 import { resolveFacilityContext } from "./facility-context.js";
+import { resolveSupportAttachmentMimeType } from "../lib/support-attachment-policy.js";
 
 export class SupportAccessError extends Error {
   readonly statusCode = 403;
@@ -73,13 +74,6 @@ const statuses = new Set<SupportTicketStatus>([
   "waiting_on_user",
   "resolved",
   "closed",
-]);
-const allowedAttachmentTypes = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "application/pdf",
-  "text/plain",
 ]);
 
 const slaByPriority: Record<
@@ -1113,7 +1107,11 @@ export async function storeSupportAttachment(
   ) {
     throw new SupportValidationError("Attachment size is invalid");
   }
-  if (!allowedAttachmentTypes.has(input.mimeType))
+  const mimeType = resolveSupportAttachmentMimeType(
+    input.fileName,
+    input.mimeType,
+  );
+  if (!mimeType)
     throw new SupportValidationError("Attachment type is not allowed");
   const fileName = Array.from(requiredText(input.fileName, "fileName", 180))
     .map((character) =>
@@ -1157,7 +1155,7 @@ export async function storeSupportAttachment(
       messageId,
       uploadedByUserId: auth.userId,
       fileName,
-      mimeType: input.mimeType,
+      mimeType,
       sizeBytes: input.body.length,
       storageKey,
       checksumSha256: createHash("sha256").update(input.body).digest("hex"),

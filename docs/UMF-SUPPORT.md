@@ -71,6 +71,13 @@ decisión explícita, firma y nueva validación humana; véase
 - bandejas de entrada, borradores, programados, salida y enviados, con redacción
   a múltiples destinatarios, CC/CCO, asuntos, texto e hiperenlaces HTTPS o
   `mailto:` saneados;
+- adjuntos salientes cifrados y separados de los adjuntos de Forge Support de
+  cada centro, con lista explícita de extensiones, comprobación conjunta de
+  extensión y MIME, límites por archivo/borrador y rechazo de GIF y formatos
+  ejecutables;
+- previsualización autenticada y sin ejecución de PDF e imágenes raster
+  compatibles; SVG, HTML, archivos comprimidos y formatos sin renderizador
+  seguro se descargan como adjunto y nunca se presentan como contenido activo;
 - borradores cifrados, envío inmediato o programado y cancelación segura antes
   de que una entrega haya comenzado;
 - respuestas por la cola transaccional existente, sin guardar tarjetas ni
@@ -78,10 +85,13 @@ decisión explícita, firma y nueva validación humana; véase
 - preferencias personales de alertas por tipo de evento y canal, desactivadas
   por defecto; el correo es el canal prioritario y Web Push permanece opcional;
 - receptor servidor-a-servidor con firma HMAC reciente, deduplicación por
-  `Message-ID`, rechazo de adjuntos y alias de respuesta ligados al ticket y al
-  correo solicitante;
+  `Message-ID`, rechazo explícito de adjuntos entrantes y alias de respuesta
+  ligados al ticket y al correo solicitante;
 - eventos de seguridad sin correos en claro para invitaciones, registros,
-  verificaciones, cambios de personal y accesos al contenido privado;
+  verificaciones, cambios de personal y accesos al contenido privado. El centro
+  de cuenta muestra nombres comprensibles y conserva como máximo los últimos
+  treinta días; la limpieza horaria elimina del historial general los eventos
+  más antiguos;
 - cambio del correo de acceso mediante contraseña actual y código enviado al
   nuevo buzón, con aviso al anterior e invalidación de las demás sesiones y de
   retos temporales anteriores.
@@ -125,12 +135,22 @@ transferir una jefatura existente.
 
 ## Administración mínima y colaboración
 
-El flujo vigente mantiene una administración deliberadamente pequeña. La
-dirección consulta cuentas corporativas, aprueba las que ya verificaron su
-buzón, cambia entre `director` y `agent` y puede revocar el acceso sin modificar
-la identidad ni ninguna cuenta comercial. Los espacios de colaboración son
-contenedores separados, desactivables y con capacidades seleccionadas por la
-dirección; no convierten a la persona colaboradora en administradora general.
+El producto se presenta como un panel de trabajo individual, no como un
+organigrama empresarial. Cada persona con acceso activo puede asignar a su
+panel un nombre propio, persistido en `umfSupportStaff.workspaceName`, sin
+alterar la identidad, el buzón ni los permisos. La persona propietaria consulta
+cuentas de UMF Support, aprueba las que ya verificaron su buzón y puede revocar
+el acceso sin modificar la identidad ni ninguna cuenta comercial. Los espacios
+de colaboración son contenedores separados, desactivables y con capacidades
+seleccionadas por la propiedad; no convierten a la persona colaboradora en
+administradora general.
+
+`director` y `agent` permanecen temporalmente en el esquema y en la autorización
+interna para compatibilidad con datos y pruebas existentes, pero dejan de ser
+un modelo visible de organización. Son deuda técnica deliberada: no se deben
+ampliar con nuevos cargos y deberán sustituirse en una migración futura por la
+propiedad del panel y capacidades explícitas antes de retirar las columnas y
+relaciones históricas.
 
 `companyStaffProfiles` conserva únicamente la señal de `platform_head` que
 protege la jefatura inicial y la autoridad local de gestores. El organigrama
@@ -175,6 +195,16 @@ asunto, el cuerpo y las listas Para/CC/CCO. Al enviar se crean entregas
 individuales `platformScope = support`; CCO nunca se expone a otros
 destinatarios. El editor acepta texto y enlaces Markdown controlados
 `[etiqueta](https://...)` o `mailto:` y escapa HTML arbitrario.
+
+Los adjuntos de correo corporativo pertenecen a un dominio de almacenamiento
+propio y cifrado; no reutilizan tablas, rutas ni permisos de los adjuntos de
+Forge Support de un centro. El envío admite PDF, documentos ofimáticos,
+archivos de texto y datos, imágenes estáticas y comprimidos expresamente
+permitidos. GIF y ejecutables se rechazan. PDF y las imágenes raster
+compatibles pueden previsualizarse mediante una descarga autenticada con
+`nosniff` y un visor aislado; el resto exige una descarga explícita. La entrada
+por correo continúa rechazando mensajes con adjuntos hasta que exista una
+ingesta equivalente, cifrada, limitada y probada de extremo a extremo.
 
 La programación exige una fecha futura. La cancelación comprueba dentro de la
 transacción que todas las entregas sigan en cola y no hayan alcanzado su hora;
@@ -269,6 +299,8 @@ UMF_SUPPORT_EMAIL_INBOUND_ENABLED=true
 UMF_SUPPORT_EMAIL_ADDRESS=privacy@example.com
 UMF_SUPPORT_EMAIL_REPLY_TOKEN_KEY=<32 bytes aleatorios en base64>
 UMF_SUPPORT_EMAIL_WEBHOOK_SECRET=<otros 32 bytes aleatorios en base64>
+UMF_SUPPORT_MAIL_ATTACHMENT_MAX_BYTES=5242880
+UMF_SUPPORT_MAIL_ATTACHMENT_TOTAL_MAX_BYTES=10485760
 ```
 
 Los dos secretos deben ser exclusivos de UMF Support. No se reutilizan las
@@ -308,9 +340,12 @@ POST   /api/umf-support/passkeys/verify
 GET    /api/umf-support/session
 POST   /api/umf-support/logout
 GET    /api/umf-support/capabilities
+PATCH  /api/umf-support/workspace
 GET    /api/umf-support/staff
 GET    /api/umf-support/administrator-accounts
 POST   /api/umf-support/administrator-accounts/:userId/approve
+GET    /api/umf-support/commercial-trial-administrators
+POST   /api/umf-support/commercial-trial-administrators/:userId/resend-verification
 PATCH  /api/umf-support/staff/:userId
 GET    /api/umf-support/collaboration-spaces
 POST   /api/umf-support/collaboration-spaces
@@ -324,6 +359,9 @@ GET    /api/umf-support/mailbox/:direction
 GET    /api/umf-support/mail/drafts
 POST   /api/umf-support/mail/drafts
 PUT    /api/umf-support/mail/drafts/:draftId
+POST   /api/umf-support/mail/drafts/:draftId/attachments
+GET    /api/umf-support/mail/drafts/:draftId/attachments/:attachmentId
+DELETE /api/umf-support/mail/drafts/:draftId/attachments/:attachmentId
 POST   /api/umf-support/mail/drafts/:draftId/send
 POST   /api/umf-support/mail/drafts/:draftId/cancel
 GET    /api/umf-support/notification-settings
@@ -342,8 +380,9 @@ navegador: valida la firma sobre los bytes exactos y su antigüedad.
 La edición de usuarios de un centro no puede sustituir el correo de acceso:
 ese cambio pertenece exclusivamente al flujo verificado de la propia cuenta.
 La interfaz se ofrece tanto en `Cuenta > Seguridad` como en la vista de
-plantilla de UMF Support, sin que su disponibilidad dependa de ocupar un cargo
-corporativo.
+accesos de UMF Support, sin que su disponibilidad dependa de presentar un cargo
+en la experiencia visible. El nombre personal del panel se modifica mediante
+`PATCH /api/umf-support/workspace` y no altera permisos.
 
 ## Validación y límites operativos
 
@@ -352,10 +391,14 @@ de centros, la independencia de credenciales y cookies, la aprobación separada
 del buzón verificado, el bootstrap configurado e idempotente de jefatura y su
 recuperación local, el cifrado de
 borradores, la programación y cancelación, el saneamiento de hiperenlaces, el
-ámbito de las entregas, la separación de preparación entrante/saliente y las
-preferencias de alertas por persona. Las
-migraciones PostgreSQL 47 y 48 incorporan borradores, preferencias y
-suscripciones, y el puente de datos incluye las tres tablas. Nada de ello
+ámbito de las entregas, los adjuntos salientes cifrados, la separación física y
+de autorización respecto a adjuntos de centros, el rechazo de GIF, la
+previsualización no ejecutable, la separación de preparación entrante/saliente,
+la retención de treinta días del historial de seguridad y las preferencias de
+alertas por persona. Las migraciones PostgreSQL 47, 48, 49 y 50 incorporan
+borradores, preferencias, suscripciones, adjuntos del panel y el nombre
+individual del espacio de trabajo; el puente de datos incluye esas tablas.
+Nada de ello
 demuestra que esas migraciones estén aplicadas en una base viva ni que DNS,
 Worker, SMTP, rebotes, Web Push o entregabilidad estén operativos en
 producción.

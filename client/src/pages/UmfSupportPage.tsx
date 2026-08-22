@@ -2,8 +2,11 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   Bell,
+  Building2,
+  ChevronDown,
   ClipboardList,
   Clock3,
+  Download,
   Eye,
   EyeOff,
   FilePenLine,
@@ -13,11 +16,14 @@ import {
   LogOut,
   Mail,
   MessageSquare,
+  Paperclip,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
   Send,
   ShieldCheck,
+  Trash2,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -31,8 +37,10 @@ import {
   cancelScheduledMail,
   createCollaborationSpace,
   createTicket,
+  deleteUmfSupportMailAttachment,
   fetchCapabilities,
   fetchAdministratorAccounts,
+  fetchCommercialTrialAdministratorAccounts,
   fetchCollaborationSpaces,
   fetchMailbox,
   fetchMailDrafts,
@@ -43,19 +51,25 @@ import {
   fetchTickets,
   logoutSupport,
   registerPushSubscription,
+  resendCommercialTrialAdministratorVerification,
   replyTicket,
   revokePushSubscription,
   saveMailDraft,
   submitMailDraft,
+  umfSupportMailAttachmentUrl,
+  uploadUmfSupportMailAttachment,
   updateCollaborationSpace,
   updateStaff,
   updateTicket,
   updateNotificationSettings,
+  updateWorkspaceName,
   type UmfMailboxMessage,
+  type CommercialTrialAdministratorAccount,
   type UmfSupportBrowserFamily,
   type UmfSupportAdministratorAccount,
   type UmfSupportCollaborationSpace,
   type UmfSupportMailDraft,
+  type UmfSupportMailAttachment,
   type UmfSupportNotificationEvent,
   type UmfSupportNotificationSettings,
   type UmfSupportCapabilities,
@@ -68,6 +82,11 @@ import {
   type UmfTicketStatus,
 } from "../lib/umf-support";
 import { getUmfSupportMailNotices } from "../lib/umf-support-mail-readiness";
+import { AttachmentPreviewDialog } from "../components/AttachmentPreviewDialog";
+import {
+  attachmentCanBePreviewed,
+  type AttachmentPreviewSource,
+} from "../lib/attachment-preview";
 
 type View =
   | "tickets"
@@ -77,6 +96,7 @@ type View =
   | "outbox"
   | "sent"
   | "notifications"
+  | "commercialTrials"
   | "team"
   | "collaboration";
 const notificationEvents: UmfSupportNotificationEvent[] = [
@@ -107,6 +127,12 @@ function formatDate(value: number, locale: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(value);
+}
+
+function formatBytes(value: number) {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function recipients(value: string): string[] {
@@ -151,11 +177,22 @@ export function UmfSupportPage() {
   const [selected, setSelected] = useState<UmfSupportTicket | null>(null);
   const [mail, setMail] = useState<UmfMailboxMessage[]>([]);
   const [mailDrafts, setMailDrafts] = useState<UmfSupportMailDraft[]>([]);
+  const [mailAttachments, setMailAttachments] = useState<
+    UmfSupportMailAttachment[]
+  >([]);
+  const [pendingMailAttachments, setPendingMailAttachments] = useState<File[]>(
+    [],
+  );
+  const [attachmentPreview, setAttachmentPreview] =
+    useState<AttachmentPreviewSource | null>(null);
   const [notificationSettings, setNotificationSettings] =
     useState<UmfSupportNotificationSettings | null>(null);
   const [staff, setStaff] = useState<UmfSupportStaffMember[]>([]);
   const [administratorAccounts, setAdministratorAccounts] = useState<
     UmfSupportAdministratorAccount[]
+  >([]);
+  const [commercialTrialAccounts, setCommercialTrialAccounts] = useState<
+    CommercialTrialAdministratorAccount[]
   >([]);
   const [collaborationSpaces, setCollaborationSpaces] = useState<
     UmfSupportCollaborationSpace[]
@@ -167,6 +204,9 @@ export function UmfSupportPage() {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [functionsMenuOpen, setFunctionsMenuOpen] = useState(false);
+  const [editingWorkspaceName, setEditingWorkspaceName] = useState(false);
+  const [workspaceNameDraft, setWorkspaceNameDraft] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [reply, setReply] = useState("");
   const [internal, setInternal] = useState(false);
@@ -210,6 +250,35 @@ export function UmfSupportPage() {
     ? getUmfSupportMailNotices(capabilities.email)
     : [];
 
+  useEffect(() => {
+    if (!editingWorkspaceName && capabilities) {
+      setWorkspaceNameDraft(
+        capabilities.workspaceName ?? t("umfSupport.workspace.defaultName"),
+      );
+    }
+  }, [capabilities, editingWorkspaceName, t]);
+
+  const saveWorkspaceName = async () => {
+    const workspaceName = workspaceNameDraft.trim();
+    if (!workspaceName) return;
+    setWorking(true);
+    setError("");
+    try {
+      const updated = await updateWorkspaceName(workspaceName);
+      setCapabilities((current) =>
+        current
+          ? { ...current, workspaceName: updated.workspaceName }
+          : current,
+      );
+      setEditingWorkspaceName(false);
+      setNotice(t("umfSupport.workspace.saved"));
+    } catch (cause) {
+      setError(normalizedError(cause, "umfSupport.errors.save"));
+    } finally {
+      setWorking(false);
+    }
+  };
+
   const refreshTickets = useCallback(async () => {
     setTickets(
       await fetchTickets({
@@ -243,6 +312,12 @@ export function UmfSupportPage() {
         setMail(sentMessages);
       } else if (view === "notifications") {
         setNotificationSettings(await fetchNotificationSettings());
+      } else if (view === "commercialTrials") {
+        setCommercialTrialAccounts(
+          current.canManageCommercialTrials
+            ? await fetchCommercialTrialAdministratorAccounts()
+            : [],
+        );
       } else if (view === "team") {
         const [currentStaff, accounts] = await Promise.all([
           fetchStaff(),
@@ -387,6 +462,29 @@ export function UmfSupportPage() {
     }
   };
 
+  const resendCommercialVerification = async (userId: string) => {
+    setWorking(true);
+    setError("");
+    try {
+      const result =
+        await resendCommercialTrialAdministratorVerification(userId);
+      setNotice(
+        t(
+          result.sent
+            ? "umfSupport.notices.commercialVerificationSent"
+            : "umfSupport.notices.commercialVerificationQueued",
+        ),
+      );
+      setCommercialTrialAccounts(
+        await fetchCommercialTrialAdministratorAccounts(),
+      );
+    } catch (cause) {
+      setError(normalizedError(cause, "umfSupport.errors.save"));
+    } finally {
+      setWorking(false);
+    }
+  };
+
   const submitCollaborationSpace = async (event: FormEvent) => {
     event.preventDefault();
     setWorking(true);
@@ -444,6 +542,8 @@ export function UmfSupportPage() {
     setScheduleAt("");
     setShowCopyFields(false);
     setLinkEditor({ label: "", url: "" });
+    setMailAttachments([]);
+    setPendingMailAttachments([]);
   };
 
   const openDraft = (draft: UmfSupportMailDraft) => {
@@ -456,8 +556,19 @@ export function UmfSupportPage() {
       body: draft.body,
     });
     setEditingDraftId(draft.id);
+    setMailAttachments(draft.attachments);
+    setPendingMailAttachments([]);
     setShowCopyFields(draft.cc.length > 0 || draft.bcc.length > 0);
     setShowCompose(true);
+  };
+
+  const persistPendingMailAttachments = async (draftId: string) => {
+    let remaining = [...pendingMailAttachments];
+    for (const file of pendingMailAttachments) {
+      await uploadUmfSupportMailAttachment(draftId, file);
+      remaining = remaining.slice(1);
+      setPendingMailAttachments(remaining);
+    }
   };
 
   const saveComposerDraft = async () => {
@@ -465,8 +576,13 @@ export function UmfSupportPage() {
     setError("");
     try {
       const result = await saveMailDraft(draftInput(), editingDraftId);
+      await persistPendingMailAttachments(result.draft.id);
       setEditingDraftId(result.draft.id);
-      setMailDrafts(await fetchMailDrafts());
+      const drafts = await fetchMailDrafts();
+      setMailDrafts(drafts);
+      setMailAttachments(
+        drafts.find((draft) => draft.id === result.draft.id)?.attachments ?? [],
+      );
       setNotice(t("umfSupport.notices.mailDraftSaved"));
     } catch (cause) {
       setError(normalizedError(cause, "umfSupport.errors.save"));
@@ -480,6 +596,7 @@ export function UmfSupportPage() {
     setError("");
     try {
       const result = await saveMailDraft(draftInput(), editingDraftId);
+      await persistPendingMailAttachments(result.draft.id);
       const scheduledAt = scheduled
         ? new Date(scheduleAt).getTime()
         : undefined;
@@ -498,6 +615,25 @@ export function UmfSupportPage() {
             : "umfSupport.notices.mailQueued",
         ),
       );
+    } catch (cause) {
+      setError(normalizedError(cause, "umfSupport.errors.save"));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const removeMailAttachment = async (attachmentId: string) => {
+    if (!editingDraftId) return;
+    setWorking(true);
+    setError("");
+    try {
+      await deleteUmfSupportMailAttachment(editingDraftId, attachmentId);
+      const drafts = await fetchMailDrafts();
+      setMailDrafts(drafts);
+      setMailAttachments(
+        drafts.find((draft) => draft.id === editingDraftId)?.attachments ?? [],
+      );
+      setNotice(t("umfSupport.notices.mailAttachmentRemoved"));
     } catch (cause) {
       setError(normalizedError(cause, "umfSupport.errors.save"));
     } finally {
@@ -593,6 +729,14 @@ export function UmfSupportPage() {
     { id: "collaboration", icon: LayoutGrid },
   ];
 
+  const selectView = (nextView: View) => {
+    setView(nextView);
+    setSelected(null);
+    setError("");
+    setNotice("");
+    setFunctionsMenuOpen(false);
+  };
+
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <header className="border-b border-slate-300 bg-slate-950 text-white">
@@ -605,14 +749,126 @@ export function UmfSupportPage() {
             />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-bold tracking-tight">UMF Support</p>
+            {editingWorkspaceName ? (
+              <form
+                className="flex max-w-lg items-center gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void saveWorkspaceName();
+                }}
+              >
+                <Input
+                  value={workspaceNameDraft}
+                  maxLength={80}
+                  autoFocus
+                  aria-label={t("umfSupport.workspace.nameLabel")}
+                  onChange={(event) =>
+                    setWorkspaceNameDraft(event.target.value)
+                  }
+                  className="h-8 border-slate-600 bg-slate-900 text-white"
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={working || !workspaceNameDraft.trim()}
+                  className="bg-white text-slate-950 hover:bg-slate-200"
+                >
+                  {t("common.save")}
+                </Button>
+              </form>
+            ) : (
+              <div className="flex min-w-0 items-center gap-2">
+                <p className="truncate font-bold tracking-tight">
+                  {capabilities?.workspaceName ??
+                    t("umfSupport.workspace.defaultName")}
+                </p>
+                <button
+                  type="button"
+                  className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                  aria-label={t("umfSupport.workspace.editName")}
+                  onClick={() => setEditingWorkspaceName(true)}
+                >
+                  <Pencil size={14} />
+                </button>
+              </div>
+            )}
             <p className="truncate text-xs text-slate-400">
               {t("umfSupport.corporateOperations")}
             </p>
           </div>
-          <span className="hidden rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300 sm:inline">
-            {capabilities ? t(`umfSupport.role.${capabilities.role}`) : "—"}
-          </span>
+          <div className="relative">
+            <Button
+              type="button"
+              variant="ghost"
+              aria-expanded={functionsMenuOpen}
+              aria-haspopup="menu"
+              className="border border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white"
+              onClick={() => setFunctionsMenuOpen((current) => !current)}
+            >
+              <LayoutGrid size={17} />
+              <span className="hidden sm:inline">
+                {t("umfSupport.functions.title")}
+              </span>
+              <ChevronDown size={15} />
+            </Button>
+            {functionsMenuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-slate-950 shadow-xl"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => selectView("tickets")}
+                  className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-slate-100"
+                >
+                  <ClipboardList className="mt-0.5 text-slate-500" size={18} />
+                  <span>
+                    <span className="block text-sm font-semibold">
+                      {t("umfSupport.functions.supportOperations")}
+                    </span>
+                    <span className="block text-xs text-slate-500">
+                      {t("umfSupport.functions.supportOperationsHint")}
+                    </span>
+                  </span>
+                </button>
+                {capabilities?.canManageCommercialTrials && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => selectView("commercialTrials")}
+                    className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-slate-100"
+                  >
+                    <Building2 className="mt-0.5 text-slate-500" size={18} />
+                    <span>
+                      <span className="block text-sm font-semibold">
+                        {t("umfSupport.functions.commercialTrials")}
+                      </span>
+                      <span className="block text-xs text-slate-500">
+                        {t("umfSupport.functions.commercialTrialsHint")}
+                      </span>
+                    </span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => selectView("team")}
+                  className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-slate-100"
+                >
+                  <Users className="mt-0.5 text-slate-500" size={18} />
+                  <span>
+                    <span className="block text-sm font-semibold">
+                      {t("umfSupport.functions.corporateAdministrators")}
+                    </span>
+                    <span className="block text-xs text-slate-500">
+                      {t("umfSupport.functions.corporateAdministratorsHint")}
+                    </span>
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
           <LanguageSwitcher />
           <Link
             to="/umf-support/account"
@@ -650,12 +906,7 @@ export function UmfSupportPage() {
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => {
-                      setView(tab.id);
-                      setSelected(null);
-                      setError("");
-                      setNotice("");
-                    }}
+                    onClick={() => selectView(tab.id)}
                     className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold ${view === tab.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`}
                   >
                     <Icon size={17} /> {t(`umfSupport.tabs.${tab.id}`)}
@@ -682,6 +933,16 @@ export function UmfSupportPage() {
               <p className="mt-1 text-sm text-slate-500">
                 {t(`umfSupport.descriptions.${view}`)}
               </p>
+              {["inbox", "drafts", "scheduled", "outbox", "sent"].includes(
+                view,
+              ) &&
+                capabilities?.email.address && (
+                  <p className="mt-1 text-xs font-semibold text-slate-600">
+                    {t("umfSupport.mail.corporateMailbox", {
+                      address: capabilities.email.address,
+                    })}
+                  </p>
+                )}
             </div>
             <div className="flex flex-wrap gap-2">
               {["inbox", "drafts", "scheduled", "outbox", "sent"].includes(
@@ -1242,6 +1503,157 @@ export function UmfSupportPage() {
                       className="min-h-72 w-full resize-y rounded-lg border border-slate-300 p-4 text-sm leading-6"
                       maxLength={20000}
                     />
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">
+                            {t("umfSupport.mail.attachments")}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {t("umfSupport.mail.attachmentHint")}
+                          </p>
+                        </div>
+                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-100">
+                          <Paperclip size={16} />
+                          {t("umfSupport.mail.addAttachments")}
+                          <input
+                            type="file"
+                            multiple
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.json,.gzip,.odt,.txt,.csv,.html,.xml,.jpg,.jpeg,.png,.svg,.heic,.webp,.bmp,.psd"
+                            className="sr-only"
+                            onChange={(event) => {
+                              const files = Array.from(
+                                event.target.files ?? [],
+                              );
+                              setPendingMailAttachments((current) => [
+                                ...current,
+                                ...files,
+                              ]);
+                              event.target.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
+                      {(mailAttachments.length > 0 ||
+                        pendingMailAttachments.length > 0) && (
+                        <div className="mt-3 space-y-2">
+                          {mailAttachments.map((attachment) => (
+                            <div
+                              key={attachment.id}
+                              className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                            >
+                              <Paperclip
+                                className="shrink-0 text-slate-400"
+                                size={16}
+                              />
+                              <span className="min-w-0 flex-1 truncate">
+                                {attachment.fileName} ·{" "}
+                                {formatBytes(attachment.sizeBytes)}
+                              </span>
+                              {editingDraftId &&
+                                attachmentCanBePreviewed(
+                                  attachment.mimeType,
+                                ) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      setAttachmentPreview({
+                                        fileName: attachment.fileName,
+                                        mimeType: attachment.mimeType,
+                                        url: umfSupportMailAttachmentUrl(
+                                          editingDraftId,
+                                          attachment.id,
+                                        ),
+                                      })
+                                    }
+                                  >
+                                    <Eye size={16} />
+                                    <span className="sr-only">
+                                      {t("attachmentPreview.open")}
+                                    </span>
+                                  </Button>
+                                )}
+                              {editingDraftId && (
+                                <a
+                                  href={umfSupportMailAttachmentUrl(
+                                    editingDraftId,
+                                    attachment.id,
+                                  )}
+                                  download={attachment.fileName}
+                                  className="rounded-md p-2 text-slate-600 hover:bg-slate-100"
+                                  aria-label={t("attachmentPreview.download")}
+                                >
+                                  <Download size={16} />
+                                </a>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={working}
+                                onClick={() =>
+                                  void removeMailAttachment(attachment.id)
+                                }
+                              >
+                                <Trash2 size={16} />
+                                <span className="sr-only">
+                                  {t("umfSupport.mail.removeAttachment")}
+                                </span>
+                              </Button>
+                            </div>
+                          ))}
+                          {pendingMailAttachments.map((file, index) => (
+                            <div
+                              key={`${file.name}-${file.size}-${index}`}
+                              className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-slate-300 bg-white px-3 py-2 text-sm"
+                            >
+                              <Paperclip
+                                className="shrink-0 text-slate-400"
+                                size={16}
+                              />
+                              <span className="min-w-0 flex-1 truncate">
+                                {file.name} · {formatBytes(file.size)} ·{" "}
+                                {t("umfSupport.mail.pendingAttachment")}
+                              </span>
+                              {attachmentCanBePreviewed(file.type) && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    setAttachmentPreview({
+                                      fileName: file.name,
+                                      mimeType: file.type,
+                                      file,
+                                    })
+                                  }
+                                >
+                                  <Eye size={16} />
+                                  <span className="sr-only">
+                                    {t("attachmentPreview.open")}
+                                  </span>
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  setPendingMailAttachments((current) =>
+                                    current.filter(
+                                      (_item, itemIndex) => itemIndex !== index,
+                                    ),
+                                  )
+                                }
+                              >
+                                <Trash2 size={16} />
+                                <span className="sr-only">
+                                  {t("umfSupport.mail.removeAttachment")}
+                                </span>
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex flex-wrap items-end gap-3 border-t border-slate-200 pt-4">
                       <Button
                         variant="outline"
@@ -1373,6 +1785,9 @@ export function UmfSupportPage() {
                               : ""}
                             {draft.bcc.length > 0
                               ? ` · ${t("umfSupport.mail.bccCount", { count: draft.bcc.length })}`
+                              : ""}
+                            {draft.attachments.length > 0
+                              ? ` · ${t("umfSupport.mail.attachmentCount", { count: draft.attachments.length })}`
                               : ""}
                           </p>
                         </button>
@@ -1662,8 +2077,9 @@ export function UmfSupportPage() {
                       </p>
                     </div>
                     <span className="text-xs font-semibold text-slate-500">
-                      {t(`umfSupport.role.${member.role}`)} ·{" "}
-                      {t(`umfSupport.staffStatus.${member.status}`)}
+                      {member.userId === user.id
+                        ? t("umfSupport.workspace.owner")
+                        : t(`umfSupport.staffStatus.${member.status}`)}
                     </span>
                     {capabilities?.canManageAdministrators &&
                       member.userId !== user.id && (
@@ -1695,6 +2111,136 @@ export function UmfSupportPage() {
               </div>
             </div>
           )}
+
+          {view === "commercialTrials" &&
+            capabilities?.canManageCommercialTrials && (
+              <div className="space-y-5">
+                <section
+                  className={`rounded-xl border p-4 ${
+                    capabilities.commercialTrialProvisioningEnabled
+                      ? "border-emerald-200 bg-emerald-50"
+                      : "border-amber-200 bg-amber-50"
+                  }`}
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="font-semibold">
+                        {capabilities.commercialTrialProvisioningEnabled
+                          ? t("umfSupport.commercialTrials.provisioningEnabled")
+                          : t(
+                              "umfSupport.commercialTrials.provisioningDisabled",
+                            )}
+                      </h2>
+                      <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+                        {t("umfSupport.commercialTrials.boundaryNotice")}
+                      </p>
+                    </div>
+                    {capabilities.commercialTrialProvisioningEnabled && (
+                      <Link
+                        to="/signup"
+                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                      >
+                        <UserPlus size={17} />
+                        {t("umfSupport.commercialTrials.openSignup")}
+                      </Link>
+                    )}
+                  </div>
+                </section>
+
+                <section className="overflow-hidden rounded-xl border border-slate-200">
+                  <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                    <h2 className="font-semibold">
+                      {t("umfSupport.commercialTrials.accountList")}
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {t("umfSupport.commercialTrials.accountListHint")}
+                    </p>
+                  </div>
+                  {commercialTrialAccounts.map((account) => (
+                    <article
+                      key={account.userId}
+                      className="grid gap-4 border-b border-slate-200 p-4 last:border-0 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto] lg:items-center"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold">
+                          {account.name} {account.lastName}
+                        </p>
+                        <p className="truncate text-sm text-slate-500">
+                          {account.email}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {t("umfSupport.commercialTrials.createdAt", {
+                            date: formatDate(account.createdAt, i18n.language),
+                          })}
+                        </p>
+                      </div>
+                      <div className="text-sm">
+                        <p className="font-semibold text-slate-700">
+                          {account.emailVerifiedAt === null
+                            ? t(
+                                "umfSupport.commercialTrials.pendingVerification",
+                              )
+                            : t("umfSupport.commercialTrials.emailVerified")}
+                        </p>
+                        <p className="mt-1 text-slate-500">
+                          {account.trial
+                            ? t("umfSupport.commercialTrials.trialSummary", {
+                                facility: account.trial.facilityName,
+                                status: t(
+                                  `umfSupport.commercialTrials.trialStatus.${account.trial.status}`,
+                                ),
+                              })
+                            : account.pendingProvisioning
+                              ? t(
+                                  "umfSupport.commercialTrials.pendingFacility",
+                                  {
+                                    facility:
+                                      account.pendingProvisioning.facilityName,
+                                  },
+                                )
+                              : t("umfSupport.commercialTrials.noTrial")}
+                        </p>
+                        {account.trial && (
+                          <p className="mt-1 text-xs text-slate-500">
+                            {t("umfSupport.commercialTrials.expiresAt", {
+                              date: formatDate(
+                                account.trial.expiresAt,
+                                i18n.language,
+                              ),
+                            })}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        {account.accountStatus === "pending_verification" &&
+                          account.pendingProvisioning && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={working}
+                              onClick={() =>
+                                void resendCommercialVerification(
+                                  account.userId,
+                                )
+                              }
+                            >
+                              <Mail size={16} />
+                              {t(
+                                "umfSupport.commercialTrials.resendVerification",
+                              )}
+                            </Button>
+                          )}
+                      </div>
+                    </article>
+                  ))}
+                  {!loading && commercialTrialAccounts.length === 0 && (
+                    <p className="p-8 text-center text-sm text-slate-500">
+                      {t("umfSupport.commercialTrials.empty")}
+                    </p>
+                  )}
+                </section>
+              </div>
+            )}
 
           {view === "collaboration" && (
             <div className="space-y-5">
@@ -1809,6 +2355,10 @@ export function UmfSupportPage() {
               ))}
             </div>
           )}
+          <AttachmentPreviewDialog
+            source={attachmentPreview}
+            onClose={() => setAttachmentPreview(null)}
+          />
         </section>
       </div>
     </main>

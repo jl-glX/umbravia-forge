@@ -1536,7 +1536,7 @@
     "sessionRevoked": "La sesión se ha cerrado.",
     "otherSessionsRevoked": "Se han cerrado las demás sesiones.",
     "activity": "Actividad de seguridad",
-    "activityDescription": "Últimos cambios e intentos relacionados con el acceso a tu cuenta.",
+    "activityDescription": "Cambios, accesos e intentos de los últimos 30 días relacionados con tu cuenta.",
     "noActivity": "Todavía no hay actividad de seguridad.",
     "events": {
       "login_succeeded": "Inicio de sesión correcto",
@@ -1555,12 +1555,21 @@
       "account_compromise_reported": "Posible vulneración declarada",
       "email_verified": "Correo verificado",
       "verification_email_sent": "Código de verificación enviado",
-      "umf_support_access_requested": "Cuenta corporativa solicitada",
-      "umf_support_account_activated": "Cuenta corporativa verificada",
+      "umf_support_access_requested": "Cuenta de UMF Support solicitada",
+      "umf_support_account_activated": "Cuenta de UMF Support verificada",
       "umf_support_administrator_approved": "Acceso administrativo aprobado",
       "company_head_bootstrapped": "Jefatura inicial activada",
+      "commercial_trial_administrator_verification_resent": "Verificación de cuenta comercial reenviada",
+      "private_content_accessed": "Consulta autorizada de contenido protegido",
       "support_id_rotated": "ID público de soporte renovado"
     }
+  },
+  "attachmentPreview": {
+    "open": "Previsualizar adjunto",
+    "protectedNotice": "Vista protegida: el archivo no se ejecuta dentro del panel.",
+    "download": "Descargar",
+    "unavailable": "No se puede mostrar una vista previa segura",
+    "unavailableHint": "Puedes descargar el archivo para revisarlo con una aplicación apropiada. Los formatos activos o no compatibles nunca se renderizan aquí."
   },
   "feedback": {
     "footer": "Retroalimentación",
@@ -2104,7 +2113,7 @@
     "aepdInformation": "Derecho de información — AEPD"
   },
   "umfSupportAccess": {
-    "corporateProgram": "Programa corporativo de soporte",
+    "corporateProgram": "Panel de trabajo de soporte",
     "tabs": {
       "login": "Acceso",
       "register": "Crear cuenta",
@@ -2113,13 +2122,13 @@
     "login": {
       "eyebrow": "Acceso restringido",
       "title": "Iniciar sesión",
-      "description": "Acceso mediante una cuenta corporativa verificada de UMF Support.",
+      "description": "Acceso mediante una cuenta independiente y verificada de UMF Support.",
       "action": "Entrar en UMF Support"
     },
     "register": {
-      "eyebrow": "Cuenta corporativa",
+      "eyebrow": "Panel de trabajo",
       "title": "Crear una cuenta de UMF Support",
-      "description": "Crea una cuenta corporativa independiente y verifica después el buzón. El acceso administrativo se concede por separado desde el panel de UMF Support.",
+      "description": "Crea una cuenta independiente de UMF Support y verifica después el buzón. El acceso al panel de trabajo se concede por separado.",
       "action": "Crear cuenta"
     },
     "verify": {
@@ -2136,31 +2145,31 @@
     "acceptTerms": "Acepto los",
     "terms": "términos y condiciones",
     "acceptPrivacy": "He leído la",
-    "verificationSent": "La cuenta se ha creado. Introduce el código enviado al correo corporativo.",
+    "verificationSent": "La cuenta se ha creado. Introduce el código enviado al correo indicado.",
     "verificationQueued": "La cuenta se ha creado, pero no se ha confirmado la entrega inmediata del correo. El código permanece en la cola de envío y puedes solicitar otro.",
     "verificationResent": "Hemos enviado un nuevo código de verificación.",
     "verificationResendQueued": "No se ha confirmado la entrega inmediata. El nuevo código permanece en la cola de envío y puedes volver a intentarlo.",
     "resendVerification": "Reenviar código de verificación",
     "verificationInvalid": "El código de verificación no es válido, ha caducado o ha agotado sus intentos.",
-    "awaitingAdministratorApproval": "El correo se ha verificado. La cuenta queda pendiente de que la jefatura apruebe su acceso administrativo desde UMF Support.",
+    "awaitingAdministratorApproval": "El correo se ha verificado. La cuenta queda pendiente de que la persona propietaria apruebe su acceso al panel de trabajo.",
     "passwordMismatch": "Las contraseñas no coinciden.",
-    "invalidCredentials": "El correo o la contraseña de UMF Support no son correctos. Las credenciales de Umbravia Forge comercial no permiten entrar en esta cuenta corporativa.",
-    "restrictedNotice": "La cuenta corporativa está separada de cualquier cuenta comercial; los cargos elevados se asignan por separado",
-    "passkeyLogin": "Entrar con una passkey corporativa",
+    "invalidCredentials": "El correo o la contraseña de UMF Support no son correctos. Las credenciales de Umbravia Forge comercial no permiten entrar en este panel de trabajo.",
+    "restrictedNotice": "La cuenta de UMF Support está separada de cualquier cuenta comercial y no comparte sus permisos",
+    "passkeyLogin": "Entrar con una passkey de UMF Support",
     "privacy": "Privacidad",
     "error": "No se pudo completar la operación."
   },
   "umfCorporateAccount": {
-    "shortTitle": "Cuenta corporativa",
-    "title": "Centro de cuenta corporativa",
+    "shortTitle": "Mi cuenta",
+    "title": "Cuenta de UMF Support",
     "heading": "Identidad independiente de UMF Support",
-    "boundary": "Esta cuenta, sus sesiones, sus métodos de acceso y sus permisos corporativos están separados de cualquier cuenta de socio, entrenador o centro deportivo, aunque ambas utilicen el mismo correo.",
+    "boundary": "Esta cuenta, sus sesiones, sus métodos de acceso y sus permisos del panel están separados de cualquier cuenta de socio, entrenador o centro deportivo, aunque ambas utilicen el mismo correo.",
     "back": "Volver a soporte",
     "pendingApprovalTitle": "Acceso administrativo pendiente",
-    "pendingApprovalBody": "La identidad corporativa está verificada y ya puedes gestionar su seguridad. Los tickets, el correo y la administración permanecerán cerrados hasta que una jefatura active tu acceso. Una cuenta comercial con el mismo correo y su posible solicitud de borrado se gestionan por separado.",
+    "pendingApprovalBody": "La identidad de UMF Support está verificada y ya puedes gestionar su seguridad. Los tickets, el correo y la administración permanecerán cerrados hasta que la persona propietaria active tu acceso al panel. Una cuenta comercial con el mismo correo y su posible solicitud de borrado se gestionan por separado.",
     "highlights": {
-      "identity": "Identidad corporativa separada",
-      "roles": "Cargos y permisos revocables",
+      "identity": "Identidad de UMF Support separada",
+      "roles": "Acceso revocable al panel",
       "security": "Sesiones y credenciales protegidas"
     }
   },
@@ -2185,9 +2194,25 @@
     "error": "No se pudo cambiar el correo."
   },
   "umfSupport": {
-    "corporateOperations": "Operaciones corporativas de soporte de plataforma",
+    "corporateOperations": "Panel de trabajo de soporte de Umbravia Forge",
+    "workspace": {
+      "defaultName": "Mi panel de trabajo",
+      "nameLabel": "Nombre del panel de trabajo",
+      "editName": "Editar el nombre del panel",
+      "saved": "El nombre del panel se ha guardado.",
+      "owner": "Propietario del panel"
+    },
     "logout": "Salir",
     "navigation": "Navegación de UMF Support",
+    "functions": {
+      "title": "Funciones",
+      "supportOperations": "Operaciones de soporte",
+      "supportOperationsHint": "Tickets, correo y alertas del panel.",
+      "commercialTrials": "Altas comerciales de prueba",
+      "commercialTrialsHint": "Estado de cuentas administradoras y centros de prueba.",
+      "corporateAdministrators": "Accesos administrativos",
+      "corporateAdministratorsHint": "Altas y bajas de las personas con acceso al panel."
+    },
     "tabs": {
       "tickets": "Tickets",
       "inbox": "Entrada",
@@ -2196,6 +2221,7 @@
       "outbox": "Bandeja de salida",
       "sent": "Enviados",
       "notifications": "Alertas",
+      "commercialTrials": "Altas comerciales",
       "access": "Altas",
       "team": "Administradores",
       "company": "Plantilla",
@@ -2209,6 +2235,7 @@
       "outbox": "Bandeja de salida",
       "sent": "Correo enviado",
       "notifications": "Alertas operativas",
+      "commercialTrials": "Altas administrativas comerciales de prueba",
       "access": "Solicitudes de acceso",
       "team": "Altas de administrador",
       "company": "Plantilla de la empresa",
@@ -2216,18 +2243,45 @@
     },
     "descriptions": {
       "tickets": "Incidencias de la plataforma separadas del soporte propio de cada centro.",
-      "inbox": "Mensajes recibidos por los canales corporativos configurados.",
+      "inbox": "Mensajes recibidos por los canales configurados para este panel.",
       "drafts": "Comunicaciones guardadas que todavía no han entrado en la cola de envío.",
       "scheduled": "Mensajes cifrados que el servidor entregará en la fecha indicada.",
       "outbox": "Mensajes pendientes, reintentos y errores de entrega que requieren atención.",
       "sent": "Comunicaciones de soporte cuya entrega ha quedado registrada.",
       "notifications": "Elige por evento si quieres recibir correo, Web Push, ambos o ninguno.",
+      "commercialTrials": "Consulta las cuentas administradoras comerciales, su verificación y el centro de prueba asociado.",
       "access": "Preautoriza correos y selecciona su rol antes de que puedan crear una cuenta.",
-      "team": "Aprueba o revoca el acceso administrativo de cuentas corporativas ya verificadas.",
+      "team": "Aprueba o revoca el acceso administrativo de cuentas de UMF Support ya verificadas.",
       "company": "Borrador organizativo sin autoridad operativa.",
       "collaboration": "Borradores informativos sin permisos técnicos; tú decides cuáles se muestran al personal."
     },
     "role": { "director": "Jefatura", "agent": "Administrador" },
+    "commercialTrials": {
+      "provisioningEnabled": "Las altas comerciales de prueba están habilitadas",
+      "provisioningDisabled": "Las altas comerciales de prueba están cerradas",
+      "boundaryNotice": "UMF Support solo administra el seguimiento operativo. La cuenta, la contraseña, la sesión y los permisos siguen perteneciendo exclusivamente a Umbravia Forge comercial.",
+      "openSignup": "Abrir formulario de alta",
+      "accountList": "Cuentas administradoras comerciales",
+      "accountListHint": "Vista restringida a la persona propietaria del panel. No comparte credenciales ni convierte una sesión de UMF Support en una sesión comercial.",
+      "createdAt": "Alta iniciada: {{date}}",
+      "pendingVerification": "Correo pendiente de verificación",
+      "emailVerified": "Correo verificado",
+      "pendingFacility": "Centro pendiente: {{facility}}",
+      "trialSummary": "{{facility}} · {{status}}",
+      "expiresAt": "Final previsto: {{date}}",
+      "noTrial": "Sin centro de prueba asociado",
+      "resendVerification": "Reenviar verificación",
+      "empty": "No hay altas administrativas comerciales registradas.",
+      "trialStatus": {
+        "trial_created": "Prueba creada",
+        "trial_active": "Prueba activa",
+        "trial_paused_support": "Prueba pausada por soporte",
+        "trial_conversion_review": "Conversión en revisión",
+        "trial_expired": "Prueba caducada",
+        "trial_converted": "Prueba convertida",
+        "trial_closed": "Prueba cerrada"
+      }
+    },
     "companyPosition": {
       "platform_head": "Jefe de plataforma",
       "area_head": "Responsable de área",
@@ -2347,10 +2401,18 @@
       "cc": "CC",
       "bcc": "CCO",
       "showCopies": "CC y CCO",
+      "corporateMailbox": "Buzón del panel: {{address}}",
       "recipientPlaceholder": "Separa varias direcciones con punto y coma",
       "linkText": "Texto del enlace",
       "linkUrl": "Dirección https o mailto",
       "insertLink": "Insertar enlace",
+      "attachments": "Archivos adjuntos",
+      "attachmentHint": "GIF está bloqueado. Las imágenes y los PDF compatibles se pueden revisar antes de descargar; el resto se descarga sin ejecutarse en el panel.",
+      "addAttachments": "Adjuntar archivos",
+      "pendingAttachment": "pendiente de guardar",
+      "removeAttachment": "Quitar adjunto",
+      "attachmentCount": "{{count}} adjunto",
+      "attachmentCount_other": "{{count}} adjuntos",
       "saveDraft": "Guardar borrador",
       "scheduleAt": "Fecha y hora",
       "schedule": "Programar",
@@ -2409,7 +2471,7 @@
         },
         "inbound_email": {
           "title": "Correo entrante",
-          "hint": "El buzón corporativo recibe un mensaje autenticado.",
+          "hint": "El buzón del panel recibe un mensaje autenticado.",
           "email": "Correo para entrada",
           "push": "Push para entrada"
         },
@@ -2445,9 +2507,9 @@
       "queueMissing": "El envío está bloqueado porque la cola de correo no tiene protección cifrada configurada.",
       "queueInvalid": "El envío está bloqueado porque la protección cifrada de la cola de correo no es válida.",
       "outboundVerificationPending": "El envío está configurado, pero todavía no se ha registrado una entrega de UMF Support aceptada por el transporte de correo.",
-      "inboundAddressMissing": "La recepción está desactivada porque aún no se ha configurado una dirección para el buzón corporativo de UMF Support.",
-      "inboundDisabled": "La recepción está desactivada en el servidor. La dirección existe, pero Email Routing y su webhook corporativo todavía no están habilitados.",
-      "inboundInvalid": "La recepción está bloqueada porque la configuración del buzón corporativo es incompleta o no es válida.",
+      "inboundAddressMissing": "La recepción está desactivada porque aún no se ha configurado una dirección para el buzón de este panel de UMF Support.",
+      "inboundDisabled": "La recepción está desactivada en el servidor. La dirección existe, pero Email Routing y el webhook del panel todavía no están habilitados.",
+      "inboundInvalid": "La recepción está bloqueada porque la configuración del buzón del panel es incompleta o no es válida.",
       "inboundVerificationPending": "La recepción está configurada, pero todavía no se ha registrado ningún correo externo aceptado de extremo a extremo."
     },
     "notices": {
@@ -2460,6 +2522,7 @@
       "mailDraftSaved": "Borrador guardado de forma cifrada.",
       "mailScheduled": "El correo ha quedado programado en el servidor.",
       "mailQueued": "El correo ha entrado en la cola de salida.",
+      "mailAttachmentRemoved": "El adjunto se ha retirado del borrador.",
       "notificationSettingsSaved": "Preferencias de alertas actualizadas.",
       "pushEnabled": "Este dispositivo ya puede recibir Web Push de UMF Support.",
       "roleDelegated": "Delegación ofrecida; todavía no concede acceso.",
@@ -2468,7 +2531,9 @@
       "roleRenounced": "Permiso renunciado y revocado.",
       "roleSelfEnabled": "Acceso propio al módulo activado explícitamente.",
       "companyStaffAdded": "Persona incorporada a la plantilla sin permisos técnicos automáticos.",
-      "companyStaffRevoked": "Persona retirada de la plantilla y módulos devueltos a la cobertura vacante."
+      "companyStaffRevoked": "Persona retirada de la plantilla y módulos devueltos a la cobertura vacante.",
+      "commercialVerificationSent": "Se ha reenviado el código de verificación al correo de la cuenta comercial.",
+      "commercialVerificationQueued": "El nuevo código de verificación ha quedado en la cola de correo comercial."
     },
     "errors": {
       "load": "No se pudo cargar UMF Support.",
@@ -2483,7 +2548,8 @@
         "FORM_VERIFICATION_REQUIRED": "Vuelve a verificar el formulario antes de enviar o cancelar el correo.",
         "SUPPORT_RATE_LIMITED": "Se han realizado demasiadas operaciones seguidas. Espera un momento y vuelve a intentarlo.",
         "UNAUTHENTICATED": "La sesión de UMF Support ha caducado. Vuelve a iniciar sesión.",
-        "ACCOUNT_NOT_ACTIVE": "La cuenta corporativa no está activa.",
+        "ACCOUNT_NOT_ACTIVE": "La cuenta de UMF Support no está activa.",
+        "COMMERCIAL_TRIAL_ADMIN_NOT_PENDING": "La cuenta comercial ya no está pendiente de verificación o no corresponde a un alta administrativa de prueba.",
         "INTERNAL_ERROR": "UMF Support no pudo completar la operación por un error interno."
       }
     }

@@ -204,6 +204,31 @@ if [ -f "$ENV_FILE" ]; then
     fail "EMAIL_VERIFICATION_ENABLED debe ser true en produccion"
   fi
 
+  UMF_SUPPORT_EMAIL_INBOUND_ENABLED_VALUE=$(sed -n 's/^UMF_SUPPORT_EMAIL_INBOUND_ENABLED=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
+  case "$UMF_SUPPORT_EMAIL_INBOUND_ENABLED_VALUE" in
+    ""|false)
+      warn "buzon corporativo de UMF Support desactivado; el panel no recibira correo real"
+      ;;
+    true)
+      if grep -Eq '^EMAIL_PUBLIC_INBOUND_ENABLED=true$' "$ENV_FILE" && \
+        grep -Eiq '^EMAIL_PUBLIC_INBOUND_PROVIDER=cloudflare$' "$ENV_FILE"; then
+        pass "canal publico de entrada preparado para UMF Support"
+      else
+        fail "UMF Support requiere EMAIL_PUBLIC_INBOUND_ENABLED=true y proveedor cloudflare"
+      fi
+      for REQUIRED_ENV in UMF_SUPPORT_EMAIL_ADDRESS UMF_SUPPORT_EMAIL_REPLY_TOKEN_KEY UMF_SUPPORT_EMAIL_WEBHOOK_SECRET; do
+        if grep -Eq "^${REQUIRED_ENV}=.+" "$ENV_FILE"; then
+          pass "$REQUIRED_ENV configurado"
+        else
+          fail "$REQUIRED_ENV ausente para el buzon corporativo"
+        fi
+      done
+      ;;
+    *)
+      fail "UMF_SUPPORT_EMAIL_INBOUND_ENABLED debe ser true o false"
+      ;;
+  esac
+
   EMAIL_TRANSPORT_MODE_VALUE=$(sed -n 's/^EMAIL_TRANSPORT_MODE=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
   EMAIL_TRANSPORT_MODE_VALUE=${EMAIL_TRANSPORT_MODE_VALUE:-smtp}
 

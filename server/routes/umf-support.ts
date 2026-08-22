@@ -49,17 +49,20 @@ import {
   getUmfSupportRole,
   getUmfSupportTicket,
   listUmfSupportAdministratorAccounts,
+  listCommercialTrialAdministratorAccounts,
   listUmfSupportCollaborationSpaces,
   listUmfSupportMailbox,
   listUmfSupportMailDrafts,
   listUmfSupportStaff,
   listUmfSupportTickets,
   registerUmfSupportAccount,
+  resendCommercialTrialAdministratorVerification,
   replyToUmfSupportTicket,
   saveUmfSupportMailDraft,
   sendUmfSupportMailDraft,
   updateUmfSupportCollaborationSpace,
   updateUmfSupportStaff,
+  updateUmfSupportWorkspaceName,
   updateUmfSupportTicket,
   verifyUmfSupportRegistration,
 } from "../services/umf-support.js";
@@ -75,6 +78,13 @@ import {
   updateUmfSupportNotificationSettings,
 } from "../services/umf-support-notifications.js";
 import { ensureConfiguredCompanyHead } from "../services/company-head-designation.js";
+import { supportAttachmentAcceptedMimeTypes } from "../lib/support-attachment-policy.js";
+import {
+  deleteUmfSupportMailAttachment,
+  readUmfSupportMailAttachment,
+  storeUmfSupportMailAttachment,
+  umfSupportMailAttachmentLimitBytes,
+} from "../services/umf-support-mail-attachments.js";
 
 export const umfSupportRouter = express.Router();
 
@@ -431,6 +441,24 @@ umfSupportRouter.get("/capabilities", async (_req, res, next) => {
   }
 });
 
+umfSupportRouter.patch(
+  "/workspace",
+  supportMutationLimiter,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, ["workspaceName"]);
+      res.json(
+        await updateUmfSupportWorkspaceName(
+          getAuthenticatedUser(res),
+          req.body,
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 umfSupportRouter.get("/notification-settings", async (_req, res, next) => {
   try {
     res.json({
@@ -455,6 +483,78 @@ umfSupportRouter.put(
           req.body,
         ),
       );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.post(
+  "/mail/drafts/:draftId/attachments",
+  supportMutationLimiter,
+  express.raw({
+    type: supportAttachmentAcceptedMimeTypes,
+    limit: umfSupportMailAttachmentLimitBytes(),
+  }),
+  async (req, res, next) => {
+    try {
+      const fileName = req.get("X-File-Name");
+      if (!fileName) {
+        throw Object.assign(new Error("X-File-Name is required"), {
+          statusCode: 400,
+        });
+      }
+      res.status(201).json({
+        attachment: await storeUmfSupportMailAttachment(
+          getAuthenticatedUser(res),
+          req.params.draftId,
+          {
+            body: Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0),
+            fileName,
+            mimeType: req.get("Content-Type")?.split(";")[0] ?? "",
+          },
+        ),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.get(
+  "/mail/drafts/:draftId/attachments/:attachmentId",
+  async (req, res, next) => {
+    try {
+      const result = await readUmfSupportMailAttachment(
+        getAuthenticatedUser(res),
+        req.params.draftId,
+        req.params.attachmentId,
+      );
+      res.setHeader("Content-Type", result.attachment.mimeType);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename*=UTF-8''${encodeURIComponent(result.attachment.fileName)}`,
+      );
+      res.setHeader("Content-Length", String(result.body.length));
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.send(result.body);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.delete(
+  "/mail/drafts/:draftId/attachments/:attachmentId",
+  supportMutationLimiter,
+  async (req, res, next) => {
+    try {
+      await deleteUmfSupportMailAttachment(
+        getAuthenticatedUser(res),
+        req.params.draftId,
+        req.params.attachmentId,
+      );
+      res.status(204).end();
     } catch (error) {
       next(error);
     }
@@ -536,6 +636,42 @@ umfSupportRouter.post(
         req.params.userId,
       );
       res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.get(
+  "/commercial-trial-administrators",
+  async (_req, res, next) => {
+    try {
+      res.json({
+        accounts: await listCommercialTrialAdministratorAccounts(
+          getAuthenticatedUser(res),
+        ),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.post(
+  "/commercial-trial-administrators/:userId/resend-verification",
+  supportMutationLimiter,
+  requireRecentFormVerification,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, []);
+      res
+        .status(202)
+        .json(
+          await resendCommercialTrialAdministratorVerification(
+            getAuthenticatedUser(res),
+            req.params.userId,
+          ),
+        );
     } catch (error) {
       next(error);
     }

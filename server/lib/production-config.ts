@@ -10,6 +10,7 @@ import {
 import { emailVerificationIsEnabled } from "./account-verification-mode.js";
 import { validatePrivateContentEncryptionConfiguration } from "./private-content-crypto.js";
 import { resolveSupportEmailInboundConfiguration } from "./support-email-inbound.js";
+import { resolveUmfSupportEmailConfiguration } from "./umf-support-email.js";
 import { validateManagerConnectionCryptoConfiguration } from "./manager-connection-crypto.js";
 import { resolveStripeBillingConfiguration } from "./stripe-billing-config.js";
 
@@ -106,7 +107,19 @@ export function validateProductionConfiguration(
   const emailVerificationEnabled = emailVerificationIsEnabled(environment);
   const emailDelivery = resolveEmailDeliveryConfiguration(environment);
   resolveEmailQueueEncryptionKey(environment);
-  resolveSupportEmailInboundConfiguration(environment);
+  const facilitySupportEmail =
+    resolveSupportEmailInboundConfiguration(environment);
+  const corporateSupportEmail =
+    resolveUmfSupportEmailConfiguration(environment);
+  if (
+    facilitySupportEmail &&
+    corporateSupportEmail &&
+    facilitySupportEmail.address === corporateSupportEmail.address
+  ) {
+    throw new Error(
+      "SUPPORT_EMAIL_ADDRESS and UMF_SUPPORT_EMAIL_ADDRESS must be different when both inbound channels are enabled",
+    );
+  }
   validatePrivateContentEncryptionConfiguration(environment);
   validateManagerConnectionCryptoConfiguration(environment);
   resolveStripeBillingConfiguration(environment);

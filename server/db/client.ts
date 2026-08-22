@@ -2544,6 +2544,7 @@ async function initializeSqliteSchema(
     CREATE TABLE IF NOT EXISTS umfSupportStaff (
       userId TEXT PRIMARY KEY,
       role TEXT NOT NULL CHECK(role IN ('director', 'agent')),
+      workspaceName TEXT,
       status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked')),
       approvedByUserId TEXT,
       createdAt INTEGER NOT NULL,
@@ -2673,6 +2674,22 @@ async function initializeSqliteSchema(
     CREATE INDEX IF NOT EXISTS idx_umfSupportMailDrafts_author
       ON umfSupportMailDrafts(authorUserId, updatedAt DESC);
 
+    CREATE TABLE IF NOT EXISTS umfSupportMailAttachments (
+      id TEXT PRIMARY KEY,
+      draftId TEXT NOT NULL,
+      uploadedByUserId TEXT NOT NULL,
+      fileName TEXT NOT NULL,
+      mimeType TEXT NOT NULL,
+      sizeBytes INTEGER NOT NULL,
+      storageKey TEXT NOT NULL UNIQUE,
+      checksumSha256 TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      FOREIGN KEY(draftId) REFERENCES umfSupportMailDrafts(id) ON DELETE CASCADE,
+      FOREIGN KEY(uploadedByUserId) REFERENCES users(id) ON DELETE RESTRICT
+    );
+    CREATE INDEX IF NOT EXISTS idx_umfSupportMailAttachments_draft
+      ON umfSupportMailAttachments(draftId, createdAt);
+
     CREATE TABLE IF NOT EXISTS umfSupportNotificationPreferences (
       userId TEXT PRIMARY KEY,
       enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0, 1)),
@@ -2739,6 +2756,13 @@ async function initializeSqliteSchema(
     CREATE INDEX IF NOT EXISTS idx_stripeWebhookEvents_received
       ON stripeWebhookEvents(receivedAt DESC);
   `);
+
+  const supportStaffColumns = sqliteDb
+    .prepare("PRAGMA table_info(umfSupportStaff)")
+    .all() as Array<{ name: string }>;
+  if (!supportStaffColumns.some((column) => column.name === "workspaceName")) {
+    sqliteDb.exec("ALTER TABLE umfSupportStaff ADD COLUMN workspaceName TEXT");
+  }
 
   const accessRequestColumns = sqliteDb
     .prepare("PRAGMA table_info(umfSupportAccessRequests)")

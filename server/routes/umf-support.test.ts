@@ -136,6 +136,52 @@ describe("UMF Support corporate API", () => {
     });
     expect(login.status).toBe(401);
     expect(login.headers["set-cookie"]).toBeUndefined();
+
+    await request(app)
+      .get("/api/umf-support/capabilities")
+      .set("Cookie", directorCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.capabilities).toMatchObject({
+          canManageCommercialTrials: true,
+          isPlatformHead: true,
+          workspaceName: null,
+        });
+      });
+    await request(app)
+      .patch("/api/umf-support/workspace")
+      .set("Cookie", directorCookie)
+      .send({ workspaceName: "Panel de trabajo de Javi" })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.workspaceName).toBe("Panel de trabajo de Javi");
+      });
+    await request(app)
+      .get("/api/umf-support/capabilities")
+      .set("Cookie", directorCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.capabilities.workspaceName).toBe(
+          "Panel de trabajo de Javi",
+        );
+      });
+    await request(app)
+      .get("/api/umf-support/commercial-trial-administrators")
+      .set("Cookie", directorCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.accounts).toContainEqual(
+          expect.objectContaining({
+            userId: "tenant-admin-only",
+            email: "tenant-admin@example.com",
+            pendingProvisioning: null,
+            trial: null,
+          }),
+        );
+        expect(body.accounts).not.toContainEqual(
+          expect.objectContaining({ userId: "umf-director" }),
+        );
+      });
   });
 
   it("creates an agent account after mailbox verification without preauthorization", async () => {
@@ -502,6 +548,68 @@ describe("UMF Support corporate API", () => {
         }),
       ]),
     );
+  });
+
+  it("keeps corporate mail attachments encrypted, authenticated and GIF-free", async () => {
+    const created = await request(app)
+      .post("/api/umf-support/mail/drafts")
+      .set("Cookie", directorCookie)
+      .send({
+        to: ["attachment@example.net"],
+        cc: [],
+        bcc: [],
+        subject: "Documentación solicitada",
+        body: "Adjuntamos el documento solicitado.",
+      })
+      .expect(201);
+    const draftId = created.body.draft.id as string;
+    const body = Buffer.from("%PDF-1.7\nUMF Support test document");
+    const uploaded = await request(app)
+      .post(`/api/umf-support/mail/drafts/${draftId}/attachments`)
+      .set("Cookie", directorCookie)
+      .set("Content-Type", "application/pdf")
+      .set("X-File-Name", "informe.pdf")
+      .send(body)
+      .expect(201);
+    expect(uploaded.body.attachment).toMatchObject({
+      draftId,
+      fileName: "informe.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: body.length,
+    });
+    expect(uploaded.body.attachment.storageKey).toBeUndefined();
+
+    const stored = await database.db
+      .selectFrom("umfSupportMailAttachments")
+      .select(["id", "storageKey", "checksumSha256"])
+      .where("id", "=", uploaded.body.attachment.id)
+      .executeTakeFirstOrThrow();
+    expect(stored.storageKey).not.toContain("informe.pdf");
+    expect(stored.checksumSha256).toMatch(/^[a-f0-9]{64}$/);
+
+    await request(app)
+      .get(
+        `/api/umf-support/mail/drafts/${draftId}/attachments/${uploaded.body.attachment.id}`,
+      )
+      .expect(401);
+    const downloaded = await request(app)
+      .get(
+        `/api/umf-support/mail/drafts/${draftId}/attachments/${uploaded.body.attachment.id}`,
+      )
+      .set("Cookie", directorCookie)
+      .expect("Content-Type", /application\/pdf/)
+      .expect("X-Content-Type-Options", "nosniff")
+      .expect(200);
+    expect(downloaded.headers["content-disposition"]).toContain("attachment;");
+    expect(Buffer.from(downloaded.body)).toEqual(body);
+
+    await request(app)
+      .post(`/api/umf-support/mail/drafts/${draftId}/attachments`)
+      .set("Cookie", directorCookie)
+      .set("Content-Type", "image/gif")
+      .set("X-File-Name", "animacion.gif")
+      .send(Buffer.from("GIF89a"))
+      .expect(400);
   });
 
   it("authenticates, classifies and deduplicates privacy email", async () => {

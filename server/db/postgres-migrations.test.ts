@@ -85,6 +85,16 @@ describe("PostgreSQL migrations", () => {
       '"enabled" INTEGER NOT NULL DEFAULT 0',
     );
     expect(notificationMigration).toContain('"subscriptionProtected" TEXT');
+    const attachmentMigration = postgresMigrationSql().find((sql) =>
+      sql.includes('CREATE TABLE IF NOT EXISTS "umfSupportMailAttachments"'),
+    );
+    expect(attachmentMigration).toContain('"draftId" TEXT NOT NULL');
+    expect(attachmentMigration).toContain('"storageKey" TEXT NOT NULL UNIQUE');
+    expect(attachmentMigration).toContain('"checksumSha256" TEXT NOT NULL');
+    const workspaceMigration = postgresMigrationSql().find((sql) =>
+      sql.includes('ADD COLUMN IF NOT EXISTS "workspaceName"'),
+    );
+    expect(workspaceMigration).toContain('ALTER TABLE "umfSupportStaff"');
   });
 
   it("keeps legacy activity identifiers out of the resulting schema", () => {

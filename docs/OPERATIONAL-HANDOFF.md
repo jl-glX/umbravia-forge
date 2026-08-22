@@ -96,6 +96,14 @@ historial de trabajo.
   `company:reset-support-identity` funciona primero en simulación, conserva
   expresamente la identidad comercial y se bloquea ante otra persona o
   jefatura no declarada.
+- La interfaz ya no presenta esa compatibilidad como organigrama: UMF Support
+  se muestra como un panel de trabajo individual cuyo nombre puede editar cada
+  persona con acceso activo. La migración PostgreSQL 50 añade
+  `umfSupportStaff.workspaceName`; un valor nulo conserva el nombre localizado
+  predeterminado y no cambia permisos. `director`/`agent` quedan registrados
+  como deuda técnica interna y no deben ampliarse; su retirada futura exige
+  sustituirlos por propiedad del panel y capacidades explícitas sin romper el
+  bootstrap ni las autorizaciones existentes.
 - La terminal web/API de gestores y su tabla de credenciales se retiran. Los
   gestores son infraestructura interna compartida y disponen de un único
   administrador local Linux; cada flujo debe marcarse expresamente como
@@ -126,13 +134,30 @@ historial de trabajo.
   no forma parte de la plantilla de UMF Support.
 - UMF Support incorpora tickets, entrada, borradores, programados, salida y
   enviados; Para/CC/CCO; hiperenlaces HTTPS o `mailto:` saneados; contenido y
-  borradores cifrados; categoría de privacidad y un webhook firmado. Las
+  borradores cifrados; categoría de privacidad y un webhook firmado. La barra
+  superior incorpora un menú de funciones para que la jefatura consulte las
+  altas administrativas comerciales de prueba y reenvíe su verificación sin
+  conceder permisos comerciales a la identidad corporativa. Las
   alertas por tickets, conversaciones, entrada, retroalimentación e informes
   son preferencias personales y comienzan desactivadas. El correo es el canal
   prioritario; Web Push es opcional y requiere VAPID y autorización por
   dispositivo. Las migraciones 47 y 48 y el puente de datos cubren las tablas
   nuevas, pero el código y las pruebas no demuestran que el esquema vivo,
   buzón, DNS, Worker, SMTP, rebotes, push o entregabilidad estén configurados.
+- La migración PostgreSQL 49 incorpora adjuntos salientes cifrados para el
+  correo corporativo. Su tabla, almacenamiento y autorización están separados
+  de los adjuntos de Forge Support de cada centro. La política común comprueba
+  extensión y MIME, rechaza GIF y ejecutables y limita cada archivo y borrador.
+  PDF e imágenes raster compatibles se previsualizan mediante descarga
+  autenticada, `nosniff` y un visor no ejecutable; SVG, HTML, comprimidos y
+  formatos sin renderizador seguro requieren descarga explícita. El webhook
+  entrante todavía rechaza mensajes con adjuntos y no debe presentarse como una
+  ingesta ya implementada.
+- La actividad de seguridad visible conserva los últimos treinta días. La
+  consulta aplica el mismo límite temporal y el planificador horario de ciclo
+  de vida elimina del historial general los `securityEvents` anteriores, sin
+  crear un temporizador adicional ni convertir este registro de producto en un
+  archivo operativo indefinido.
 - La preparación del correo corporativo se informa por sentido. El estado
   saliente separa transporte y cola cifrada; el entrante separa dirección,
   Email Routing, webhook y validez de configuración. Una entrega enviada con
@@ -140,6 +165,10 @@ historial de trabajo.
   operativa independiente, pero no sustituyen la prueba humana en el buzón
   final. La interfaz ya no presenta como fallo del envío una carencia exclusiva
   de recepción ni oculta una configuración inválida bajo un aviso genérico.
+  La dirección mostrada se toma exclusivamente de
+  `UMF_SUPPORT_EMAIL_ADDRESS`; nunca reutiliza `SUPPORT_EMAIL_ADDRESS`, que
+  pertenece al soporte de los centros. Habilitar la entrada exige además los
+  interruptores públicos, Email Routing y secretos corporativos exclusivos.
 - La política de privacidad mantenida está en `docs/PRIVACY-POLICY.md`, pero
   sigue pendiente completar el canal verificado, el domicilio publicable, el
   inventario de encargados y transferencias, los criterios de conservación y
@@ -171,7 +200,7 @@ historial de trabajo.
   vigente del correo y las alertas está en
   `docs/UMF-SUPPORT-MAIL-AND-NOTIFICATIONS-AUDIT-2026-08-22.md`. En esta sesión,
   `npm run ci:validate` pasó 49 controles de portabilidad, formato, lint, los
-  tres `typecheck`, 117 archivos con 573 pruebas favorables y una prueba POSIX
+  tres `typecheck`, 119 archivos con 579 pruebas favorables y una prueba POSIX
   omitida por ejecutarse en Windows, las tres compilaciones, el paquete Windows
   y la auditoría de dependencias. La validación remota de cada publicación y la
   comprobación del entorno desplegado siguen siendo controles independientes.

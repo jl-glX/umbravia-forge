@@ -116,18 +116,30 @@ session controls, rate limiting and monitoring remain independent layers.
   end-to-end encrypted.
 - Forge Support authorization, private attachments, staff-only notes and an
   auditable ticket event history.
-- UMF Support closed registration. The first head is limited to a mailbox hash
-  designated outside the repository; later accounts require an exact
-  preauthorization created by active direction. Registration creates an
-  independent corporate password and a pending `corporate_support` identity;
-  the ordinary hashed mailbox-verification challenge must complete before the
-  preauthorized role is materialized. Unknown addresses create no retained
-  onboarding record. Historical activation-code rows authorize nothing in the
-  current flow. MFA-compatible sign-in, encrypted message bodies,
+- UMF Support self-registration creates an independent corporate password and
+  `corporate_support` identity and requires the ordinary hashed
+  mailbox-verification challenge. Verification grants only access to the
+  account's own security centre; it does not create support staff, a company
+  position, facility membership or commercial authority. Active direction
+  must approve later administrators. The first head is the sole exception and
+  is limited to a mailbox hash designated outside the repository. Historical
+  preauthorization and activation-code rows authorize nothing in the current
+  flow. MFA-compatible sign-in, encrypted message bodies,
   HMAC-authenticated inbound email and security events remain independent
   controls. Corporate registration creates no facility membership, never
   transfers authority from a commercial identity and fails closed in
   production when private-content encryption is not active.
+- Corporate mail attachments and centre ticket attachments use separate
+  tables, storage domains and authorization. Extension and MIME must both
+  match an explicit allowlist; GIF and executable formats are rejected. PDF
+  and compatible raster previews are served only after authorization with
+  `nosniff` and isolated rendering. Inbound corporate messages with
+  attachments remain rejected until an equivalent ingestion path is built and
+  validated.
+- Account-facing security activity is bounded to thirty days. The existing
+  hourly lifecycle scheduler purges older `securityEvents` for every event
+  type; this is a product-history retention rule, not a substitute for any
+  separate operational or legal evidence that must be retained elsewhere.
 - Manager administration is not exposed in either web application. One local
   Linux administrator serves the shared manager infrastructure and every
   operation must carry an explicit `commercial` or `support` scope. It rejects

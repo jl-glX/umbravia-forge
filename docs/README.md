@@ -30,14 +30,18 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Núcleo de gestores](./MANAGER-CORE.md)
 - [Forge Analytics](./FORGE-ANALYTICS.md)
 - [Forge Support](./FORGE-SUPPORT.md)
-- [UMF Support corporativo](./UMF-SUPPORT.md), incluidas las cuentas
-  corporativas verificadas con centro de seguridad limitado antes de la
+- [UMF Support y su panel de trabajo](./UMF-SUPPORT.md), incluidas las cuentas
+  independientes verificadas con centro de seguridad limitado antes de la
   aprobación humana, el bootstrap único de la jefatura configurada y su
-  herramienta local de recuperación, los espacios de
+  herramienta local de recuperación, el panel de trabajo individual con nombre
+  editable, la compatibilidad interna `director`/`agent` documentada como deuda
+  técnica, los espacios de
   colaboración de privilegio reducido, el panel de correo con preparación y
-  evidencia operativa separadas para entrada y salida, las alertas
-  configurables, los realms independientes y el saneamiento que preserva la
-  cuenta comercial y sus solicitudes de borrado
+  evidencia operativa separadas para entrada y salida, los adjuntos salientes
+  cifrados y aislados de cada centro, la administración limitada de altas
+  comerciales de prueba, las alertas configurables, el historial de seguridad
+  limitado a treinta días, los realms independientes y el saneamiento que
+  preserva la cuenta comercial y sus solicitudes de borrado
 - [Forge Notify](./FORGE-NOTIFY.md), incluida la separación persistente de
   entregas y señales entre `commercial` y `support`
 - [Gestor de bases y entornos](./DATABASE-ENVIRONMENT-MANAGER.md)
