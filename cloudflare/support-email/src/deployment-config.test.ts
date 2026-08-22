@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 interface WranglerConfig {
   name: string;
   main: string;
+  compatibility_flags?: string[];
   observability?: {
     enabled?: boolean;
     head_sampling_rate?: number;
@@ -30,6 +31,7 @@ describe("Cloudflare email Worker deployment boundaries", () => {
     expect(umfSupport).toMatchObject({
       name: "umbravia-forge-umf-support-email",
       main: "support-email/src/index.ts",
+      compatibility_flags: ["global_fetch_strictly_public"],
       observability: {
         enabled: true,
         head_sampling_rate: 1,
