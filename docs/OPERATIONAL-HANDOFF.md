@@ -177,6 +177,11 @@ historial de trabajo.
   Access; el endpoint se guarda como variable de ejecución y el secreto del
   webhook como secreto de ejecución. Esta preparación versionada no demuestra
   que el Worker, su regla de Email Routing o el flujo real estén activos.
+- La entrega desde el Worker corporativo hacia el webhook público de la misma
+  zona requiere `global_fetch_strictly_public`. Sin ese indicador, Cloudflare
+  detiene la subsolicitud antes de obtener estado HTTP y el registro queda en
+  `application_delivery`; su presencia está fijada por una prueba de
+  configuración.
 - La instancia corporativa activa Workers Logs con muestreo completo durante
   la validación inicial. Los fallos se clasifican por etapa y, cuando el
   webhook responde, por estado HTTP, sin registrar correo, asunto, cuerpo,

@@ -358,6 +358,13 @@ de ejecución: tras crear el Worker, `SUPPORT_INBOUND_ENDPOINT` se configura
 como variable y `SUPPORT_INBOUND_WEBHOOK_SECRET` como secreto en
 `Settings > Variables and Secrets`.
 
+Como el webhook público vive en la misma zona de Cloudflare que el Worker, la
+configuración versionada activa `global_fetch_strictly_public`. Esta barrera
+obliga a que `fetch()` alcance el endpoint HTTPS público de la aplicación en
+lugar de intentar una llamada Worker-a-Worker implícita. Retirarla deja el
+mensaje en `application_delivery` sin que exista una respuesta HTTP del
+servidor.
+
 La configuración versionada activa Workers Logs con muestreo completo durante
 esta primera validación operativa. Un rechazo registra solo la etapa
 `endpoint_configuration`, `message_validation`, `webhook_signing` o
