@@ -268,6 +268,7 @@ authRouter.post(
         verificationCode = challenge.code;
         const deliveryId = await queueEmailVerificationCode({
           userId: user.id,
+          platformScope: "commercial",
           email: user.email,
           name: user.name,
           code: challenge.code,
@@ -325,6 +326,7 @@ authRouter.post(
       const challenge = await createEmailVerificationChallenge(userId);
       const deliveryId = await queueEmailVerificationCode({
         userId,
+        platformScope: "commercial",
         ...profile,
         code: challenge.code,
         expiresAt: challenge.expiresAt,

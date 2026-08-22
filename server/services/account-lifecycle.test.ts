@@ -263,7 +263,9 @@ describe("account lifecycle", () => {
       "Commercial Identity",
       "CommercialPassword123",
     );
-    const corporate = await auth.createCorporateSupportAccount(
+    const { createActiveCorporateSupportTestAccount } =
+      await import("../testing/corporate-support-fixtures.js");
+    const corporate = await createActiveCorporateSupportTestAccount(
       email,
       "Corporate Identity",
       "CorporatePassword123",
@@ -334,7 +336,9 @@ describe("account lifecycle", () => {
       "Commercial Pending Deletion",
       "CommercialPassword123",
     );
-    const corporate = await auth.createCorporateSupportAccount(
+    const { createActiveCorporateSupportTestAccount } =
+      await import("../testing/corporate-support-fixtures.js");
+    const corporate = await createActiveCorporateSupportTestAccount(
       email,
       "Corporate Login",
       "CorporatePassword123",
@@ -391,7 +395,9 @@ describe("account lifecycle", () => {
   });
 
   it("rejects the commercial deletion workflow for a corporate identity", async () => {
-    const corporate = await auth.createCorporateSupportAccount(
+    const { createActiveCorporateSupportTestAccount } =
+      await import("../testing/corporate-support-fixtures.js");
+    const corporate = await createActiveCorporateSupportTestAccount(
       "lifecycle-corporate-only@example.com",
       "Corporate Only",
       "CorporatePassword123",

@@ -99,27 +99,31 @@ scoped to the user, stored as hashes, expire after 15 minutes and stop after
 five failures. Production rejects a configuration that disables this control
 or lacks SMTP and queue encryption.
 
-## Corporate support role request and activation
+## Closed corporate support registration
 
-UMF Support does not use the sports-centre signup path. Its public request
-collects the applicant's name, surname, email address and requested support
-role. It creates neither an account nor a password. A director reviews the
-declared identity and requested role before a bounded code is sent to the
-supplied mailbox. The name fields associate a person with the request; they do
-not verify ownership of the address or grant authority.
+UMF Support does not use sports-centre signup and does not accept a public role
+request. Registration is allowlist-based. Before the first corporate account
+exists, only the normalized mailbox whose SHA-256 is configured outside the
+repository may register. Afterwards, an active director must preauthorize the
+exact email address, name, surname, locale and support role.
 
-Activation requires the same normalized email, a newly created strong password
-with local confirmation and the bounded code sent after approval. The
-designated first company head receives that code automatically only through
-the externally configured address; every later account requires manual review.
-A successful activation marks the mailbox as verified because the code was
-delivered there, creates the approved corporate support role and creates no
-`facilityMemberships` row.
+Registration creates only a `corporate_support` user in
+`pending_verification`, a separate password and a corporate session. A normal
+six-digit mailbox challenge activates the user and materializes the
+preauthorized support role. The challenge is hashed, expires after fifteen
+minutes and stops after five failed attempts. An uninvited email creates no
+user, role request or queued delivery.
 
-Migration 45 keeps old pending pre-enrolments usable by copying their activation
-kind to the role request. Their former password hash is transitional legacy
-data only: it is not compared with the new password and is removed when the
-request is consumed, rejected or cleaned up.
+The commercial account lifecycle is not consulted or mutated by this flow.
+Commercial passwords, sessions, recovery, memberships and deletion requests
+remain independent. In particular, signing in to or verifying UMF Support
+cannot cancel a scheduled commercial deletion.
+
+Historical pre-enrolment and 24-hour activation-code rows remain schema-level
+migration evidence only. Current routes and services neither issue nor consume
+them. The audited reset tool can remove retained corporate onboarding data and
+misplaced support relations while preserving every commercial account row and
+commercial lifecycle record.
 
 ## Reported account compromise
 

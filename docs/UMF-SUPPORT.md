@@ -45,19 +45,16 @@ decisión explícita, firma y nueva validación humana; véase
 
 - inicio de sesión específico en el portal `support`, incluido el segundo
   factor cuando la cuenta lo tiene activo;
-- inicialización única de la jefatura desde una solicitud de rol cuyo correo
-  está designado fuera del repositorio mediante el SHA-256 normalizado;
-- solicitud pública de rol protegida frente a abuso, con nombre, apellidos,
-  correo y rol solicitado, sin crear aún una cuenta ni aceptar una contraseña;
-- aprobación o rechazo manual por dirección;
-- código numérico de activación de un solo uso, válido durante 24 horas, con
-  cinco intentos como máximo y persistido únicamente como hash;
-- creación y confirmación de la contraseña definitiva exclusivamente durante
-  la activación, una vez aprobado el rol;
-- activación condicionada a que el correo y el código correspondan a la misma
-  solicitud aprobada; el código recibido en el buzón verifica su control;
-- creación de cuenta solo después de consumir una solicitud aprobada y aceptar
-  expresamente términos y privacidad;
+- registro cerrado: una dirección no preautorizada no crea cuenta, solicitud,
+  contraseña retenida ni correo en cola;
+- inicialización única de la primera jefatura únicamente para el correo cuyo
+  SHA-256 normalizado está designado fuera del repositorio;
+- contraseña corporativa creada en el registro y reto ordinario de verificación
+  del buzón, con código de seis cifras, hash en reposo, quince minutos de
+  vigencia y cinco intentos;
+- preautorización posterior creada por dirección con correo, nombre, apellidos,
+  idioma y rol exactos; la persona invitada no puede modificar el rol ni la
+  identidad declarada al registrarse;
 - personal corporativo con roles `director` y `agent`, revocable sin alterar
   las membresías de centros;
 - directorio de plantilla con cargos empresariales separados de la
@@ -74,36 +71,33 @@ decisión explícita, firma y nueva validación humana; véase
   credenciales de proveedor;
 - receptor servidor-a-servidor con firma HMAC reciente, deduplicación por
   `Message-ID`, rechazo de adjuntos y alias de respuesta ligados al ticket y al
-  correo solicitante.
-- eventos de seguridad sin correos en claro para solicitudes, aprobaciones,
-  rechazos, activaciones fallidas o completadas y cambios de personal;
-- registro de acceso al contenido privado al abrir tickets o bandejas;
-- cambio del correo de acceso mediante contraseña actual y código de seis
-  cifras enviado al nuevo buzón, con aviso al anterior e invalidación de las
-  demás sesiones y de retos temporales anteriores.
+  correo solicitante;
+- eventos de seguridad sin correos en claro para invitaciones, registros,
+  verificaciones, cambios de personal y accesos al contenido privado;
+- cambio del correo de acceso mediante contraseña actual y código enviado al
+  nuevo buzón, con aviso al anterior e invalidación de las demás sesiones y de
+  retos temporales anteriores.
 
 La dirección de UMF Support exige simultáneamente una fila activa de director
 en `umfSupportStaff` y el cargo activo de jefatura en
 `companyStaffProfiles`. `platformOperators` queda reservado a la autoridad de
 la plataforma comercial y no permite iniciar sesión ni autorizar operaciones
-corporativas. No se fija en el código el nombre, el correo ni una contraseña de
-una persona concreta. Mientras no haya existido nunca personal ni reclamación
-de jefatura, la solicitud cuyo correo coincida con
-`UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256` queda aprobada automáticamente y
-recibe el código de activación en ese buzón. Consumirlo exige volver a escribir
-el mismo correo, crear una contraseña definitiva y escribir el código; entonces se crean la
-identidad corporativa, la dirección de soporte y la jefatura en el flujo
-controlado. Una fila singleton en `corporateBootstrapState` cierra para siempre
-esta excepción, incluso si después se revocan o eliminan roles. Las
-incorporaciones posteriores necesitan aprobación y no pueden autoasignarse
-dirección. El arranque desde una cuenta activa y verificada se conserva solo
-como compatibilidad y recuperación controlada.
+corporativas. Ninguna ruta de soporte consulta una contraseña, cookie,
+membresía o solicitud de eliminación comercial para completar el alta.
 
-El modelo separa cuenta, pertenencia, cargo y permiso. Esta frontera sigue el
-patrón habitual de mesas de ayuda con agentes habilitados, equipos, roles y
-permisos granulares: disponer de identidad no concede lectura de tickets,
-correo o administración. UMF Support puede ampliar su zona básica y sus
-módulos sin convertir el registro de una cuenta en un permiso global.
+Mientras no exista `corporateBootstrapState`, personal corporativo ni plantilla
+corporativa, el correo que coincide con
+`UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256` puede registrarse. El código enviado
+al buzón verifica el correo y solo entonces se crean la dirección de soporte y
+el cargo `platform_head`. Si ya existe cualquier inicialización corporativa,
+la excepción falla cerrada: no traslada autoridad desde una cuenta comercial
+ni ofrece un camino de recuperación por compatibilidad.
+
+Las incorporaciones posteriores comienzan en el panel de dirección. La
+preautorización fija correo, nombre, apellidos y rol. La persona invitada crea
+su contraseña en la pantalla de registro y verifica ese mismo buzón. Disponer
+de una identidad `corporate_support` no concede acceso hasta que la
+verificación haya materializado la pertenencia autorizada.
 
 ## Plantilla, módulos y delegaciones
 
@@ -149,51 +143,46 @@ trazabilidad, revoca sus asignaciones técnicas activas y retira sus delegacione
 pendientes o aceptadas; los módulos vuelven entonces a la cobertura vacante.
 La jefatura inicial no puede modificarse desde este flujo ordinario.
 
-La vía normal de incorporación parte de `Solicitar`: registra nombre,
-apellidos, correo y el rol pedido, sin contraseña. Tras la aprobación,
-`Activar` exige el correo, una contraseña nueva confirmada y el código enviado
-al buzón. El nombre declarado permite relacionar la solicitud con el rol, pero
-no sustituye la prueba de control del correo ni concede permisos. La identidad resultante no
-recibe ningún registro en `facilityMemberships`; compartir infraestructura de
-sesiones no la convierte en cuenta de un centro.
+La vía normal de incorporación posterior parte de una invitación creada por
+dirección. No existe una solicitud pública de rol ni una pantalla que permita
+a una persona elegir sus propios permisos. La invitación no guarda contraseña:
+solo preautoriza la identidad declarada y el rol. El registro crea una fila
+`corporate_support` pendiente, una contraseña independiente y una sesión
+corporativa; la verificación del buzón activa la cuenta y materializa el rol
+preautorizado. Nunca se crea una fila en `facilityMemberships`.
 
-La migración PostgreSQL 45 y la migración equivalente de SQLite trasladan
-`requestedRole` y `activationKind` a la solicitud. La tabla
-`umfSupportAccessCredentials` queda únicamente como compatibilidad transitoria
-para prealtas antiguas no consumidas: las solicitudes nuevas no escriben en
-ella y su hash anterior no decide la contraseña final. El rechazo, el consumo
-o la limpieza eliminan cualquier fila heredada que todavía exista.
+La migración PostgreSQL 45 y la equivalente de SQLite mantienen legibles las
+solicitudes históricas para trazabilidad y saneamiento. El flujo vigente no
+lee ni escribe `umfSupportAccessCredentials`, no emite códigos de activación de
+24 horas y no traslada relaciones desde usuarios `commercial`. Las rutas
+públicas antiguas de solicitud y activación, los comandos de provisión y
+reanudación y sus servicios ejecutables se han retirado.
 
-Como recuperación operativa controlada se conserva el comando sobre una cuenta
-existente, activa y con correo verificado. Es una simulación mientras no se
-añada `--apply`, exige repetir el mismo correo y falla si detecta otra persona
-activa en la plantilla:
+## Saneamiento de una identidad corporativa anterior
 
-```text
-npm run company:provision-head -- --email <cuenta> --confirm-email <cuenta>
-npm run company:provision-head -- --email <cuenta> --confirm-email <cuenta> --apply
-```
+El reinicio operativo es deliberadamente distinto de una migración o una
+fusión de cuentas. Su simulación identifica únicamente la identidad
+`corporate_support`, sus retos/sesiones por cascada, las invitaciones del
+correo, entregas `platformScope = support` y relaciones corporativas. De forma
+opcional puede retirar relaciones de soporte que una versión histórica dejó en
+un usuario `commercial`, pero la fila comercial, sus credenciales,
+membresías, solicitudes de eliminación, datos de centro y
+`platformOperators` se conservan.
 
-El resultado inicial es una única persona con cargo visible `platform_head` y
-dirección de UMF Support, sin crear autoridad comercial. El comando no
-crea cuentas ni contraseñas, no imprime secretos y no usa el cargo empresarial
-como fuente de autorización.
-Tanto la vía web como el comando consumen el marcador permanente de
-inicialización.
-
-Si ya existe una solicitud pendiente del correo designado pero la autoridad de
-jefatura sigue ligada por error a una identidad comercial histórica, el flujo
-de recuperación se comprueba primero sin cambios y solo después se aplica:
+El comando solo admite PostgreSQL configurado explícitamente, exige repetir los
+correos y funciona en simulación salvo que se añada `--apply`:
 
 ```text
-npm run company:resume-head-activation -- --email <correo-corporativo> --confirm-email <correo-corporativo>
-npm run company:resume-head-activation -- --email <correo-corporativo> --confirm-email <correo-corporativo> --apply
+npm run company:reset-support-identity -- --corporate-email <correo-soporte> --confirm-corporate-email <correo-soporte>
+npm run company:reset-support-identity -- --corporate-email <correo-soporte> --confirm-corporate-email <correo-soporte> --legacy-commercial-email <correo-comercial-con-relaciones-mal-ubicadas> --confirm-legacy-commercial-email <mismo-correo-comercial>
 ```
 
-El comando no crea contraseñas ni muestra el código; renueva la aprobación,
-encola el código al correo corporativo y la interfaz web completa la activación.
-La migración de autoridad se produce únicamente al consumir correctamente ese
-código y no modifica el realm de la cuenta comercial de origen.
+Solo después de revisar el JSON de simulación se repite el comando exacto con
+`--apply`. Falla sin modificar datos si detecta otra persona corporativa, si
+la jefatura pertenece a una identidad distinta de las declaradas o si no puede
+resolver con precisión el propietario del estado. Tras el saneamiento, la
+primera jefatura se registra desde cero con el correo designado y verifica su
+buzón por el flujo web vigente.
 
 ## Flujo de una solicitud de privacidad
 
@@ -264,8 +253,9 @@ GET    /api/umf-support/distribution
 GET    /api/umf-support/recovery/capabilities
 POST   /api/umf-support/recovery/request
 POST   /api/umf-support/recovery/reset-password
-POST   /api/umf-support/access-requests
-POST   /api/umf-support/activate
+POST   /api/umf-support/register
+POST   /api/umf-support/verify-email
+POST   /api/umf-support/resend-verification
 POST   /api/umf-support/login
 POST   /api/umf-support/mfa/verify
 POST   /api/umf-support/passkeys/options
@@ -274,8 +264,7 @@ GET    /api/umf-support/session
 POST   /api/umf-support/logout
 GET    /api/umf-support/capabilities
 GET    /api/umf-support/access-requests
-POST   /api/umf-support/access-requests/:requestId/approve
-POST   /api/umf-support/access-requests/:requestId/reject
+POST   /api/umf-support/access-requests/invite
 GET    /api/umf-support/staff
 PATCH  /api/umf-support/staff/:userId
 GET    /api/umf-support/company-staff

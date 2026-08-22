@@ -15,11 +15,12 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import {
-  activateAccount,
   beginSupportPasskey,
   finishSupportPasskey,
   loginSupport,
-  requestAccess,
+  registerSupportAccount,
+  resendSupportVerification,
+  verifySupportEmail,
   verifySupportMfa,
 } from "../lib/umf-support";
 import { isPasswordWithinHashLimit } from "../lib/passwordPolicy";
@@ -30,7 +31,7 @@ import {
   startAuthentication,
 } from "@simplewebauthn/browser";
 
-type Mode = "login" | "request" | "activate";
+type Mode = "login" | "register" | "verify";
 type AuthenticationOptions = Parameters<
   typeof startAuthentication
 >[0]["optionsJSON"];
@@ -42,9 +43,6 @@ export function UmfSupportAccessPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [requestedRole, setRequestedRole] = useState<"agent" | "director">(
-    "agent",
-  );
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [code, setCode] = useState("");
@@ -95,22 +93,7 @@ export function UmfSupportAccessPage() {
           return;
         }
         await finishSupportLogin();
-      } else if (mode === "request") {
-        await requestAccess({
-          email,
-          name,
-          lastName,
-          requestedRole,
-          locale: i18n.resolvedLanguage ?? "es",
-          captchaToken,
-        });
-        setNotice(t("umfSupportAccess.requestAccepted"));
-        setMode("activate");
-        setPassword("");
-        setConfirmPassword("");
-        setCaptchaToken("");
-        setCaptchaResetSignal((value) => value + 1);
-      } else {
+      } else if (mode === "register") {
         if (password !== confirmPassword) {
           throw new Error("UMF_SUPPORT_PASSWORD_MISMATCH");
         }
@@ -123,15 +106,31 @@ export function UmfSupportAccessPage() {
         ) {
           throw new Error("UMF_SUPPORT_PASSWORD_POLICY");
         }
-        await activateAccount({
+        const registration = await registerSupportAccount({
           email,
-          code,
+          name,
+          lastName,
           password,
           countryCode,
+          locale: i18n.resolvedLanguage ?? "es",
           acceptedTerms,
           acceptedPrivacy,
           captchaToken,
         });
+        setNotice(
+          t(
+            registration.verificationEmailSent
+              ? "umfSupportAccess.verificationSent"
+              : "umfSupportAccess.verificationQueued",
+          ),
+        );
+        setMode("verify");
+        setPassword("");
+        setConfirmPassword("");
+        setCaptchaToken("");
+        setCaptchaResetSignal((value) => value + 1);
+      } else {
+        await verifySupportEmail(code);
         navigate("/umf-support", { replace: true });
       }
     } catch (cause) {
@@ -143,8 +142,12 @@ export function UmfSupportAccessPage() {
       const translatedErrors: Record<string, string> = {
         UMF_SUPPORT_PASSWORD_MISMATCH: t("umfSupportAccess.passwordMismatch"),
         UMF_SUPPORT_PASSWORD_POLICY: t("auth.passwordPolicy"),
-        UMF_SUPPORT_ACTIVATION_INVALID: t("umfSupportAccess.activationInvalid"),
-        UMF_SUPPORT_ROLE_INVALID: t("umfSupportAccess.roleInvalid"),
+        UMF_SUPPORT_EMAIL_VERIFICATION_INVALID: t(
+          "umfSupportAccess.verificationInvalid",
+        ),
+        UMF_SUPPORT_REGISTRATION_UNAVAILABLE: t(
+          "umfSupportAccess.registrationClosed",
+        ),
       };
       setError(
         translatedErrors[errorKey] ||
@@ -196,6 +199,32 @@ export function UmfSupportAccessPage() {
     }
   };
 
+  const resendVerification = async () => {
+    setWorking(true);
+    setError("");
+    setNotice("");
+    try {
+      const delivery = await resendSupportVerification();
+      setNotice(
+        t(
+          delivery.sent
+            ? "umfSupportAccess.verificationResent"
+            : "umfSupportAccess.verificationResendQueued",
+        ),
+      );
+    } catch (cause) {
+      setError(
+        localizedApiErrorCodeMessage(
+          cause instanceof Error ? cause.message : "",
+          t("umfSupportAccess.error"),
+          t,
+        ),
+      );
+    } finally {
+      setWorking(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:py-14">
       <div className="mx-auto max-w-md">
@@ -228,7 +257,7 @@ export function UmfSupportAccessPage() {
 
           <div className="p-6">
             <div className="mb-6 grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
-              {(["login", "request", "activate"] as const).map((item) => (
+              {(["login", "register", "verify"] as const).map((item) => (
                 <button
                   key={item}
                   type="button"
@@ -252,7 +281,7 @@ export function UmfSupportAccessPage() {
             )}
 
             <form className="space-y-4" onSubmit={submit}>
-              {mode === "request" && (
+              {mode === "register" && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="umf-name">
@@ -280,51 +309,25 @@ export function UmfSupportAccessPage() {
                   </div>
                 </div>
               )}
-              {mode === "request" && (
+              {mode !== "verify" && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="umf-requested-role">
-                    {t("umfSupportAccess.requestedRole")}
-                  </Label>
-                  <select
-                    id="umf-requested-role"
-                    value={requestedRole}
-                    onChange={(event) =>
-                      setRequestedRole(
-                        event.target.value as "agent" | "director",
-                      )
-                    }
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  <Label htmlFor="umf-email">{t("common.email")}</Label>
+                  <Input
+                    id="umf-email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    maxLength={254}
                     required
-                  >
-                    <option value="agent">
-                      {t("umfSupportAccess.roles.agent")}
-                    </option>
-                    <option value="director">
-                      {t("umfSupportAccess.roles.director")}
-                    </option>
-                  </select>
-                  <p className="text-xs leading-5 text-slate-500">
-                    {t("umfSupportAccess.roleApprovalNotice")}
-                  </p>
+                  />
                 </div>
               )}
-              <div className="space-y-1.5">
-                <Label htmlFor="umf-email">{t("common.email")}</Label>
-                <Input
-                  id="umf-email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  maxLength={254}
-                  required
-                />
-              </div>
-              {mode === "activate" && (
-                <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-3">
+              {mode === "verify" && (
+                <div className="space-y-1.5">
                   <div className="space-y-1.5">
                     <Label htmlFor="umf-code">
-                      {t("umfSupportAccess.activationCode")}
+                      {t("umfSupportAccess.verificationCode")}
                     </Label>
                     <Input
                       id="umf-code"
@@ -334,23 +337,6 @@ export function UmfSupportAccessPage() {
                       onChange={(event) => setCode(event.target.value)}
                       maxLength={6}
                       pattern="[0-9]{6}"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="umf-country-code">
-                      {t("umfSupportAccess.countryCode")}
-                    </Label>
-                    <Input
-                      id="umf-country-code"
-                      value={countryCode}
-                      onChange={(event) =>
-                        setCountryCode(event.target.value.toUpperCase())
-                      }
-                      minLength={2}
-                      maxLength={2}
-                      pattern="[A-Za-z]{2}"
-                      autoComplete="country"
                       required
                     />
                   </div>
@@ -371,7 +357,7 @@ export function UmfSupportAccessPage() {
                     required
                   />
                 </div>
-              ) : mode !== "request" ? (
+              ) : mode !== "verify" ? (
                 <div className="space-y-1.5">
                   <Label htmlFor="umf-password">{t("common.password")}</Label>
                   <PasswordInput
@@ -379,20 +365,20 @@ export function UmfSupportAccessPage() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete={
-                      mode === "activate" ? "new-password" : "current-password"
+                      mode === "register" ? "new-password" : "current-password"
                     }
                     minLength={mode === "login" ? 1 : 12}
                     maxLength={128}
                     required
                   />
-                  {mode === "activate" && (
+                  {mode === "register" && (
                     <p className="text-xs leading-5 text-slate-500">
                       {t("auth.passwordPolicy")}
                     </p>
                   )}
                 </div>
               ) : null}
-              {mode === "activate" && (
+              {mode === "register" && (
                 <div className="space-y-1.5">
                   <Label htmlFor="umf-confirm-password">
                     {t("auth.confirmPassword")}
@@ -408,7 +394,26 @@ export function UmfSupportAccessPage() {
                   />
                 </div>
               )}
-              {mode === "activate" && (
+              {mode === "register" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="umf-country-code">
+                    {t("umfSupportAccess.countryCode")}
+                  </Label>
+                  <Input
+                    id="umf-country-code"
+                    value={countryCode}
+                    onChange={(event) =>
+                      setCountryCode(event.target.value.toUpperCase())
+                    }
+                    minLength={2}
+                    maxLength={2}
+                    pattern="[A-Za-z]{2}"
+                    autoComplete="country"
+                    required
+                  />
+                </div>
+              )}
+              {mode === "register" && (
                 <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
                   <label className="flex items-start gap-2">
                     <input
@@ -446,9 +451,7 @@ export function UmfSupportAccessPage() {
                   </label>
                 </div>
               )}
-              {(mode === "request" ||
-                mode === "activate" ||
-                (mode === "login" && !mfaRequired)) &&
+              {(mode === "register" || (mode === "login" && !mfaRequired)) &&
                 !captchaToken && (
                   <CaptchaWidget
                     action={mode === "login" ? "login" : "signup"}
@@ -460,23 +463,33 @@ export function UmfSupportAccessPage() {
                 type="submit"
                 disabled={
                   working ||
-                  ((mode === "request" ||
-                    mode === "activate" ||
+                  ((mode === "register" ||
                     (mode === "login" && !mfaRequired)) &&
                     !captchaToken) ||
-                  (mode === "activate" && (!acceptedTerms || !acceptedPrivacy))
+                  (mode === "register" && (!acceptedTerms || !acceptedPrivacy))
                 }
                 className="h-11 w-full rounded-lg bg-slate-900 hover:bg-slate-800"
               >
                 {mode === "login" ? (
                   <LogIn />
-                ) : mode === "request" ? (
+                ) : mode === "register" ? (
                   <UserPlus />
                 ) : (
                   <KeyRound />
                 )}
                 {t(`umfSupportAccess.${mode}.action`)}
               </Button>
+              {mode === "verify" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={working}
+                  className="h-11 w-full"
+                  onClick={() => void resendVerification()}
+                >
+                  {t("umfSupportAccess.resendVerification")}
+                </Button>
+              )}
               {mode === "login" && !mfaRequired && passkeyAvailable && (
                 <Button
                   type="button"

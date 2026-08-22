@@ -1,5 +1,13 @@
 # Auditoría del flujo de rol y activación de UMF Support, 2026-08-22
 
+> Nota de continuidad, 22 de agosto de 2026: esta auditoría conserva el modelo
+> revisado en su momento, pero ya no describe el flujo ejecutable. El registro
+> vigente está cerrado, crea una identidad `corporate_support` independiente y
+> verifica el buzón mediante el reto ordinario después de una preautorización
+> exacta. No emite ni consume el código de activación aquí documentado. Véanse
+> [UMF-SUPPORT.md](./UMF-SUPPORT.md) y
+> [UMF-SUPPORT-CLOSED-REGISTRATION-AUDIT-2026-08-22.md](./UMF-SUPPORT-CLOSED-REGISTRATION-AUDIT-2026-08-22.md).
+
 ## Alcance
 
 Esta auditoría contrasta el formulario público, la API, el servicio de dominio,

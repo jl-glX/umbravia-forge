@@ -353,7 +353,7 @@ describe("progressive account signup", () => {
     expect(stored).toEqual({ attempts: 5, consumedAt: null });
   });
 
-  it("rolls back challenge consumption if the account cannot be activated", async () => {
+  it("rejects an invalid account state without consuming the challenge", async () => {
     const signup = await request(app)
       .post("/api/auth/signup")
       .send({
@@ -378,7 +378,7 @@ describe("progressive account signup", () => {
       .post("/api/auth/verify-email")
       .set("Cookie", cookie)
       .send({ code: signup.body.demoVerificationCode })
-      .expect(500);
+      .expect(400, { error: "Invalid or expired verification code" });
 
     const [challenge, user] = await Promise.all([
       database.db

@@ -151,6 +151,14 @@ export function authenticateCorporateSupport(
   return authenticateSession(req, res, next, false, "corporate_support");
 }
 
+export function authenticateCorporateSupportAccountSession(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  return authenticateSession(req, res, next, true, "corporate_support");
+}
+
 export function requireRole(...roles: UserRole[]) {
   return (_req: Request, res: Response, next: NextFunction): void => {
     const auth = getAuthenticatedUser(res);

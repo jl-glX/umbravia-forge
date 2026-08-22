@@ -176,9 +176,10 @@ describe("UMF Support corporate API", () => {
     expect(login.status).toBe(400);
   });
 
-  it("requires manual approval and consumes the activation code once", async () => {
-    await request(app)
-      .post("/api/umf-support/access-requests")
+  it("lets direction preauthorize an exact identity and role before registration", async () => {
+    const invited = await request(app)
+      .post("/api/umf-support/access-requests/invite")
+      .set("Cookie", directorCookie)
       .send({
         email: "new-agent@example.com",
         name: "New",
@@ -186,15 +187,13 @@ describe("UMF Support corporate API", () => {
         requestedRole: "agent",
         locale: "es",
       })
-      .expect(202);
-
-    const pending = await request(app)
-      .get("/api/umf-support/access-requests")
-      .set("Cookie", directorCookie)
-      .expect(200);
-    expect(pending.body.requests).toHaveLength(1);
-    expect(pending.body.requests[0].status).toBe("pending");
-    expect(pending.body.requests[0].requestedRole).toBe("agent");
+      .expect(201);
+    expect(invited.body).toMatchObject({
+      email: "new-agent@example.com",
+      status: "approved",
+      requestedRole: "agent",
+      activatedUserId: null,
+    });
     await expect(
       database.db
         .selectFrom("users")
@@ -204,14 +203,33 @@ describe("UMF Support corporate API", () => {
         .executeTakeFirst(),
     ).resolves.toBeUndefined();
 
-    const approved = await request(app)
-      .post(
-        `/api/umf-support/access-requests/${pending.body.requests[0].id}/approve`,
-      )
-      .set("Cookie", directorCookie)
-      .send({})
-      .expect(200);
-    expect(approved.body.code).toMatch(/^\d{6}$/);
+    const browser = request.agent(app);
+    const registered = await browser
+      .post("/api/umf-support/register")
+      .send({
+        email: "new-agent@example.com",
+        name: "Ignored",
+        lastName: "Ignored",
+        password: "DifferentPassword123",
+        countryCode: "ES",
+        locale: "es",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+      })
+      .expect(201);
+    expect(registered.body.user).toMatchObject({
+      email: "new-agent@example.com",
+      name: "New",
+      identityRealm: "corporate_support",
+      accountStatus: "pending_verification",
+    });
+    await expect(
+      database.db
+        .selectFrom("users")
+        .select(["name", "lastName"])
+        .where("id", "=", registered.body.user.id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ name: "New", lastName: "Agent" });
     await expect(
       database.db
         .selectFrom("emailDeliveries")
@@ -219,57 +237,32 @@ describe("UMF Support corporate API", () => {
         .where("recipient", "=", "new-agent@example.com")
         .orderBy("createdAt", "desc")
         .executeTakeFirstOrThrow(),
-    ).resolves.toEqual({ platformScope: "support", kind: "support_update" });
+    ).resolves.toEqual({
+      platformScope: "support",
+      kind: "email_verification",
+    });
 
-    const stored = await database.db
-      .selectFrom("umfSupportAccessRequests")
-      .select(["activationCodeHash", "status"])
-      .where("id", "=", pending.body.requests[0].id)
-      .executeTakeFirstOrThrow();
-    expect(stored.activationCodeHash).not.toContain(approved.body.code);
-    expect(stored.status).toBe("approved");
-
-    const storedCredential = await database.db
-      .selectFrom("umfSupportAccessCredentials")
-      .select("requestId")
-      .where("requestId", "=", pending.body.requests[0].id)
-      .executeTakeFirst();
-    expect(storedCredential).toBeUndefined();
-
-    const activated = await request(app)
-      .post("/api/umf-support/activate")
-      .send({
-        email: "new-agent@example.com",
-        code: approved.body.code,
-        password: "DifferentPassword123",
-        countryCode: "ES",
-        acceptedTerms: true,
-        acceptedPrivacy: true,
-      })
-      .expect(201);
-    expect(activated.body.user.email).toBe("new-agent@example.com");
-    await expect(
-      database.db
-        .selectFrom("umfSupportAccessCredentials")
-        .select("requestId")
-        .where("requestId", "=", pending.body.requests[0].id)
-        .executeTakeFirst(),
-    ).resolves.toBeUndefined();
+    await browser
+      .post("/api/umf-support/verify-email")
+      .send({ code: registered.body.demoVerificationCode })
+      .expect(200);
     await expect(
       database.db
         .selectFrom("facilityMemberships")
         .select("userId")
-        .where("userId", "=", activated.body.user.id)
+        .where("userId", "=", registered.body.user.id)
         .executeTakeFirst(),
     ).resolves.toBeUndefined();
 
     await request(app)
-      .post("/api/umf-support/activate")
+      .post("/api/umf-support/register")
       .send({
         email: "new-agent@example.com",
-        code: approved.body.code,
+        name: "New",
+        lastName: "Agent",
         password: "AnotherPassword123",
         countryCode: "ES",
+        locale: "es",
         acceptedTerms: true,
         acceptedPrivacy: true,
       })
@@ -307,53 +300,15 @@ describe("UMF Support corporate API", () => {
     );
   });
 
-  it("keeps the role request valid when a legacy credential expires", async () => {
+  it("keeps the former public request and activation endpoints closed", async () => {
     await request(app)
       .post("/api/umf-support/access-requests")
-      .send({
-        email: "expired-agent@example.com",
-        name: "Expired",
-        lastName: "Agent",
-        requestedRole: "agent",
-        locale: "es",
-      })
-      .expect(202);
-    const pending = await database.db
-      .selectFrom("umfSupportAccessRequests")
-      .select("id")
-      .where("email", "=", "expired-agent@example.com")
-      .executeTakeFirstOrThrow();
-    await database.db
-      .insertInto("umfSupportAccessCredentials")
-      .values({
-        requestId: pending.id,
-        passwordHash: "legacy-preapproval-hash",
-        activationKind: "staff",
-        createdAt: Date.now() - 2,
-        expiresAt: Date.now() - 1,
-      })
-      .execute();
-
+      .send({ email: "public-request@example.com" })
+      .expect(401);
     await request(app)
-      .post(`/api/umf-support/access-requests/${pending.id}/approve`)
-      .set("Cookie", directorCookie)
-      .send({})
-      .expect(200);
-
-    await expect(
-      database.db
-        .selectFrom("umfSupportAccessRequests")
-        .select("status")
-        .where("id", "=", pending.id)
-        .executeTakeFirstOrThrow(),
-    ).resolves.toEqual({ status: "approved" });
-    await expect(
-      database.db
-        .selectFrom("umfSupportAccessCredentials")
-        .select("requestId")
-        .where("requestId", "=", pending.id)
-        .executeTakeFirst(),
-    ).resolves.toBeUndefined();
+      .post("/api/umf-support/activate")
+      .send({ email: "public-request@example.com", code: "123456" })
+      .expect(401);
   });
 
   it("allows company roles to be rejected, accepted, renounced and self-enabled", async () => {

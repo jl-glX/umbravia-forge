@@ -208,6 +208,7 @@
       "general": "Allgemein"
     },
     "notices": {
+      "invitationCreated": "E-Mail-Adresse und Rolle wurden vorab autorisiert. Die Person kann nun ihr Unternehmenskonto erstellen und bestätigen.",
       "created": "Anfrage {{id}} erstellt.",
       "replySaved": "Die Antwort wurde gespeichert.",
       "attachmentSaved": "Die Datei wurde privat gespeichert.",
@@ -2097,8 +2098,8 @@
     "corporateProgram": "Unternehmensweites Supportprogramm",
     "tabs": {
       "login": "Anmelden",
-      "request": "Beantragen",
-      "activate": "Aktivieren"
+      "register": "Konto erstellen",
+      "verify": "Bestätigen"
     },
     "login": {
       "eyebrow": "Geschützter Zugang",
@@ -2106,36 +2107,34 @@
       "description": "Der Zugriff basiert auf Unternehmenskonten und Berechtigungen. Die festgelegte erste Leitung kann hier die einmalige Einrichtung abschliessen.",
       "action": "UMF Support öffnen"
     },
-    "request": {
-      "eyebrow": "Manuelle Genehmigung",
-      "title": "Rolle beantragen",
-      "description": "Geben Sie Identität, E-Mail-Adresse und gewünschte Rolle an. Konto und Passwort werden erst nach der Genehmigung erstellt.",
-      "action": "Rolle beantragen"
+    "register": {
+      "eyebrow": "Geschlossene Unternehmensregistrierung",
+      "title": "Autorisiertes Konto erstellen",
+      "description": "Nur von der Leitung vorab autorisierte Adressen können sich registrieren. Erstellen Sie Ihr Passwort und bestätigen Sie danach das Unternehmenspostfach.",
+      "action": "Konto erstellen"
     },
-    "activate": {
-      "eyebrow": "Einmalcode",
-      "title": "Genehmigtes Konto erstellen",
-      "description": "Geben Sie die genehmigte E-Mail-Adresse ein, erstellen Sie das endgültige Passwort und verwenden Sie den an dieses Postfach gesendeten Code.",
-      "action": "Konto aktivieren"
+    "verify": {
+      "eyebrow": "Postfachbestätigung",
+      "title": "E-Mail-Adresse bestätigen",
+      "description": "Geben Sie den sechsstelligen Code aus dem autorisierten Postfach ein. Die Bestätigung aktiviert das Konto und die von der Leitung zugewiesene Rolle.",
+      "action": "Bestätigen und anmelden"
     },
     "fullName": "Vollständiger Vorname",
     "lastName": "Nachname",
-    "requestedRole": "Beantragte Rolle",
-    "roles": {
-      "agent": "Supportmitarbeiter",
-      "director": "Supportleitung"
-    },
-    "roleApprovalNotice": "Die beantragte Rolle wird erst nach Prüfung vergeben; die Eingabe eines Namens weist keine Identität nach und gewährt keine Rechte.",
-    "roleInvalid": "Die beantragte Rolle existiert nicht oder ist für diesen Vorgang nicht verfügbar.",
-    "activationCode": "Aktivierungscode",
+    "verificationCode": "Bestätigungscode",
     "mfaCode": "Authentifizierungscode",
     "countryCode": "Land",
     "acceptTerms": "Ich akzeptiere die",
     "terms": "Nutzungsbedingungen",
     "acceptPrivacy": "Ich habe die folgende Erklärung gelesen:",
-    "requestAccepted": "Der Rollenantrag wurde erfasst. Nach der Genehmigung wird der Code an die angegebene E-Mail-Adresse gesendet; das Passwort wird erst bei der Aktivierung erstellt.",
+    "verificationSent": "Das Konto wurde erstellt. Geben Sie den Code aus dem autorisierten Unternehmenspostfach ein.",
+    "verificationQueued": "Das Konto wurde erstellt, aber die sofortige E-Mail-Zustellung wurde nicht bestätigt. Der Code bleibt in der Warteschlange und Sie können einen neuen anfordern.",
+    "verificationResent": "Wir haben einen neuen Bestätigungscode gesendet.",
+    "verificationResendQueued": "Die sofortige Zustellung wurde nicht bestätigt. Der neue Code bleibt in der Warteschlange und Sie können es erneut versuchen.",
+    "resendVerification": "Bestätigungscode erneut senden",
+    "verificationInvalid": "Der Bestätigungscode ist ungültig, abgelaufen oder hat alle Versuche aufgebraucht.",
+    "registrationClosed": "Für diese Adresse liegt keine Unternehmensautorisierung vor. Die Leitung muss sie vor der Registrierung freigeben.",
     "passwordMismatch": "Die Passwörter stimmen nicht überein.",
-    "activationInvalid": "E-Mail-Adresse oder Aktivierungscode stimmen nicht mit einem genehmigten Antrag überein, oder der Code ist abgelaufen beziehungsweise hat alle Versuche aufgebraucht.",
     "invalidCredentials": "E-Mail-Adresse oder Passwort von UMF Support sind nicht korrekt. Zugangsdaten von Umbravia Forge Commercial gewähren keinen Zugriff auf dieses Unternehmenskonto.",
     "restrictedNotice": "Konto, Zugehörigkeit, Position und Berechtigungen werden getrennt verwaltet",
     "passkeyLogin": "Mit einem Unternehmens-Passkey anmelden",
@@ -2198,11 +2197,12 @@
       "tickets": "Plattformvorfälle getrennt vom eigenen Support der einzelnen Zentren.",
       "inbox": "Nachrichten aus den konfigurierten Unternehmenskanälen.",
       "outbox": "Vorbereitete Antworten und ihr Zustellstatus.",
-      "access": "Manuelle Genehmigung vor jeder Kontoerstellung.",
+      "access": "E-Mail-Adressen vorab autorisieren und ihre Rolle festlegen, bevor ein Konto erstellt werden kann.",
       "team": "Unternehmensberechtigungen unabhängig von Rechten eines Zentrums.",
       "company": "Sichtbare Unternehmensfunktionen getrennt von technischen Berechtigungen."
     },
     "role": { "director": "Leitung", "agent": "Mitarbeiter" },
+    "createInvitation": "Konto vorab autorisieren",
     "companyPosition": {
       "platform_head": "Plattformleitung",
       "area_head": "Bereichsleitung",
@@ -2303,10 +2303,6 @@
     "saveReply": "Antwort speichern",
     "selectTicket": "Wählen Sie ein Ticket aus, um den Verlauf zu prüfen.",
     "emptyMailbox": "Dieses Postfach ist leer.",
-    "activationCode": "Einmalig angezeigter Code",
-    "activationCodeOnce": "Nur an die genehmigte Person weitergeben. Der Server speichert nur den Hash.",
-    "approve": "Genehmigen",
-    "reject": "Ablehnen",
     "emptyRequests": "Es liegen keine Zugangsanträge vor.",
     "revoke": "Widerrufen",
     "restore": "Wiederherstellen",
@@ -2314,9 +2310,6 @@
     "notices": {
       "ticketCreated": "Ticket {{id}} erstellt.",
       "replySaved": "Antwort gespeichert.",
-      "accessApprovedSent": "Zugang genehmigt und Code gesendet.",
-      "accessApprovedManual": "Zugang genehmigt. Die automatische Zustellung ist nicht verfügbar; verwenden Sie den angezeigten Code für eine sichere manuelle Übergabe.",
-      "accessRejected": "Antrag abgelehnt.",
       "roleDelegated": "Delegation angeboten; sie gewährt noch keinen Zugang.",
       "roleAccepted": "Delegation angenommen und Berechtigung aktiviert.",
       "roleRejected": "Delegation abgelehnt, ohne Zugang zu gewähren.",

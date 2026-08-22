@@ -2,7 +2,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   Building2,
-  Check,
   ClipboardList,
   Inbox,
   LogOut,
@@ -15,7 +14,6 @@ import {
   ShieldCheck,
   UserRoundCheck,
   Users,
-  X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
@@ -23,7 +21,6 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import {
-  approveAccess,
   createTicket,
   delegateCompanyRole,
   fetchAccessRequests,
@@ -35,7 +32,7 @@ import {
   fetchSupportSession,
   fetchTicket,
   fetchTickets,
-  rejectAccess,
+  inviteSupportAccount,
   logoutSupport,
   renounceCompanyRole,
   replyTicket,
@@ -134,7 +131,12 @@ export function UmfSupportPage() {
   const [reply, setReply] = useState("");
   const [internal, setInternal] = useState(false);
   const [sendEmail, setSendEmail] = useState(true);
-  const [activationCode, setActivationCode] = useState("");
+  const [invitation, setInvitation] = useState({
+    email: "",
+    name: "",
+    lastName: "",
+    requestedRole: "agent" as "agent" | "director",
+  });
   const [newTicket, setNewTicket] = useState({
     requesterEmail: "",
     requesterName: "",
@@ -293,26 +295,23 @@ export function UmfSupportPage() {
     }
   };
 
-  const reviewRequest = async (
-    request: UmfSupportAccessRequest,
-    approve: boolean,
-  ) => {
+  const submitInvitation = async (event: FormEvent) => {
+    event.preventDefault();
     setWorking(true);
-    setActivationCode("");
+    setError("");
     try {
-      if (approve) {
-        const result = await approveAccess(request.id);
-        setActivationCode(result.code);
-        setNotice(
-          result.delivered
-            ? t("umfSupport.notices.accessApprovedSent")
-            : t("umfSupport.notices.accessApprovedManual"),
-        );
-      } else {
-        await rejectAccess(request.id);
-        setNotice(t("umfSupport.notices.accessRejected"));
-      }
+      await inviteSupportAccount({
+        ...invitation,
+        locale: i18n.resolvedLanguage ?? "es",
+      });
+      setInvitation({
+        email: "",
+        name: "",
+        lastName: "",
+        requestedRole: "agent",
+      });
       setRequests(await fetchAccessRequests());
+      setNotice(t("umfSupport.notices.invitationCreated"));
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : t("umfSupport.errors.save"),
@@ -573,20 +572,6 @@ export function UmfSupportPage() {
               {notice}
             </p>
           )}
-          {activationCode && (
-            <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
-                {t("umfSupport.activationCode")}
-              </p>
-              <p className="mt-1 font-mono text-2xl font-bold tracking-[0.25em] text-slate-950">
-                {activationCode}
-              </p>
-              <p className="mt-2 text-xs text-amber-800">
-                {t("umfSupport.activationCodeOnce")}
-              </p>
-            </div>
-          )}
-
           {view === "tickets" && (
             <>
               <div className="mb-4 flex flex-col gap-2 sm:flex-row">
@@ -1014,50 +999,124 @@ export function UmfSupportPage() {
           )}
 
           {view === "access" && capabilities?.canReviewAccess && (
-            <div className="overflow-hidden rounded-lg border border-slate-200">
-              {requests.map((request) => (
-                <div
-                  key={request.id}
-                  className="flex flex-col gap-3 border-b border-slate-200 p-4 last:border-0 sm:flex-row sm:items-center"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">
-                      {request.name} {request.lastName}
-                    </p>
-                    <p className="truncate text-sm text-slate-500">
-                      {request.email}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {formatDate(request.createdAt, i18n.language)} ·{" "}
-                      {t(`umfSupport.accessStatus.${request.status}`)} ·{" "}
-                      {t(`umfSupport.role.${request.requestedRole}`)}
-                    </p>
-                  </div>
-                  {request.status === "pending" && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => void reviewRequest(request, false)}
-                        disabled={working}
-                      >
-                        <X size={16} /> {t("umfSupport.reject")}
-                      </Button>
-                      <Button
-                        className="bg-slate-900 hover:bg-slate-800"
-                        onClick={() => void reviewRequest(request, true)}
-                        disabled={working}
-                      >
-                        <Check size={16} /> {t("umfSupport.approve")}
-                      </Button>
-                    </div>
-                  )}
+            <div className="space-y-4">
+              <form
+                className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 lg:grid-cols-5"
+                onSubmit={submitInvitation}
+              >
+                <div>
+                  <Label htmlFor="support-invitation-email" className="sr-only">
+                    {t("common.email")}
+                  </Label>
+                  <Input
+                    id="support-invitation-email"
+                    type="email"
+                    value={invitation.email}
+                    onChange={(event) =>
+                      setInvitation((current) => ({
+                        ...current,
+                        email: event.target.value,
+                      }))
+                    }
+                    placeholder={t("common.email")}
+                    required
+                  />
                 </div>
-              ))}
-              {!loading && requests.length === 0 && (
-                <p className="p-8 text-center text-sm text-slate-500">
-                  {t("umfSupport.emptyRequests")}
-                </p>
-              )}
+                <div>
+                  <Label htmlFor="support-invitation-name" className="sr-only">
+                    {t("umfSupportAccess.fullName")}
+                  </Label>
+                  <Input
+                    id="support-invitation-name"
+                    value={invitation.name}
+                    onChange={(event) =>
+                      setInvitation((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder={t("umfSupportAccess.fullName")}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label
+                    htmlFor="support-invitation-last-name"
+                    className="sr-only"
+                  >
+                    {t("umfSupportAccess.lastName")}
+                  </Label>
+                  <Input
+                    id="support-invitation-last-name"
+                    value={invitation.lastName}
+                    onChange={(event) =>
+                      setInvitation((current) => ({
+                        ...current,
+                        lastName: event.target.value,
+                      }))
+                    }
+                    placeholder={t("umfSupportAccess.lastName")}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="support-invitation-role" className="sr-only">
+                    {t("umfSupport.requestedRole")}
+                  </Label>
+                  <select
+                    id="support-invitation-role"
+                    value={invitation.requestedRole}
+                    onChange={(event) =>
+                      setInvitation((current) => ({
+                        ...current,
+                        requestedRole: event.target.value as
+                          "agent" | "director",
+                      }))
+                    }
+                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  >
+                    <option value="agent">{t("umfSupport.role.agent")}</option>
+                    <option value="director">
+                      {t("umfSupport.role.director")}
+                    </option>
+                  </select>
+                </div>
+                <Button
+                  type="submit"
+                  disabled={working}
+                  className="bg-slate-900 hover:bg-slate-800"
+                >
+                  <UserRoundCheck size={16} />
+                  {t("umfSupport.createInvitation")}
+                </Button>
+              </form>
+              <div className="overflow-hidden rounded-lg border border-slate-200">
+                {requests.map((request) => (
+                  <div
+                    key={request.id}
+                    className="flex flex-col gap-3 border-b border-slate-200 p-4 last:border-0 sm:flex-row sm:items-center"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">
+                        {request.name} {request.lastName}
+                      </p>
+                      <p className="truncate text-sm text-slate-500">
+                        {request.email}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {formatDate(request.createdAt, i18n.language)} ·{" "}
+                        {t(`umfSupport.accessStatus.${request.status}`)} ·{" "}
+                        {t(`umfSupport.role.${request.requestedRole}`)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {!loading && requests.length === 0 && (
+                  <p className="p-8 text-center text-sm text-slate-500">
+                    {t("umfSupport.emptyRequests")}
+                  </p>
+                )}
+              </div>
             </div>
           )}
 

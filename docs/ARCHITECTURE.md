@@ -89,14 +89,20 @@ corporate-only tables and server authorization; sharing a PostgreSQL service
 does not make a commercial account a corporate identity.
 
 The only exception is the one-time company-head bootstrap. Before any
-corporate identity has ever been established, a support role request whose
-normalized email matches the SHA-256 configured outside the repository is
-approved automatically. Activation requires the same email, a new strong
-password and the bounded code sent to that mailbox. It creates the initial support director and company-head
-records without creating a facility membership or commercial operator. A
-persistent singleton marker keeps that path closed after the first claim even if roles
-are later removed. Existing verified identities remain a controlled recovery
-path rather than the normal onboarding route.
+corporate initialization exists, the normalized mailbox whose SHA-256 is
+configured outside the repository may register a new `corporate_support`
+identity. It creates its own password and must complete the ordinary bounded
+mailbox-verification challenge before the initial support director and
+company-head records are inserted. It creates no facility membership or
+commercial operator. A persistent singleton marker keeps that path closed
+after the first claim even if roles are later removed.
+
+There is no compatibility path that transfers corporate authority from a
+`commercial` user. Historical misplaced relations must first be removed by the
+audited support-identity reset, which is forbidden from deleting or changing
+the commercial user, credentials, facility data or deletion lifecycle. Later
+support accounts require an exact preauthorization created by direction; role
+selection is not exposed to the registering person.
 
 The visible company directory is a separate module. `companyStaffProfiles`
 models reporting lines and business positions, `umfSupportStaff` scopes support

@@ -80,7 +80,21 @@ export async function getPendingEmailVerificationProfile(
 export async function verifyEmailCode(
   userId: string,
   code: string,
+  expectedRealm: "commercial" | "corporate_support" = "commercial",
 ): Promise<boolean> {
+  const user = await db
+    .selectFrom("users")
+    .select(["identityRealm", "accountStatus", "emailVerifiedAt"])
+    .where("id", "=", userId)
+    .executeTakeFirst();
+  if (
+    !user ||
+    user.identityRealm !== expectedRealm ||
+    user.accountStatus !== "pending_verification" ||
+    user.emailVerifiedAt !== null
+  ) {
+    return false;
+  }
   const challenge = await db
     .selectFrom("emailVerificationChallenges")
     .selectAll()
@@ -120,11 +134,14 @@ export async function verifyEmailCode(
     if (Number(consumed.numUpdatedRows) !== 1) {
       return false;
     }
-    await finalizeAdministratorSignupInTransaction(transaction, userId);
+    if (expectedRealm === "commercial") {
+      await finalizeAdministratorSignupInTransaction(transaction, userId);
+    }
     const userActivated = await transaction
       .updateTable("users")
       .set({ emailVerifiedAt: now, accountStatus: "active" })
       .where("id", "=", userId)
+      .where("identityRealm", "=", expectedRealm)
       .where("accountStatus", "=", "pending_verification")
       .where("emailVerifiedAt", "is", null)
       .executeTakeFirst();

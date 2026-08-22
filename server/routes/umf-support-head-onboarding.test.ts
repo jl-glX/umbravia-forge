@@ -5,13 +5,13 @@ import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-describe("UMF Support designated head onboarding", () => {
+describe("UMF Support closed head registration", () => {
   let directory: string;
   let database: typeof import("../db/client.js");
   let app: typeof import("../index.js").app;
 
   beforeAll(async () => {
-    directory = await mkdtemp(join(tmpdir(), "umf-head-onboarding-"));
+    directory = await mkdtemp(join(tmpdir(), "umf-head-registration-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv(
@@ -30,86 +30,104 @@ describe("UMF Support designated head onboarding", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  it("rejects an unknown role before creating a corporate role request", async () => {
+  it("rejects an email that direction did not preauthorize without retaining data", async () => {
     await request(app)
-      .post("/api/umf-support/access-requests")
+      .post("/api/umf-support/register")
       .send({
-        email: "other@example.com",
-        name: "Other",
+        email: "unknown@example.com",
+        name: "Unknown",
         lastName: "Applicant",
-        requestedRole: "platform_head",
+        password: "UnknownPassword123",
+        countryCode: "ES",
         locale: "es",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
       })
       .expect(400);
 
+    await expect(
+      database.db
+        .selectFrom("users")
+        .select("id")
+        .where("email", "=", "unknown@example.com")
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
     await expect(
       database.db
         .selectFrom("umfSupportAccessRequests")
         .select("id")
-        .where("email", "=", "other@example.com")
+        .where("email", "=", "unknown@example.com")
         .executeTakeFirst(),
     ).resolves.toBeUndefined();
   });
 
-  it("requires the designated email and code, then creates the definitive password", async () => {
-    const submitted = await request(app)
-      .post("/api/umf-support/access-requests")
+  it("lets only the server-designated first head register and verify the mailbox", async () => {
+    const browser = request.agent(app);
+    const registered = await browser
+      .post("/api/umf-support/register")
       .send({
         email: "head@example.com",
         name: "Platform",
         lastName: "Head",
-        requestedRole: "director",
-        locale: "es",
-      })
-      .expect(202);
-    expect(submitted.body).toMatchObject({
-      accepted: true,
-      demoActivationCode: expect.stringMatching(/^\d{6}$/),
-    });
-
-    const pending = await database.db
-      .selectFrom("umfSupportAccessRequests")
-      .select(["id", "status", "requestedRole", "activationKind"])
-      .where("email", "=", "head@example.com")
-      .executeTakeFirstOrThrow();
-    expect(pending).toMatchObject({
-      status: "approved",
-      requestedRole: "director",
-      activationKind: "designated_head",
-    });
-    await expect(
-      database.db
-        .selectFrom("umfSupportAccessCredentials")
-        .select("requestId")
-        .where("requestId", "=", pending.id)
-        .executeTakeFirst(),
-    ).resolves.toBeUndefined();
-
-    await request(app)
-      .post("/api/umf-support/activate")
-      .send({
-        email: "head@example.com",
-        password: "weak",
-        code: submitted.body.demoActivationCode,
-        countryCode: "ES",
-        acceptedTerms: true,
-        acceptedPrivacy: true,
-      })
-      .expect(400);
-
-    const activated = await request(app)
-      .post("/api/umf-support/activate")
-      .send({
-        email: "head@example.com",
         password: "DefinitiveHeadPassword123",
-        code: submitted.body.demoActivationCode,
         countryCode: "ES",
+        locale: "es",
         acceptedTerms: true,
         acceptedPrivacy: true,
       })
       .expect(201);
+    expect(registered.body).toMatchObject({
+      verificationRequired: true,
+      demoVerificationCode: expect.stringMatching(/^\d{6}$/),
+      user: {
+        identityRealm: "corporate_support",
+        accountStatus: "pending_verification",
+      },
+    });
 
-    const userId = activated.body.user.id as string;
+    const userId = registered.body.user.id as string;
+    await expect(
+      database.db
+        .selectFrom("umfSupportStaff")
+        .select("userId")
+        .where("userId", "=", userId)
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
+    await expect(
+      database.db
+        .selectFrom("emailDeliveries")
+        .select(["platformScope", "kind"])
+        .where("userId", "=", userId)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      platformScope: "support",
+      kind: "email_verification",
+    });
+
+    await browser
+      .post("/api/umf-support/verify-email")
+      .send({ code: "000000" })
+      .expect(400);
+    const verification = await import("../services/email-verification.js");
+    await expect(
+      verification.verifyEmailCode(
+        userId,
+        registered.body.demoVerificationCode,
+        "corporate_support",
+      ),
+    ).resolves.toBe(true);
+    await expect(
+      database.db
+        .selectFrom("umfSupportStaff")
+        .select("userId")
+        .where("userId", "=", userId)
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
+    await browser
+      .post("/api/umf-support/verify-email")
+      .send({ code: registered.body.demoVerificationCode })
+      .expect(200);
+
     await expect(
       database.db
         .selectFrom("users")
@@ -121,13 +139,6 @@ describe("UMF Support designated head onboarding", () => {
       emailVerifiedAt: expect.any(Number),
       identityRealm: "corporate_support",
     });
-    await expect(
-      database.db
-        .selectFrom("platformOperators")
-        .select("userId")
-        .where("userId", "=", userId)
-        .executeTakeFirst(),
-    ).resolves.toBeUndefined();
     await expect(
       database.db
         .selectFrom("umfSupportStaff")
@@ -144,16 +155,16 @@ describe("UMF Support designated head onboarding", () => {
     ).resolves.toEqual({ position: "platform_head", status: "active" });
     await expect(
       database.db
-        .selectFrom("facilityMemberships")
+        .selectFrom("platformOperators")
         .select("userId")
         .where("userId", "=", userId)
         .executeTakeFirst(),
     ).resolves.toBeUndefined();
     await expect(
       database.db
-        .selectFrom("umfSupportAccessCredentials")
-        .select("requestId")
-        .where("requestId", "=", pending.id)
+        .selectFrom("facilityMemberships")
+        .select("userId")
+        .where("userId", "=", userId)
         .executeTakeFirst(),
     ).resolves.toBeUndefined();
 

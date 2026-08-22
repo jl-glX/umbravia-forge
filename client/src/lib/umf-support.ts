@@ -55,7 +55,7 @@ export interface UmfSupportSessionUser {
   name: string;
   avatarDataUrl: string;
   role: "admin";
-  accountStatus: "active";
+  accountStatus: "pending_verification" | "active" | "security_review";
   identityRealm: "corporate_support";
 }
 
@@ -164,34 +164,39 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload;
 }
 
-export function requestAccess(input: {
+export function registerSupportAccount(input: {
   email: string;
   name: string;
   lastName: string;
-  requestedRole: UmfSupportRole;
+  password: string;
+  countryCode: string;
   locale: string;
+  acceptedTerms: boolean;
+  acceptedPrivacy: boolean;
   captchaToken: string;
 }) {
-  return request<{ accepted: true }>("/access-requests", {
+  return request<{
+    user: UmfSupportSessionUser;
+    verificationRequired: true;
+    verificationEmailSent: boolean;
+  }>("/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
 }
 
-export function activateAccount(input: {
-  email: string;
-  code: string;
-  password: string;
-  countryCode: string;
-  acceptedTerms: boolean;
-  acceptedPrivacy: boolean;
-  captchaToken: string;
-}) {
-  return request<{ user: unknown }>("/activate", {
+export function verifySupportEmail(code: string) {
+  return request<{ verified: true; role: UmfSupportRole }>("/verify-email", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ code }),
+  });
+}
+
+export function resendSupportVerification() {
+  return request<{ sent: boolean; queued: boolean }>("/resend-verification", {
+    method: "POST",
   });
 }
 
@@ -335,28 +340,18 @@ export async function fetchAccessRequests() {
   ).requests;
 }
 
-export function approveAccess(requestId: string) {
-  return request<{
-    code: string;
-    expiresAt: number;
-    delivered: boolean;
-    queued: boolean;
-  }>(`/access-requests/${encodeURIComponent(requestId)}/approve`, {
+export function inviteSupportAccount(input: {
+  email: string;
+  name: string;
+  lastName: string;
+  requestedRole: UmfSupportRole;
+  locale: string;
+}) {
+  return request<UmfSupportAccessRequest>("/access-requests/invite", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: "{}",
+    body: JSON.stringify(input),
   });
-}
-
-export function rejectAccess(requestId: string) {
-  return request<void>(
-    `/access-requests/${encodeURIComponent(requestId)}/reject`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    },
-  );
 }
 
 export async function fetchStaff() {

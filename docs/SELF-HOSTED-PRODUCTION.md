@@ -158,31 +158,37 @@ STRIPE_PORTAL_CONFIGURATION_ID=<configuracion Live opcional del portal>
 ```
 
 El hash de la jefatura inicial no es una contraseña ni concede acceso por sí
-solo: únicamente limita qué dirección puede recibir la aprobación automática
-de su primera solicitud de UMF Support. Debe calcularse fuera del repositorio,
-incorporarse al entorno protegido antes de enviar esa solicitud y retirarse
-después de comprobar que `corporateBootstrapState` quedó registrado. La
-activación exige el mismo correo, una contraseña nueva y el código recibido en
-el buzón; `Solicitar` no acepta ni conserva una contraseña. Retirar el hash no
-reabre la inicialización.
+solo. Únicamente permite que ese buzón cree la primera identidad
+`corporate_support` cuando no existe ninguna inicialización corporativa. Debe
+calcularse fuera del repositorio e incorporarse al entorno protegido antes del
+registro. La cuenta crea una contraseña propia y debe verificar el buzón con el
+reto ordinario de seis cifras. Solo entonces se insertan dirección y jefatura.
 
-Si el despliegue procede de una versión que creó una prealta con contraseña,
-la migración PostgreSQL 45 traslada el rol y el tipo de activación a la
-solicitud. El hash antiguo no se usa para autorizar ni para elegir la contraseña
-definitiva. Para renovar de forma controlada una solicitud pendiente de la
-jefatura designada, comprobar primero el plan y aplicar después sobre el mismo
-correo repetido:
+El flujo falla cerrado si existe `corporateBootstrapState`, personal de soporte
+o plantilla corporativa. No puede migrar autoridad desde una identidad
+`commercial`, aunque el correo coincida. Antes de recrear una jefatura afectada
+por versiones anteriores se ejecuta primero, con el entorno real del servicio,
+la simulación del saneamiento:
 
 ```text
-npm run company:resume-head-activation -- --email <correo-corporativo> --confirm-email <correo-corporativo>
-npm run company:resume-head-activation -- --email <correo-corporativo> --confirm-email <correo-corporativo> --apply
+npm run company:reset-support-identity -- --corporate-email <correo-soporte> --confirm-corporate-email <correo-soporte> --legacy-commercial-email <correo-comercial-con-relaciones-mal-ubicadas> --confirm-legacy-commercial-email <mismo-correo-comercial>
 ```
 
-El segundo comando encola un código nuevo sin imprimirlo. Hay que verificar su
-entrega real y completar `/umf-support/access` antes de afirmar que la autoridad
-se trasladó; hasta entonces la solicitud y la migración de jefatura no están
-consumadas.
+El JSON debe indicar `commercialAccountDeleted: false` y unos recuentos
+compatibles con la persona que se pretende sanear. Solo tras revisar esos
+recuentos se repite el mismo comando con `--apply`. La herramienta exige
+`DATABASE_PROVIDER=postgresql` y `DATABASE_URL`, no abre SQLite por omisión y
+se bloquea si encuentra otra persona corporativa o una jefatura ajena. La
+opción del correo comercial solo elimina relaciones corporativas históricas;
+no elimina ni modifica la fila comercial, su contraseña, membresías, datos,
+`platformOperators` o solicitudes de eliminación.
 
+Después del saneamiento se registra la cuenta de soporte desde
+`/umf-support/access` con el correo designado. Hay que comprobar la entrega del
+código, su consumo, el inicio de sesión corporativo y la permanencia intacta de
+la cuenta comercial antes de considerar terminada la intervención. Los
+comandos antiguos de provisión o reanudación de jefatura ya no forman parte del
+producto.
 `UMF_MANAGER_ADMIN_LINUX_USERS` no concede por sí sola autoridad de aplicación.
 El comando local comprueba primero Linux, el rechazo de `root` y la allowlist;
 solo después abre la base y exige un operador comercial verificado para

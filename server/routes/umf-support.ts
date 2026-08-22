@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  authenticateCorporateSupportAccountSession,
   authenticateCorporateSupport,
   getAuthenticatedUser,
 } from "../middleware/authorization.js";
@@ -39,29 +40,33 @@ import {
 } from "../services/account-recovery.js";
 import { deliverQueuedEmail } from "../services/email-delivery.js";
 import {
-  activateUmfSupportAccount,
-  approveUmfSupportAccess,
   createUmfSupportTicket,
   delegateCompanyRole,
   getUmfSupportCapabilities,
   getUmfSupportDistribution,
   getUmfSupportTicket,
+  inviteUmfSupportAccount,
   listCompanyStaff,
   listCompanyRoleDelegations,
   listUmfSupportAccessRequests,
   listUmfSupportMailbox,
   listUmfSupportStaff,
   listUmfSupportTickets,
-  rejectUmfSupportAccess,
+  registerUmfSupportAccount,
   renounceCompanyRole,
   replyToUmfSupportTicket,
-  requestUmfSupportAccess,
   respondToCompanyRoleDelegation,
   selfEnableCompanyRole,
   updateCompanyStaff,
   updateUmfSupportStaff,
   updateUmfSupportTicket,
+  verifyUmfSupportRegistration,
 } from "../services/umf-support.js";
+import {
+  createEmailVerificationChallenge,
+  getPendingEmailVerificationProfile,
+} from "../services/email-verification.js";
+import { queueEmailVerificationCode } from "../services/email-delivery.js";
 
 export const umfSupportRouter = express.Router();
 
@@ -159,7 +164,7 @@ umfSupportRouter.post(
 );
 
 umfSupportRouter.post(
-  "/access-requests",
+  "/register",
   signupLimiter,
   requireCaptcha("signup"),
   async (req, res, next) => {
@@ -168,11 +173,23 @@ umfSupportRouter.post(
         "email",
         "name",
         "lastName",
-        "requestedRole",
+        "password",
+        "countryCode",
         "locale",
+        "acceptedTerms",
+        "acceptedPrivacy",
         "captchaToken",
       ]);
-      res.status(202).json(await requestUmfSupportAccess(req.body));
+      const result = await registerUmfSupportAccount(req.body, {
+        userAgent: req.get("User-Agent"),
+      });
+      setSupportSessionCookie(res, result.sessionToken);
+      res.status(201).json({
+        user: result.user,
+        verificationRequired: true,
+        verificationEmailSent: result.verificationEmailSent,
+        demoVerificationCode: result.demoVerificationCode,
+      });
     } catch (error) {
       next(error);
     }
@@ -180,25 +197,54 @@ umfSupportRouter.post(
 );
 
 umfSupportRouter.post(
-  "/activate",
-  signupLimiter,
-  requireCaptcha("signup"),
+  "/verify-email",
+  authenticateCorporateSupportAccountSession,
+  authenticationLimiter,
   async (req, res, next) => {
     try {
-      requireOnlyFields(req.body, [
-        "email",
-        "code",
-        "password",
-        "countryCode",
-        "acceptedTerms",
-        "acceptedPrivacy",
-        "captchaToken",
-      ]);
-      const result = await activateUmfSupportAccount(req.body, {
-        userAgent: req.get("User-Agent"),
+      requireOnlyFields(req.body, ["code"]);
+      if (typeof req.body.code !== "string" || !/^\d{6}$/.test(req.body.code)) {
+        throw new Error("Invalid verification code");
+      }
+      res.json(
+        await verifyUmfSupportRegistration(
+          getAuthenticatedUser(res).userId,
+          req.body.code,
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.post(
+  "/resend-verification",
+  authenticateCorporateSupportAccountSession,
+  authenticationLimiter,
+  async (_req, res, next) => {
+    try {
+      const { userId } = getAuthenticatedUser(res);
+      const profile = await getPendingEmailVerificationProfile(userId);
+      if (!profile) {
+        res.status(204).end();
+        return;
+      }
+      const challenge = await createEmailVerificationChallenge(userId);
+      const deliveryId = await queueEmailVerificationCode({
+        userId,
+        platformScope: "support",
+        ...profile,
+        code: challenge.code,
+        expiresAt: challenge.expiresAt,
       });
-      setSupportSessionCookie(res, result.sessionToken);
-      res.status(201).json({ user: result.user });
+      const delivered = await deliverQueuedEmail(deliveryId).catch(() => false);
+      res.status(202).json({
+        sent: delivered,
+        queued: !delivered,
+        demoVerificationCode:
+          process.env.NODE_ENV === "test" ? challenge.code : undefined,
+      });
     } catch (error) {
       next(error);
     }
@@ -385,34 +431,23 @@ umfSupportRouter.get("/access-requests", async (_req, res, next) => {
 });
 
 umfSupportRouter.post(
-  "/access-requests/:requestId/approve",
+  "/access-requests/invite",
   supportMutationLimiter,
   requireRecentFormVerification,
   async (req, res, next) => {
     try {
-      res.json(
-        await approveUmfSupportAccess(
-          getAuthenticatedUser(res),
-          req.params.requestId,
-        ),
-      );
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-umfSupportRouter.post(
-  "/access-requests/:requestId/reject",
-  supportMutationLimiter,
-  requireRecentFormVerification,
-  async (req, res, next) => {
-    try {
-      await rejectUmfSupportAccess(
-        getAuthenticatedUser(res),
-        req.params.requestId,
-      );
-      res.status(204).end();
+      requireOnlyFields(req.body, [
+        "email",
+        "name",
+        "lastName",
+        "requestedRole",
+        "locale",
+      ]);
+      res
+        .status(201)
+        .json(
+          await inviteUmfSupportAccount(getAuthenticatedUser(res), req.body),
+        );
     } catch (error) {
       next(error);
     }

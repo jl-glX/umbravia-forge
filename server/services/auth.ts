@@ -269,7 +269,7 @@ export async function signup(
   return createSession(user, metadata);
 }
 
-export async function createCorporateSupportAccount(
+export async function signupCorporateSupportAccount(
   email: string,
   name: string,
   password: string,
@@ -305,8 +305,8 @@ export async function createCorporateSupportAccount(
     lastName: profile.lastName,
     countryCode: profile.countryCode,
     locale: profile.locale,
-    accountStatus: "active" as const,
-    emailVerifiedAt: createdAt,
+    accountStatus: "pending_verification" as const,
+    emailVerifiedAt: null,
     termsVersion: CURRENT_TERMS_VERSION,
     termsAcceptedAt: createdAt,
     privacyVersion: CURRENT_PRIVACY_VERSION,

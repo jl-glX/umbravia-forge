@@ -27,7 +27,9 @@ describe("commercial platform identity boundary", () => {
       "Commercial Owner",
       "CommercialPassword123",
     );
-    const corporate = await auth.createCorporateSupportAccount(
+    const { createActiveCorporateSupportTestAccount } =
+      await import("../testing/corporate-support-fixtures.js");
+    const corporate = await createActiveCorporateSupportTestAccount(
       "shared-boundary@example.com",
       "Support Operator",
       "CorporatePassword123",

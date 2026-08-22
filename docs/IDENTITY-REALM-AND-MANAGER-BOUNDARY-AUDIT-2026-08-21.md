@@ -1,10 +1,12 @@
 # Auditoría de separación de identidades y plano de gestores
 
 > Nota de continuidad, 22 de agosto de 2026: la separación de realms descrita
-> aquí sigue vigente, pero la contraseña de prealta ya no forma parte de las
-> solicitudes nuevas de UMF Support. La activación actual crea una contraseña
-> definitiva después de aprobar el rol y verificar el código del correo. El
-> estado mantenido está en [UMF-SUPPORT.md](./UMF-SUPPORT.md).
+> aquí sigue vigente. El flujo de traslado de autoridad que documenta esta
+> auditoría ya no forma parte del código ejecutable. El registro actual está
+> cerrado, crea una identidad corporativa desde cero y verifica el buzón con el
+> reto ordinario; cualquier relación histórica mal ubicada se elimina con un
+> saneamiento que conserva la cuenta comercial. El estado mantenido está en
+> [UMF-SUPPORT.md](./UMF-SUPPORT.md).
 
 Fecha: 21 de agosto de 2026.
 

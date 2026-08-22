@@ -48,9 +48,10 @@ historial de trabajo.
 - UMF Support es una aplicación web corporativa distinta del soporte de cada
   centro. Solo una identidad `corporate_support` con una pertenencia activa en
   `umfSupportStaff` puede entrar; `platformOperators` queda en el ámbito
-  comercial. El resto del personal solo puede crear su cuenta después de
-  aprobación manual y consumo de un código temporal de un solo uso. Una cuenta
-  administradora de centro no recibe acceso corporativo por su rol.
+  comercial. El registro está cerrado: la primera jefatura se limita al correo
+  designado en el entorno y el resto del personal requiere una preautorización
+  exacta de dirección. Una cuenta administradora de centro no recibe acceso
+  corporativo por su rol.
 - Ambas aplicaciones usan el proveedor de datos configurado; en producción,
   UMF Support está dentro del mismo PostgreSQL, con realms, relaciones y tablas
   lógicamente separados. No debe afirmarse que existe una segunda base física.
@@ -66,21 +67,17 @@ historial de trabajo.
   elimina una cuenta comercial y confirma que la cuenta de UMF Support con el
   mismo correo permanece activa y puede iniciar sesión.
 - La plantilla empresarial usa `companyStaffProfiles` y queda separada de los
-  permisos. La solicitud de UMF Support registra nombre, apellidos, correo y
-  rol pedido, sin crear cuenta ni aceptar contraseña. La activación exige el
-  mismo correo, una contraseña nueva y el código de un solo uso enviado al
-  buzón; el nombre declarado no verifica por sí solo la identidad. Las altas ordinarias
-  necesitan aprobación manual. La excepción inicial autoaprueba únicamente el
-  correo cuyo hash coincide con
-  `UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256`, envía allí el código y crea una
-  única jefatura y dirección de soporte sin añadir autoridad comercial ni una
-  membresía de centro. El marcador permanente `corporateBootstrapState` impide
-  reabrir la excepción aunque después se eliminen roles. El comando con correo
-  repetido y `--apply` se conserva como recuperación controlada y consume el
-  mismo marcador. La migración PostgreSQL 45 conserva las solicitudes antiguas
-  trasladando el tipo de activación a la propia solicitud; cualquier hash de
-  prealta heredado queda sin autoridad y se elimina al consumir o cerrar el
-  proceso. Los módulos vacantes quedan bajo cobertura automática de la
+  permisos. Dirección preautoriza correo, nombre, apellidos, idioma y rol; la
+  persona invitada crea una contraseña corporativa y verifica el buzón con el
+  reto ordinario. El rol no se elige públicamente. La excepción inicial admite
+  únicamente el correo cuyo hash coincide con
+  `UMF_COMPANY_HEAD_BOOTSTRAP_EMAIL_SHA256` y solo mientras no existe estado,
+  personal ni plantilla corporativa. No traslada autoridad desde una cuenta
+  comercial. Las rutas y comandos antiguos de solicitud, activación,
+  provisión y reanudación se han retirado. El saneamiento
+  `company:reset-support-identity` funciona primero en simulación, conserva
+  expresamente la identidad comercial y se bloquea ante otra persona o
+  jefatura no declarada. Los módulos vacantes quedan bajo cobertura automática de la
   jefatura; una asignación activa o delegación pendiente la suspende solo para
   ese módulo. Aceptación, rechazo, renuncia y revocación son estados auditables.
   Las cuentas aprobadas de soporte se incorporan expresamente a la plantilla;
@@ -143,13 +140,15 @@ historial de trabajo.
   identidades, gestores y correo se audita en
   `docs/IDENTITY-REALM-AND-MANAGER-BOUNDARY-AUDIT-2026-08-21.md`; el cambio de
   solicitudes de rol está en
-  `docs/UMF-SUPPORT-ROLE-ACTIVATION-AUDIT-2026-08-22.md`. La tanda focalizada
-  más reciente pasó ocho archivos y 30 pruebas. La puerta integral revisó 49
-  archivos de portabilidad y pasó formato, lint, los tres `typecheck`, 114
-  archivos de pruebas con 556 pruebas favorables y una prueba POSIX omitida por
-  ejecutarse en Windows, las tres compilaciones, el paquete Windows y la
-  auditoría de dependencias. La validación remota de cada publicación y la
-  comprobación del entorno desplegado siguen siendo controles independientes.
+  `docs/UMF-SUPPORT-ROLE-ACTIVATION-AUDIT-2026-08-22.md`; el registro cerrado y
+  el reinicio de identidad se auditan en
+  `docs/UMF-SUPPORT-CLOSED-REGISTRATION-AUDIT-2026-08-22.md`. La última puerta
+  integral revisó 48 archivos de portabilidad y pasó formato, lint, los tres
+  `typecheck`, 112 archivos de pruebas con 555 pruebas favorables y una prueba
+  POSIX omitida por ejecutarse en Windows, las tres compilaciones, el paquete
+  Windows y la auditoría de dependencias. La validación remota de cada
+  publicación y la comprobación del entorno desplegado siguen siendo controles
+  independientes.
 
 ## Fuentes y orden de autoridad
 

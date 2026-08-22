@@ -181,8 +181,10 @@ sesiones revocables, MFA y passkeys opcionales, límites de abuso, cifrado de
 campos privados y colas, verificación de integridad, trazabilidad y
 procedimientos de recuperación. Ninguna medida elimina completamente el riesgo.
 
-Los códigos de activación de UMF Support son de un solo uso, caducan y se
-guardan únicamente como hash. Los tickets del soporte corporativo no comparten
+Los retos de verificación del correo de UMF Support son de un solo uso, caducan
+y se guardan únicamente como hash. El registro corporativo está cerrado y exige
+una preautorización previa o, para la primera jefatura, el correo designado en
+la configuración protegida. Los tickets del soporte corporativo no comparten
 permisos ni tablas con el soporte que cada centro presta a sus socios.
 
 ## 11. Cookies y almacenamiento local

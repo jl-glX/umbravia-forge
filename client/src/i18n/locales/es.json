@@ -214,6 +214,7 @@
       "general": "General"
     },
     "notices": {
+      "invitationCreated": "Correo y rol preautorizados. La persona ya puede crear y verificar su cuenta corporativa.",
       "created": "Solicitud {{id}} creada.",
       "replySaved": "La respuesta se ha guardado.",
       "attachmentSaved": "El archivo se ha guardado de forma privada.",
@@ -2102,8 +2103,8 @@
     "corporateProgram": "Programa corporativo de soporte",
     "tabs": {
       "login": "Acceso",
-      "request": "Solicitar",
-      "activate": "Activar"
+      "register": "Crear cuenta",
+      "verify": "Verificar"
     },
     "login": {
       "eyebrow": "Acceso restringido",
@@ -2111,36 +2112,34 @@
       "description": "Acceso por cuenta y permisos corporativos. La primera jefatura designada puede completar aquí la inicialización única.",
       "action": "Entrar en UMF Support"
     },
-    "request": {
-      "eyebrow": "Aprobación manual",
-      "title": "Solicitar un rol",
-      "description": "Indica tu identidad, correo y el rol que solicitas. No se crea ninguna cuenta ni contraseña hasta que la solicitud sea aprobada.",
-      "action": "Solicitar rol"
+    "register": {
+      "eyebrow": "Registro corporativo cerrado",
+      "title": "Crear una cuenta autorizada",
+      "description": "Solo pueden registrarse direcciones preautorizadas por la jefatura. Crea tu contraseña y verifica después el buzón corporativo.",
+      "action": "Crear cuenta"
     },
-    "activate": {
-      "eyebrow": "Código de un solo uso",
-      "title": "Crear la cuenta aprobada",
-      "description": "Introduce el correo aprobado, crea la contraseña definitiva y usa el código recibido en ese buzón.",
-      "action": "Activar cuenta"
+    "verify": {
+      "eyebrow": "Verificación del buzón",
+      "title": "Verificar el correo",
+      "description": "Introduce el código de seis cifras enviado al buzón autorizado. La verificación activa la cuenta y el rol asignado por dirección.",
+      "action": "Verificar y entrar"
     },
     "fullName": "Nombre completo",
     "lastName": "Apellidos",
-    "requestedRole": "Rol solicitado",
-    "roles": {
-      "agent": "Agente de soporte",
-      "director": "Dirección de soporte"
-    },
-    "roleApprovalNotice": "El rol solicitado solo se concede tras revisión; escribir un nombre no acredita identidad ni otorga permisos.",
-    "roleInvalid": "El rol solicitado no existe o no está disponible para este proceso.",
-    "activationCode": "Código de activación",
+    "verificationCode": "Código de verificación",
     "mfaCode": "Código de autenticación",
     "countryCode": "País",
     "acceptTerms": "Acepto los",
     "terms": "términos y condiciones",
     "acceptPrivacy": "He leído la",
-    "requestAccepted": "Solicitud de rol registrada. El código llegará al correo indicado cuando se apruebe; la contraseña se creará únicamente durante la activación.",
+    "verificationSent": "La cuenta se ha creado. Introduce el código enviado al correo corporativo autorizado.",
+    "verificationQueued": "La cuenta se ha creado, pero no se ha confirmado la entrega inmediata del correo. El código permanece en la cola de envío y puedes solicitar otro.",
+    "verificationResent": "Hemos enviado un nuevo código de verificación.",
+    "verificationResendQueued": "No se ha confirmado la entrega inmediata. El nuevo código permanece en la cola de envío y puedes volver a intentarlo.",
+    "resendVerification": "Reenviar código de verificación",
+    "verificationInvalid": "El código de verificación no es válido, ha caducado o ha agotado sus intentos.",
+    "registrationClosed": "Esta dirección no tiene una autorización corporativa disponible. La jefatura debe autorizarla antes del registro.",
     "passwordMismatch": "Las contraseñas no coinciden.",
-    "activationInvalid": "El correo o el código de activación no coinciden con una solicitud aprobada, el código ha caducado o ha agotado sus intentos.",
     "invalidCredentials": "El correo o la contraseña de UMF Support no son correctos. Las credenciales de Umbravia Forge comercial no permiten entrar en esta cuenta corporativa.",
     "restrictedNotice": "Cuenta, pertenencia, cargo y permisos se gestionan por separado",
     "passkeyLogin": "Entrar con una passkey corporativa",
@@ -2203,11 +2202,12 @@
       "tickets": "Incidencias de la plataforma separadas del soporte propio de cada centro.",
       "inbox": "Mensajes recibidos por los canales corporativos configurados.",
       "outbox": "Respuestas preparadas y estado de su entrega.",
-      "access": "Aprobación manual previa a la creación de cualquier cuenta.",
+      "access": "Preautoriza correos y selecciona su rol antes de que puedan crear una cuenta.",
       "team": "Autoridad corporativa independiente de los permisos de los centros.",
       "company": "Cargos empresariales visibles, separados de los permisos técnicos."
     },
     "role": { "director": "Dirección", "agent": "Agente" },
+    "createInvitation": "Preautorizar cuenta",
     "companyPosition": {
       "platform_head": "Jefe de plataforma",
       "area_head": "Responsable de área",
@@ -2308,10 +2308,6 @@
     "saveReply": "Guardar respuesta",
     "selectTicket": "Selecciona un ticket para revisar su historial.",
     "emptyMailbox": "No hay mensajes en esta bandeja.",
-    "activationCode": "Código mostrado una sola vez",
-    "activationCodeOnce": "Compártelo únicamente con la persona aprobada. El servidor conserva solo su hash.",
-    "approve": "Aprobar",
-    "reject": "Rechazar",
     "emptyRequests": "No hay solicitudes de acceso.",
     "revoke": "Revocar",
     "restore": "Restaurar",
@@ -2319,9 +2315,6 @@
     "notices": {
       "ticketCreated": "Ticket {{id}} creado.",
       "replySaved": "Respuesta guardada.",
-      "accessApprovedSent": "Acceso aprobado y código enviado.",
-      "accessApprovedManual": "Acceso aprobado. La entrega automática no está disponible; usa el código mostrado para la entrega manual segura.",
-      "accessRejected": "Solicitud rechazada.",
       "roleDelegated": "Delegación ofrecida; todavía no concede acceso.",
       "roleAccepted": "Delegación aceptada y permiso activado.",
       "roleRejected": "Delegación rechazada sin conceder acceso.",

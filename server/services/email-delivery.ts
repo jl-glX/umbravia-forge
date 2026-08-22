@@ -797,6 +797,7 @@ function decryptPayload(
 
 export async function queueEmailVerificationCode(input: {
   userId: string;
+  platformScope: ManagerPlatformScope;
   email: string;
   name: string;
   code: string;
@@ -805,7 +806,7 @@ export async function queueEmailVerificationCode(input: {
 }): Promise<string> {
   const id = await queueEncryptedDelivery({
     userId: input.userId,
-    platformScope: "commercial",
+    platformScope: input.platformScope,
     kind: "email_verification",
     recipient: input.email,
     locale: input.locale,
@@ -815,7 +816,7 @@ export async function queueEmailVerificationCode(input: {
   });
   publishManagerSignal(
     "email",
-    "commercial",
+    input.platformScope,
     "info",
     "EMAIL_VERIFICATION_QUEUED",
     "A verification message was queued for delivery.",
@@ -1047,72 +1048,6 @@ export async function queueSupportStaffNotificationEmail(input: {
     "info",
     "SUPPORT_STAFF_NOTIFICATION_QUEUED",
     "A support queue notification was prepared for delivery.",
-  );
-  return id;
-}
-
-export async function queueUmfSupportAccessCodeEmail(input: {
-  email: string;
-  name: string;
-  code: string;
-  locale: SupportedLocale;
-  expiresAt: number;
-}): Promise<string> {
-  const content: Record<
-    SupportedLocale,
-    { subject: string; intro: string; expiry: string }
-  > = {
-    es: {
-      subject: "Acceso aprobado a UMF Support",
-      intro:
-        "Tu solicitud ha sido aprobada. Usa este código de un solo uso para crear tu cuenta de UMF Support:",
-      expiry:
-        "El código caduca en 24 horas y queda invalidado después del primer uso.",
-    },
-    en: {
-      subject: "UMF Support access approved",
-      intro:
-        "Your request was approved. Use this one-time code to create your UMF Support account:",
-      expiry:
-        "The code expires in 24 hours and is invalid after its first use.",
-    },
-    de: {
-      subject: "Zugang zu UMF Support genehmigt",
-      intro:
-        "Ihr Antrag wurde genehmigt. Verwenden Sie diesen Einmalcode, um Ihr UMF-Support-Konto zu erstellen:",
-      expiry:
-        "Der Code läuft nach 24 Stunden ab und ist nach der ersten Verwendung ungültig.",
-    },
-    "de-CH": {
-      subject: "Zugang zu UMF Support genehmigt",
-      intro:
-        "Ihr Antrag wurde genehmigt. Verwenden Sie diesen Einmalcode, um Ihr UMF-Support-Konto zu erstellen:",
-      expiry:
-        "Der Code läuft nach 24 Stunden ab und ist nach der ersten Verwendung ungültig.",
-    },
-  };
-  const message = content[input.locale] ?? content.es;
-  const id = await queueEncryptedDelivery({
-    userId: null,
-    platformScope: "support",
-    kind: "support_update",
-    recipient: input.email,
-    locale: input.locale,
-    expiresAt: input.expiresAt,
-    payload: {
-      email: input.email,
-      locale: input.locale,
-      subject: message.subject,
-      text: `${input.name}\n\n${message.intro}\n\n${input.code}\n\n${message.expiry}`,
-      html: `<p>${escapeHtml(input.name)}</p><p>${escapeHtml(message.intro)}</p><p style="font-size:28px;font-weight:700;letter-spacing:0.2em">${escapeHtml(input.code)}</p><p>${escapeHtml(message.expiry)}</p>`,
-    },
-  });
-  publishManagerSignal(
-    "email",
-    "support",
-    "info",
-    "UMF_SUPPORT_ACCESS_QUEUED",
-    "An approved UMF Support access code was queued for delivery.",
   );
   return id;
 }

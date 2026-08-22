@@ -116,15 +116,18 @@ session controls, rate limiting and monitoring remain independent layers.
   end-to-end encrypted.
 - Forge Support authorization, private attachments, staff-only notes and an
   auditable ticket event history.
-- UMF Support corporate authorization with a role request that contains no
-  password, manually approved activation for ordinary staff, a designated
-  one-time head exception, hashed single-use mailbox codes and a new strong
-  password created only during activation. Legacy pre-enrolment hashes remain
-  readable solely for migration and are deleted without authorizing access. MFA-compatible
-  sign-in, encrypted message bodies, HMAC-authenticated inbound email and
-  security events remain independent controls. Corporate activation creates no
-  facility membership, and message operations fail closed in production when
-  private-content encryption is not active.
+- UMF Support closed registration. The first head is limited to a mailbox hash
+  designated outside the repository; later accounts require an exact
+  preauthorization created by active direction. Registration creates an
+  independent corporate password and a pending `corporate_support` identity;
+  the ordinary hashed mailbox-verification challenge must complete before the
+  preauthorized role is materialized. Unknown addresses create no retained
+  onboarding record. Historical activation-code rows authorize nothing in the
+  current flow. MFA-compatible sign-in, encrypted message bodies,
+  HMAC-authenticated inbound email and security events remain independent
+  controls. Corporate registration creates no facility membership, never
+  transfers authority from a commercial identity and fails closed in
+  production when private-content encryption is not active.
 - Manager administration is not exposed in either web application. One local
   Linux administrator serves the shared manager infrastructure and every
   operation must carry an explicit `commercial` or `support` scope. It rejects

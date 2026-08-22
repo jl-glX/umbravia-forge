@@ -31,9 +31,9 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Forge Analytics](./FORGE-ANALYTICS.md)
 - [Forge Support](./FORGE-SUPPORT.md)
 - [UMF Support corporativo](./UMF-SUPPORT.md), incluida la plantilla separada,
-  las delegaciones modulares, la inicialización única de jefatura, la
-  solicitud de rol sin contraseña previa, los realms independientes y el
-  correo operativo de plataforma
+  las delegaciones modulares, el registro cerrado, la preautorización exacta
+  de roles, la inicialización única de jefatura, los realms independientes y
+  el saneamiento que preserva la cuenta comercial
 - [Forge Notify](./FORGE-NOTIFY.md), incluida la separación persistente de
   entregas y señales entre `commercial` y `support`
 - [Gestor de bases y entornos](./DATABASE-ENVIRONMENT-MANAGER.md)
@@ -76,6 +76,7 @@ estado actual hay que volver a los documentos vigentes anteriores.
 - [Auditoría de la credencial previa de UMF Support, 2026-08-21](./UMF-SUPPORT-PREAUTH-CREDENTIAL-AUDIT-2026-08-21.md)
 - [Auditoría de separación de identidades y plano de gestores, 2026-08-21](./IDENTITY-REALM-AND-MANAGER-BOUNDARY-AUDIT-2026-08-21.md)
 - [Auditoría del flujo de rol y activación de UMF Support, 2026-08-22](./UMF-SUPPORT-ROLE-ACTIVATION-AUDIT-2026-08-22.md)
+- [Auditoría del registro cerrado y reinicio de identidad de UMF Support, 2026-08-22](./UMF-SUPPORT-CLOSED-REGISTRATION-AUDIT-2026-08-22.md)
 - [Paquete histórico de prueba de aplicaciones web para Windows](./WINDOWS-WEB-APP-PACKAGE.md)
 - [Auditoría de neutralización del dominio, 2026-08-16](./ACTIVITY-DOMAIN-MIGRATION-AUDIT-2026-08-16.md)
 - [Auditoría de la base comercial, 2026-08-03](./COMMERCIAL-FOUNDATION-AUDIT.md)
