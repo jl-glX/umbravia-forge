@@ -179,11 +179,15 @@ historial de trabajo.
   evita que un despliegue de Wrangler retire el endpoint añadido manualmente en
   el panel. La preparación versionada no demuestra que el Worker, su regla de
   Email Routing o el flujo real estén activos.
-- La entrega desde el Worker corporativo hacia el webhook público de la misma
-  zona requiere `global_fetch_strictly_public`. Sin ese indicador, Cloudflare
-  detiene la subsolicitud antes de obtener estado HTTP y el registro queda en
-  `application_delivery`; su presencia está fijada por una prueba de
-  configuración.
+- La entrega desde el Worker corporativo apunta al servidor de origen de la
+  misma zona, no a otro Worker. `cloudflare/wrangler.jsonc` fija
+  `global_fetch_private_origin` para evitar una segunda entrada por el frontal
+  público de Cloudflare; el webhook mantiene firma HMAC, marca temporal y
+  defensa contra repeticiones. La comprobación operativa del 22 de agosto de
+  2026 demostró que `global_fetch_strictly_public` dejaba el evento en
+  `application_delivery` antes de obtener estado HTTP y sin ningún `POST` en
+  Caddy ni en el servicio. La prueba de configuración impide restaurar por
+  error ese recorrido.
 - La instancia corporativa activa Workers Logs con muestreo completo durante
   la validación inicial. Los fallos se clasifican por etapa y, cuando el
   webhook responde, por estado HTTP, sin registrar correo, asunto, cuerpo,

@@ -361,12 +361,19 @@ Secrets`. Esta separación es obligatoria porque cada despliegue con Wrangler
 vuelve a aplicar el archivo versionado y puede retirar una variable de texto
 creada solo desde el panel, mientras mantiene el secreto cifrado.
 
-Como el webhook público vive en la misma zona de Cloudflare que el Worker, la
-configuración versionada activa `global_fetch_strictly_public`. Esta barrera
-obliga a que `fetch()` alcance el endpoint HTTPS público de la aplicación en
-lugar de intentar una llamada Worker-a-Worker implícita. Retirarla deja el
-mensaje en `application_delivery` sin que exista una respuesta HTTP del
-servidor.
+El webhook vive en la misma zona de Cloudflare que el Worker, pero su destino
+es el servidor de origen de Umbravia Forge, no otro Worker. La configuración
+versionada activa `global_fetch_private_origin` para que `fetch()` llegue al
+origen sin volver a entrar por el frontal público de Cloudflare. La autenticidad
+del salto sigue protegida por el secreto compartido, la firma HMAC, la marca
+temporal y la defensa contra repeticiones del webhook.
+
+La comprobación operativa del 22 de agosto de 2026 confirmó que Email Routing
+invocaba el Worker, pero `global_fetch_strictly_public` dejaba la entrega en
+`application_delivery` antes de obtener respuesta HTTP: ni Caddy ni el servicio
+registraban el `POST`. Por eso esa opción no debe restaurarse en esta instancia.
+El patrón es específico de Worker a servidor de origen; una comunicación real
+entre Workers debe usar su mecanismo propio, como un Service Binding.
 
 La configuración versionada activa Workers Logs con muestreo completo durante
 esta primera validación operativa. La prueba de despliegue fija también el

@@ -42,8 +42,9 @@ auditoría histórica entra en conflicto con un documento vigente.
   comerciales de prueba, las alertas configurables, el historial de seguridad
   limitado a treinta días, el despliegue independiente y reproducible de su
   Worker de correo mediante Workers Builds, el endpoint público no sensible
-  conservado en la configuración versionada, la entrega pública explícita del
-  Worker al webhook de la misma zona, los realms independientes y el
+  conservado en la configuración versionada, la entrega firmada del Worker al
+  servidor de origen sin reentrar por el frontal público de la misma zona, los
+  realms independientes y el
   saneamiento que preserva la cuenta comercial y sus solicitudes de borrado
 - [Forge Notify](./FORGE-NOTIFY.md), incluida la separación persistente de
   entregas y señales entre `commercial` y `support`
