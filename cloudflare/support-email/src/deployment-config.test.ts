@@ -32,7 +32,7 @@ describe("Cloudflare email Worker deployment boundaries", () => {
     expect(umfSupport).toMatchObject({
       name: "umbravia-forge-umf-support-email",
       main: "support-email/src/index.ts",
-      compatibility_flags: ["global_fetch_strictly_public"],
+      compatibility_flags: ["global_fetch_private_origin"],
       vars: {
         SUPPORT_INBOUND_ENDPOINT:
           "https://www.umbraviaforge.com/api/internal/umf-support-email",
