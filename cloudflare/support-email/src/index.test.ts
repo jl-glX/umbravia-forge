@@ -21,6 +21,7 @@ function message(raw: string, to = "support@example.com") {
 describe("Cloudflare support email Worker", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("parses plain text and signs the exact webhook body", async () => {
@@ -73,6 +74,7 @@ describe("Cloudflare support email Worker", () => {
   });
 
   it("rejects attachments before contacting the application", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const { email, rejected } = message(
@@ -107,6 +109,7 @@ describe("Cloudflare support email Worker", () => {
   });
 
   it("rejects a visible sender that does not match the SMTP envelope", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const { email, rejected } = message(
@@ -130,6 +133,43 @@ describe("Cloudflare support email Worker", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(rejected).toHaveBeenCalledWith(
       "The support message could not be accepted.",
+    );
+  });
+
+  it("records a safe failure stage when the application rejects the webhook", async () => {
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 401 })),
+    );
+    const { email, rejected } = message(
+      [
+        "From: Member <member@example.com>",
+        "To: support@example.com",
+        "Subject: Ayuda con mi cuenta",
+        "Message-ID: <worker-rejected@example.com>",
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        "Necesito ayuda con mi cuenta.",
+      ].join("\r\n"),
+    );
+
+    await supportEmailWorker.email(email, {
+      SUPPORT_INBOUND_ENDPOINT:
+        "https://app.example.com/api/internal/support-email",
+      SUPPORT_INBOUND_WEBHOOK_SECRET: webhookSecret,
+    });
+
+    expect(rejected).toHaveBeenCalledOnce();
+    expect(errorLog).toHaveBeenCalledWith("umf_support_inbound_email_failed", {
+      failureStage: "application_delivery",
+      applicationStatus: 401,
+      reason: "Support application rejected the message",
+    });
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain(
+      "member@example.com",
     );
   });
 });

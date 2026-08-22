@@ -18,6 +18,28 @@ interface InboundPayload {
   attachmentCount: number;
 }
 
+type InboundFailureStage =
+  | "endpoint_configuration"
+  | "message_validation"
+  | "webhook_signing"
+  | "application_delivery";
+
+const SAFE_FAILURE_REASONS = new Set([
+  "Invalid support email webhook secret",
+  "Support inbound endpoint must use HTTPS",
+  "Message is too large",
+  "Automated messages are not accepted",
+  "Message content is invalid",
+  "Attachments are not accepted",
+  "Support application rejected the message",
+]);
+
+function safeFailureReason(error: unknown): string {
+  return error instanceof Error && SAFE_FAILURE_REASONS.has(error.message)
+    ? error.message
+    : "Unexpected Worker failure";
+}
+
 function mailboxAddress(value: Address | undefined): string | null {
   if (!value || !("address" in value) || !value.address) return null;
   return value.address.trim().toLowerCase();
@@ -136,17 +158,22 @@ export const supportEmailWorker = {
     message: ForwardableEmailMessage,
     environment: Environment,
   ): Promise<void> {
+    let failureStage: InboundFailureStage = "endpoint_configuration";
+    let applicationStatus: number | null = null;
     try {
       const endpoint = new URL(environment.SUPPORT_INBOUND_ENDPOINT);
       if (endpoint.protocol !== "https:") {
         throw new Error("Support inbound endpoint must use HTTPS");
       }
+      failureStage = "message_validation";
       const { body, timestamp } = await preparePayload(message);
+      failureStage = "webhook_signing";
       const signature = await webhookSignature(
         body,
         timestamp,
         environment.SUPPORT_INBOUND_WEBHOOK_SECRET,
       );
+      failureStage = "application_delivery";
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
@@ -157,10 +184,16 @@ export const supportEmailWorker = {
         body,
         redirect: "error",
       });
+      applicationStatus = response.status;
       if (response.status !== 200 && response.status !== 202) {
         throw new Error("Support application rejected the message");
       }
-    } catch {
+    } catch (error) {
+      console.error("umf_support_inbound_email_failed", {
+        failureStage,
+        applicationStatus,
+        reason: safeFailureReason(error),
+      });
       message.setReject("The support message could not be accepted.");
     }
   },
