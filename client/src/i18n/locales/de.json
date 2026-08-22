@@ -2437,7 +2437,17 @@
     "emptyRequests": "Es liegen keine Zugangsanträge vor.",
     "revoke": "Widerrufen",
     "restore": "Wiederherstellen",
-    "emailPending": "Die Oberfläche ist bereit; echter E-Mail-Empfang oder -Versand bleibt geschlossen, bis das Unternehmenspostfach konfiguriert und validiert wurde.",
+    "emailReadiness": {
+      "outboundMissing": "Der E-Mail-Versand ist deaktiviert, weil kein ausgehender Transport konfiguriert ist.",
+      "outboundInvalid": "Der E-Mail-Versand ist gesperrt, weil die Konfiguration des ausgehenden Transports ungültig ist.",
+      "queueMissing": "Der E-Mail-Versand ist gesperrt, weil kein verschlüsselter Schutz für die Mail-Warteschlange konfiguriert ist.",
+      "queueInvalid": "Der E-Mail-Versand ist gesperrt, weil der verschlüsselte Schutz der Mail-Warteschlange ungültig ist.",
+      "outboundVerificationPending": "Der E-Mail-Versand ist konfiguriert, aber es wurde noch keine vom Mail-Transport akzeptierte UMF-Support-Zustellung erfasst.",
+      "inboundAddressMissing": "Der E-Mail-Empfang ist deaktiviert, weil noch keine Adresse für das Unternehmenspostfach von UMF Support konfiguriert ist.",
+      "inboundDisabled": "Der E-Mail-Empfang ist auf dem Server deaktiviert. Die Adresse ist vorhanden, aber Email Routing und der Unternehmens-Webhook sind noch nicht aktiviert.",
+      "inboundInvalid": "Der E-Mail-Empfang ist gesperrt, weil die Konfiguration des Unternehmenspostfachs unvollständig oder ungültig ist.",
+      "inboundVerificationPending": "Der E-Mail-Empfang ist konfiguriert, aber es wurde noch keine extern eingegangene und vollständig akzeptierte Nachricht erfasst."
+    },
     "notices": {
       "ticketCreated": "Ticket {{id}} erstellt.",
       "replySaved": "Antwort gespeichert.",

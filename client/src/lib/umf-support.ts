@@ -19,6 +19,11 @@ export interface UmfSupportCapabilities {
     inbound: boolean;
     addressConfigured: boolean;
     configurationValid: boolean;
+    outboundState: "configured" | "disabled" | "missing" | "invalid";
+    queueState: "configured" | "development_fallback" | "missing" | "invalid";
+    inboundState: "configured" | "disabled" | "invalid";
+    outboundOperationallyVerified: boolean;
+    inboundOperationallyVerified: boolean;
   };
   deliveryOperationallyVerified: boolean;
 }
