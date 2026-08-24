@@ -10,6 +10,10 @@ export interface UserWithoutPassword {
   email: string;
   name: string;
   role: "member" | "trainer" | "admin";
+  roles: Array<"member" | "trainer" | "admin">;
+  facilityRole: FacilityRole;
+  memberAffiliation: boolean;
+  classPermissions: Record<string, "allow" | "deny">;
   createdAt: number;
 }
 
@@ -134,8 +138,60 @@ export async function inspectUserDeletionBlockers(
   return blockers;
 }
 
-function publicRole(role: FacilityRole): UserWithoutPassword["role"] {
-  return role === "owner" ? "admin" : role;
+export type WorkforceRole = "trainer" | "admin";
+
+function parseWorkforceRoles(value: string): WorkforceRole[] {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return (["trainer", "admin"] as const).filter((role) =>
+      parsed.includes(role),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function publicRoles(
+  role: FacilityRole,
+  workforceRoles: string,
+  memberAffiliation: number,
+): UserWithoutPassword["roles"] {
+  if (role === "member") return ["member"];
+  const parsed: UserWithoutPassword["roles"] = [
+    ...parseWorkforceRoles(workforceRoles),
+  ];
+  if (role === "owner") {
+    if (parsed.length === 0) parsed.push("admin");
+  } else if (!parsed.includes(role)) {
+    parsed.push(role);
+  }
+  if (memberAffiliation === 1) parsed.push("member");
+  return parsed;
+}
+
+function primaryPublicRole(
+  roles: UserWithoutPassword["roles"],
+): UserWithoutPassword["role"] {
+  if (roles.includes("admin")) return "admin";
+  if (roles.includes("trainer")) return "trainer";
+  return "member";
+}
+
+function publicClassPermissions(
+  value: string,
+): Record<string, "allow" | "deny"> {
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, "allow" | "deny"] =>
+          entry[1] === "allow" || entry[1] === "deny",
+      ),
+    );
+  } catch {
+    return {};
+  }
 }
 
 async function recomputeLegacyRole(
@@ -174,6 +230,9 @@ export async function getAllUsers(
       "users.email",
       "users.name",
       "facilityMemberships.role",
+      "facilityMemberships.workforceRoles",
+      "facilityMemberships.memberAffiliation",
+      "facilityMemberships.classPermissions",
       "facilityMemberships.createdAt",
     ])
     .where("facilityMemberships.facilityId", "=", facilityId)
@@ -182,7 +241,25 @@ export async function getAllUsers(
     .orderBy("facilityMemberships.createdAt", "desc")
     .execute();
 
-  return users.map((user) => ({ ...user, role: publicRole(user.role) }));
+  return users.map(
+    ({
+      role,
+      workforceRoles,
+      memberAffiliation,
+      classPermissions,
+      ...user
+    }) => {
+      const roles = publicRoles(role, workforceRoles, memberAffiliation);
+      return {
+        ...user,
+        role: primaryPublicRole(roles),
+        roles,
+        facilityRole: role,
+        memberAffiliation: memberAffiliation === 1,
+        classPermissions: publicClassPermissions(classPermissions),
+      };
+    },
+  );
 }
 
 export async function getUserById(
@@ -197,6 +274,9 @@ export async function getUserById(
       "users.email",
       "users.name",
       "facilityMemberships.role",
+      "facilityMemberships.workforceRoles",
+      "facilityMemberships.memberAffiliation",
+      "facilityMemberships.classPermissions",
       "facilityMemberships.createdAt",
     ])
     .where("facilityMemberships.facilityId", "=", facilityId)
@@ -205,7 +285,20 @@ export async function getUserById(
     .where("users.accountStatus", "=", "active")
     .executeTakeFirst();
 
-  return user ? { ...user, role: publicRole(user.role) } : null;
+  if (!user) return null;
+  const roles = publicRoles(
+    user.role,
+    user.workforceRoles,
+    user.memberAffiliation,
+  );
+  return {
+    ...user,
+    role: primaryPublicRole(roles),
+    roles,
+    facilityRole: user.role,
+    memberAffiliation: user.memberAffiliation === 1,
+    classPermissions: publicClassPermissions(user.classPermissions),
+  };
 }
 
 export async function createUser(
@@ -269,6 +362,7 @@ export async function createUser(
         facilityId,
         userId,
         role,
+        memberAffiliation: role === "member" ? 1 : 0,
         status: "active",
         createdAt,
         updatedAt: createdAt,
@@ -281,6 +375,10 @@ export async function createUser(
     email,
     name,
     role,
+    roles: [role],
+    facilityRole: role,
+    memberAffiliation: role === "member",
+    classPermissions: {},
     createdAt,
   };
 }
@@ -291,19 +389,12 @@ export async function updateUser(
   updates: {
     email?: string;
     name?: string;
-    password?: string;
-    role?: "member" | "trainer" | "admin";
   },
 ): Promise<UserWithoutPassword> {
   const user = await db
     .selectFrom("facilityMemberships")
     .innerJoin("users", "users.id", "facilityMemberships.userId")
-    .select([
-      "users.id",
-      "users.email",
-      "users.role as legacyRole",
-      "facilityMemberships.role as facilityRole",
-    ])
+    .select(["users.id", "users.email"])
     .where("facilityMemberships.facilityId", "=", facilityId)
     .where("facilityMemberships.userId", "=", id)
     .where("facilityMemberships.status", "=", "active")
@@ -317,7 +408,7 @@ export async function updateUser(
     throw new Error("ACCOUNT_EMAIL_CHANGE_REQUIRES_VERIFICATION");
   }
 
-  if (updates.email || updates.name || updates.password) {
+  if (updates.email || updates.name) {
     const otherMembership = await db
       .selectFrom("facilityMemberships")
       .select("id")
@@ -329,47 +420,16 @@ export async function updateUser(
       throw new Error("SHARED_ACCOUNT_IDENTITY_MANAGED_BY_USER");
     }
   }
-  if (user.facilityRole === "owner" && updates.role) {
-    throw new Error("FACILITY_OWNER_ROLE_REQUIRES_TRANSFER");
-  }
-
   const updateValues: Record<string, unknown> = {};
 
   if (updates.name) updateValues.name = updates.name;
 
-  if (updates.password) {
-    if (!isStrongPassword(updates.password)) {
-      throw new Error("Password does not meet the security requirements");
-    }
-    updateValues.password = await hashPassword(updates.password);
-  }
-
-  await db.transaction().execute(async (transaction) => {
-    if (Object.keys(updateValues).length > 0) {
-      await transaction
-        .updateTable("users")
-        .set(updateValues)
-        .where("id", "=", id)
-        .execute();
-    }
-    if (updates.role) {
-      await transaction
-        .updateTable("facilityMemberships")
-        .set({ role: updates.role, updatedAt: Date.now() })
-        .where("facilityId", "=", facilityId)
-        .where("userId", "=", id)
-        .execute();
-      await recomputeLegacyRole(transaction, id);
-    }
-  });
-
-  if (updates.password) {
-    await logoutAll(id);
-  }
-  if (updates.role && updates.role !== publicRole(user.facilityRole)) {
-    // A role change alters the authorization boundary. Existing sessions must
-    // authenticate again through the portal appropriate for the new role.
-    await logoutAll(id);
+  if (Object.keys(updateValues).length > 0) {
+    await db
+      .updateTable("users")
+      .set(updateValues)
+      .where("id", "=", id)
+      .execute();
   }
 
   const updatedUser = await getUserById(id, facilityId);
@@ -549,10 +609,66 @@ export async function deleteMultipleUsers(userIds: string[]): Promise<void> {
   });
 }
 
-export async function updateUserRole(
+export async function updateUserWorkforceRoles(
   id: string,
   facilityId: string,
-  role: "member" | "trainer" | "admin",
+  roles: WorkforceRole[],
 ): Promise<UserWithoutPassword> {
-  return updateUser(id, facilityId, { role });
+  const normalized = (["trainer", "admin"] as const).filter((role) =>
+    roles.includes(role),
+  );
+  if (normalized.length === 0 || normalized.length !== new Set(roles).size) {
+    throw new Error("WORKFORCE_ROLES_INVALID");
+  }
+
+  const membership = await db
+    .selectFrom("facilityMemberships")
+    .innerJoin("users", "users.id", "facilityMemberships.userId")
+    .select([
+      "facilityMemberships.role",
+      "facilityMemberships.status",
+      "users.accountStatus",
+      "users.emailVerifiedAt",
+    ])
+    .where("facilityMemberships.facilityId", "=", facilityId)
+    .where("facilityMemberships.userId", "=", id)
+    .executeTakeFirst();
+  if (
+    !membership ||
+    membership.status !== "active" ||
+    membership.accountStatus !== "active" ||
+    membership.emailVerifiedAt === null
+  ) {
+    throw new Error("WORKER_VERIFICATION_REQUIRED");
+  }
+  if (membership.role === "member") {
+    throw new Error("WORKER_VERIFICATION_REQUIRED");
+  }
+
+  const nextFacilityRole: FacilityRole =
+    membership.role === "owner"
+      ? "owner"
+      : normalized.includes("admin")
+        ? "admin"
+        : "trainer";
+  await db.transaction().execute(async (transaction) => {
+    await transaction
+      .updateTable("facilityMemberships")
+      .set({
+        role: nextFacilityRole,
+        workforceRoles: JSON.stringify(normalized),
+        updatedAt: Date.now(),
+      })
+      .where("facilityId", "=", facilityId)
+      .where("userId", "=", id)
+      .execute();
+    if (membership.role !== nextFacilityRole) {
+      await recomputeLegacyRole(transaction, id);
+    }
+  });
+  if (membership.role !== nextFacilityRole) await logoutAll(id);
+
+  const updated = await getUserById(id, facilityId);
+  if (!updated) throw new Error("Failed to retrieve updated user");
+  return updated;
 }

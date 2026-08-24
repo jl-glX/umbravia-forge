@@ -48,7 +48,8 @@
   "roles": {
     "member": "Mitglied",
     "trainer": "Trainer",
-    "admin": "Administrator"
+    "admin": "Administrator",
+    "owner": "Leitung des Zentrums"
   },
   "nav": {
     "home": "Start",
@@ -283,7 +284,7 @@
     "country": "Land oder Hauptrechtsraum",
     "preferredLanguage": "Bevorzugte Sprache",
     "acceptTermsPrefix": "Ich akzeptiere die",
-    "acceptPrivacy": "Ich bestätige, dass ich die Datenschutzerklärung gelesen habe",
+    "acceptPrivacy": "Ich bestätige, dass ich die",
     "emailVerificationPending": "Wir senden einen temporären Code, um zu bestätigen, dass Sie die angegebene E-Mail-Adresse kontrollieren.",
     "cannotAccess": "Ich kann nicht auf mein Konto zugreifen",
     "countries": {
@@ -459,7 +460,7 @@
     "managerMfaEnabled": "aktiviert",
     "managerMfaDisabled": "deaktiviert",
     "managerRecovery": "Wiederherstellung",
-    "managerRecoverySummary": "{{available}} Methoden verfügbar und {{planned}} für später vorbereitet.",
+    "managerRecoverySummary": "{{active}} aktive Methoden von {{available}} verfügbaren und {{planned}} für später vorbereiteten Methoden.",
     "managerLifecycle": "Lebenszyklus",
     "managerLifecycleState": "Aktueller Status: {{state}}.",
     "managerDeletionPending": "Eine reversible Schliessung befindet sich in der Schonfrist.",
@@ -672,11 +673,19 @@
     "impactDownloads": "Vor der Schliessung können Sie die derzeit zum Export verfügbaren Daten herunterladen.",
     "passwordConfirmation": "Passwort bestätigen",
     "totpConfirmation": "Geben Sie den sechsstelligen Code Ihrer Authenticator-App ein",
+    "emailCodeConfirmation": "Geben Sie den sechsstelligen Code ein, der an die Konto-E-Mail gesendet wurde",
+    "sendEmailCode": "Code per E-Mail senden",
+    "emailCodeHelp": "Der Code wird an {{email}} gesendet, läuft nach 15 Minuten ab und kann nur in dieser Sitzung verwendet werden.",
+    "emailCodeSent": "Der Bestätigungscode wurde an die Konto-E-Mail gesendet.",
+    "emailCodeQueued": "Der Bestätigungscode wurde zum Versand an die Konto-E-Mail eingereiht.",
+    "emailCodeRateLimited": "Warten Sie eine Minute, bevor Sie einen weiteren Bestätigungscode anfordern.",
+    "verifiedEmailRequired": "Es gibt keine verifizierte E-Mail-Adresse für den Code. Die Schliessung kann aus Sicherheitsgründen nicht fortgesetzt werden.",
     "confirmingAccount": "Sie bestätigen die Schliessung von {{email}}.",
-    "reauthenticationNotice": "Passwort und, falls aktiviert, Zwei-Faktor-Authentifizierung sind erforderlich. Während der Nachfrist bleiben Passwort, MFA, Passkeys und diese Sitzung aktiv, damit Sie abbrechen können. Andere Sitzungen und temporäre Anfragen werden erst nach Einreihung der E-Mail-Benachrichtigung ungültig.",
+    "reauthenticationNotice": "Der Server verlangt das Passwort und zusätzlich den zweiten Faktor, wenn 2FA aktiv ist, oder einen Code an die verifizierte E-Mail-Adresse, wenn 2FA nicht aktiv ist. Ohne nutzbares Passwort sind der E-Mail-Code und gegebenenfalls 2FA erforderlich. Die Oberfläche kann diese Anforderung nicht herabsetzen.",
     "accountCancelled": "Die vollständige Kontoschliessung wurde abgebrochen.",
     "passwordRejected": "Das Passwort stimmt nicht mit diesem Konto überein. Es wurde keine Löschung geplant.",
     "totpRejected": "Der Authenticator-Code ist ungültig oder abgelaufen. Es wurde keine Löschung geplant.",
+    "emailCodeRejected": "Der per E-Mail gesendete Code ist ungültig, abgelaufen oder bereits verwendet. Es wurde keine Löschung geplant.",
     "formVerificationExpired": "Die menschliche Überprüfung ist abgelaufen. Führen Sie sie vor dem Fortfahren erneut durch.",
     "requestFailed": "Die Löschanfrage konnte nicht verarbeitet werden. Das Konto wurde nicht geändert; bitte versuchen Sie es erneut."
   },
@@ -1032,7 +1041,17 @@
     "allTrainers": "Alle Trainer",
     "brandingTab": "Identität der Einrichtung",
     "createClass": "Klasse erstellen",
-    "noClasses": "Keine Klassen gefunden",
+    "noClasses": "Erstellen Sie den ersten Kurs für Ihre Kunden",
+    "classPermissions": {
+      "classes.create": "Erstellen",
+      "classes.update": "Bearbeiten",
+      "classes.delete": "Löschen"
+    },
+    "permissionEffects": {
+      "inherit": "Nach Rolle",
+      "allow": "Erlauben",
+      "deny": "Verweigern"
+    },
     "deleteClassConfirm": "Sind Sie sicher, dass Sie diesen Kurs löschen möchten?",
     "deleteClassTitle": "Kurs löschen",
     "deleteClassDescription": "Sie löschen «{{name}}». Der Vorgang wird nur fortgesetzt, wenn keine Buchungen, Warteliste, Inhalte oder Fortschritte verknüpft sind.",
@@ -1074,7 +1093,35 @@
     "editUser": "Benutzer bearbeiten",
     "createUser": "Benutzer erstellen",
     "deleteUsersConfirm": "{{count}}-Benutzer löschen?",
-    "deletionReviewRequired": "Das Konto enthält Daten, die aufbewahrt oder neu zugewiesen werden müssen. Prüfen Sie Tickets, Dokumente und Verantwortlichkeiten vor dem Löschen."
+    "deletionReviewRequired": "Das Konto enthält Daten, die aufbewahrt oder neu zugewiesen werden müssen. Prüfen Sie Tickets, Dokumente und Verantwortlichkeiten vor dem Löschen.",
+    "staffMemberPolicyTitle": "Mitgliedszuordnung für Personal",
+    "staffMemberPolicyDescription": "Legen Sie fest, ob Mitarbeiter zusätzlich ein Mitgliedskonto verknüpfen dürfen. Eine Änderung entfernt keine bereits aktiven Zuordnungen.",
+    "staffMemberPolicyQuestion": "Mitarbeitern des Studios erlauben, Mitgliedskonten zu erstellen",
+    "specificStaffMemberPermissions": "Spezifische Berechtigungen",
+    "specificStaffMemberPermissionsHelp": "Wählen Sie Personen aus, die auch bei deaktivierter allgemeiner Option berechtigt sind, etwa Wettkampf- oder Verbandstrainer.",
+    "noEligibleStaffForMemberAffiliation": "Es gibt keine verifizierten Mitarbeiter für diese Berechtigung.",
+    "memberAffiliations": "Mitgliedszuordnungen",
+    "memberAffiliationsDescription": "Verknüpfen Sie ein Mitgliedskonto über einen Link mit diesem Studio, den der Kontoinhaber annehmen muss.",
+    "affiliateMember": "Neues Mitglied zuordnen",
+    "sendAffiliation": "Zuordnung senden",
+    "memberAffiliationSecurityNotice": "Das Mitglied erhält einen einmalig verwendbaren Link. Die Zuordnung wird erst aktiv, wenn der Kontoinhaber sie annimmt.",
+    "noMemberAffiliations": "Es gibt noch keine aktiven oder ausstehenden Mitgliedszuordnungen.",
+    "affiliationStatus": "Status",
+    "affiliationActive": "Aktiv",
+    "affiliationPending": "Annahme ausstehend"
+  },
+  "memberAffiliationInvitation": {
+    "eyebrow": "Vom Mitglied kontrollierte Zuordnung",
+    "title": "Zuordnung zum Studio",
+    "description": "Prüfen Sie das Studio vor der Annahme. Die Zuordnung wird nur mit Ihrer Zustimmung aktiviert.",
+    "accepted": "Die Zuordnung wurde bestätigt. Ihr Konto ist nun diesem Studio als Mitglied zugeordnet.",
+    "declined": "Die Zuordnung wurde abgelehnt und gewährt keinen Zugriff auf das Studio.",
+    "status": {
+      "accepted": "Diese Zuordnung wurde bereits angenommen.",
+      "declined": "Diese Zuordnung wurde bereits abgelehnt.",
+      "revoked": "Das Studio hat diese Zuordnung ungültig gemacht.",
+      "expired": "Die Zuordnungsfrist ist abgelaufen. Bitten Sie das Studio um eine neue."
+    }
   },
   "facilityBranding": {
     "title": "Panel-Anpassung",
@@ -1141,7 +1188,7 @@
     "activeMembers": "Aktive Mitglieder",
     "currentActiveMembers": "Verifizierte aktive Mitgliedschaften in diesem Zentrum",
     "centreBaselineTitle": "Operative Basis des Zentrums",
-    "centreBaselineDescription": "Neue Mitglieder, Teilnahme und Stornierungen im ausgewählten Zeitraum, stets auf das aktive Zentrum begrenzt.",
+    "centreBaselineDescription": "Aus Mitgliedschaften, verifizierten Trainern, Räumen und Kursen im ausgewählten Zeitraum berechnete Kennzahlen statt manuell eingegebener Schätzungen.",
     "newMembersInPeriod": "Neue Mitglieder im Zeitraum",
     "participationRate": "Teilnahme",
     "participationRateHint": "{{count}} Mitglieder mit mindestens einer bestätigten Buchung",
@@ -1506,15 +1553,17 @@
     "sessions": "Aktive Sitzungen",
     "sessionsDescription": "Überprüfen Sie, wo Ihr Konto geöffnet ist, und schliessen Sie alle Zugriffe, die Sie nicht kennen.",
     "downloadHeading": "Umbravia Forge-Wiederherstellungscodes",
-    "inactivityTitle": "Automatische Schliessung nach Inaktivität",
+    "inactivityTitle": "Inaktivitätslimit der Sitzung",
     "codesDownloaded": "Codes heruntergeladen und ausgeblendet.",
     "downloadWarning": "Bewahren Sie diese Datei sicher auf. Jeder Code kann nur einmal verwendet werden.",
     "inactivitySave": "Ablaufdatum speichern",
-    "inactivityDescription": "Wählen Sie aus, wie lange eine Sitzung inaktiv bleiben darf, bevor die API sie auf einem Gerät schliesst. Dieser Schutz gilt auch für Administratorkonten.",
+    "inactivityDescription": "Wählen Sie aus, wie lange eine Sitzung inaktiv bleiben darf, bevor sie auf einem Gerät geschlossen wird. Dieser Schutz gilt auch für Administratorkonten.",
+    "inactivityRememberedHelp": "Dieses Limit verlängert nicht die maximale Sitzungsdauer: Eine nicht gespeicherte Sitzung endet spätestens nach 24 Stunden, eine gespeicherte nach 30 Tagen. Es gilt immer der zuerst erreichte Zeitpunkt.",
     "remainingMinutes_one": "{{count}} Minute",
     "remainingMinutes_other": "{{count}} Minuten",
     "sessionTimeoutSaved": "Der Ablauf der Inaktivität wurde aktualisiert.",
-    "expiresIn": "Läuft in {{time}} ohne Aktivität ab",
+    "idleExpiresIn": "Wird bei weiterer Inaktivität in {{time}} geschlossen",
+    "absoluteExpiresIn": "Die Sitzung endet in {{time}}, auch wenn sie aktiv bleibt",
     "remainingHours_other": "{{count}} Stunden",
     "timeouts": {
       "15": "15 Minuten",
@@ -1552,9 +1601,21 @@
       "all_other_sessions_revoked": "Andere Sitzungen geschlossen",
       "account_compromise_reported": "Mögliche Kompromittierung gemeldet",
       "email_verified": "E-Mail verifiziert",
+      "deletion_preference_updated": "Einstellung zur Löschung bei Inaktivität aktualisiert",
+      "facility_member_affiliation_policy_updated": "Richtlinie zur Mitgliedszuordnung des Personals aktualisiert",
+      "facility_workforce_roles_updated": "Arbeitsfunktionen des Studios aktualisiert",
+      "facility_class_permissions_updated": "Berechtigungen zur Kursverwaltung aktualisiert",
+      "account_deletion_code_requested": "Code zur Kontoschliessung gesendet",
+      "account_deletion_code_failed": "Falscher Code zur Kontoschliessung",
       "private_content_accessed": "Autorisierter Zugriff auf geschützte Inhalte",
       "support_id_rotated": "Öffentliche Support-ID erneuert",
       "session_revoked": "Sitzung geschlossen"
+    },
+    "errors": {
+      "invalidConfirmation": "Die Sicherheitsbestätigung ist ungültig. Prüfen Sie das Passwort und, falls verlangt, den Verifizierungscode.",
+      "passkeyChallengeInvalid": "Die Anfrage zur Aktivierung des Fingerabdrucks oder Passkeys ist abgelaufen. Versuchen Sie es erneut.",
+      "passkeyRegistrationFailed": "Das Gerät konnte die Aktivierung des Fingerabdrucks oder Passkeys nicht abschliessen. Entsperren Sie es, erlauben Sie die Prüfung und versuchen Sie es erneut.",
+      "requestFailed": "Die Sicherheitsänderung konnte nicht abgeschlossen werden. Die vorherige Konfiguration bleibt bestehen."
     }
   },
   "emailVerification": {

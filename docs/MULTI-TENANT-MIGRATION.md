@@ -15,7 +15,9 @@ data all enforce the same boundary on the server.
 
 - `facilityProfiles` is the tenant root and retains the visible centre identity.
 - `facilityMemberships` relates a user to a facility with the role `owner`,
-  `admin`, `trainer` or `member`.
+  `admin`, `trainer` or `member`. Ownership remains a distinct authorization
+  state while the visible workforce functions can accumulate `admin` and
+  `trainer`; a delegated administrator is not an owner.
 - A tenant context requires an active profile and a membership. An active
   membership grants the role's normal capabilities; an `invited` worker
   membership grants only read access until that person completes employment
@@ -32,6 +34,14 @@ data all enforce the same boundary on the server.
   role. The server rejects every non-read HTTP method for an unverified worker
   with `FACILITY_WORKER_VERIFICATION_REQUIRED`; hiding controls in React is
   only an additional usability measure.
+- Member affiliation uses a distinct recipient-controlled presentation over
+  the same hashed and expiring token foundation. Acceptance creates the member
+  relationship without replacing verified `trainer` or delegated `admin`
+  functions when the owner-authorised staff policy permits it; owners remain
+  ineligible. Promotion from membership to employment is rejected and must
+  begin a worker-verification flow. Owner-managed allow/deny overrides for
+  class management are checked after tenant and membership resolution on the
+  server.
 
 ## Retired compatibility data
 

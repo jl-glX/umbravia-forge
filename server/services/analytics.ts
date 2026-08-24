@@ -1,4 +1,5 @@
 import { db } from "../db/client.js";
+import { parseBookingConfiguration } from "../lib/booking-configuration.js";
 
 export interface MonthlyMetrics {
   month: string;
@@ -140,6 +141,9 @@ export interface AnalyticsHistory {
 
 export interface CentreAnalyticsBaseline {
   activeMembers: number;
+  activeTrainers: number;
+  activeSpaces: number;
+  averageSessionCapacity: number | null;
   newMembers: number;
   engagedMembers: number;
   participationRate: number | null;
@@ -448,6 +452,35 @@ export async function getAnalyticsOverview(
           .where("users.accountStatus", "=", "active")
           .execute()
       : [];
+  const activeTrainerRows =
+    input.consumer === "administration"
+      ? await db
+          .selectFrom("facilityMemberships")
+          .innerJoin("users", "users.id", "facilityMemberships.userId")
+          .select([
+            "facilityMemberships.userId",
+            "facilityMemberships.role",
+            "facilityMemberships.workforceRoles",
+          ])
+          .where("facilityMemberships.facilityId", "=", input.facilityId)
+          .where("facilityMemberships.role", "in", [
+            "owner",
+            "admin",
+            "trainer",
+          ])
+          .where("facilityMemberships.status", "=", "active")
+          .where("users.accountStatus", "=", "active")
+          .execute()
+      : [];
+  const bookingConfigurationRows =
+    input.consumer === "administration" && activitySessionIds.length > 0
+      ? await db
+          .selectFrom("activitySessionBookingConfigurations")
+          .select("configuration")
+          .where("activitySessionId", "in", activitySessionIds)
+          .where("lifecycleState", "=", "active")
+          .execute()
+      : [];
 
   const activities = new Map<string, ActivityAccumulator>();
   const timeSlots = new Map<string, ActivityTimeSlotAccumulator>();
@@ -684,6 +717,39 @@ export async function getAnalyticsOverview(
     input.consumer === "administration"
       ? {
           activeMembers: activeMemberRows.length,
+          activeTrainers: new Set(
+            activeTrainerRows
+              .filter((membership) => {
+                if (membership.role === "trainer") return true;
+                try {
+                  const roles = JSON.parse(
+                    membership.workforceRoles,
+                  ) as unknown;
+                  return Array.isArray(roles) && roles.includes("trainer");
+                } catch {
+                  return false;
+                }
+              })
+              .map((membership) => membership.userId),
+          ).size,
+          activeSpaces: new Set(
+            bookingConfigurationRows
+              .map((row) => parseBookingConfiguration(row.configuration).room)
+              .map((room) => room.trim().toLowerCase())
+              .filter(Boolean),
+          ).size,
+          averageSessionCapacity:
+            classes.length === 0
+              ? null
+              : Math.round(
+                  (classes.reduce(
+                    (total, activitySession) =>
+                      total + activitySession.maxCapacity,
+                    0,
+                  ) /
+                    classes.length) *
+                    10,
+                ) / 10,
           newMembers: activeMemberRows.filter(
             (membership) =>
               membership.createdAt >= input.from &&

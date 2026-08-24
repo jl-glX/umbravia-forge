@@ -26,7 +26,8 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Seguridad](./SECURITY.md)
 - [Migración y aislamiento multi-tenant](./MULTI-TENANT-MIGRATION.md)
   incluida la verificación laboral con acceso de solo lectura hasta su
-  aceptación;
+  aceptación, la afiliación de socios controlada por el titular y la separación
+  entre jefatura, administración delegada y función de entrenador;
 - [Ciclo de vida, recuperación y cambio verificado de correo](./ACCOUNT-LIFECYCLE.md)
 - [Migración neutral del dominio de actividades](./ACTIVITY-DOMAIN-MIGRATION.md)
   incluidas las series multidía atómicas y la apertura configurable de

@@ -6,6 +6,7 @@ export interface FacilityContext {
   slug: string;
   name: string;
   role: FacilityRole;
+  memberAffiliation: boolean;
   membershipStatus: "active" | "invited";
   accessMode: "full" | "read_only";
 }
@@ -32,6 +33,7 @@ export async function listFacilityContexts(
       "facilityProfiles.slug as slug",
       "facilityProfiles.name as name",
       "facilityMemberships.role as role",
+      "facilityMemberships.memberAffiliation as memberAffiliation",
       "facilityMemberships.status as membershipStatus",
     ])
     .where("facilityMemberships.userId", "=", userId)
@@ -47,6 +49,8 @@ export async function listFacilityContexts(
     })
     .map((facility) => ({
       ...facility,
+      memberAffiliation:
+        facility.role === "member" || facility.memberAffiliation === 1,
       membershipStatus:
         facility.membershipStatus === "active"
           ? ("active" as const)

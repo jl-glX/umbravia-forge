@@ -26,10 +26,6 @@ import type { StagedFileRemoval } from "../lib/staged-file-removal.js";
 type TrialInput = {
   facilityName: string;
   facilityType: CommercialFacilityType;
-  approximateMembers?: number | null;
-  trainerCount?: number | null;
-  spaceCount?: number | null;
-  usualCapacity?: number | null;
   classTypes?: string[];
   scheduleNotes?: string;
   locale?: "es" | "en" | "de" | "de-CH";
@@ -825,10 +821,12 @@ export async function createCommercialTrial(
     ownerUserId: actorUserId,
     facilityName: input.facilityName,
     facilityType: input.facilityType,
-    approximateMembers: input.approximateMembers ?? null,
-    trainerCount: input.trainerCount ?? null,
-    spaceCount: input.spaceCount ?? null,
-    usualCapacity: input.usualCapacity ?? template.usualCapacity,
+    // These legacy columns are no longer user-entered configuration. Current
+    // centre measurements are derived from tenant data in Forge Analytics.
+    approximateMembers: null,
+    trainerCount: null,
+    spaceCount: null,
+    usualCapacity: template.usualCapacity,
     classTypes: JSON.stringify(input.classTypes ?? template.classTypes),
     scheduleNotes: input.scheduleNotes ?? "",
     locale: input.locale ?? ("es" as const),
@@ -924,16 +922,6 @@ export async function updateCommercialTrial(
       : {}),
     ...(input.facilityType !== undefined
       ? { facilityType: input.facilityType, templateKey: input.facilityType }
-      : {}),
-    ...(input.approximateMembers !== undefined
-      ? { approximateMembers: input.approximateMembers }
-      : {}),
-    ...(input.trainerCount !== undefined
-      ? { trainerCount: input.trainerCount }
-      : {}),
-    ...(input.spaceCount !== undefined ? { spaceCount: input.spaceCount } : {}),
-    ...(input.usualCapacity !== undefined
-      ? { usualCapacity: input.usualCapacity }
       : {}),
     ...(input.classTypes !== undefined
       ? { classTypes: JSON.stringify(input.classTypes) }

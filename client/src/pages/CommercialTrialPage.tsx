@@ -29,10 +29,6 @@ import { Label } from "../components/ui/label";
 const emptyForm = {
   facilityName: "",
   facilityType: "traditional_gym" as CommercialFacilityType,
-  approximateMembers: "",
-  trainerCount: "",
-  spaceCount: "",
-  usualCapacity: "",
   classTypes: "",
   scheduleNotes: "",
   locale: "es" as "es" | "en" | "de" | "de-CH",
@@ -124,10 +120,6 @@ export function CommercialTrialPage() {
         setForm({
           facilityName: trial.facilityName,
           facilityType: trial.facilityType,
-          approximateMembers: trial.approximateMembers?.toString() ?? "",
-          trainerCount: trial.trainerCount?.toString() ?? "",
-          spaceCount: trial.spaceCount?.toString() ?? "",
-          usualCapacity: trial.usualCapacity?.toString() ?? "",
           classTypes: trial.classTypes.join(", "),
           scheduleNotes: trial.scheduleNotes,
           locale: trial.locale,
@@ -150,14 +142,8 @@ export function CommercialTrialPage() {
     event.preventDefault();
     setSaving(true);
     try {
-      const numberOrNull = (value: string) =>
-        value === "" ? null : Number(value);
       const payload = {
         ...form,
-        approximateMembers: numberOrNull(form.approximateMembers),
-        trainerCount: numberOrNull(form.trainerCount),
-        spaceCount: numberOrNull(form.spaceCount),
-        usualCapacity: numberOrNull(form.usualCapacity),
         classTypes: form.classTypes
           .split(",")
           .map((value) => value.trim())
@@ -530,38 +516,6 @@ export function CommercialTrialPage() {
                     ))}
                   </select>
                 </div>
-                {(
-                  [
-                    "approximateMembers",
-                    "trainerCount",
-                    "spaceCount",
-                    "usualCapacity",
-                  ] as const
-                ).map((field) => (
-                  <div key={field}>
-                    <Label htmlFor={field}>
-                      {t(`commercial.trial.fields.${field}`)}
-                    </Label>
-                    <Input
-                      id={field}
-                      type="number"
-                      min={field === "usualCapacity" ? "1" : "0"}
-                      max={
-                        field === "approximateMembers"
-                          ? "1000000"
-                          : field === "trainerCount"
-                            ? "100000"
-                            : field === "spaceCount"
-                              ? "10000"
-                              : "100000"
-                      }
-                      value={form[field]}
-                      onChange={(e) =>
-                        setForm({ ...form, [field]: e.target.value })
-                      }
-                    />
-                  </div>
-                ))}
                 <div className="md:col-span-2">
                   <Label htmlFor="classTypes">
                     {t("commercial.trial.fields.classTypes")}

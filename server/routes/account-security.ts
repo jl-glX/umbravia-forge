@@ -42,6 +42,7 @@ import { verifyUserPassword } from "../services/auth.js";
 import {
   beginPasskeyRegistration,
   finishPasskeyRegistration,
+  PasskeyRegistrationError,
   removePasskeys,
 } from "../services/passkeys.js";
 import {
@@ -53,6 +54,13 @@ import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { getWebauthnContext } from "../lib/request-origin.js";
 
 export const accountSecurityRouter = express.Router();
+
+function rejectSecurityConfirmation(res: express.Response): void {
+  res.status(401).json({
+    error: "Security confirmation failed",
+    code: "INVALID_SECURITY_CONFIRMATION",
+  });
+}
 
 function isCorporateAccount(res: express.Response): boolean {
   return getAuthenticatedUser(res).identityRealm === "corporate_support";
@@ -178,7 +186,7 @@ accountSecurityRouter.post(
         (typeof req.body.code === "string" &&
           (await verifyMfaCode(auth.userId, auth.email, req.body.code)).valid);
       if (!passwordValid || !mfaValid) {
-        res.status(401).json({ error: "Invalid security confirmation" });
+        rejectSecurityConfirmation(res);
         return;
       }
       res.json(await secureReportedCompromise(auth.userId, auth.sessionId));
@@ -200,7 +208,7 @@ accountSecurityRouter.post(
     try {
       const auth = getAuthenticatedUser(res);
       if (!(await verifyUserPassword(auth.userId, req.body.password))) {
-        res.status(401).json({ error: "Invalid security confirmation" });
+        rejectSecurityConfirmation(res);
         return;
       }
       const { rpID } = getWebauthnContext(req);
@@ -227,7 +235,10 @@ accountSecurityRouter.post(
   ) => {
     const token = readScopedPasskeyChallenge(req, res);
     if (!token) {
-      res.status(401).json({ error: "Invalid or expired passkey challenge" });
+      res.status(401).json({
+        error: "Invalid or expired passkey challenge",
+        code: "PASSKEY_CHALLENGE_INVALID",
+      });
       return;
     }
     try {
@@ -244,6 +255,13 @@ accountSecurityRouter.post(
       res.status(201).json({ enabled: true });
     } catch (error) {
       clearScopedPasskeyChallenge(res);
+      if (error instanceof PasskeyRegistrationError) {
+        res.status(400).json({
+          error: "Passkey registration could not be verified",
+          code: "PASSKEY_REGISTRATION_FAILED",
+        });
+        return;
+      }
       next(error);
     }
   },
@@ -261,7 +279,7 @@ accountSecurityRouter.delete(
     try {
       const auth = getAuthenticatedUser(res);
       if (!(await verifyUserPassword(auth.userId, req.body.password))) {
-        res.status(401).json({ error: "Invalid security confirmation" });
+        rejectSecurityConfirmation(res);
         return;
       }
       await removePasskeys(auth.userId);
@@ -284,7 +302,7 @@ accountSecurityRouter.post(
     try {
       const auth = getAuthenticatedUser(res);
       if (!(await verifyUserPassword(auth.userId, req.body.password))) {
-        res.status(401).json({ error: "Invalid security confirmation" });
+        rejectSecurityConfirmation(res);
         return;
       }
       res.json(await beginMfaSetup(auth.userId, auth.email));
@@ -337,7 +355,7 @@ accountSecurityRouter.post(
     try {
       const auth = getAuthenticatedUser(res);
       if (!(await confirmSensitiveAction(req, res))) {
-        res.status(401).json({ error: "Invalid security confirmation" });
+        rejectSecurityConfirmation(res);
         return;
       }
       res.json({ recoveryCodes: await regenerateRecoveryCodes(auth.userId) });
@@ -359,7 +377,7 @@ accountSecurityRouter.delete(
     try {
       const auth = getAuthenticatedUser(res);
       if (!(await confirmSensitiveAction(req, res))) {
-        res.status(401).json({ error: "Invalid security confirmation" });
+        rejectSecurityConfirmation(res);
         return;
       }
       await disableMfa(auth.userId);

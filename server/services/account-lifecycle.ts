@@ -25,7 +25,7 @@ import { stageE2eeAttachmentFilesRemoval } from "./e2ee-attachments.js";
 import type { Transaction } from "kysely";
 import type { Database } from "../db/types.js";
 import type { StagedFileRemoval } from "../lib/staged-file-removal.js";
-import { mfaStatus } from "./mfa.js";
+import { getAccountDeletionConfirmation } from "./account-deletion-confirmation.js";
 
 export const INACTIVITY_DELETION_OPTIONS = [6, 12, 18, 24, 36] as const;
 export type InactivityDeletionMonths =
@@ -753,6 +753,10 @@ export async function revokeTransientAccountSecrets(
       .deleteFrom("accountRecoveryChallenges")
       .where("userId", "=", userId)
       .executeTakeFirst();
+    const deletionConfirmation = await transaction
+      .deleteFrom("accountDeletionChallenges")
+      .where("userId", "=", userId)
+      .executeTakeFirst();
     const auth = await transaction
       .deleteFrom("authChallenges")
       .where("userId", "=", userId)
@@ -771,6 +775,7 @@ export async function revokeTransientAccountSecrets(
       removedTemporaryChallenges:
         Number(emailVerification.numDeletedRows) +
           Number(recovery.numDeletedRows) +
+          Number(deletionConfirmation.numDeletedRows) +
           Number(auth.numDeletedRows) +
           Number(webauthn.numDeletedRows) >
         0,
@@ -785,34 +790,45 @@ async function inspectTransientAccountSecrets(
   revokedOtherSessions: boolean;
   removedTemporaryChallenges: boolean;
 }> {
-  const [emailVerification, recovery, auth, webauthn, sessionRows] =
-    await Promise.all([
-      db
-        .selectFrom("emailVerificationChallenges")
-        .select(({ fn }) => fn.countAll<number>().as("count"))
-        .where("userId", "=", userId)
-        .executeTakeFirstOrThrow(),
-      db
-        .selectFrom("accountRecoveryChallenges")
-        .select(({ fn }) => fn.countAll<number>().as("count"))
-        .where("userId", "=", userId)
-        .executeTakeFirstOrThrow(),
-      db
-        .selectFrom("authChallenges")
-        .select(({ fn }) => fn.countAll<number>().as("count"))
-        .where("userId", "=", userId)
-        .executeTakeFirstOrThrow(),
-      db
-        .selectFrom("webauthnChallenges")
-        .select(({ fn }) => fn.countAll<number>().as("count"))
-        .where("userId", "=", userId)
-        .executeTakeFirstOrThrow(),
-      db
-        .selectFrom("sessions")
-        .select("id")
-        .where("userId", "=", userId)
-        .execute(),
-    ]);
+  const [
+    emailVerification,
+    recovery,
+    deletionConfirmation,
+    auth,
+    webauthn,
+    sessionRows,
+  ] = await Promise.all([
+    db
+      .selectFrom("emailVerificationChallenges")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("userId", "=", userId)
+      .executeTakeFirstOrThrow(),
+    db
+      .selectFrom("accountRecoveryChallenges")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("userId", "=", userId)
+      .executeTakeFirstOrThrow(),
+    db
+      .selectFrom("accountDeletionChallenges")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("userId", "=", userId)
+      .executeTakeFirstOrThrow(),
+    db
+      .selectFrom("authChallenges")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("userId", "=", userId)
+      .executeTakeFirstOrThrow(),
+    db
+      .selectFrom("webauthnChallenges")
+      .select(({ fn }) => fn.countAll<number>().as("count"))
+      .where("userId", "=", userId)
+      .executeTakeFirstOrThrow(),
+    db
+      .selectFrom("sessions")
+      .select("id")
+      .where("userId", "=", userId)
+      .execute(),
+  ]);
   return {
     revokedOtherSessions: sessionRows.some(
       (session) => !keepSessionId || session.id !== keepSessionId,
@@ -820,6 +836,7 @@ async function inspectTransientAccountSecrets(
     removedTemporaryChallenges:
       Number(emailVerification.count) +
         Number(recovery.count) +
+        Number(deletionConfirmation.count) +
         Number(auth.count) +
         Number(webauthn.count) >
       0,
@@ -846,6 +863,10 @@ async function destroyAccountAccessSecrets(
     .execute();
   await transaction
     .deleteFrom("accountRecoveryChallenges")
+    .where("userId", "=", userId)
+    .execute();
+  await transaction
+    .deleteFrom("accountDeletionChallenges")
     .where("userId", "=", userId)
     .execute();
   await transaction
@@ -1114,8 +1135,7 @@ export async function getDataDeletionReview(userId: string) {
     activeSessionRows,
     sessionSettings,
     affectedDelegations,
-    user,
-    mfa,
+    confirmation,
   ] = await Promise.all([
     getAccountLifecycle(userId),
     db
@@ -1158,12 +1178,7 @@ export async function getDataDeletionReview(userId: string) {
         ]),
       )
       .executeTakeFirstOrThrow(),
-    db
-      .selectFrom("users")
-      .select("email")
-      .where("id", "=", userId)
-      .executeTakeFirstOrThrow(),
-    mfaStatus(userId),
+    getAccountDeletionConfirmation(userId),
   ]);
 
   let selectedCategories: AccountDataCategory[] = [];
@@ -1184,8 +1199,12 @@ export async function getDataDeletionReview(userId: string) {
 
   return {
     ...lifecycle,
-    accountEmail: user.email,
-    mfaRequired: mfa.enabled,
+    accountEmail: confirmation.user.email,
+    confirmationMethod: confirmation.method,
+    passwordRequired: confirmation.passwordAvailable,
+    mfaRequired: confirmation.mfaRequired,
+    emailCodeRequired: confirmation.emailCodeRequired,
+    emailCodeAvailable: confirmation.emailAvailable,
     deletionDraft: draft
       ? {
           selectedCategories,

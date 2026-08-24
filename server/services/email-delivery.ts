@@ -876,7 +876,7 @@ export async function queueFacilityInvitationEmail(input: {
     },
   };
   const roleName = roleNames[input.locale][input.role];
-  const content: Record<
+  const workerContent: Record<
     SupportedLocale,
     { subject: string; intro: string; action: string; expiry: string }
   > = {
@@ -909,7 +909,43 @@ export async function queueFacilityInvitationEmail(input: {
       expiry: `Der Verifizierungslink läuft in ${validityDays} Tagen ab und kann nur einmal verwendet werden.`,
     },
   };
-  const message = content[input.locale];
+  const memberContent: Record<
+    SupportedLocale,
+    { subject: string; intro: string; action: string; expiry: string }
+  > = {
+    es: {
+      subject: `Afiliación de socio con ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} quiere vincular tu cuenta como socio.`,
+      action:
+        "Revisa los datos y acepta o rechaza la afiliación desde el enlace. Si ya tienes una cuenta, inicia sesión con el correo que ha recibido este mensaje.",
+      expiry: `El enlace de afiliación caduca en ${validityDays} días y solo puede utilizarse una vez.`,
+    },
+    en: {
+      subject: `Member affiliation with ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} wants to link your account as a member.`,
+      action:
+        "Review the details and accept or decline the affiliation from the link. If you already have an account, sign in with the email address that received this message.",
+      expiry: `The affiliation link expires in ${validityDays} days and can only be used once.`,
+    },
+    de: {
+      subject: `Mitgliedszuordnung mit ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} möchte Ihr Konto als Mitglied verknüpfen.`,
+      action:
+        "Prüfen Sie die Angaben und nehmen Sie die Zuordnung über den Link an oder lehnen Sie sie ab. Wenn Sie bereits ein Konto haben, melden Sie sich mit der E-Mail-Adresse an, die diese Nachricht erhalten hat.",
+      expiry: `Der Zuordnungslink läuft in ${validityDays} Tagen ab und kann nur einmal verwendet werden.`,
+    },
+    "de-CH": {
+      subject: `Mitgliedszuordnung mit ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} möchte Ihr Konto als Mitglied verknüpfen.`,
+      action:
+        "Prüfen Sie die Angaben und nehmen Sie die Zuordnung über den Link an oder lehnen Sie sie ab. Wenn Sie bereits ein Konto haben, melden Sie sich mit der E-Mail-Adresse an, die diese Nachricht erhalten hat.",
+      expiry: `Der Zuordnungslink läuft in ${validityDays} Tagen ab und kann nur einmal verwendet werden.`,
+    },
+  };
+  const message =
+    input.role === "member"
+      ? memberContent[input.locale]
+      : workerContent[input.locale];
   const htmlUrl = escapeInvitationHtml(invitationUrl);
   return queueEncryptedDelivery({
     userId: null,
@@ -954,6 +990,69 @@ export async function queueEmailChangeVerification(input: {
       email: input.email,
       locale: input.locale,
       ...message,
+    },
+    expiresAt: input.expiresAt,
+  });
+}
+
+export async function queueAccountDeletionVerificationCode(input: {
+  userId: string;
+  email: string;
+  name: string;
+  code: string;
+  locale: SupportedLocale;
+  expiresAt: number;
+}): Promise<string> {
+  const validityMinutes = Math.max(
+    1,
+    Math.ceil((input.expiresAt - Date.now()) / 60_000),
+  );
+  const content: Record<
+    SupportedLocale,
+    { subject: string; greeting: string; instruction: string; warning: string }
+  > = {
+    es: {
+      subject: "Código para confirmar el cierre de tu cuenta",
+      greeting: `Hola, ${input.name}.`,
+      instruction: `Introduce este código de un solo uso para confirmar la solicitud de cierre. Caduca en ${validityMinutes} minutos.`,
+      warning:
+        "Si no has solicitado cerrar la cuenta, no compartas el código y revisa la actividad de seguridad.",
+    },
+    en: {
+      subject: "Code to confirm your account closure",
+      greeting: `Hello, ${input.name}.`,
+      instruction: `Enter this one-time code to confirm the closure request. It expires in ${validityMinutes} minutes.`,
+      warning:
+        "If you did not request an account closure, do not share the code and review your security activity.",
+    },
+    de: {
+      subject: "Code zur Bestätigung der Kontoschließung",
+      greeting: `Hallo, ${input.name}.`,
+      instruction: `Geben Sie diesen Einmalcode ein, um die Schließungsanfrage zu bestätigen. Er läuft in ${validityMinutes} Minuten ab.`,
+      warning:
+        "Wenn Sie keine Kontoschließung angefordert haben, geben Sie den Code nicht weiter und prüfen Sie Ihre Sicherheitsaktivität.",
+    },
+    "de-CH": {
+      subject: "Code zur Bestätigung der Kontoschliessung",
+      greeting: `Hallo, ${input.name}.`,
+      instruction: `Geben Sie diesen Einmalcode ein, um die Schliessungsanfrage zu bestätigen. Er läuft in ${validityMinutes} Minuten ab.`,
+      warning:
+        "Wenn Sie keine Kontoschliessung angefordert haben, geben Sie den Code nicht weiter und prüfen Sie Ihre Sicherheitsaktivität.",
+    },
+  };
+  const message = content[input.locale];
+  return queueEncryptedDelivery({
+    userId: input.userId,
+    platformScope: "commercial",
+    kind: "security_notice",
+    recipient: input.email,
+    locale: input.locale,
+    payload: {
+      email: input.email,
+      locale: input.locale,
+      subject: message.subject,
+      text: `${message.greeting}\n\n${message.instruction}\n\n${input.code}\n\n${message.warning}`,
+      html: `<p>${escapeHtml(message.greeting)}</p><p>${escapeHtml(message.instruction)}</p><p style="font-size:28px;font-weight:700;letter-spacing:0.2em">${escapeHtml(input.code)}</p><p>${escapeHtml(message.warning)}</p>`,
     },
     expiresAt: input.expiresAt,
   });

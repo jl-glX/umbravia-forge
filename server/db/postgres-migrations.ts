@@ -2640,6 +2640,59 @@ CREATE INDEX IF NOT EXISTS "idx_commercialLifecycleFacts_kind_time"
   ON "commercialLifecycleFacts" ("kind", "occurredAt" DESC);
 `,
   },
+  {
+    version: 53,
+    name: "facility-class-permissions",
+    sql: String.raw`
+ALTER TABLE "facilityMemberships"
+  ADD COLUMN IF NOT EXISTS "classPermissions" TEXT NOT NULL DEFAULT '{}';
+`,
+  },
+  {
+    version: 54,
+    name: "facility-workforce-roles",
+    sql: String.raw`
+ALTER TABLE "facilityMemberships"
+  ADD COLUMN IF NOT EXISTS "workforceRoles" TEXT NOT NULL DEFAULT '[]';
+`,
+  },
+  {
+    version: 55,
+    name: "account-deletion-confirmation-challenges",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "accountDeletionChallenges" (
+  "id" TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL UNIQUE REFERENCES "users" ("id") ON DELETE CASCADE,
+  "sessionId" TEXT NOT NULL REFERENCES "sessions" ("id") ON DELETE CASCADE,
+  "codeHash" TEXT NOT NULL,
+  "createdAt" BIGINT NOT NULL,
+  "expiresAt" BIGINT NOT NULL,
+  "attempts" INTEGER NOT NULL DEFAULT 0 CHECK ("attempts" >= 0),
+  "consumedAt" BIGINT,
+  "deliveryId" TEXT REFERENCES "emailDeliveries" ("id") ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_accountDeletionChallenges_expiry"
+  ON "accountDeletionChallenges" ("expiresAt");
+`,
+  },
+  {
+    version: 56,
+    name: "staff-member-affiliations",
+    sql: String.raw`
+ALTER TABLE "facilityProfiles"
+  ADD COLUMN IF NOT EXISTS "allowStaffMemberAffiliations" SMALLINT NOT NULL DEFAULT 0
+    CHECK ("allowStaffMemberAffiliations" IN (0, 1));
+ALTER TABLE "facilityMemberships"
+  ADD COLUMN IF NOT EXISTS "memberAffiliation" SMALLINT NOT NULL DEFAULT 0
+    CHECK ("memberAffiliation" IN (0, 1));
+ALTER TABLE "facilityMemberships"
+  ADD COLUMN IF NOT EXISTS "staffMemberAffiliationAllowed" SMALLINT NOT NULL DEFAULT 0
+    CHECK ("staffMemberAffiliationAllowed" IN (0, 1));
+UPDATE "facilityMemberships"
+SET "memberAffiliation" = 1
+WHERE "role" = 'member' AND "memberAffiliation" = 0;
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

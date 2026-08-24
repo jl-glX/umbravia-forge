@@ -24,6 +24,7 @@ describe("account compromise response", () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-forge-compromise-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("CLIENT_ORIGIN", "http://127.0.0.1:3000");
     vi.resetModules();
     database = await import("../db/client.js");
     const auth = await import("../services/auth.js");
@@ -106,6 +107,32 @@ describe("account compromise response", () => {
       .set("Cookie", currentCookie)
       .send({ password: "WrongPassword123" })
       .expect(401);
+  });
+
+  it("accepts for passkey registration the same password used to sign in", async () => {
+    const response = await request(app)
+      .post("/api/account/security/passkeys/options")
+      .set("Cookie", currentCookie)
+      .send({ password: "CompromisePassword123" })
+      .expect(200);
+
+    expect(response.body.challenge).toEqual(expect.any(String));
+    const challengeCookies = response.headers["set-cookie"];
+    expect(
+      Array.isArray(challengeCookies)
+        ? challengeCookies.join(";")
+        : String(challengeCookies),
+    ).toContain("umbravia-forge_passkey_challenge=");
+  });
+
+  it("returns a stable localized error code for a wrong passkey confirmation", async () => {
+    const response = await request(app)
+      .post("/api/account/security/passkeys/options")
+      .set("Cookie", currentCookie)
+      .send({ password: "WrongPassword123" })
+      .expect(401);
+
+    expect(response.body.code).toBe("INVALID_SECURITY_CONFIRMATION");
   });
 
   it("changes email only after password and new-inbox verification", async () => {

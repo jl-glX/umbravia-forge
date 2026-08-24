@@ -65,6 +65,7 @@ describe("account manager API", () => {
       },
       lifecycle: { deletionExecutionEnabled: false },
       recovery: {
+        activeMethods: ["password", "email"],
         availableMethods: ["password", "email", "code", "passkey"],
       },
       communication: {

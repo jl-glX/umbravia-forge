@@ -150,6 +150,9 @@ export interface AnalyticsOverview {
   };
   centreBaseline: {
     activeMembers: number;
+    activeTrainers: number;
+    activeSpaces: number;
+    averageSessionCapacity: number | null;
     newMembers: number;
     engagedMembers: number;
     participationRate: number | null;

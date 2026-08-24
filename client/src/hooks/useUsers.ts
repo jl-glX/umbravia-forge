@@ -6,17 +6,20 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  roles: UserRole[];
+  facilityRole: "owner" | UserRole;
+  memberAffiliation: boolean;
+  classPermissions: Record<string, "allow" | "deny">;
   createdAt: number;
 }
 
 export const USER_ROLES = ["member", "trainer", "admin"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
+export type WorkforceRole = Exclude<UserRole, "member">;
 
 export interface UserUpdate {
   email?: string;
   name?: string;
-  password?: string;
-  role?: UserRole;
 }
 
 export interface FacilityInvitation {
@@ -31,6 +34,18 @@ export interface FacilityInvitation {
   deliveryQueued?: boolean;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface StaffMemberAffiliationPolicy {
+  allowAllStaff: boolean;
+  staff: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    role: "admin" | "trainer";
+    specificallyAllowed: boolean;
+    memberAffiliation: boolean;
+  }>;
 }
 
 export class UserActionError extends Error {
@@ -67,6 +82,8 @@ export function isUserRole(value: string): value is UserRole {
 export function useUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [invitations, setInvitations] = useState<FacilityInvitation[]>([]);
+  const [memberAffiliationPolicy, setMemberAffiliationPolicy] =
+    useState<StaffMemberAffiliationPolicy | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,10 +95,13 @@ export function useUsers() {
     try {
       setLoading(true);
       setError(null);
-      const [response, invitationsResponse] = await Promise.all([
-        authFetch("/api/users"),
-        authFetch("/api/users/invitations"),
-      ]);
+      const [response, invitationsResponse, policyResponse] = await Promise.all(
+        [
+          authFetch("/api/users"),
+          authFetch("/api/users/invitations"),
+          authFetch("/api/users/member-affiliation-policy"),
+        ],
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch users");
@@ -93,6 +113,10 @@ export function useUsers() {
         throw new Error("Failed to fetch facility invitations");
       }
       setInvitations(await invitationsResponse.json());
+      if (!policyResponse.ok) {
+        throw new Error("Failed to fetch member affiliation policy");
+      }
+      setMemberAffiliationPolicy(await policyResponse.json());
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(message);
@@ -105,7 +129,7 @@ export function useUsers() {
   const inviteUser = async (data: {
     email: string;
     name: string;
-    role: Exclude<UserRole, "member">;
+    role: UserRole;
     locale: "es" | "en" | "de" | "de-CH";
   }): Promise<FacilityInvitation> => {
     try {
@@ -170,26 +194,65 @@ export function useUsers() {
     }
   };
 
-  const updateUserRole = async (id: string, role: UserRole): Promise<User> => {
-    try {
-      const response = await authFetch(`/api/users/${id}/role`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to update user role");
-      }
-
-      const updatedUser = await response.json();
-      setUsers(users.map((u) => (u.id === id ? updatedUser : u)));
-      return updatedUser;
-    } catch (err) {
-      console.error("Error updating user role:", err);
-      throw err;
+  const updateWorkforceRoles = async (
+    id: string,
+    roles: WorkforceRole[],
+  ): Promise<User> => {
+    const response = await authFetch(`/api/users/${id}/workforce-roles`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roles }),
+    });
+    if (!response.ok) {
+      throw await userActionError(response, "Failed to update workforce roles");
     }
+    const updatedUser = (await response.json()) as User;
+    setUsers((current) =>
+      current.map((user) => (user.id === id ? updatedUser : user)),
+    );
+    return updatedUser;
+  };
+
+  const updateClassPermissions = async (
+    id: string,
+    classPermissions: Record<string, "allow" | "deny">,
+  ): Promise<User> => {
+    const response = await authFetch(`/api/users/${id}/class-permissions`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ classPermissions }),
+    });
+    if (!response.ok) {
+      throw await userActionError(
+        response,
+        "Failed to update class permissions",
+      );
+    }
+    const updatedUser = (await response.json()) as User;
+    setUsers((current) =>
+      current.map((user) => (user.id === id ? updatedUser : user)),
+    );
+    return updatedUser;
+  };
+
+  const updateMemberAffiliationPolicy = async (
+    allowAllStaff: boolean,
+    specificallyAllowedUserIds: string[],
+  ): Promise<StaffMemberAffiliationPolicy> => {
+    const response = await authFetch("/api/users/member-affiliation-policy", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ allowAllStaff, specificallyAllowedUserIds }),
+    });
+    if (!response.ok) {
+      throw await userActionError(
+        response,
+        "Failed to update member affiliation policy",
+      );
+    }
+    const updated = (await response.json()) as StaffMemberAffiliationPolicy;
+    setMemberAffiliationPolicy(updated);
+    return updated;
   };
 
   const deleteUser = async (id: string): Promise<void> => {
@@ -235,12 +298,15 @@ export function useUsers() {
   return {
     users,
     invitations,
+    memberAffiliationPolicy,
     loading,
     error,
     inviteUser,
     revokeInvitation,
     updateUser,
-    updateUserRole,
+    updateWorkforceRoles,
+    updateClassPermissions,
+    updateMemberAffiliationPolicy,
     deleteUser,
     deleteMultipleUsers,
     refreshUsers,

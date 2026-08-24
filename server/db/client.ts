@@ -751,6 +751,28 @@ async function initializeSqliteSchema(
     `);
   }
 
+  if (!tableNames.includes("accountDeletionChallenges")) {
+    console.log("Creating account deletion confirmation challenges table...");
+    sqliteDb.exec(`
+      CREATE TABLE accountDeletionChallenges (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL UNIQUE,
+        sessionId TEXT NOT NULL,
+        codeHash TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        expiresAt INTEGER NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts >= 0),
+        consumedAt INTEGER,
+        deliveryId TEXT,
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(sessionId) REFERENCES sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY(deliveryId) REFERENCES emailDeliveries(id) ON DELETE SET NULL
+      );
+      CREATE INDEX idx_accountDeletionChallenges_expiry
+        ON accountDeletionChallenges(expiresAt);
+    `);
+  }
+
   if (!tableNames.includes("accountDeletionRequests")) {
     console.log("Creating account deletion requests table...");
     sqliteDb.exec(`
@@ -1536,6 +1558,7 @@ async function initializeSqliteSchema(
         logoDataUrl TEXT NOT NULL DEFAULT '',
         accentColor TEXT NOT NULL DEFAULT '#2563eb',
         status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'suspended', 'closed')),
+        allowStaffMemberAffiliations INTEGER NOT NULL DEFAULT 0 CHECK(allowStaffMemberAffiliations IN (0, 1)),
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL
       );
@@ -1562,6 +1585,11 @@ async function initializeSqliteSchema(
       );
       sqliteDb.exec(
         "UPDATE facilityProfiles SET createdAt = updatedAt WHERE createdAt = 0",
+      );
+    }
+    if (!facilityColumnNames.includes("allowStaffMemberAffiliations")) {
+      sqliteDb.exec(
+        "ALTER TABLE facilityProfiles ADD COLUMN allowStaffMemberAffiliations INTEGER NOT NULL DEFAULT 0 CHECK(allowStaffMemberAffiliations IN (0, 1))",
       );
     }
     sqliteDb.exec(
@@ -1804,6 +1832,8 @@ async function initializeSqliteSchema(
         facilityId TEXT NOT NULL,
         userId TEXT NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('owner', 'admin', 'trainer', 'member')),
+        memberAffiliation INTEGER NOT NULL DEFAULT 0 CHECK(memberAffiliation IN (0, 1)),
+        staffMemberAffiliationAllowed INTEGER NOT NULL DEFAULT 0 CHECK(staffMemberAffiliationAllowed IN (0, 1)),
         status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'invited', 'suspended', 'left')),
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL,
@@ -1816,6 +1846,52 @@ async function initializeSqliteSchema(
       CREATE INDEX idx_facilityMemberships_facility_role
         ON facilityMemberships(facilityId, role, status);
     `);
+  }
+
+  const facilityMembershipColumns = sqliteDb
+    .prepare("PRAGMA table_info(facilityMemberships)")
+    .all() as Array<{ name: string }>;
+  if (
+    !facilityMembershipColumns.some(
+      (column) => column.name === "classPermissions",
+    )
+  ) {
+    sqliteDb.exec(
+      "ALTER TABLE facilityMemberships ADD COLUMN classPermissions TEXT NOT NULL DEFAULT '{}'",
+    );
+  }
+  if (
+    !facilityMembershipColumns.some(
+      (column) => column.name === "memberAffiliation",
+    )
+  ) {
+    sqliteDb.exec(
+      "ALTER TABLE facilityMemberships ADD COLUMN memberAffiliation INTEGER NOT NULL DEFAULT 0 CHECK(memberAffiliation IN (0, 1))",
+    );
+    sqliteDb.exec(
+      "UPDATE facilityMemberships SET memberAffiliation = 1 WHERE role = 'member'",
+    );
+  }
+  if (
+    !facilityMembershipColumns.some(
+      (column) => column.name === "staffMemberAffiliationAllowed",
+    )
+  ) {
+    sqliteDb.exec(
+      "ALTER TABLE facilityMemberships ADD COLUMN staffMemberAffiliationAllowed INTEGER NOT NULL DEFAULT 0 CHECK(staffMemberAffiliationAllowed IN (0, 1))",
+    );
+  }
+  sqliteDb.exec(
+    "UPDATE facilityMemberships SET memberAffiliation = 1 WHERE role = 'member' AND memberAffiliation = 0",
+  );
+  if (
+    !facilityMembershipColumns.some(
+      (column) => column.name === "workforceRoles",
+    )
+  ) {
+    sqliteDb.exec(
+      "ALTER TABLE facilityMemberships ADD COLUMN workforceRoles TEXT NOT NULL DEFAULT '[]'",
+    );
   }
 
   if (!tableNames.includes("facilityInvitations")) {

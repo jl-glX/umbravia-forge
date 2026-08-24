@@ -20,6 +20,7 @@ import {
   authenticate,
   getFacilityContext,
   requireFacility,
+  requireAnyFacilityClassPermission,
   selectFacilityContext,
 } from "../middleware/authorization.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
@@ -32,6 +33,11 @@ adminClassesRouter.use(requireRecentFormVerification);
 // Get all classes
 adminClassesRouter.get(
   "/",
+  requireAnyFacilityClassPermission(
+    "classes.create",
+    "classes.update",
+    "classes.delete",
+  ),
   async (req: express.Request, res: express.Response) => {
     try {
       const classes = await getAllClasses(getFacilityContext(res).id);
@@ -47,6 +53,11 @@ adminClassesRouter.get(
 adminClassesRouter.get(
   "/:id",
   validateId("id"),
+  requireAnyFacilityClassPermission(
+    "classes.create",
+    "classes.update",
+    "classes.delete",
+  ),
   async (req: express.Request, res: express.Response) => {
     try {
       const activitySession = await getClassWithAvailability(
@@ -68,6 +79,7 @@ adminClassesRouter.get(
 // Create class
 adminClassesRouter.post(
   "/",
+  requireAnyFacilityClassPermission("classes.create"),
   createClassValidation,
   async (req: express.Request, res: express.Response) => {
     try {
@@ -108,6 +120,7 @@ adminClassesRouter.post(
 
 adminClassesRouter.post(
   "/series",
+  requireAnyFacilityClassPermission("classes.create"),
   createClassSeriesValidation,
   async (req: express.Request, res: express.Response) => {
     try {
@@ -134,6 +147,7 @@ adminClassesRouter.post(
 // Update class
 adminClassesRouter.put(
   "/:id",
+  requireAnyFacilityClassPermission("classes.update"),
   updateClassValidation,
   async (req: express.Request, res: express.Response) => {
     try {
@@ -170,6 +184,7 @@ adminClassesRouter.put(
 
 adminClassesRouter.post(
   "/batch-delete",
+  requireAnyFacilityClassPermission("classes.delete"),
   async (req: express.Request, res: express.Response) => {
     const requestedIds: unknown[] = Array.isArray(req.body.activitySessionIds)
       ? req.body.activitySessionIds
@@ -217,6 +232,7 @@ adminClassesRouter.post(
 
 adminClassesRouter.put(
   "/:id/booking-configuration",
+  requireAnyFacilityClassPermission("classes.update"),
   bookingConfigurationValidation,
   async (req: express.Request, res: express.Response) => {
     try {
@@ -244,6 +260,7 @@ adminClassesRouter.put(
 adminClassesRouter.delete(
   "/:id",
   validateId("id"),
+  requireAnyFacilityClassPermission("classes.delete"),
   async (req: express.Request, res: express.Response) => {
     try {
       await deleteClass(req.params.id, getFacilityContext(res).id);

@@ -214,10 +214,6 @@ export const loginValidation = validateRequest([
 const commercialTrialFields = [
   "facilityName",
   "facilityType",
-  "approximateMembers",
-  "trainerCount",
-  "spaceCount",
-  "usualCapacity",
   "classTypes",
   "scheduleNotes",
   "locale",
@@ -227,18 +223,6 @@ const commercialTrialFields = [
 ];
 
 const optionalCommercialTrialFields = () => [
-  body("approximateMembers")
-    .optional({ nullable: true })
-    .isInt({ min: 0, max: 1_000_000 }),
-  body("trainerCount")
-    .optional({ nullable: true })
-    .isInt({ min: 0, max: 100_000 }),
-  body("spaceCount")
-    .optional({ nullable: true })
-    .isInt({ min: 0, max: 10_000 }),
-  body("usualCapacity")
-    .optional({ nullable: true })
-    .isInt({ min: 1, max: 100_000 }),
   body("classTypes").optional().isArray({ max: 20 }),
   body("classTypes.*")
     .optional()
@@ -564,8 +548,9 @@ export const emptyAccountDeletionRequestValidation = validateRequest([
 ]);
 
 export const scheduleAccountDeletionValidation = validateRequest([
-  strictBody(["password", "totpCode"]),
+  strictBody(["password", "totpCode", "emailCode"]),
   body("password")
+    .optional({ nullable: true })
     .isString()
     .isLength({ min: 1, max: 128 })
     .custom(enforcePasswordHashLimit),
@@ -573,6 +558,15 @@ export const scheduleAccountDeletionValidation = validateRequest([
     .optional({ nullable: true })
     .isString()
     .matches(/^\d{6}$/u),
+  body("emailCode")
+    .optional({ nullable: true })
+    .isString()
+    .matches(/^\d{6}$/u),
+]);
+
+export const accountDeletionCodeRequestValidation = validateRequest([
+  body().custom(emptyObjectOrMissing),
+  query().custom(emptyObjectOrMissing),
 ]);
 
 export const inactivityReviewAnswerValidation = validateRequest([
@@ -1107,7 +1101,7 @@ export const createFacilityInvitationValidation = validateRequest([
     .normalizeEmail()
     .isLength({ max: 254 }),
   body("name").isString().trim().isLength({ min: 1, max: 100 }),
-  body("role").isIn(["admin", "trainer"]),
+  body("role").isIn(["admin", "trainer", "member"]),
   body("locale").isIn(["es", "en", "de", "de-CH"]),
 ]);
 
@@ -1140,7 +1134,7 @@ export const facilityInvitationTokenValidation = validateRequest([
 
 export const updateUserValidation = validateRequest([
   param("id").isString().matches(ID_PATTERN),
-  strictBody(["email", "name", "password", "role"], true),
+  strictBody(["email", "name"], true),
   body("email")
     .optional()
     .isString()
@@ -1149,21 +1143,6 @@ export const updateUserValidation = validateRequest([
     .normalizeEmail()
     .isLength({ max: 254 }),
   body("name").optional().isString().trim().isLength({ min: 1, max: 100 }),
-  body("password")
-    .optional()
-    .isString()
-    .isLength({ min: 12, max: 128 })
-    .custom(enforcePasswordHashLimit)
-    .matches(/[a-z]/)
-    .matches(/[A-Z]/)
-    .matches(/[0-9]/),
-  body("role").optional().isIn(roles),
-]);
-
-export const updateRoleValidation = validateRequest([
-  param("id").isString().matches(ID_PATTERN),
-  strictBody(["role"]),
-  body("role").isIn(roles),
 ]);
 
 export const bulkDeleteUsersValidation = validateRequest([

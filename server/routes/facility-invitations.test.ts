@@ -11,6 +11,7 @@ describe("verified facility invitations", () => {
   let app: typeof import("../index.js").app;
   let adminCookie: string;
   let existingCookie: string;
+  let dualTrainerCookie: string;
 
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-invitations-"));
@@ -67,6 +68,19 @@ describe("verified facility invitations", () => {
           sessionIdleTimeoutMinutes: 10_080,
           createdAt: now,
         },
+        {
+          id: "dual-trainer",
+          email: "dual-trainer@example.com",
+          phone: null,
+          name: "Dual Trainer",
+          accountStatus: "active",
+          emailVerifiedAt: now,
+          avatarDataUrl: "",
+          password: await auth.hashPassword("DualTrainer123"),
+          role: "trainer",
+          sessionIdleTimeoutMinutes: 10_080,
+          createdAt: now + 1,
+        },
       ])
       .execute();
     await database.db
@@ -77,6 +91,7 @@ describe("verified facility invitations", () => {
           facilityId: "facility-alpha",
           userId: "invitation-admin",
           role: "owner",
+          workforceRoles: "[]",
           status: "active",
           createdAt: now,
           updatedAt: now,
@@ -86,9 +101,20 @@ describe("verified facility invitations", () => {
           facilityId: "facility-beta",
           userId: "existing-invitee",
           role: "member",
+          workforceRoles: "[]",
           status: "active",
           createdAt: now,
           updatedAt: now,
+        },
+        {
+          id: "facility-alpha:dual-trainer",
+          facilityId: "facility-alpha",
+          userId: "dual-trainer",
+          role: "trainer",
+          workforceRoles: '["trainer","admin"]',
+          status: "active",
+          createdAt: now + 1,
+          updatedAt: now + 1,
         },
       ])
       .execute();
@@ -106,6 +132,14 @@ describe("verified facility invitations", () => {
         identifier: "existing-invitee@example.com",
         password: "ExistingInvitee123",
         accessPortal: "member",
+        rememberDevice: false,
+      })
+    ).headers["set-cookie"][0];
+    dualTrainerCookie = (
+      await request(app).post("/api/auth/login").send({
+        identifier: "dual-trainer@example.com",
+        password: "DualTrainer123",
+        accessPortal: "staff",
         rememberDevice: false,
       })
     ).headers["set-cookie"][0];
@@ -279,6 +313,145 @@ describe("verified facility invitations", () => {
       .expect(200)
       .expect((response) => {
         expect(response.body.status).toBe("revoked");
+      });
+  });
+
+  it("keeps member affiliation separate from worker verification", async () => {
+    const created = await createInvitation({
+      email: "new-member-affiliation@example.com",
+      name: "New Member",
+      role: "member",
+    });
+    expect(created.body).toMatchObject({
+      role: "member",
+      status: "pending",
+      existingAccount: false,
+    });
+    await request(app)
+      .get(`/api/facility-invitations/${created.body.testToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.role).toBe("member");
+      });
+
+    await request(app)
+      .post(`/api/facility-invitations/${created.body.testToken}/accept-new`)
+      .send({
+        password: "NewMemberChosenPassword123",
+        locale: "es",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+      })
+      .expect(201);
+    const user = await database.db
+      .selectFrom("users")
+      .select("id")
+      .where("email", "=", "new-member-affiliation@example.com")
+      .executeTakeFirstOrThrow();
+    await expect(
+      database.db
+        .selectFrom("facilityMemberships")
+        .select(["role", "status"])
+        .where("facilityId", "=", "facility-alpha")
+        .where("userId", "=", user.id)
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ role: "member", status: "active" });
+  });
+
+  it("lets specifically authorised staff add a member affiliation without losing workforce labels", async () => {
+    await request(app)
+      .post("/api/users/invitations")
+      .set("Cookie", adminCookie)
+      .send({
+        email: "dual-trainer@example.com",
+        name: "Dual Trainer",
+        role: "member",
+        locale: "es",
+      })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.code).toBe("STAFF_MEMBER_AFFILIATION_NOT_ALLOWED");
+      });
+
+    await request(app)
+      .put("/api/users/member-affiliation-policy")
+      .set("Cookie", adminCookie)
+      .send({
+        allowAllStaff: false,
+        specificallyAllowedUserIds: ["dual-trainer"],
+      })
+      .expect(200);
+
+    const invitation = await createInvitation({
+      email: "dual-trainer@example.com",
+      name: "Dual Trainer",
+      role: "member",
+    });
+    await request(app)
+      .post(
+        `/api/facility-invitations/${invitation.body.testToken}/accept-existing`,
+      )
+      .set("Cookie", dualTrainerCookie)
+      .expect(204);
+
+    await expect(
+      database.db
+        .selectFrom("facilityMemberships")
+        .select(["role", "workforceRoles", "memberAffiliation", "status"])
+        .where("facilityId", "=", "facility-alpha")
+        .where("userId", "=", "dual-trainer")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({
+      role: "trainer",
+      workforceRoles: '["trainer","admin"]',
+      memberAffiliation: 1,
+      status: "active",
+    });
+
+    const users = await request(app)
+      .get("/api/users")
+      .set("Cookie", adminCookie)
+      .expect(200);
+    expect(users.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "dual-trainer",
+          facilityRole: "trainer",
+          roles: ["trainer", "admin", "member"],
+          memberAffiliation: true,
+        }),
+      ]),
+    );
+
+    await request(app)
+      .post("/api/auth/login")
+      .send({
+        identifier: "dual-trainer@example.com",
+        password: "DualTrainer123",
+        accessPortal: "member",
+        rememberDevice: false,
+      })
+      .expect(200);
+  });
+
+  it("never treats the facility owner as a staff member eligible for member affiliation", async () => {
+    await request(app)
+      .put("/api/users/member-affiliation-policy")
+      .set("Cookie", adminCookie)
+      .send({ allowAllStaff: true, specificallyAllowedUserIds: [] })
+      .expect(200);
+    await request(app)
+      .post("/api/users/invitations")
+      .set("Cookie", adminCookie)
+      .send({
+        email: "invitation-admin@example.com",
+        name: "Invitation Admin",
+        role: "member",
+        locale: "es",
+      })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.code).toBe("FACILITY_MEMBER_ALREADY_ACTIVE");
       });
   });
 

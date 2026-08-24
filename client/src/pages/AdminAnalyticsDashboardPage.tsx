@@ -128,6 +128,21 @@ export function AdminAnalyticsDashboardPage() {
                     subtitle={t("analytics.currentActiveMembers")}
                   />
                   <MetricCard
+                    title={t("analytics.activeTrainers")}
+                    value={data.centreBaseline.activeTrainers}
+                    subtitle={t("analytics.currentActiveTrainers")}
+                  />
+                  <MetricCard
+                    title={t("analytics.activeSpaces")}
+                    value={data.centreBaseline.activeSpaces}
+                    subtitle={t(`analytics.period.${period}`)}
+                  />
+                  <MetricCard
+                    title={t("analytics.averageSessionCapacity")}
+                    value={data.centreBaseline.averageSessionCapacity ?? "—"}
+                    subtitle={t("analytics.measuredFromClasses")}
+                  />
+                  <MetricCard
                     title={t("analytics.newMembersInPeriod")}
                     value={data.centreBaseline.newMembers}
                     subtitle={t(`analytics.period.${period}`)}

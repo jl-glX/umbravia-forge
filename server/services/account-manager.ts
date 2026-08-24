@@ -15,6 +15,14 @@ export async function getAccountManagerOverview(
     getSecurityOverview(userId, sessionId),
   ]);
   const recoveryCapabilities = getRecoveryCapabilities();
+  const activeRecoveryMethods = [
+    "password",
+    ...(accountStatus === "pending_verification" ? [] : ["email"]),
+    ...(security.mfa.enabled && security.mfa.recoveryCodesRemaining > 0
+      ? ["code"]
+      : []),
+    ...(security.passkeys.count > 0 ? ["passkey"] : []),
+  ];
 
   return {
     accountStatus,
@@ -32,6 +40,7 @@ export async function getAccountManagerOverview(
       deletionExecutionEnabled: false as const,
     },
     recovery: {
+      activeMethods: activeRecoveryMethods,
       availableMethods: recoveryCapabilities
         .filter((method) => method.status === "available")
         .map((method) => method.id),

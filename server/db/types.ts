@@ -110,6 +110,18 @@ interface AccountDeletionPreference {
   updatedAt: number;
 }
 
+interface AccountDeletionChallenge {
+  id: string;
+  userId: string;
+  sessionId: string;
+  codeHash: string;
+  createdAt: number;
+  expiresAt: number;
+  attempts: number;
+  consumedAt: number | null;
+  deliveryId: string | null;
+}
+
 interface AccountDeletionRequest {
   id: string;
   userId: string;
@@ -876,6 +888,7 @@ interface FacilityProfile {
   logoDataUrl: string;
   accentColor: string;
   status: Generated<"active" | "suspended" | "closed">;
+  allowStaffMemberAffiliations: Generated<0 | 1>;
   createdAt: Generated<number>;
   updatedAt: number;
 }
@@ -887,7 +900,11 @@ interface FacilityMembership {
   facilityId: string;
   userId: string;
   role: FacilityRole;
+  workforceRoles: Generated<string>;
+  memberAffiliation: Generated<0 | 1>;
+  staffMemberAffiliationAllowed: Generated<0 | 1>;
   status: "active" | "invited" | "suspended" | "left";
+  classPermissions: Generated<string>;
   createdAt: number;
   updatedAt: number;
 }
@@ -1345,6 +1362,7 @@ export interface Database {
   emailDeliveries: EmailDelivery;
   antiAutomationChallenges: AntiAutomationChallenge;
   accountDeletionPreferences: AccountDeletionPreference;
+  accountDeletionChallenges: AccountDeletionChallenge;
   accountDeletionRequests: AccountDeletionRequest;
   accountDeletionJobs: AccountDeletionJob;
   accountDataDeletionDrafts: AccountDataDeletionDraft;

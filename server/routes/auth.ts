@@ -504,6 +504,7 @@ authRouter.get(
         id: session.userId,
         email: session.email,
         name: session.name,
+        lastName: session.lastName,
         avatarDataUrl: session.avatarDataUrl,
         role: session.role,
         accountStatus: session.accountStatus,

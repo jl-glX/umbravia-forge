@@ -12,31 +12,73 @@ historial de trabajo.
 ## Continuidad del cambio activo — 24 de agosto de 2026
 
 - El alta visible de personal del centro se denomina **verificación del
-  trabajador**, no invitación. El token de un solo uso se guarda únicamente
-  como hash, expira a los siete días y solo permite incorporar perfiles de
-  entrenador o administración. Una membresía `invited` puede leer el centro,
+  trabajador**, no invitación. Para trabajadores solo permite incorporar
+  perfiles de entrenador o administración. La afiliación de socios usa un
+  flujo visual separado bajo las verificaciones laborales y exige la aceptación
+  del titular; no permite convertir una afiliación en empleo desde un selector.
+  En ambos casos, el token de un solo uso se guarda únicamente como hash y
+  expira a los siete días. Una membresía `invited` puede leer el centro,
   pero el middleware rechaza cualquier mutación con
   `FACILITY_WORKER_VERIFICATION_REQUIRED` hasta que la persona verifique su
   identidad y acepte el vínculo laboral.
+- La jefatura del centro se muestra separada de las funciones laborales. El
+  propietario puede acumular **Jefe del centro**, **Administrador** y
+  **Entrenador**. Un entrenador delegado como administrador conserva ambas
+  etiquetas y no se convierte en propietario. Solo la jefatura puede cambiar
+  estas delegaciones; el servidor revoca las sesiones si cambia la frontera de
+  autorización. Las denegaciones explícitas para crear, editar o eliminar
+  clases se aplican también en la API.
+- La renuncia o transferencia de **Jefe del centro** no está implementada. El
+  flujo futuro debe exigir un sucesor válido, reautenticación, código temporal
+  enviado al correo verificado y una confirmación explícita desde Preferencias;
+  nunca puede dejar un centro activo sin propietario. No debe añadirse un botón
+  que simule esta capacidad antes de completar y probar el flujo entero.
+- La configuración del centro ya no solicita estimaciones manuales de socios,
+  entrenadores, salas o aforo. Analytics calcula membresías activas,
+  entrenadores verificados, espacios observados y aforo medio desde datos del
+  centro. Los consentimientos de alta enlazan la política de privacidad vigente
+  en los cuatro catálogos.
+- La jefatura puede permitir que todo el personal, o personas concretas, sumen
+  una afiliación de socio sin perder sus funciones de entrenador o
+  administración. La jefatura queda excluida. El cambio de política no revoca
+  afiliaciones ya aceptadas y solo la jefatura puede modificarla.
+- El cierre completo de cuenta usa el método decidido por el servidor:
+  contraseña local y TOTP si está activo; contraseña y código de seis cifras al
+  correo verificado si no hay 2FA; o código de correo y TOTP si procede cuando
+  no existe una contraseña local utilizable. El código queda ligado a la
+  sesión, se almacena como hash, caduca a los quince minutos, tiene cinco
+  intentos y no puede reutilizarse.
+- La pantalla de seguridad distingue ahora la caducidad absoluta (24 horas sin
+  recordar el dispositivo o 30 días al recordarlo) del límite por inactividad.
+  Los errores esperables de contraseña, reto WebAuthn o dispositivo se muestran
+  traducidos. La confirmación con la misma contraseña está cubierta localmente;
+  la activación biométrica real en Android sigue pendiente de comprobación tras
+  desplegar el commit exacto.
 - La creación administrativa de clases admite hasta 31 fechas y horas en una
   única transacción. Cada fecha produce una sesión independiente; no comparte
   aforo, reservas ni lista de espera con las demás. La antelación de apertura se
   materializa por sesión y los socios ven una cuenta atrás, pero la API de
   reservas es quien permite o deniega la operación.
-- La migración PostgreSQL 51 añade las verificaciones laborales y la 52 los
-  hechos históricos mínimos para métricas comerciales. El repositorio no
-  demuestra que se hayan aplicado a una base externa. No se han tocado secretos,
-  claves, archivos de entorno ni configuración de Stripe.
+- La migración PostgreSQL 51 añade las verificaciones laborales, la 52 los
+  hechos históricos mínimos para métricas comerciales, la 53 las delegaciones
+  granulares de clases, la 54 las funciones laborales acumulables, la 55 los
+  retos de confirmación del cierre y la 56 la afiliación opcional del personal
+  como socio. El repositorio no demuestra que se hayan aplicado a una base
+  externa. No se han tocado secretos, claves, archivos de entorno ni
+  configuración de Stripe. Las plantillas versionadas mantienen
+  `COMMERCIAL_TRIALS_ENABLED=false`; una activación operativa externa no forma
+  parte del diff publicable.
 - El identificador de subdominio de una prueba queda documentado como reserva
   de nombre dentro de un entorno de demostración compartido. No representa DNS,
   proxy, hosting ni una base aprovisionada. La conversión permanece en modo de
   clasificación; no elimina categorías ni marca pagos como completados sin una
   política y evidencia de suscripción aprobadas.
-- La validación integral local de este cambio superó 50 controles de
-  portabilidad, formato, lint, los tres `typecheck`, 121 archivos con 590
-  pruebas favorables y una omitida, las tres compilaciones, el paquete Windows
-  y la auditoría de dependencias. GitHub Actions y cualquier estado desplegado
-  siguen siendo verificaciones independientes.
+- La validación integral local superó 50 controles de portabilidad, formato,
+  lint, los tres `typecheck`, 123 archivos con 604 pruebas favorables y una
+  omitida, las tres compilaciones, el paquete Windows y la auditoría de
+  dependencias. Antes de publicar aún deben revisarse `git diff --check` y el
+  diff completo. GitHub Actions, la aplicación de las migraciones y cualquier
+  estado desplegado siguen siendo verificaciones independientes.
 
 ## Continuidad del cambio activo — 22 de agosto de 2026
 

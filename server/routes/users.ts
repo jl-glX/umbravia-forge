@@ -6,14 +6,13 @@ import {
   updateUser,
   removeUserFromFacility,
   removeMultipleUsersFromFacility,
-  updateUserRole,
+  updateUserWorkforceRoles,
   UserDeletionBlockedError,
 } from "../services/users.js";
 import {
   bulkDeleteUsersValidation,
   createUserValidation,
   createFacilityInvitationValidation,
-  updateRoleValidation,
   updateUserValidation,
   validateId,
 } from "../middleware/validation.js";
@@ -37,6 +36,17 @@ import {
   deliverQueuedEmail,
   queueFacilityInvitationEmail,
 } from "../services/email-delivery.js";
+import {
+  facilityClassPermissions,
+  updateFacilityClassPermissions,
+  type FacilityPermissionEffect,
+} from "../services/facility-class-permissions.js";
+import {
+  FacilityMemberAffiliationPolicyError,
+  getFacilityMemberAffiliationPolicy,
+  updateFacilityMemberAffiliationPolicy,
+} from "../services/facility-member-affiliations.js";
+import { recordSecurityEvent } from "../services/security-events.js";
 
 export const usersRouter = express.Router();
 usersRouter.use(
@@ -131,6 +141,86 @@ usersRouter.get(
   },
 );
 
+usersRouter.get(
+  "/member-affiliation-policy",
+  async (_req: express.Request, res: express.Response) => {
+    try {
+      res.json(
+        await getFacilityMemberAffiliationPolicy(getFacilityContext(res).id),
+      );
+    } catch (error) {
+      console.error("Error fetching member affiliation policy:", error);
+      res.status(500).json({
+        error: "Failed to fetch member affiliation policy",
+        code: "MEMBER_AFFILIATION_POLICY_LOAD_FAILED",
+      });
+    }
+  },
+);
+
+usersRouter.put(
+  "/member-affiliation-policy",
+  async (req: express.Request, res: express.Response) => {
+    const facility = getFacilityContext(res);
+    if (facility.role !== "owner") {
+      res.status(403).json({
+        error: "Only the facility owner can manage staff member affiliations",
+        code: "FACILITY_OWNER_REQUIRED",
+      });
+      return;
+    }
+    const keys = Object.keys(req.body ?? {});
+    const specificallyAllowedUserIds = req.body?.specificallyAllowedUserIds;
+    if (
+      keys.some(
+        (key) =>
+          key !== "allowAllStaff" && key !== "specificallyAllowedUserIds",
+      ) ||
+      typeof req.body?.allowAllStaff !== "boolean" ||
+      !Array.isArray(specificallyAllowedUserIds) ||
+      specificallyAllowedUserIds.length > 200 ||
+      specificallyAllowedUserIds.some(
+        (userId: unknown) =>
+          typeof userId !== "string" ||
+          !/^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$/u.test(userId),
+      )
+    ) {
+      res.status(400).json({
+        error: "Member affiliation policy is invalid",
+        code: "MEMBER_AFFILIATION_POLICY_INVALID",
+      });
+      return;
+    }
+    try {
+      const policy = await updateFacilityMemberAffiliationPolicy(
+        facility.id,
+        req.body.allowAllStaff,
+        specificallyAllowedUserIds,
+      );
+      await recordSecurityEvent(
+        "facility_member_affiliation_policy_updated",
+        getAuthenticatedUser(res).userId,
+        {
+          facilityId: facility.id,
+          allowAllStaff: req.body.allowAllStaff,
+          specificallyAllowedCount: specificallyAllowedUserIds.length,
+        },
+      );
+      res.json(policy);
+    } catch (error) {
+      const code =
+        error instanceof FacilityMemberAffiliationPolicyError
+          ? error.code
+          : "MEMBER_AFFILIATION_POLICY_UPDATE_FAILED";
+      res
+        .status(
+          error instanceof FacilityMemberAffiliationPolicyError ? 400 : 500,
+        )
+        .json({ error: code, code });
+    }
+  },
+);
+
 // Get user by ID. Keep this parameter route after named collection routes so
 // that "invitations" cannot be interpreted as a user identifier.
 usersRouter.get(
@@ -156,9 +246,17 @@ usersRouter.post(
   createFacilityInvitationValidation,
   async (req: express.Request, res: express.Response) => {
     try {
+      const facility = getFacilityContext(res);
+      if (req.body.role === "admin" && facility.role !== "owner") {
+        res.status(403).json({
+          error: "Only the facility owner can delegate administration",
+          code: "FACILITY_OWNER_REQUIRED",
+        });
+        return;
+      }
       const auth = getAuthenticatedUser(res);
       const { invitation, token } = await createFacilityInvitation({
-        facilityId: getFacilityContext(res).id,
+        facilityId: facility.id,
         invitedByUserId: auth.userId,
         email: req.body.email,
         name: req.body.name,
@@ -206,27 +304,79 @@ usersRouter.post(
   },
 );
 
+usersRouter.put(
+  "/:id/class-permissions",
+  validateId("id"),
+  async (req: express.Request, res: express.Response) => {
+    const facility = getFacilityContext(res);
+    if (facility.role !== "owner") {
+      res.status(403).json({
+        error: "Only the facility owner can manage delegated permissions",
+        code: "FACILITY_OWNER_REQUIRED",
+      });
+      return;
+    }
+    const raw = req.body?.classPermissions;
+    if (
+      Object.keys(req.body ?? {}).some((key) => key !== "classPermissions") ||
+      !raw ||
+      typeof raw !== "object" ||
+      Array.isArray(raw)
+    ) {
+      res.status(400).json({ code: "FACILITY_CLASS_PERMISSIONS_INVALID" });
+      return;
+    }
+    const entries = Object.entries(raw);
+    if (
+      entries.some(
+        ([permission, effect]) =>
+          !facilityClassPermissions.includes(
+            permission as (typeof facilityClassPermissions)[number],
+          ) ||
+          (effect !== "allow" && effect !== "deny"),
+      )
+    ) {
+      res.status(400).json({ code: "FACILITY_CLASS_PERMISSIONS_INVALID" });
+      return;
+    }
+    try {
+      await updateFacilityClassPermissions(
+        facility.id,
+        req.params.id,
+        Object.fromEntries(entries) as Record<
+          (typeof facilityClassPermissions)[number],
+          FacilityPermissionEffect
+        >,
+      );
+      await recordSecurityEvent(
+        "facility_class_permissions_updated",
+        getAuthenticatedUser(res).userId,
+        {
+          facilityId: facility.id,
+          recipientUserId: req.params.id,
+          permissionCount: entries.length,
+        },
+      );
+      res.json(await getUserById(req.params.id, facility.id));
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "UNKNOWN";
+      res.status(400).json({ error: code, code });
+    }
+  },
+);
+
 // Update user
 usersRouter.put(
   "/:id",
   updateUserValidation,
   async (req: express.Request, res: express.Response) => {
     try {
-      const { email, name, password, role } = req.body;
-      const auth = getAuthenticatedUser(res);
-      if (req.params.id === auth.userId && role && role !== "admin") {
-        res.status(400).json({
-          error: "You cannot remove your own administrator role",
-          code: "ADMIN_SELF_ROLE_CHANGE",
-        });
-        return;
-      }
+      const { email, name } = req.body;
+      const facility = getFacilityContext(res);
 
-      const user = await updateUser(req.params.id, getFacilityContext(res).id, {
+      const user = await updateUser(req.params.id, facility.id, {
         email,
         name,
-        password,
-        role,
       });
       res.json(user);
     } catch (error) {
@@ -237,37 +387,52 @@ usersRouter.put(
   },
 );
 
-// Update user role
-usersRouter.patch(
-  "/:id/role",
-  updateRoleValidation,
+usersRouter.put(
+  "/:id/workforce-roles",
+  validateId("id"),
   async (req: express.Request, res: express.Response) => {
+    const facility = getFacilityContext(res);
+    if (facility.role !== "owner") {
+      res.status(403).json({
+        error: "Only the facility owner can delegate workforce roles",
+        code: "FACILITY_OWNER_REQUIRED",
+      });
+      return;
+    }
+    const roles = req.body?.roles;
+    if (
+      Object.keys(req.body ?? {}).some((key) => key !== "roles") ||
+      !Array.isArray(roles) ||
+      roles.length === 0 ||
+      roles.length > 2 ||
+      roles.some((role) => role !== "trainer" && role !== "admin") ||
+      new Set(roles).size !== roles.length
+    ) {
+      res.status(400).json({
+        error: "Workforce roles are invalid",
+        code: "WORKFORCE_ROLES_INVALID",
+      });
+      return;
+    }
     try {
-      const { role } = req.body;
-      const auth = getAuthenticatedUser(res);
-
-      if (!role || !["member", "trainer", "admin"].includes(role)) {
-        res.status(400).json({ error: "Invalid role" });
-        return;
-      }
-      if (req.params.id === auth.userId && role !== "admin") {
-        res.status(400).json({
-          error: "You cannot remove your own administrator role",
-          code: "ADMIN_SELF_ROLE_CHANGE",
-        });
-        return;
-      }
-
-      const user = await updateUserRole(
+      const user = await updateUserWorkforceRoles(
         req.params.id,
-        getFacilityContext(res).id,
-        role,
+        facility.id,
+        roles,
+      );
+      await recordSecurityEvent(
+        "facility_workforce_roles_updated",
+        getAuthenticatedUser(res).userId,
+        {
+          facilityId: facility.id,
+          recipientUserId: req.params.id,
+          roles: roles.join(","),
+        },
       );
       res.json(user);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      console.error("Error updating user role:", error);
-      res.status(400).json({ error: message });
+      const code = error instanceof Error ? error.message : "UNKNOWN";
+      res.status(400).json({ error: code, code });
     }
   },
 );

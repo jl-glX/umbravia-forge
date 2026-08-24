@@ -20,6 +20,7 @@ import {
 } from "../services/data-retention.js";
 import {
   deletionReviewValidation,
+  accountDeletionCodeRequestValidation,
   emptyAccountDeletionRequestValidation,
   inactivityPreferenceValidation,
   inactivityReviewAnswerValidation,
@@ -27,8 +28,13 @@ import {
 } from "../middleware/validation.js";
 import { authenticationLimiter } from "../middleware/security.js";
 import { verifyUserPassword } from "../services/auth.js";
-import { mfaStatus, verifyTotpCode } from "../services/mfa.js";
+import { verifyTotpCode } from "../services/mfa.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
+import {
+  getAccountDeletionConfirmation,
+  requestAccountDeletionEmailCode,
+  verifyAccountDeletionEmailCode,
+} from "../services/account-deletion-confirmation.js";
 
 export const accountLifecycleRouter = express.Router();
 accountLifecycleRouter.use(authenticate);
@@ -105,6 +111,26 @@ accountLifecycleRouter.post(
 );
 
 accountLifecycleRouter.post(
+  "/deletion/verification-code",
+  authenticationLimiter,
+  accountDeletionCodeRequestValidation,
+  async (
+    _req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    try {
+      const { userId, sessionId } = getAuthenticatedUser(res);
+      res
+        .status(202)
+        .json(await requestAccountDeletionEmailCode(userId, sessionId));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+accountLifecycleRouter.post(
   "/deletion",
   authenticationLimiter,
   scheduleAccountDeletionValidation,
@@ -115,15 +141,19 @@ accountLifecycleRouter.post(
   ) => {
     try {
       const { userId, email, sessionId } = getAuthenticatedUser(res);
-      if (!(await verifyUserPassword(userId, req.body.password))) {
+      const confirmation = await getAccountDeletionConfirmation(userId);
+      if (
+        confirmation.passwordAvailable &&
+        (typeof req.body.password !== "string" ||
+          !(await verifyUserPassword(userId, req.body.password)))
+      ) {
         res.status(401).json({
           error: "Invalid security confirmation",
           code: "SECURITY_CONFIRMATION_FAILED",
         });
         return;
       }
-      const mfa = await mfaStatus(userId);
-      if (mfa.enabled) {
+      if (confirmation.mfaRequired) {
         if (
           typeof req.body.totpCode !== "string" ||
           !(await verifyTotpCode(userId, email, req.body.totpCode))
@@ -134,6 +164,21 @@ accountLifecycleRouter.post(
           });
           return;
         }
+      }
+      if (
+        confirmation.emailCodeRequired &&
+        (typeof req.body.emailCode !== "string" ||
+          !(await verifyAccountDeletionEmailCode(
+            userId,
+            sessionId,
+            req.body.emailCode,
+          )))
+      ) {
+        res.status(401).json({
+          error: "A valid account email code is required",
+          code: "EMAIL_CONFIRMATION_FAILED",
+        });
+        return;
       }
       const lifecycle = await scheduleAccountDeletion(
         userId,

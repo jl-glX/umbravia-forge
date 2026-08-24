@@ -77,6 +77,7 @@ export const migrationTableGroups = {
     "emailVerificationChallenges",
     "emailChangeChallenges",
     "accountRecoveryChallenges",
+    "accountDeletionChallenges",
     "emailDeliveries",
     "antiAutomationChallenges",
     "sessions",
