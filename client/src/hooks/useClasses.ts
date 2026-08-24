@@ -14,6 +14,8 @@ export interface ActivitySession {
   bookedCount: number;
   availablePlaces: number;
   waitlistCount: number;
+  bookingOpensAt: number | null;
+  bookingClosesAt: number | null;
 }
 
 export function useClasses() {

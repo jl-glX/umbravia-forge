@@ -29,6 +29,7 @@ export const migrationTableGroups = {
     "users",
     "administratorSignupProvisioning",
     "facilityMemberships",
+    "facilityInvitations",
     "platformOperators",
     "corporateBootstrapState",
     "companyStaffProfiles",
@@ -70,6 +71,7 @@ export const migrationTableGroups = {
     "analyticsSurveyResponses",
     "analyticsSurveyAnswers",
     "stripeWebhookEvents",
+    "commercialLifecycleFacts",
   ],
   security: [
     "emailVerificationChallenges",

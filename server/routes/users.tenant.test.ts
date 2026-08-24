@@ -243,6 +243,7 @@ describe("user management tenant isolation", () => {
         name: "Created Secondary",
         password: "CreatedSecondaryPassword123",
         role: "member",
+        verificationMode: "test_bypass",
       })
       .expect(201);
 
@@ -300,6 +301,7 @@ describe("user management tenant isolation", () => {
           name: `Bulk ${suffix}`,
           password: `Bulk${suffix}Password123`,
           role: "member",
+          verificationMode: "test_bypass",
         })
         .expect(201);
     const removable = await createManagedUser("removable");

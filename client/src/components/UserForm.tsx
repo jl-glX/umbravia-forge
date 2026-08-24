@@ -18,15 +18,15 @@ interface UserFormProps {
 }
 
 export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
-  const { t } = useTranslation();
-  const { createUser, updateUser } = useUsers();
+  const { t, i18n } = useTranslation();
+  const { inviteUser, updateUser } = useUsers();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: user?.email || "",
     name: user?.name || "",
     password: "",
-    role: (user?.role || "member") as "member" | "trainer" | "admin",
+    role: (user?.role || "trainer") as "member" | "trainer" | "admin",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,6 +36,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
 
     try {
       if (
+        user &&
         formData.password &&
         (formData.password.length < 12 ||
           !isPasswordWithinHashLimit(formData.password) ||
@@ -58,12 +59,28 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
         }
         await updateUser(user.id, updates);
       } else {
-        if (!formData.password) {
-          setError(t("admin.passwordRequired"));
-          setLoading(false);
+        if (formData.role === "member") {
+          setError(t("admin.workerRoleRequired"));
           return;
         }
-        await createUser(formData);
+        const resolved = i18n.resolvedLanguage ?? i18n.language;
+        const locale = resolved.toLowerCase().startsWith("de-ch")
+          ? "de-CH"
+          : resolved.toLowerCase().startsWith("de")
+            ? "de"
+            : resolved.toLowerCase().startsWith("en")
+              ? "en"
+              : "es";
+        const invitation = await inviteUser({
+          email: formData.email,
+          name: formData.name,
+          role: formData.role,
+          locale,
+        });
+        if (!invitation.deliveryQueued) {
+          setError(t("admin.invitationEmailNotQueued"));
+          return;
+        }
       }
       onSuccess();
     } catch (err) {
@@ -74,10 +91,10 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
         <h2 className="text-xl font-bold mb-4">
-          {user ? t("admin.editUser") : t("admin.createUser")}
+          {user ? t("admin.editUser") : t("admin.inviteUser")}
         </h2>
 
         {error && (
@@ -133,25 +150,31 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
             />
           </div>
 
-          <div>
-            <label
-              htmlFor="managed-user-password"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              {user ? t("admin.passwordOptional") : t("common.password")}
-            </label>
-            <PasswordInput
-              id="managed-user-password"
-              required={!user}
-              value={formData.password}
-              minLength={formData.password ? 12 : undefined}
-              maxLength={128}
-              onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
-              }
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
+          {user ? (
+            <div>
+              <label
+                htmlFor="managed-user-password"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                {user ? t("admin.passwordOptional") : t("common.password")}
+              </label>
+              <PasswordInput
+                id="managed-user-password"
+                required={false}
+                value={formData.password}
+                minLength={formData.password ? 12 : undefined}
+                maxLength={128}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+          ) : (
+            <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+              {t("admin.invitationSecurityNotice")}
+            </p>
+          )}
 
           <div>
             <label
@@ -170,7 +193,9 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
             >
-              <option value="member">{t("roles.member")}</option>
+              {user ? (
+                <option value="member">{t("roles.member")}</option>
+              ) : null}
               <option value="trainer">{t("roles.trainer")}</option>
               <option value="admin">{t("roles.admin")}</option>
             </select>
@@ -186,7 +211,11 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? t("common.saving") : t("common.save")}
+              {loading
+                ? t("common.saving")
+                : user
+                  ? t("common.save")
+                  : t("admin.sendInvitation")}
             </Button>
           </div>
         </VerifiedForm>

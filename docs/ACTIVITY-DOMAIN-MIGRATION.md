@@ -92,6 +92,10 @@ Canonical responses do not introduce new legacy fields.
   identifier must not weaken tenant boundaries.
 - Existing unique active-booking and waitlist constraints remain equivalent.
 - A migration may be rerun safely after partial deployment recovery.
+- A multi-day creation is a transaction over independent activity sessions,
+  not one booking shared across several dates. Per-session booking opening
+  timestamps are stored in `activitySessionBookingConfigurations` and enforced
+  by the booking service before capacity or waitlist changes occur.
 
 ## Release gates
 

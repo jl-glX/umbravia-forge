@@ -174,6 +174,7 @@ describe("UMF Support corporate API", () => {
           expect.objectContaining({
             userId: "tenant-admin-only",
             email: "tenant-admin@example.com",
+            emailAssessment: "fictitious",
             pendingProvisioning: null,
             trial: null,
           }),
@@ -181,6 +182,43 @@ describe("UMF Support corporate API", () => {
         expect(body.accounts).not.toContainEqual(
           expect.objectContaining({ userId: "umf-director" }),
         );
+      });
+  });
+
+  it("reports live commercial account metrics and retained deletion counters without personal data", async () => {
+    await database.db
+      .insertInto("commercialLifecycleFacts")
+      .values([
+        {
+          id: "metric-deleted-account",
+          kind: "commercial_account_deleted",
+          subjectId: "deleted-subject",
+          occurredAt: 100,
+        },
+        {
+          id: "metric-abandoned-trial",
+          kind: "commercial_trial_abandoned",
+          subjectId: "abandoned-subject",
+          occurredAt: 200,
+        },
+      ])
+      .execute();
+
+    await request(app)
+      .get("/api/umf-support/commercial-account-metrics")
+      .set("Cookie", directorCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          activeAdministratorAccounts: 0,
+          pendingVerificationAccounts: 0,
+          activeTrials: 0,
+          abandonedTrials: 1,
+          deletedAdministratorAccounts: 1,
+          historicalCoverage: "from_schema_v52",
+          firstRetainedFactAt: 100,
+        });
+        expect(JSON.stringify(body)).not.toContain("tenant-admin@example.com");
       });
   });
 

@@ -328,13 +328,101 @@ export async function listCommercialTrialAdministratorAccounts(
           .orderBy("createdAt", "desc")
           .executeTakeFirst(),
       ]);
+      const emailSegments = account.email.split("@");
+      const domain =
+        emailSegments[emailSegments.length - 1]?.toLowerCase() ?? "";
+      const syntheticDomain =
+        domain === "localhost" ||
+        domain.endsWith(".local") ||
+        domain.endsWith(".test") ||
+        domain.endsWith(".example") ||
+        domain.endsWith(".invalid") ||
+        domain === "example.com" ||
+        domain === "example.org" ||
+        domain === "example.net";
       return {
         ...account,
+        emailAssessment: syntheticDomain
+          ? ("fictitious" as const)
+          : account.emailVerifiedAt !== null
+            ? ("real" as const)
+            : ("indeterminate" as const),
         pendingProvisioning: pending ?? null,
         trial: trial ?? null,
       };
     }),
   );
+}
+
+export async function getCommercialAccountMetrics(auth: AuthenticatedUser) {
+  await requirePlatformHeadDirector(auth);
+  const [
+    activeAccounts,
+    pendingAccounts,
+    activeTrials,
+    currentAbandoned,
+    facts,
+  ] = await Promise.all([
+    db
+      .selectFrom("users")
+      .innerJoin(
+        "facilityMemberships",
+        "facilityMemberships.userId",
+        "users.id",
+      )
+      .select("users.id")
+      .distinct()
+      .where("users.identityRealm", "=", "commercial")
+      .where("users.accountStatus", "=", "active")
+      .where("facilityMemberships.status", "=", "active")
+      .where("facilityMemberships.role", "in", ["owner", "admin"])
+      .execute(),
+    db
+      .selectFrom("administratorSignupProvisioning")
+      .innerJoin("users", "users.id", "administratorSignupProvisioning.userId")
+      .select("users.id")
+      .where("users.accountStatus", "=", "pending_verification")
+      .execute(),
+    db
+      .selectFrom("commercialTrials")
+      .select("id")
+      .where("status", "in", [
+        "trial_active",
+        "trial_paused_support",
+        "trial_conversion_review",
+      ])
+      .execute(),
+    db
+      .selectFrom("commercialTrials")
+      .select("id")
+      .where("status", "in", ["trial_expired", "trial_closed"])
+      .where("realDataDeclaration", "in", ["undeclared", "no"])
+      .execute(),
+    db
+      .selectFrom("commercialLifecycleFacts")
+      .select(["kind", "subjectId", "occurredAt"])
+      .execute(),
+  ]);
+
+  const deletedAccounts = facts.filter(
+    (fact) => fact.kind === "commercial_account_deleted",
+  );
+  const deletedAbandonedTrials = facts.filter(
+    (fact) => fact.kind === "commercial_trial_abandoned",
+  );
+  return {
+    measuredAt: Date.now(),
+    activeAdministratorAccounts: activeAccounts.length,
+    pendingVerificationAccounts: pendingAccounts.length,
+    activeTrials: activeTrials.length,
+    abandonedTrials: currentAbandoned.length + deletedAbandonedTrials.length,
+    deletedAdministratorAccounts: deletedAccounts.length,
+    historicalCoverage: "from_schema_v52" as const,
+    firstRetainedFactAt:
+      facts.length > 0
+        ? Math.min(...facts.map((fact) => fact.occurredAt))
+        : null,
+  };
 }
 
 export async function resendCommercialTrialAdministratorVerification(

@@ -16,8 +16,10 @@ data all enforce the same boundary on the server.
 - `facilityProfiles` is the tenant root and retains the visible centre identity.
 - `facilityMemberships` relates a user to a facility with the role `owner`,
   `admin`, `trainer` or `member`.
-- A tenant context requires both an active profile and an active membership.
-  `X-Facility-Id` is only a selector; it cannot grant access.
+- A tenant context requires an active profile and a membership. An active
+  membership grants the role's normal capabilities; an `invited` worker
+  membership grants only read access until that person completes employment
+  verification. `X-Facility-Id` is only a selector; it cannot grant access.
 - When the selector is omitted, the server may choose the oldest active
   membership. It never invents a membership or falls back to a reserved centre.
 - Platform-wide authority is represented separately by an active
@@ -26,6 +28,10 @@ data all enforce the same boundary on the server.
   authority.
 - Account credentials, MFA, passkeys, recovery and sessions remain
   user-global. Account-global actions do not require a facility context.
+- Worker verification is one-time and tied to the target centre, email and
+  role. The server rejects every non-read HTTP method for an unverified worker
+  with `FACILITY_WORKER_VERIFICATION_REQUIRED`; hiding controls in React is
+  only an additional usability measure.
 
 ## Retired compatibility data
 

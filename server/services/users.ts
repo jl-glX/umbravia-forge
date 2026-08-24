@@ -474,7 +474,7 @@ export async function deleteUserInTransaction(
 ): Promise<void> {
   const user = await transaction
     .selectFrom("users")
-    .select("id")
+    .select(["id", "identityRealm", "role"])
     .where("id", "=", id)
     .executeTakeFirst();
 
@@ -486,6 +486,19 @@ export async function deleteUserInTransaction(
 
   if (blockers.length > 0) {
     throw new UserDeletionBlockedError(blockers);
+  }
+
+  if (user.identityRealm === "commercial" && user.role === "admin") {
+    await transaction
+      .insertInto("commercialLifecycleFacts")
+      .values({
+        id: `commercial-account-deleted:${id}`,
+        kind: "commercial_account_deleted",
+        subjectId: id,
+        occurredAt: Date.now(),
+      })
+      .onConflict((conflict) => conflict.column("id").doNothing())
+      .execute();
   }
 
   await transaction.deleteFrom("bookings").where("userId", "=", id).execute();

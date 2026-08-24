@@ -483,7 +483,7 @@ export async function getClassWithAvailability(
     .executeTakeFirst();
   if (!activitySession) return null;
 
-  const [confirmedCount, waitlistCount] = await Promise.all([
+  const [confirmedCount, waitlistCount, configurationRow] = await Promise.all([
     db
       .selectFrom("bookings")
       .select((eb) => eb.fn.count("id").as("count"))
@@ -496,13 +496,23 @@ export async function getClassWithAvailability(
       .where("activitySessionId", "=", activitySessionId)
       .where("promotedAt", "is", null)
       .executeTakeFirst(),
+    db
+      .selectFrom("activitySessionBookingConfigurations")
+      .select("configuration")
+      .where("activitySessionId", "=", activitySessionId)
+      .executeTakeFirst(),
   ]);
   const bookedCount = Number(confirmedCount?.count ?? 0);
+  const configuration = parseBookingConfiguration(
+    configurationRow?.configuration,
+  );
   return {
     ...activitySession,
     bookedCount,
     availablePlaces: Math.max(0, activitySession.maxCapacity - bookedCount),
     waitlistCount: Number(waitlistCount?.count ?? 0),
+    bookingOpensAt: configuration.bookingOpensAt,
+    bookingClosesAt: configuration.bookingClosesAt,
   };
 }
 

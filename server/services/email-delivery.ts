@@ -21,6 +21,7 @@ import {
 } from "./manager-coordinator.js";
 import { recordSecurityEvent } from "./security-events.js";
 import { readUmfSupportMailDeliveryAttachments } from "./umf-support-mail-attachments.js";
+import { getAllowedClientOrigins } from "../lib/request-origin.js";
 
 type SupportedLocale = "es" | "en" | "de" | "de-CH";
 type EmailDeliveryPayload = {
@@ -834,6 +835,97 @@ export async function queueEmailVerificationCode(input: {
     "A verification message was queued for delivery.",
   );
   return id;
+}
+
+function escapeInvitationHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+export async function queueFacilityInvitationEmail(input: {
+  email: string;
+  name: string;
+  facilityName: string;
+  role: "admin" | "trainer" | "member";
+  token: string;
+  locale: SupportedLocale;
+  expiresAt: number;
+}): Promise<string> {
+  const origin = getAllowedClientOrigins()[0];
+  if (!origin) throw new Error("CLIENT_ORIGIN is required for invitations");
+  const invitationUrl = `${origin}/facility-invitation?token=${encodeURIComponent(input.token)}`;
+  const validityDays = Math.max(
+    1,
+    Math.ceil((input.expiresAt - Date.now()) / (24 * 60 * 60 * 1000)),
+  );
+  const roleNames: Record<
+    SupportedLocale,
+    Record<"admin" | "trainer" | "member", string>
+  > = {
+    es: { admin: "administrador", trainer: "entrenador", member: "socio" },
+    en: { admin: "administrator", trainer: "trainer", member: "member" },
+    de: { admin: "Administrator", trainer: "Trainer", member: "Mitglied" },
+    "de-CH": {
+      admin: "Administrator",
+      trainer: "Trainer",
+      member: "Mitglied",
+    },
+  };
+  const roleName = roleNames[input.locale][input.role];
+  const content: Record<
+    SupportedLocale,
+    { subject: string; intro: string; action: string; expiry: string }
+  > = {
+    es: {
+      subject: `Verificación laboral con ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} ha iniciado tu verificación como ${roleName}.`,
+      action:
+        "Revisa los datos y confirma o rechaza la vinculación laboral desde el enlace. Si ya tienes una cuenta, inicia sesión con el correo que ha recibido este mensaje.",
+      expiry: `El enlace de verificación caduca en ${validityDays} días y solo puede utilizarse una vez.`,
+    },
+    en: {
+      subject: `Worker verification with ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} has started your verification as ${roleName}.`,
+      action:
+        "Review the details and confirm or reject the employment relationship from the link. If you already have an account, sign in with the email address that received this message.",
+      expiry: `The verification link expires in ${validityDays} days and can only be used once.`,
+    },
+    de: {
+      subject: `Mitarbeiterverifizierung mit ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} hat Ihre Verifizierung als ${roleName} gestartet.`,
+      action:
+        "Prüfen Sie die Angaben und bestätigen oder lehnen Sie das Arbeitsverhältnis über den Link ab. Wenn Sie bereits ein Konto haben, melden Sie sich mit der E-Mail-Adresse an, die diese Nachricht erhalten hat.",
+      expiry: `Der Verifizierungslink läuft in ${validityDays} Tagen ab und kann nur einmal verwendet werden.`,
+    },
+    "de-CH": {
+      subject: `Mitarbeiterverifizierung mit ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} hat Ihre Verifizierung als ${roleName} gestartet.`,
+      action:
+        "Prüfen Sie die Angaben und bestätigen oder lehnen Sie das Arbeitsverhältnis über den Link ab. Wenn Sie bereits ein Konto haben, melden Sie sich mit der E-Mail-Adresse an, die diese Nachricht erhalten hat.",
+      expiry: `Der Verifizierungslink läuft in ${validityDays} Tagen ab und kann nur einmal verwendet werden.`,
+    },
+  };
+  const message = content[input.locale];
+  const htmlUrl = escapeInvitationHtml(invitationUrl);
+  return queueEncryptedDelivery({
+    userId: null,
+    platformScope: "commercial",
+    kind: "security_notice",
+    recipient: input.email,
+    locale: input.locale,
+    payload: {
+      email: input.email,
+      locale: input.locale,
+      subject: message.subject,
+      text: `${message.intro}\n\n${message.action}\n${message.expiry}\n\n${invitationUrl}`,
+      html: `<p>${escapeInvitationHtml(message.intro)}</p><p>${escapeInvitationHtml(message.action)}</p><p>${escapeInvitationHtml(message.expiry)}</p><p><a href="${htmlUrl}">${htmlUrl}</a></p>`,
+    },
+    expiresAt: input.expiresAt,
+  });
 }
 
 export async function queueEmailChangeVerification(input: {

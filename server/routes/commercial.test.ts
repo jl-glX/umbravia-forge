@@ -302,6 +302,11 @@ describe("commercial foundation API", () => {
       facilityName: "Secondary Centre",
     });
     expect(secondary.body.environment.counts.users).toBe(1);
+    expect(secondary.body.environment).toMatchObject({
+      isolation: "shared_local_demo",
+      routing: "not_provisioned",
+      subdomainMeaning: "reserved_identifier",
+    });
 
     const facility_alpha = await request(app)
       .get("/api/commercial/trial")

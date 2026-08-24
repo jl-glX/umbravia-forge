@@ -9,6 +9,35 @@ de claves.
 El estado vivo prevalece siempre sobre este documento y sobre cualquier
 historial de trabajo.
 
+## Continuidad del cambio activo — 24 de agosto de 2026
+
+- El alta visible de personal del centro se denomina **verificación del
+  trabajador**, no invitación. El token de un solo uso se guarda únicamente
+  como hash, expira a los siete días y solo permite incorporar perfiles de
+  entrenador o administración. Una membresía `invited` puede leer el centro,
+  pero el middleware rechaza cualquier mutación con
+  `FACILITY_WORKER_VERIFICATION_REQUIRED` hasta que la persona verifique su
+  identidad y acepte el vínculo laboral.
+- La creación administrativa de clases admite hasta 31 fechas y horas en una
+  única transacción. Cada fecha produce una sesión independiente; no comparte
+  aforo, reservas ni lista de espera con las demás. La antelación de apertura se
+  materializa por sesión y los socios ven una cuenta atrás, pero la API de
+  reservas es quien permite o deniega la operación.
+- La migración PostgreSQL 51 añade las verificaciones laborales y la 52 los
+  hechos históricos mínimos para métricas comerciales. El repositorio no
+  demuestra que se hayan aplicado a una base externa. No se han tocado secretos,
+  claves, archivos de entorno ni configuración de Stripe.
+- El identificador de subdominio de una prueba queda documentado como reserva
+  de nombre dentro de un entorno de demostración compartido. No representa DNS,
+  proxy, hosting ni una base aprovisionada. La conversión permanece en modo de
+  clasificación; no elimina categorías ni marca pagos como completados sin una
+  política y evidencia de suscripción aprobadas.
+- La validación integral local de este cambio superó 50 controles de
+  portabilidad, formato, lint, los tres `typecheck`, 121 archivos con 590
+  pruebas favorables y una omitida, las tres compilaciones, el paquete Windows
+  y la auditoría de dependencias. GitHub Actions y cualquier estado desplegado
+  siguen siendo verificaciones independientes.
+
 ## Continuidad del cambio activo — 22 de agosto de 2026
 
 - El código activo ya no crea ni reconoce un centro implícito o privilegiado.

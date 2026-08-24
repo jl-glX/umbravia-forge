@@ -266,6 +266,17 @@ async function deleteTrialTenantInTransaction(
   if (facility.status !== "active")
     throw new Error("An inactive facility cannot be removed automatically");
 
+  await transaction
+    .insertInto("commercialLifecycleFacts")
+    .values({
+      id: `commercial-trial-abandoned:${trial.id}`,
+      kind: "commercial_trial_abandoned",
+      subjectId: trial.id,
+      occurredAt: Date.now(),
+    })
+    .onConflict((conflict) => conflict.column("id").doNothing())
+    .execute();
+
   const classRows = await transaction
     .selectFrom("activitySessions")
     .select("id")
@@ -764,6 +775,8 @@ export async function getCommercialTrialOverview(facilityId: string) {
     trial: serializeTrial(trial),
     environment: {
       isolation: "shared_local_demo" as const,
+      routing: "not_provisioned" as const,
+      subdomainMeaning: "reserved_identifier" as const,
       counts,
       modules: [
         "bookings",

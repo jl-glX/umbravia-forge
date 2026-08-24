@@ -16,6 +16,7 @@ import { authRouter } from "./routes/auth.js";
 import { classesRouter } from "./routes/classes.js";
 import { bookingsRouter } from "./routes/bookings.js";
 import { usersRouter } from "./routes/users.js";
+import { facilityInvitationsRouter } from "./routes/facility-invitations.js";
 import { adminClassesRouter } from "./routes/admin-classes.js";
 import { analyticsRouter } from "./routes/analytics.js";
 import { crmRouter } from "./routes/crm.js";
@@ -147,6 +148,7 @@ app.use("/api/account/continuity", accountContinuityRouter);
 app.use("/api/activity-sessions", classesRouter);
 app.use("/api/bookings", bookingsRouter);
 app.use("/api/users", usersRouter);
+app.use("/api/facility-invitations", facilityInvitationsRouter);
 app.use("/api/admin/activity-sessions", adminClassesRouter);
 
 const markLegacyActivitySessionRoute =

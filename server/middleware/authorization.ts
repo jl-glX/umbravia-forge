@@ -29,6 +29,8 @@ export interface AuthenticatedUser {
     slug: string;
     name: string;
     role: FacilityRole;
+    membershipStatus: "active" | "invited";
+    accessMode: "full" | "read_only";
   } | null;
   platformOperator?: boolean;
 }
@@ -194,7 +196,7 @@ export function getFacilityContext(res: Response) {
 }
 
 export function requireFacility(...roles: FacilityRole[]) {
-  return (_req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     const facility = getAuthenticatedUser(res).facility;
     if (!facility) {
       facilityMembershipRequired(res);
@@ -202,6 +204,17 @@ export function requireFacility(...roles: FacilityRole[]) {
     }
     if (roles.length > 0 && !roles.includes(facility.role)) {
       forbidden(res);
+      return;
+    }
+    if (
+      facility.accessMode === "read_only" &&
+      !["GET", "HEAD", "OPTIONS"].includes(req.method)
+    ) {
+      forbidden(
+        res,
+        "Worker verification is required before modifying this facility",
+        "FACILITY_WORKER_VERIFICATION_REQUIRED",
+      );
       return;
     }
     next();

@@ -879,6 +879,8 @@
     "open_one": "{{count}} geöffnet",
     "booked": "Gebucht",
     "booking": "Buchung...",
+    "bookingOpensIn": "Buchung öffnet in {{value}}",
+    "bookingClosed": "Buchung geschlossen",
     "attendees": "{{booked}}/{{capacity}} Teilnehmer",
     "viewDetails": "Details anzeigen",
     "joinWaitlist": "Treten Sie der Warteliste bei",
@@ -1056,7 +1058,7 @@
     "members": "Mitglieder",
     "allRoles": "Alle Rollen",
     "trainers": "Trainer",
-    "newUser": "Neuer Benutzer",
+    "newUser": "Mitarbeiter verifizieren",
     "admins": "Administratoren",
     "noUsers": "Keine Benutzer gefunden",
     "selectAllUsers": "Alle sichtbaren Benutzer auswählen",
@@ -1070,12 +1072,64 @@
     "filterRole": "Nach Rolle filtern:",
     "maxCapacity": "Maximale Kapazität *",
     "dateRequired": "Datum und Uhrzeit sind erforderlich",
+    "classDatesAndTimes": "Termine und Uhrzeiten",
+    "addClassDate": "Termin hinzufügen",
+    "removeClassDate": "Termin entfernen",
+    "classDatesHint": "Jeder Termin erstellt eine eigenständige Einheit mit eigener Kapazität und eigenen Buchungen.",
+    "bookingOpeningHours": "Buchung so viele Stunden vorher öffnen",
+    "bookingOpeningImmediate": "Sofort geöffnet",
+    "bookingOpeningHint": "Leer lassen, um sofort zu öffnen. Mitglieder sehen bis zur Öffnung einen Countdown.",
     "passwordOptional": "Passwort (leer lassen, um es aktuell zu halten)",
     "passwordRequired": "Für neue Benutzer ist ein Passwort erforderlich",
     "editUser": "Benutzer bearbeiten",
     "createUser": "Benutzer erstellen",
+    "inviteUser": "Mitarbeiter verifizieren",
+    "sendInvitation": "Verifizierung starten",
+    "invitationSecurityNotice": "Der Mitarbeiter erhält einen einmalig verwendbaren Link. Nur er kann sein Passwort festlegen und das Arbeitsverhältnis mit der Einrichtung bestätigen.",
+    "workerRoleRequired": "Die Mitarbeiterverifizierung unterstützt nur Administrator- oder Trainerrollen.",
+    "invitationEmailNotQueued": "Die Verifizierung wurde erstellt, aber die E-Mail konnte nicht in die Warteschlange gestellt werden. Sie können es erneut versuchen; die neue Anfrage macht die vorherige ungültig.",
+    "pendingInvitations": "Ausstehende Mitarbeiterverifizierungen",
+    "pendingInvitationsDescription": "Solange die Verifizierung aussteht, kann die Arbeitskraft die Einrichtung nur ansehen, aber weder ändern noch ihr Abonnement verwalten.",
+    "noPendingInvitations": "Es gibt keine ausstehenden Mitarbeiterverifizierungen.",
+    "invitationExpires": "Frist",
+    "revokeInvitation": "Ungültig machen",
     "deleteUsersConfirm": "{{count}}-Benutzer löschen?",
     "deletionReviewRequired": "Das Konto enthält Daten, die aufbewahrt oder neu zugewiesen werden müssen. Prüfen Sie Tickets, Dokumente und Verantwortlichkeiten vor dem Löschen."
+  },
+  "workerVerification": {
+    "readOnlyNotice": "Ihr Arbeitsverhältnis ist noch nicht verifiziert. Sie können die Einrichtung ansehen, aber der Server blockiert jede Änderung."
+  },
+  "facilityInvitation": {
+    "eyebrow": "Verifiziertes Arbeitsverhältnis",
+    "title": "Mitarbeiterverifizierung",
+    "description": "Prüfen Sie Einrichtung und Rolle vor der Bestätigung. Eine ausstehende Verifizierung gewährt keinen Zugriff.",
+    "facility": "Einrichtung",
+    "existingSignedIn": "Sie sind als {{email}} angemeldet. Das Arbeitsverhältnis wird nur bestätigt, wenn es zu diesem Konto gehört.",
+    "chooseOwnPassword": "Erstellen Sie Ihr eigenes Passwort, um das Konto zu aktivieren. Die Einrichtungsverwaltung kann es nicht sehen.",
+    "accept": "Arbeitsverhältnis bestätigen",
+    "createAndAccept": "Konto erstellen und bestätigen",
+    "decline": "Arbeitsverhältnis ablehnen",
+    "signInToAccept": "Zum Bestätigen anmelden",
+    "signIn": "Anmelden",
+    "openAccount": "Mein Konto öffnen",
+    "accepted": "Das Arbeitsverhältnis wurde verifiziert. Sie können nun mit der angegebenen Rolle auf die Einrichtung zugreifen.",
+    "declined": "Das Arbeitsverhältnis wurde abgelehnt und gewährt keinen Zugriff.",
+    "status": {
+      "accepted": "Dieses Arbeitsverhältnis wurde bereits verifiziert.",
+      "declined": "Dieses Arbeitsverhältnis wurde bereits abgelehnt.",
+      "revoked": "Die Einrichtung hat diese Verifizierung ungültig gemacht.",
+      "expired": "Die Verifizierungsfrist ist abgelaufen. Bitten Sie die Einrichtung um eine neue."
+    },
+    "errors": {
+      "generic": "Die Mitarbeiterverifizierung konnte nicht abgeschlossen werden.",
+      "FACILITY_INVITATION_INVALID": "Der Verifizierungslink ist ungültig.",
+      "FACILITY_INVITATION_NOT_PENDING": "Die Verifizierung ist nicht mehr ausstehend.",
+      "FACILITY_INVITATION_IDENTITY_MISMATCH": "Die angemeldete Sitzung gehört nicht zur eingeladenen E-Mail-Adresse.",
+      "FACILITY_INVITATION_LOGIN_REQUIRED": "Für diese E-Mail-Adresse besteht bereits ein Konto. Melden Sie sich zum Annehmen an.",
+      "PASSWORD_POLICY_FAILED": "Das Passwort erfüllt die Sicherheitsanforderungen nicht.",
+      "PASSWORD_CONFIRMATION_MISMATCH": "Die Passwörter stimmen nicht überein.",
+      "LEGAL_ACKNOWLEDGEMENT_REQUIRED": "Sie müssen den Bedingungen und der Datenschutzerklärung zustimmen."
+    }
   },
   "facilityBranding": {
     "title": "Panel-Anpassung",
@@ -1735,6 +1789,8 @@
         "afterTrial": "Außerhalb des Testzeitraums kannst du normal weiterarbeiten. Eine vorübergehende Pause wird nur bei sehr vielen Änderungen direkt hintereinander angewendet."
       },
       "provisionalAddress": "Vorläufige Adresse",
+      "reservedIdentifier": "Reservierte Subdomain-Kennung",
+      "routingNotProvisioned": "Diese Reservierung erstellt weder DNS noch Proxy-Routing oder Hosting. Die Umgebung verbleibt in der gemeinsamen Demonstrationsdatenbank.",
       "create": "Konfiguration speichern",
       "save": "Änderungen speichern",
       "duration": {
@@ -2266,6 +2322,19 @@
       "noTrial": "Kein Testzentrum zugeordnet",
       "resendVerification": "Bestätigung erneut senden",
       "empty": "Keine kommerziellen Administratorkonten vorhanden.",
+      "emailAssessment": {
+        "real": "Verifiziertes Postfach",
+        "fictitious": "Reservierte oder fiktive Domain",
+        "indeterminate": "Postfach noch unbestimmt"
+      },
+      "metrics": {
+        "activeAdministratorAccounts": "Aktive Administratorkonten",
+        "pendingVerificationAccounts": "Registrierungen mit ausstehender Verifizierung",
+        "activeTrials": "Laufende oder geprüfte Testphasen",
+        "abandonedTrials": "Abgebrochene Testphasen",
+        "deletedAdministratorAccounts": "Gelöschte Administratorkonten",
+        "coverage": "Aktive Konten und aktuelle Testphasen werden live berechnet. Gelöschte Konten und entfernte Testphasen werden ab der Metrikmigration als Zähler ohne E-Mail-Adressen oder personenbezogene Daten aufbewahrt."
+      },
       "trialStatus": {
         "trial_created": "Test erstellt",
         "trial_active": "Test aktiv",

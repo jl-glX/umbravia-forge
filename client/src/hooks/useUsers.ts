@@ -19,6 +19,20 @@ export interface UserUpdate {
   role?: UserRole;
 }
 
+export interface FacilityInvitation {
+  id: string;
+  facilityName: string;
+  invitedEmail: string;
+  invitedName: string;
+  role: UserRole;
+  status: "pending" | "accepted" | "declined" | "revoked" | "expired";
+  expiresAt: number;
+  existingAccount: boolean;
+  deliveryQueued?: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export class UserActionError extends Error {
   constructor(
     message: string,
@@ -52,6 +66,7 @@ export function isUserRole(value: string): value is UserRole {
 
 export function useUsers() {
   const [users, setUsers] = useState<User[]>([]);
+  const [invitations, setInvitations] = useState<FacilityInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,7 +78,10 @@ export function useUsers() {
     try {
       setLoading(true);
       setError(null);
-      const response = await authFetch("/api/users");
+      const [response, invitationsResponse] = await Promise.all([
+        authFetch("/api/users"),
+        authFetch("/api/users/invitations"),
+      ]);
 
       if (!response.ok) {
         throw new Error("Failed to fetch users");
@@ -71,6 +89,10 @@ export function useUsers() {
 
       const data = await response.json();
       setUsers(data);
+      if (!invitationsResponse.ok) {
+        throw new Error("Failed to fetch facility invitations");
+      }
+      setInvitations(await invitationsResponse.json());
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(message);
@@ -80,14 +102,14 @@ export function useUsers() {
     }
   };
 
-  const createUser = async (data: {
+  const inviteUser = async (data: {
     email: string;
     name: string;
-    password: string;
-    role?: UserRole;
-  }): Promise<User> => {
+    role: Exclude<UserRole, "member">;
+    locale: "es" | "en" | "de" | "de-CH";
+  }): Promise<FacilityInvitation> => {
     try {
-      const response = await authFetch("/api/users", {
+      const response = await authFetch("/api/users/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -95,16 +117,35 @@ export function useUsers() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to create user");
+        throw new Error(error.error || "Failed to create invitation");
       }
 
-      const newUser = await response.json();
-      setUsers([...users, newUser]);
-      return newUser;
+      const invitation = (await response.json()) as FacilityInvitation;
+      setInvitations((current) => [
+        invitation,
+        ...current.filter((item) => item.id !== invitation.id),
+      ]);
+      return invitation;
     } catch (err) {
-      console.error("Error creating user:", err);
+      console.error("Error creating facility invitation:", err);
       throw err;
     }
+  };
+
+  const revokeInvitation = async (id: string): Promise<void> => {
+    const response = await authFetch(`/api/users/invitations/${id}/revoke`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      throw await userActionError(response, "Failed to revoke invitation");
+    }
+    setInvitations((current) =>
+      current.map((invitation) =>
+        invitation.id === id
+          ? { ...invitation, status: "revoked", updatedAt: Date.now() }
+          : invitation,
+      ),
+    );
   };
 
   const updateUser = async (id: string, updates: UserUpdate): Promise<User> => {
@@ -193,9 +234,11 @@ export function useUsers() {
 
   return {
     users,
+    invitations,
     loading,
     error,
-    createUser,
+    inviteUser,
+    revokeInvitation,
     updateUser,
     updateUserRole,
     deleteUser,

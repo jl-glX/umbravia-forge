@@ -892,6 +892,27 @@ interface FacilityMembership {
   updatedAt: number;
 }
 
+export type FacilityInvitationStatus =
+  "pending" | "accepted" | "declined" | "revoked" | "expired";
+
+interface FacilityInvitation {
+  id: string;
+  facilityId: string;
+  invitedEmail: string;
+  invitedName: string;
+  role: Exclude<FacilityRole, "owner">;
+  tokenHash: string;
+  invitedByUserId: string | null;
+  invitedUserId: string | null;
+  status: FacilityInvitationStatus;
+  expiresAt: number;
+  acceptedAt: number | null;
+  declinedAt: number | null;
+  revokedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
 interface PlatformOperator {
   userId: string;
   source: "controlled_provisioning";
@@ -1236,6 +1257,13 @@ interface CommercialTrialEvent {
   createdAt: number;
 }
 
+interface CommercialLifecycleFact {
+  id: string;
+  kind: "commercial_account_deleted" | "commercial_trial_abandoned";
+  subjectId: string;
+  occurredAt: number;
+}
+
 export type CommercialSubscriptionStatus =
   | "inactive"
   | "checkout_pending"
@@ -1374,6 +1402,7 @@ export interface Database {
   moderationAppeals: ModerationAppeal;
   facilityProfiles: FacilityProfile;
   facilityMemberships: FacilityMembership;
+  facilityInvitations: FacilityInvitation;
   platformOperators: PlatformOperator;
   corporateBootstrapState: CorporateBootstrapState;
   companyStaffProfiles: CompanyStaffProfile;
@@ -1394,6 +1423,7 @@ export interface Database {
   managerTemporaryPermissions: ManagerTemporaryPermission;
   commercialTrials: CommercialTrial;
   commercialTrialEvents: CommercialTrialEvent;
+  commercialLifecycleFacts: CommercialLifecycleFact;
   administratorSignupProvisioning: AdministratorSignupProvisioning;
   commercialRequests: CommercialRequest;
   facilityCommercialSubscriptions: FacilityCommercialSubscription;

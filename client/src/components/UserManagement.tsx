@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trash2, Edit2, Plus } from "lucide-react";
+import { Trash2, Edit2, Plus, XCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import {
   isUserRole,
@@ -17,11 +17,13 @@ export function UserManagement() {
   const { t } = useTranslation();
   const {
     users,
+    invitations,
     loading,
     error,
     deleteUser,
     deleteMultipleUsers,
     updateUserRole,
+    revokeInvitation,
     refreshUsers,
   } = useUsers();
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -34,6 +36,7 @@ export function UserManagement() {
     label?: string;
   } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [revokingInvitationId, setRevokingInvitationId] = useState("");
 
   const reportActionError = (error: unknown) => {
     setActionError(
@@ -102,8 +105,20 @@ export function UserManagement() {
   };
 
   const handleFormSuccess = () => {
-    refreshUsers();
+    void refreshUsers();
     handleFormClose();
+  };
+
+  const handleRevokeInvitation = async (id: string) => {
+    setActionError("");
+    setRevokingInvitationId(id);
+    try {
+      await revokeInvitation(id);
+    } catch (error) {
+      reportActionError(error);
+    } finally {
+      setRevokingInvitationId("");
+    }
   };
 
   if (loading) {
@@ -282,6 +297,71 @@ export function UserManagement() {
           </table>
         </div>
       )}
+      <section className="space-y-3 border-t pt-5">
+        <div>
+          <h3 className="font-semibold text-gray-900">
+            {t("admin.pendingInvitations")}
+          </h3>
+          <p className="text-sm text-gray-600">
+            {t("admin.pendingInvitationsDescription")}
+          </p>
+        </div>
+        {invitations.filter((item) => item.status === "pending").length ===
+        0 ? (
+          <p className="text-sm text-gray-600">
+            {t("admin.noPendingInvitations")}
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left">{t("common.name")}</th>
+                  <th className="px-4 py-3 text-left">{t("common.email")}</th>
+                  <th className="px-4 py-3 text-left">{t("common.role")}</th>
+                  <th className="px-4 py-3 text-left">
+                    {t("admin.invitationExpires")}
+                  </th>
+                  <th className="px-4 py-3 text-right">
+                    {t("common.actions")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {invitations
+                  .filter((item) => item.status === "pending")
+                  .map((invitation) => (
+                    <tr key={invitation.id}>
+                      <td className="px-4 py-3">{invitation.invitedName}</td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {invitation.invitedEmail}
+                      </td>
+                      <td className="px-4 py-3">
+                        {t(`roles.${invitation.role}`)}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {formatDate(invitation.expiresAt)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={revokingInvitationId === invitation.id}
+                          onClick={() =>
+                            void handleRevokeInvitation(invitation.id)
+                          }
+                        >
+                          <XCircle size={16} className="mr-1" />
+                          {t("admin.revokeInvitation")}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
       <ConfirmDialog
         open={Boolean(deleteRequest)}
         title={

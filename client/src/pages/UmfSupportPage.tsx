@@ -41,6 +41,7 @@ import {
   fetchCapabilities,
   fetchAdministratorAccounts,
   fetchCommercialTrialAdministratorAccounts,
+  fetchCommercialAccountMetrics,
   fetchCollaborationSpaces,
   fetchMailbox,
   fetchMailDrafts,
@@ -65,6 +66,7 @@ import {
   updateWorkspaceName,
   type UmfMailboxMessage,
   type CommercialTrialAdministratorAccount,
+  type CommercialAccountMetrics,
   type UmfSupportBrowserFamily,
   type UmfSupportAdministratorAccount,
   type UmfSupportCollaborationSpace,
@@ -194,6 +196,8 @@ export function UmfSupportPage() {
   const [commercialTrialAccounts, setCommercialTrialAccounts] = useState<
     CommercialTrialAdministratorAccount[]
   >([]);
+  const [commercialAccountMetrics, setCommercialAccountMetrics] =
+    useState<CommercialAccountMetrics | null>(null);
   const [collaborationSpaces, setCollaborationSpaces] = useState<
     UmfSupportCollaborationSpace[]
   >([]);
@@ -313,11 +317,14 @@ export function UmfSupportPage() {
       } else if (view === "notifications") {
         setNotificationSettings(await fetchNotificationSettings());
       } else if (view === "commercialTrials") {
-        setCommercialTrialAccounts(
-          current.canManageCommercialTrials
-            ? await fetchCommercialTrialAdministratorAccounts()
-            : [],
-        );
+        const [accounts, metrics] = current.canManageCommercialTrials
+          ? await Promise.all([
+              fetchCommercialTrialAdministratorAccounts(),
+              fetchCommercialAccountMetrics(),
+            ])
+          : [[], null];
+        setCommercialTrialAccounts(accounts);
+        setCommercialAccountMetrics(metrics);
       } else if (view === "team") {
         const [currentStaff, accounts] = await Promise.all([
           fetchStaff(),
@@ -2147,6 +2154,37 @@ export function UmfSupportPage() {
                   </div>
                 </section>
 
+                {commercialAccountMetrics && (
+                  <section className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                      {(
+                        [
+                          "activeAdministratorAccounts",
+                          "pendingVerificationAccounts",
+                          "activeTrials",
+                          "abandonedTrials",
+                          "deletedAdministratorAccounts",
+                        ] as const
+                      ).map((metric) => (
+                        <div
+                          key={metric}
+                          className="rounded-lg bg-slate-50 p-3"
+                        >
+                          <p className="text-2xl font-bold text-slate-950">
+                            {commercialAccountMetrics[metric]}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            {t(`umfSupport.commercialTrials.metrics.${metric}`)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-xs leading-5 text-slate-500">
+                      {t("umfSupport.commercialTrials.metrics.coverage")}
+                    </p>
+                  </section>
+                )}
+
                 <section className="overflow-hidden rounded-xl border border-slate-200">
                   <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
                     <h2 className="font-semibold">
@@ -2172,6 +2210,11 @@ export function UmfSupportPage() {
                           {t("umfSupport.commercialTrials.createdAt", {
                             date: formatDate(account.createdAt, i18n.language),
                           })}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-slate-600">
+                          {t(
+                            `umfSupport.commercialTrials.emailAssessment.${account.emailAssessment}`,
+                          )}
                         </p>
                       </div>
                       <div className="text-sm">

@@ -12,6 +12,11 @@ export interface AdminClass {
   bookedCount: number;
   availablePlaces: number;
   waitlistCount: number;
+  bookingConfiguration: {
+    bookingOpensAt: number | null;
+    bookingClosesAt: number | null;
+  };
+  seriesId: string | null;
 }
 
 export interface ClassBatchDeleteResult {
@@ -80,6 +85,52 @@ export function useAdminClasses() {
       console.error("Error creating class:", err);
       throw err;
     }
+  };
+
+  const createClassSeries = async (data: {
+    name: string;
+    description: string;
+    trainerId: string;
+    trainerName: string;
+    maxCapacity: number;
+    occurrences: number[];
+    bookingOpensMinutesBefore: number | null;
+  }): Promise<AdminClass[]> => {
+    const response = await authFetch("/api/admin/activity-sessions/series", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(body?.error || "Failed to create class series");
+    }
+    const created = body as AdminClass[];
+    setClasses((current) => [...current, ...created]);
+    return created;
+  };
+
+  const updateBookingOpening = async (
+    activitySessionId: string,
+    bookingOpensAt: number | null,
+  ): Promise<AdminClass> => {
+    const response = await authFetch(
+      `/api/admin/activity-sessions/${activitySessionId}/booking-configuration`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ configuration: { bookingOpensAt } }),
+      },
+    );
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(body?.error || "Failed to update booking opening");
+    }
+    const updated = body as AdminClass;
+    setClasses((current) =>
+      current.map((item) => (item.id === activitySessionId ? updated : item)),
+    );
+    return updated;
   };
 
   const updateClass = async (
@@ -167,6 +218,8 @@ export function useAdminClasses() {
     loading,
     error,
     createClass,
+    createClassSeries,
+    updateBookingOpening,
     updateClass,
     deleteClass,
     deleteMultipleClasses,
