@@ -541,7 +541,28 @@
     "dataRetentionDescription": "Bereiten Sie Richtlinienentwürfe vor und prüfen Sie zukünftige Datensätze.",
     "notificationsDescription": "Benachrichtigungseinstellungen und -verlauf werden in einer zukünftigen Phase aktiviert.",
     "delegationSecurity": "Bei Delegationen kann nur jemand in Ihrem Namen buchen oder stornieren. Sie gewähren keinen Zugriff auf Ihr Profil, Ihr Passwort, Ihre Zahlungen oder Sicherheitseinstellungen.",
-    "preferencesDescription": "Thema, Privatsphäre und weitere persönliche Optionen werden nach und nach hinzugefügt."
+    "preferencesDescription": "Sprache, Datenschutz und kontobezogene Berechtigungen."
+  },
+  "accountPreferences": {
+    "back": "Zurück zum Kontobereich",
+    "eyebrow": "Kontoeinstellungen",
+    "title": "Einstellungen",
+    "description": "Konfigurieren Sie persönliche Optionen und als Leitung der Einrichtung auch inhaberabhängige Berechtigungen.",
+    "languageTitle": "Sprache",
+    "languageDescription": "Wählen Sie die Sprache der Benutzeroberfläche. Die Änderung wird auf diesem Gerät sofort angewendet.",
+    "privacyTitle": "Datenschutz und Daten",
+    "privacyDescription": "Lesen Sie die aktuelle Richtlinie und verwalten Sie Anfragen zu Ihren Kontodaten.",
+    "openPrivacy": "Datenschutzerklärung öffnen",
+    "manageData": "Meine Daten verwalten",
+    "staffMembersTitle": "Mitgliedschaft des Personals",
+    "staffMembersDescription": "Erlauben Sie Mitarbeitenden, mit Ausnahme der Leitung, zusätzlich ein Mitgliedskonto zu verknüpfen, ohne ihre beruflichen Funktionen zu verlieren.",
+    "staffMembersQuestion": "Darf das Studiopersonal Mitgliedskonten erstellen?",
+    "specificPermissions": "Spezifische Berechtigungen",
+    "specificPermissionsHelp": "Wählen Sie bestimmte Personen aus. Diese Liste ermöglicht individuelle Ausnahmen, auch wenn die allgemeine Option deaktiviert ist.",
+    "noEligibleStaff": "Für diese Berechtigung gibt es kein geeignetes verifiziertes Personal.",
+    "saved": "Die Einstellungen wurden gespeichert.",
+    "loadError": "Die Einstellungen der Einrichtung konnten nicht geladen werden.",
+    "saveError": "Die Einstellungen konnten nicht gespeichert werden."
   },
   "accountContinuity": {
     "back": "Zurück zur Kontoverwaltung",

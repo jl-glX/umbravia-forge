@@ -32,8 +32,14 @@ historial de trabajo.
 - Las plantillas versionadas definen los dos bloqueos en `false` y publican solo
   direcciones y URL no secretas. Los antiguos secretos de Workers, correo y
   almacenamiento no se modifican ni reutilizan para Open Helpdesk.
+- **Preferencias** ya es una opción operativa del área de cuenta: permite
+  cambiar el idioma, abrir la política de privacidad y la gestión de datos. La
+  jefatura dispone además del mismo control protegido por servidor para
+  permitir la afiliación como socio de todo el personal o de personas
+  concretas. La renuncia o transferencia de la jefatura continúa expresamente
+  pendiente y no se simula con un botón incompleto.
 - La puerta local `npm run ci:validate` superó portabilidad, formato, lint, los
-  tres `typecheck`, 124 archivos con 609 pruebas favorables y una omitida, las
+  tres `typecheck`, 125 archivos con 611 pruebas favorables y una omitida, las
   tres compilaciones, el paquete Windows y la auditoría de dependencias. La
   publicación y GitHub Actions siguen siendo verificaciones independientes.
 

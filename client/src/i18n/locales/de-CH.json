@@ -533,7 +533,7 @@
     "dataRetentionDescription": "Bereiten Sie Richtlinienentwürfe vor und prüfen Sie zukünftige Datensätze.",
     "notificationsDescription": "Benachrichtigungseinstellungen und -verlauf werden in einer zukünftigen Phase aktiviert.",
     "delegationSecurity": "Bei Delegationen kann nur jemand in Ihrem Namen buchen oder stornieren. Sie gewähren keinen Zugriff auf Ihr Profil, Ihr Passwort, Ihre Zahlungen oder Sicherheitseinstellungen.",
-    "preferencesDescription": "Thema, Privatsphäre und weitere persönliche Optionen werden nach und nach hinzugefügt."
+    "preferencesDescription": "Sprache, Datenschutz und kontobezogene Berechtigungen."
   },
   "accountContinuity": {
     "back": "Zurück zur Kontoverwaltung",
