@@ -1,6 +1,6 @@
 # Índice de documentación
 
-Estado revisado contra el código y las pruebas del cambio activo el 22 de agosto
+Estado revisado contra el código y las pruebas del cambio activo el 24 de agosto
 de 2026. El índice evita fijar un SHA que quede obsoleto con cada actualización:
 la sincronización se comprueba en el diff y en la validación del commit que se
 publica. Esta referencia describe el repositorio; no demuestra por sí sola el
@@ -44,8 +44,12 @@ auditoría histórica entra en conflicto con un documento vigente.
   Worker de correo mediante Workers Builds, el endpoint público no sensible
   conservado en la configuración versionada, la entrega firmada del Worker al
   servidor de origen sin reentrar por el frontal público de la misma zona, la
-  separación entre el disparador de entrada y cualquier vinculación futura de
-  envío, el diagnóstico de transporte reducido a categorías seguras, los
+  separación entre la regla directa **Enviar al Worker**, las direcciones
+  externas de reenvío y cualquier vinculación futura de envío, el diagnóstico
+  ordenado entre Email Routing, Workers Logs y persistencia, la ausencia de una
+  dependencia IMAP en el flujo vigente, la frontera independiente de un posible
+  `staging-umbraviaforge.com`, el diagnóstico de transporte reducido a
+  categorías seguras, los
   realms independientes y el
   saneamiento que preserva la cuenta comercial y sus solicitudes de borrado
 - [Forge Notify](./FORGE-NOTIFY.md), incluida la separación persistente de

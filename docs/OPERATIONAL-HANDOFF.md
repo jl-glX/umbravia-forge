@@ -205,6 +205,18 @@ historial de trabajo.
   JavaScript válido, pero no está versionada ni consumida por el Worker actual.
   Puede conservarse como complemento para una integración futura de envío, pero
   no debe usarse como indicador de que la entrada está operativa.
+- Las reglas de los buzones corporativos deben usar directamente **Enviar al
+  Worker** con `umbravia-forge-umf-support-email`. La lista de **Direcciones de
+  destino** solo sirve para reenviar a buzones externos verificados y puede
+  permanecer vacía en este recorrido; crear una dirección allí no conecta el
+  handler `email()`. El diagnóstico se hace, en este orden, con el evento
+  `Handled` de Email Routing, la ejecución o el fallo seguro en Workers Logs y
+  la fila persistida `email/inbound`. El flujo vigente no depende de IMAP.
+- `staging-umbraviaforge.com` es un dominio independiente y no pertenece al
+  contrato versionado ni al recorrido de producción. Su ausencia no bloquea
+  `platform-support@umbraviaforge.com`. Una recuperación futura de staging debe
+  usar zona, DNS, Worker, endpoint, secreto y almacenamiento separados, sin
+  reutilizar credenciales ni reglas productivas.
 - La política de privacidad mantenida está en `docs/PRIVACY-POLICY.md`, pero
   sigue pendiente completar el canal verificado, el domicilio publicable, el
   inventario de encargados y transferencias, los criterios de conservación y
