@@ -38,7 +38,10 @@ data all enforce the same boundary on the server.
   the same hashed and expiring token foundation. Acceptance creates the member
   relationship without replacing verified `trainer` or delegated `admin`
   functions when the owner-authorised staff policy permits it; owners remain
-  ineligible. Promotion from membership to employment is rejected and must
+  ineligible. The owner can manage the general permission and individual staff
+  exceptions from the operational account Preferences page as well as the
+  centre user-management view; both interfaces use the same owner-protected
+  server policy. Promotion from membership to employment is rejected and must
   begin a worker-verification flow. Owner-managed allow/deny overrides for
   class management are checked after tenant and membership resolution on the
   server.

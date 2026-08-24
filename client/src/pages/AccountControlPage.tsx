@@ -150,6 +150,12 @@ export function AccountControlPage() {
       title: t("accountControl.downloads"),
       description: t("accountControl.downloadsDescription"),
     },
+    {
+      to: "/account/preferences",
+      icon: Settings2,
+      title: t("accountControl.preferences"),
+      description: t("accountControl.preferencesDescription"),
+    },
   ];
 
   const memberLinks: AccountShortcut[] = [
@@ -390,20 +396,6 @@ export function AccountControlPage() {
               </h3>
               <p className="mt-1 flex-1 text-sm leading-6 text-slate-600">
                 {t("accountControl.notificationsDescription")}
-              </p>
-              <span className="mt-5 font-semibold text-slate-500">
-                {t("accountControl.comingSoon")}
-              </span>
-            </div>
-            <div className="flex min-h-64 flex-col rounded-3xl border border-dashed border-slate-300 bg-white/60 p-6">
-              <span className="inline-flex w-fit rounded-2xl bg-slate-100 p-3 text-slate-600">
-                <Settings2 />
-              </span>
-              <h3 className="mt-4 text-lg font-bold text-slate-950">
-                {t("accountControl.preferences")}
-              </h3>
-              <p className="mt-1 flex-1 text-sm leading-6 text-slate-600">
-                {t("accountControl.preferencesDescription")}
               </p>
               <span className="mt-5 font-semibold text-slate-500">
                 {t("accountControl.comingSoon")}

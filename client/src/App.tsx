@@ -104,6 +104,10 @@ const AccountControlPage = lazyPage(
   () => import("./pages/AccountControlPage"),
   "AccountControlPage",
 );
+const AccountPreferencesPage = lazyPage(
+  () => import("./pages/AccountPreferencesPage"),
+  "AccountPreferencesPage",
+);
 const AccountLifecyclePage = lazyPage(
   () => import("./pages/AccountLifecyclePage"),
   "AccountLifecyclePage",
@@ -378,6 +382,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <AccountSecurityPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account/preferences"
+            element={
+              <ProtectedRoute>
+                <AccountPreferencesPage />
               </ProtectedRoute>
             }
           />
