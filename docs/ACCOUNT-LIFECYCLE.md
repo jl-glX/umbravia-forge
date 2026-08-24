@@ -199,6 +199,16 @@ The review screen offers two distinct intentions:
 - schedule closure of the complete account using the existing 30-day grace
   period.
 
+The server chooses the confirmation factors for full closure and the client
+cannot request a weaker method. An account with a usable local password must
+confirm it and also provide either the current TOTP code, when enabled, or a
+six-digit code sent to the verified account email. If no usable local password
+exists, the server requires the email code and enabled TOTP remains an
+additional factor. Email challenges are bound to the current session, stored
+only as a hash, expire after fifteen minutes, are consumed once, stop after five
+failed attempts and enforce a resend delay. Closure fails closed when this
+fallback is required but the account has no verified email.
+
 Saving a selective request does not delete data. It records the categories and
 the user's intention so a future verified request workflow can evaluate
 ownership, dependencies, applicable retention rules and execution results.

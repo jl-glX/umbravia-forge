@@ -42,6 +42,20 @@ in browser storage. WebAuthn delegates biometric or PIN verification to the
 device; Umbravia Forge stores a public credential, never a fingerprint, face
 template or device PIN.
 
+Passkey registration requires the current account password before a
+session-bound WebAuthn challenge is issued. Expected password, expired
+challenge and device-registration failures return stable error codes which the
+interface translates instead of exposing raw server messages. Local automated
+coverage verifies the same-password confirmation path, but physical validation
+on the deployed Android origin remains a separate release check.
+
+Session inactivity and maximum lifetime are independent limits. The account
+preference controls how long a session may remain idle. A non-remembered
+session still has a 24-hour absolute lifetime and a session explicitly
+remembered at sign-in has a 30-day absolute lifetime; whichever deadline occurs
+first closes the session. The security screen labels whether the next deadline
+comes from inactivity or from that absolute lifetime.
+
 ## Delegation history
 
 Active permissions and accepted delegations remain visible while they can be
@@ -90,7 +104,10 @@ session controls, rate limiting and monitoring remain independent layers.
   with a hard maximum of 1024 UTF-8 bytes to bound request and hashing cost.
 - Opaque random session tokens; only their SHA-256 hashes are stored.
 - Persistent, expiring and revocable database sessions.
-- Browser-session cookies by default, plus optional remembered sessions with an explicit 30-day expiry and server-side revocation.
+- Browser-session cookies by default, plus optional remembered sessions with
+  an explicit 30-day expiry and server-side revocation.
+- A configurable server-enforced inactivity limit, displayed separately from
+  each session's 24-hour or 30-day absolute lifetime.
 - WebAuthn passkeys requiring user verification for passwordless sign-in.
 - `HttpOnly`, `SameSite=Strict` session cookies and `Secure` cookies in production.
 - Server-side authentication and role authorization.
@@ -102,6 +119,9 @@ session controls, rate limiting and monitoring remain independent layers.
 - Server-validated Cloudflare Turnstile on signup, password login, passkey
   initiation, feedback and generic protected forms.
 - Hashed, expiring email-verification codes with bounded attempts.
+- Adaptive confirmation for full account closure: password plus TOTP when it is
+  enabled, password plus a session-bound verified-email code when it is not, or
+  the email code (and enabled TOTP) when no usable local password exists.
 - Account email replacement only after password confirmation and a distinct
   bounded code delivered to the new mailbox; facility administrators cannot
   bypass this flow by editing the user record.

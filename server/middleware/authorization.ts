@@ -11,6 +11,10 @@ import {
   FacilityAccessDeniedError,
   resolveFacilityContext,
 } from "../services/facility-context.js";
+import {
+  hasFacilityClassPermission,
+  type FacilityClassPermission,
+} from "../services/facility-class-permissions.js";
 
 export type UserRole = "member" | "trainer" | "admin";
 
@@ -20,6 +24,7 @@ export interface AuthenticatedUser {
   userId: string;
   email: string;
   name: string;
+  lastName: string;
   avatarDataUrl: string;
   role: UserRole;
   accountStatus: "pending_verification" | "active" | "security_review";
@@ -29,6 +34,7 @@ export interface AuthenticatedUser {
     slug: string;
     name: string;
     role: FacilityRole;
+    memberAffiliation: boolean;
     membershipStatus: "active" | "invited";
     accessMode: "full" | "read_only";
   } | null;
@@ -57,6 +63,39 @@ function facilityMembershipRequired(res: Response) {
 
 export function getAuthenticatedUser(res: Response): AuthenticatedUser {
   return res.locals.auth as AuthenticatedUser;
+}
+
+export function requireAnyFacilityClassPermission(
+  ...permissions: FacilityClassPermission[]
+) {
+  return async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const auth = getAuthenticatedUser(res);
+      if (!auth.facility) {
+        facilityMembershipRequired(res);
+        return;
+      }
+      for (const permission of permissions) {
+        if (
+          await hasFacilityClassPermission(
+            auth.userId,
+            auth.facility.id,
+            permission,
+          )
+        ) {
+          next();
+          return;
+        }
+      }
+      forbidden(
+        res,
+        "Class management permission is required",
+        "CLASS_PERMISSION_REQUIRED",
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 async function authenticateSession(
@@ -202,7 +241,10 @@ export function requireFacility(...roles: FacilityRole[]) {
       facilityMembershipRequired(res);
       return;
     }
-    if (roles.length > 0 && !roles.includes(facility.role)) {
+    const roleAllowed =
+      roles.includes(facility.role) ||
+      (roles.includes("member") && facility.memberAffiliation);
+    if (roles.length > 0 && !roleAllowed) {
       forbidden(res);
       return;
     }

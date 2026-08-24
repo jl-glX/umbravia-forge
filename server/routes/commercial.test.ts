@@ -172,14 +172,13 @@ describe("commercial foundation API", () => {
     }
   });
 
-  it("creates an editable centre from a template and preserves optional data", async () => {
+  it("creates an editable centre from a template and preserves configuration", async () => {
     const created = await request(app)
       .post("/api/commercial/trial")
       .set("Cookie", adminCookie)
       .send({
         facilityName: "Fitness Boreal",
         facilityType: "crossfit",
-        trainerCount: 4,
         classTypes: ["WOD", "Movilidad"],
         locale: "es",
         currency: "eur",
@@ -190,7 +189,6 @@ describe("commercial foundation API", () => {
     expect(created.body.trial).toMatchObject({
       facilityName: "Fitness Boreal",
       facilityType: "crossfit",
-      trainerCount: 4,
       usualCapacity: 14,
       classTypes: ["WOD", "Movilidad"],
       currency: "EUR",
@@ -210,10 +208,9 @@ describe("commercial foundation API", () => {
     const updated = await request(app)
       .patch("/api/commercial/trial")
       .set("Cookie", adminCookie)
-      .send({ usualCapacity: 18, scheduleNotes: "Horario provisional" })
+      .send({ scheduleNotes: "Horario provisional" })
       .expect(200);
     expect(updated.body.trial).toMatchObject({
-      usualCapacity: 18,
       scheduleNotes: "Horario provisional",
     });
 
@@ -251,6 +248,12 @@ describe("commercial foundation API", () => {
       .patch("/api/commercial/trial")
       .set("Cookie", adminCookie)
       .send({ secretSalesFlag: true })
+      .expect(400);
+
+    await request(app)
+      .patch("/api/commercial/trial")
+      .set("Cookie", adminCookie)
+      .send({ trainerCount: 4 })
       .expect(400);
 
     await request(app)

@@ -286,6 +286,7 @@ export async function seedDatabase() {
           facilityId: DEMO_FACILITY_ID,
           userId: user.id,
           role: user.role === "admin" ? "owner" : user.role,
+          memberAffiliation: user.role === "member" ? 1 : 0,
           status: "active",
           createdAt: user.createdAt,
           updatedAt: user.createdAt,

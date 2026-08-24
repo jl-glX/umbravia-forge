@@ -11,6 +11,7 @@ describe("administrator account safety", () => {
   let app: typeof import("../index.js").app;
   let adminCookie: string;
   let memberCookie: string;
+  let trainerCookie: string;
 
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-forge-admin-safety-"));
@@ -32,6 +33,7 @@ describe("administrator account safety", () => {
           password: await auth.hashPassword("ProtectedAdmin123"),
           role: "admin",
           accountStatus: "active",
+          emailVerifiedAt: Date.now(),
           sessionIdleTimeoutMinutes: 10_080,
           createdAt: Date.now(),
         },
@@ -44,6 +46,7 @@ describe("administrator account safety", () => {
           password: await auth.hashPassword("SyntheticMember123"),
           role: "member",
           accountStatus: "active",
+          emailVerifiedAt: Date.now(),
           sessionIdleTimeoutMinutes: 10_080,
           createdAt: Date.now() + 1,
         },
@@ -56,6 +59,7 @@ describe("administrator account safety", () => {
           password: await auth.hashPassword("RetainedMember123"),
           role: "member",
           accountStatus: "active",
+          emailVerifiedAt: Date.now(),
           sessionIdleTimeoutMinutes: 10_080,
           createdAt: Date.now() + 2,
         },
@@ -68,8 +72,22 @@ describe("administrator account safety", () => {
           password: await auth.hashPassword("DeletableMember123"),
           role: "member",
           accountStatus: "active",
+          emailVerifiedAt: Date.now(),
           sessionIdleTimeoutMinutes: 10_080,
           createdAt: Date.now() + 3,
+        },
+        {
+          id: "delegated-trainer",
+          email: "delegated-trainer@example.com",
+          phone: null,
+          name: "Delegated Trainer",
+          avatarDataUrl: "",
+          password: await auth.hashPassword("DelegatedTrainer123"),
+          role: "trainer",
+          accountStatus: "active",
+          emailVerifiedAt: Date.now(),
+          sessionIdleTimeoutMinutes: 10_080,
+          createdAt: Date.now() + 4,
         },
       ])
       .execute();
@@ -113,6 +131,15 @@ describe("administrator account safety", () => {
           createdAt: Date.now(),
           updatedAt: Date.now(),
         },
+        {
+          id: "facility-alpha:delegated-trainer",
+          facilityId: "facility-alpha",
+          userId: "delegated-trainer",
+          role: "trainer",
+          status: "active",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
       ])
       .execute();
     app = (await import("../index.js")).app;
@@ -132,6 +159,14 @@ describe("administrator account safety", () => {
         rememberDevice: false,
       })
     ).headers["set-cookie"][0];
+    trainerCookie = (
+      await request(app).post("/api/auth/login").send({
+        identifier: "delegated-trainer@example.com",
+        password: "DelegatedTrainer123",
+        accessPortal: "staff",
+        rememberDevice: false,
+      })
+    ).headers["set-cookie"][0];
   }, 20_000);
 
   afterAll(async () => {
@@ -140,16 +175,16 @@ describe("administrator account safety", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  it("prevents an administrator from deleting or demoting the active account", async () => {
+  it("protects ownership while allowing independent workforce labels", async () => {
     const deleted = await request(app)
       .delete("/api/users/protected-admin")
       .set("Cookie", adminCookie)
       .expect(400);
-    const demoted = await request(app)
-      .patch("/api/users/protected-admin/role")
+    const labels = await request(app)
+      .put("/api/users/protected-admin/workforce-roles")
       .set("Cookie", adminCookie)
-      .send({ role: "member" })
-      .expect(400);
+      .send({ roles: ["trainer", "admin"] })
+      .expect(200);
     const bulkDeleted = await request(app)
       .post("/api/users/bulk/delete")
       .set("Cookie", adminCookie)
@@ -157,7 +192,10 @@ describe("administrator account safety", () => {
       .expect(400);
 
     expect(deleted.body.code).toBe("ADMIN_SELF_DELETE");
-    expect(demoted.body.code).toBe("ADMIN_SELF_ROLE_CHANGE");
+    expect(labels.body).toMatchObject({
+      facilityRole: "owner",
+      roles: ["trainer", "admin"],
+    });
     expect(bulkDeleted.body.code).toBe("ADMIN_SELF_DELETE");
   });
 
@@ -191,7 +229,6 @@ describe("administrator account safety", () => {
       .send({
         email: "replacement@example.com",
         name: "Retained Member",
-        role: "member",
       })
       .expect(400);
     expect(response.body.error).toBe(
@@ -206,40 +243,159 @@ describe("administrator account safety", () => {
     ).resolves.toEqual({ email: "retained-member@example.com" });
   });
 
-  it("revokes active sessions whenever an administrator changes a role", async () => {
-    await request(app)
-      .patch("/api/users/synthetic-member/role")
+  it("does not turn a member affiliation into employment", async () => {
+    const response = await request(app)
+      .put("/api/users/synthetic-member/workforce-roles")
       .set("Cookie", adminCookie)
-      .send({ role: "admin" })
+      .send({ roles: ["trainer"] })
+      .expect(400);
+    expect(response.body.code).toBe("WORKER_VERIFICATION_REQUIRED");
+  });
+
+  it("revokes sessions when the owner grants or removes administration", async () => {
+    await request(app)
+      .put("/api/users/delegated-trainer/workforce-roles")
+      .set("Cookie", adminCookie)
+      .send({ roles: ["trainer", "admin"] })
       .expect(200);
 
     await request(app)
       .get("/api/users")
-      .set("Cookie", memberCookie)
+      .set("Cookie", trainerCookie)
       .expect(401);
 
-    const promotedCookie = (
+    const delegatedAdminCookie = (
       await request(app).post("/api/auth/login").send({
-        identifier: "synthetic-member@example.com",
-        password: "SyntheticMember123",
+        identifier: "delegated-trainer@example.com",
+        password: "DelegatedTrainer123",
         accessPortal: "staff",
         rememberDevice: false,
       })
     ).headers["set-cookie"][0];
     await request(app)
       .get("/api/users")
-      .set("Cookie", promotedCookie)
+      .set("Cookie", delegatedAdminCookie)
       .expect(200);
+    await request(app)
+      .post("/api/users/invitations")
+      .set("Cookie", delegatedAdminCookie)
+      .send({
+        email: "another-admin@example.com",
+        name: "Another Admin",
+        role: "admin",
+        locale: "es",
+      })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.code).toBe("FACILITY_OWNER_REQUIRED");
+      });
 
     await request(app)
-      .patch("/api/users/synthetic-member/role")
+      .put("/api/users/delegated-trainer/workforce-roles")
       .set("Cookie", adminCookie)
-      .send({ role: "member" })
+      .send({ roles: ["trainer"] })
       .expect(200);
     await request(app)
       .get("/api/users")
-      .set("Cookie", promotedCookie)
+      .set("Cookie", delegatedAdminCookie)
       .expect(401);
+  });
+
+  it("enforces granular class delegation in the server", async () => {
+    await request(app)
+      .put("/api/users/delegated-trainer/workforce-roles")
+      .set("Cookie", adminCookie)
+      .send({ roles: ["trainer", "admin"] })
+      .expect(200);
+    const delegatedAdminCookie = (
+      await request(app).post("/api/auth/login").send({
+        identifier: "delegated-trainer@example.com",
+        password: "DelegatedTrainer123",
+        accessPortal: "staff",
+        rememberDevice: false,
+      })
+    ).headers["set-cookie"][0];
+
+    await request(app)
+      .put("/api/users/delegated-trainer/class-permissions")
+      .set("Cookie", adminCookie)
+      .send({ classPermissions: { "classes.create": "deny" } })
+      .expect(200);
+    const denied = await request(app)
+      .post("/api/admin/activity-sessions")
+      .set("Cookie", delegatedAdminCookie)
+      .send({
+        name: "Denied class",
+        description: "",
+        trainerId: "delegated-trainer",
+        trainerName: "Delegated Trainer",
+        maxCapacity: 10,
+        scheduledAt: Date.now() + 86_400_000,
+      })
+      .expect(403);
+    expect(denied.body.code).toBe("CLASS_PERMISSION_REQUIRED");
+
+    await request(app)
+      .put("/api/users/delegated-trainer/class-permissions")
+      .set("Cookie", adminCookie)
+      .send({ classPermissions: { "classes.create": "allow" } })
+      .expect(200);
+    await request(app)
+      .post("/api/admin/activity-sessions")
+      .set("Cookie", delegatedAdminCookie)
+      .send({
+        name: "Delegated class",
+        description: "",
+        trainerId: "delegated-trainer",
+        trainerName: "Delegated Trainer",
+        maxCapacity: 10,
+        scheduledAt: Date.now() + 86_400_000,
+      })
+      .expect(201);
+  });
+
+  it("reserves staff member-affiliation policy changes for the facility owner", async () => {
+    await request(app)
+      .put("/api/users/delegated-trainer/workforce-roles")
+      .set("Cookie", adminCookie)
+      .send({ roles: ["trainer", "admin"] })
+      .expect(200);
+    const delegatedAdminCookie = (
+      await request(app).post("/api/auth/login").send({
+        identifier: "delegated-trainer@example.com",
+        password: "DelegatedTrainer123",
+        accessPortal: "staff",
+        rememberDevice: false,
+      })
+    ).headers["set-cookie"][0];
+
+    await request(app)
+      .put("/api/users/member-affiliation-policy")
+      .set("Cookie", delegatedAdminCookie)
+      .send({ allowAllStaff: true, specificallyAllowedUserIds: [] })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.code).toBe("FACILITY_OWNER_REQUIRED");
+      });
+    await request(app)
+      .put("/api/users/member-affiliation-policy")
+      .set("Cookie", adminCookie)
+      .send({
+        allowAllStaff: false,
+        specificallyAllowedUserIds: ["delegated-trainer"],
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.allowAllStaff).toBe(false);
+        expect(body.staff).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              userId: "delegated-trainer",
+              specificallyAllowed: true,
+            }),
+          ]),
+        );
+      });
   });
 
   it("blocks destructive deletion when retained records need review", async () => {

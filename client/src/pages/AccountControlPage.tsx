@@ -45,6 +45,7 @@ interface AccountManagerOverview {
     deletionExecutionEnabled: false;
   };
   recovery: {
+    activeMethods: string[];
     availableMethods: string[];
     plannedMethods: string[];
   };
@@ -102,6 +103,10 @@ export function AccountControlPage() {
   const [overview, setOverview] = useState<AccountManagerOverview | null>(null);
   const [overviewError, setOverviewError] = useState(false);
   const accessRole = getAccessRole(user);
+  const facilityAccount = accessRole === "admin" ? user?.facility : null;
+  const accountHolderName = [user?.name, user?.lastName]
+    .filter(Boolean)
+    .join(" ");
 
   useEffect(() => {
     let active = true;
@@ -244,9 +249,10 @@ export function AccountControlPage() {
                 {t("accountControl.eyebrow")}
               </p>
               <h1 className="mt-2 text-3xl font-black sm:text-4xl">
-                {user?.name}
+                {facilityAccount?.name ?? user?.name}
               </h1>
               <p className="mt-2 text-slate-300">
+                {facilityAccount ? `${accountHolderName} · ` : ""}
                 {user?.email} · {accessRole && t(`roles.${accessRole}`)}
               </p>
             </div>
@@ -303,9 +309,21 @@ export function AccountControlPage() {
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
                   {t("accountControl.managerRecoverySummary", {
+                    active: overview.recovery.activeMethods.length,
                     available: overview.recovery.availableMethods.length,
                     planned: overview.recovery.plannedMethods.length,
                   })}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {overview.recovery.activeMethods.length > 0
+                    ? t("accountControl.managerRecoveryActiveMethods", {
+                        methods: overview.recovery.activeMethods
+                          .map((method) =>
+                            t(`accountControl.recoveryMethods.${method}`),
+                          )
+                          .join(", "),
+                      })
+                    : t("accountControl.managerRecoveryNoActiveMethods")}
                 </p>
               </div>
               <div className="rounded-2xl bg-slate-50 p-4">

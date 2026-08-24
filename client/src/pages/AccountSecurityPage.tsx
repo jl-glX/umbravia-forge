@@ -21,6 +21,7 @@ import { Label } from "../components/ui/label";
 import { PasswordInput } from "../components/PasswordInput";
 import { ProfilePhotoSettings } from "../components/ProfilePhotoSettings";
 import { AccountEmailChangeCard } from "../components/AccountEmailChangeCard";
+import { sessionExpiryKind } from "../lib/sessionExpiry";
 import {
   browserSupportsWebAuthn,
   platformAuthenticatorIsAvailable,
@@ -59,6 +60,15 @@ interface SetupData {
   qrCodeDataUrl: string;
 }
 
+class AccountSecurityApiError extends Error {
+  readonly code: string;
+
+  constructor(message: string, code: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await authFetch(`${API_BASE}${path}`, {
     ...init,
@@ -67,8 +77,12 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as {
       error?: string;
+      code?: string;
     };
-    throw new Error(body.error ?? "Request failed");
+    throw new AccountSecurityApiError(
+      body.error ?? "Request failed",
+      body.code ?? "REQUEST_FAILED",
+    );
   }
   return response.status === 204
     ? (undefined as T)
@@ -147,7 +161,21 @@ export function AccountSecurityPage({
       setNotice(success);
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      const code =
+        cause instanceof AccountSecurityApiError ? cause.code : undefined;
+      const name = cause instanceof Error ? cause.name : "";
+      if (code === "INVALID_SECURITY_CONFIRMATION") {
+        setError(t("security.errors.invalidConfirmation"));
+      } else if (code === "PASSKEY_CHALLENGE_INVALID") {
+        setError(t("security.errors.passkeyChallengeInvalid"));
+      } else if (
+        code === "PASSKEY_REGISTRATION_FAILED" ||
+        name === "NotAllowedError"
+      ) {
+        setError(t("security.errors.passkeyRegistrationFailed"));
+      } else {
+        setError(t("security.errors.requestFailed"));
+      }
     } finally {
       setBusy(false);
     }
@@ -263,11 +291,8 @@ export function AccountSecurityPage({
       timeStyle: "short",
     }).format(value);
 
-  const remainingSessionTime = (idleExpiresAt: number, expiresAt: number) => {
-    const remainingMinutes = Math.max(
-      0,
-      Math.ceil((Math.min(idleExpiresAt, expiresAt) - now) / 60_000),
-    );
+  const remainingSessionTime = (expiresAt: number) => {
+    const remainingMinutes = Math.max(0, Math.ceil((expiresAt - now) / 60_000));
     if (remainingMinutes < 60) {
       return t("security.remainingMinutes", { count: remainingMinutes });
     }
@@ -677,6 +702,9 @@ export function AccountSecurityPage({
                 <p className="mt-1 text-sm leading-6 text-blue-900">
                   {t("security.inactivityDescription")}
                 </p>
+                <p className="mt-2 text-xs leading-5 text-blue-800">
+                  {t("security.inactivityRememberedHelp")}
+                </p>
                 <div className="mt-3 flex flex-col gap-3 sm:flex-row">
                   <select
                     id="session-timeout"
@@ -738,12 +766,13 @@ export function AccountSecurityPage({
                       })}
                     </p>
                     <p className="mt-1 text-xs font-medium text-blue-600">
-                      {t("security.expiresIn", {
-                        time: remainingSessionTime(
-                          session.idleExpiresAt,
-                          session.expiresAt,
-                        ),
-                      })}
+                      {sessionExpiryKind(session) === "idle"
+                        ? t("security.idleExpiresIn", {
+                            time: remainingSessionTime(session.idleExpiresAt),
+                          })
+                        : t("security.absoluteExpiresIn", {
+                            time: remainingSessionTime(session.expiresAt),
+                          })}
                     </p>
                   </div>
                   {!session.current && (

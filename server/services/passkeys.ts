@@ -23,6 +23,13 @@ import { ensureConfiguredCompanyHead } from "./company-head-designation.js";
 
 const RP_NAME = "Umbravia Forge";
 
+export class PasskeyRegistrationError extends Error {
+  constructor(message = "Passkey registration could not be verified") {
+    super(message);
+    this.name = "PasskeyRegistrationError";
+  }
+}
+
 function tokenId(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
@@ -47,6 +54,15 @@ async function findPortalUser(identifier: string, accessPortal: AccessPortal) {
     )
     .executeTakeFirst();
 
+  const portalMembership = user
+    ? await db
+        .selectFrom("facilityMemberships")
+        .select(["role", "memberAffiliation"])
+        .where("userId", "=", user.id)
+        .where("status", "=", "active")
+        .executeTakeFirst()
+    : undefined;
+
   if (
     !user ||
     (accessPortal === "support"
@@ -54,8 +70,13 @@ async function findPortalUser(identifier: string, accessPortal: AccessPortal) {
         user.accountStatus !== "active" ||
         user.emailVerifiedAt === null
       : accessPortal === "member"
-        ? user.role !== "member"
-        : user.role !== "trainer" && user.role !== "admin")
+        ? portalMembership
+          ? portalMembership.role !== "member" &&
+            portalMembership.memberAffiliation !== 1
+          : user.role !== "member"
+        : portalMembership
+          ? !["trainer", "admin", "owner"].includes(portalMembership.role)
+          : user.role !== "trainer" && user.role !== "admin")
   ) {
     throw new Error("Passkey access is not available");
   }
@@ -159,16 +180,28 @@ export async function finishPasskeyRegistration(
   expectedOrigin: string,
   rpID: string,
 ) {
-  const challenge = await readChallenge(token, "registration");
-  if (challenge.userId !== userId) throw new Error("Passkey user mismatch");
-  const verification = await verifyRegistrationResponse({
-    response,
-    expectedChallenge: challenge.challenge,
-    expectedOrigin,
-    expectedRPID: rpID,
-    requireUserVerification: true,
-  });
-  if (!verification.verified) throw new Error("Passkey verification failed");
+  let challenge;
+  try {
+    challenge = await readChallenge(token, "registration");
+  } catch {
+    throw new PasskeyRegistrationError(
+      "Passkey challenge is invalid or expired",
+    );
+  }
+  if (challenge.userId !== userId) throw new PasskeyRegistrationError();
+  let verification;
+  try {
+    verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge: challenge.challenge,
+      expectedOrigin,
+      expectedRPID: rpID,
+      requireUserVerification: true,
+    });
+  } catch {
+    throw new PasskeyRegistrationError();
+  }
+  if (!verification.verified) throw new PasskeyRegistrationError();
   const info = verification.registrationInfo;
   await db
     .insertInto("passkeyCredentials")
@@ -244,6 +277,7 @@ export async function finishPasskeyAuthentication(
         "id",
         "email",
         "name",
+        "lastName",
         "avatarDataUrl",
         "role",
         "accountStatus",

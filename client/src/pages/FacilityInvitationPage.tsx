@@ -44,6 +44,10 @@ export function FacilityInvitationPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const copyNamespace =
+    invitation?.role === "member"
+      ? "memberAffiliationInvitation"
+      : "facilityInvitation";
 
   const invitationPath = useMemo(
     () => `/facility-invitation?token=${encodeURIComponent(token)}`,
@@ -182,9 +186,9 @@ export function FacilityInvitationPage() {
   return (
     <AuthShell
       contentSurface="card"
-      eyebrow={t("facilityInvitation.eyebrow")}
-      title={t("facilityInvitation.title")}
-      description={t("facilityInvitation.description")}
+      eyebrow={t(`${copyNamespace}.eyebrow`)}
+      title={t(`${copyNamespace}.title`)}
+      description={t(`${copyNamespace}.description`)}
     >
       {loading ? <p>{t("common.loading")}</p> : null}
       {displayedError ? (
@@ -198,7 +202,7 @@ export function FacilityInvitationPage() {
       {completed ? (
         <div className="space-y-4">
           <p className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
-            {t(`facilityInvitation.${completed}`)}
+            {t(`${copyNamespace}.${completed}`)}
           </p>
           {completed === "accepted" ? (
             <Button asChild className="w-full">
@@ -214,7 +218,7 @@ export function FacilityInvitationPage() {
       {!loading && !completed && invitation ? (
         invitation.status !== "pending" ? (
           <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
-            {t(`facilityInvitation.status.${invitation.status}`)}
+            {t(`${copyNamespace}.status.${invitation.status}`)}
           </p>
         ) : (
           <div className="space-y-5">
@@ -290,7 +294,12 @@ export function FacilityInvitationPage() {
                       setAcceptedPrivacy(event.target.checked)
                     }
                   />
-                  <span>{t("auth.acceptPrivacy")}</span>
+                  <span>
+                    {t("auth.acceptPrivacy")}{" "}
+                    <Link className="font-semibold text-blue-700" to="/privacy">
+                      {t("legal.footer.privacy")}
+                    </Link>
+                  </span>
                 </label>
                 <Button type="submit" className="w-full" disabled={submitting}>
                   {t("facilityInvitation.createAndAccept")}

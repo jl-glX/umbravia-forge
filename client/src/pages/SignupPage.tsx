@@ -507,7 +507,12 @@ export function SignupPage() {
                     }))
                   }
                 />
-                <span>{t("auth.acceptPrivacy")}</span>
+                <span>
+                  {t("auth.acceptPrivacy")}{" "}
+                  <Link className="font-semibold text-blue-700" to="/privacy">
+                    {t("legal.footer.privacy")}
+                  </Link>
+                </span>
               </label>
               <p className="rounded-xl bg-blue-50 p-3 text-xs leading-5 text-blue-900">
                 {t("auth.emailVerificationPending")}

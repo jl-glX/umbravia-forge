@@ -69,6 +69,15 @@ activities, operational billing records, subscription, Analytics and CRM;
 trainers and members receive narrower centre-scoped views. A global `admin`
 account is not permission to read another facility.
 
+Facility ownership and workforce labels are independent. The creator keeps the
+non-delegable `owner` membership and is displayed as **Jefe del centro**; that
+person can additionally hold the `admin` and `trainer` labels at the same time.
+An administrator who is not the owner received delegated centre authority and
+does not acquire ownership. Granting or withdrawing administration is reserved
+to the owner and revokes the affected sessions when the authorization boundary
+changes. Class creation, editing and deletion also admit explicit owner-managed
+allow/deny overrides which are enforced by server middleware.
+
 Authentication proves the current identity. Server-side facility resolution,
 membership checks and capability middleware decide what that identity may do;
 hiding an action in React is never an authorization control.
@@ -79,6 +88,16 @@ verification token. While the membership is `invited`, the worker may select
 and read the intended facility but every mutating request is rejected centrally
 by the server. Acceptance activates that exact membership; it does not grant
 platform-wide authority or access to another tenant.
+
+Member affiliation uses the same hashed, expiring, recipient-controlled link
+foundation but remains a distinct relationship and copy flow. It creates or
+adds the member dimension only after acceptance. Staff can therefore retain
+their `trainer` and delegated `admin` labels while also acting as a member when
+the owner enables the facility-wide policy or grants a specific exception. The
+owner is deliberately ineligible. Changing the policy does not silently revoke
+an already accepted member affiliation. A member cannot be converted into a
+trainer or administrator from the role controls; employment must pass through
+the labour-verification flow.
 
 UMF Support uses a third authentication portal named `support`. Access is
 granted only by an active corporate support membership. This portal does not

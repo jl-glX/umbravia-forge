@@ -41,6 +41,7 @@ export interface SessionData {
   userId: string;
   email: string;
   name: string;
+  lastName: string;
   avatarDataUrl: string;
   role: "member" | "trainer" | "admin";
   accountStatus: "pending_verification" | "active" | "security_review";
@@ -58,6 +59,7 @@ export interface AuthResult {
     id: string;
     email: string;
     name: string;
+    lastName: string;
     avatarDataUrl: string;
     role: "member" | "trainer" | "admin";
     accountStatus: "pending_verification" | "active" | "security_review";
@@ -158,6 +160,7 @@ export async function createSession(
     id: user.id,
     email: user.email,
     name: user.name,
+    lastName: user.lastName,
     avatarDataUrl: user.avatarDataUrl,
     role: user.role,
     accountStatus: user.accountStatus,
@@ -364,16 +367,9 @@ export async function login(
   const portalMembership = user
     ? await db
         .selectFrom("facilityMemberships")
-        .select("id")
+        .select(["id", "role", "memberAffiliation"])
         .where("userId", "=", user.id)
         .where("status", "=", "active")
-        .where(
-          "role",
-          "in",
-          accessPortal === "member"
-            ? ["member"]
-            : ["trainer", "admin", "owner"],
-        )
         .executeTakeFirst()
     : null;
   const portalMatches =
@@ -382,7 +378,12 @@ export async function login(
       ? user.role === "admin" &&
         user.accountStatus === "active" &&
         user.emailVerifiedAt !== null
-      : portalMembership !== undefined ||
+      : (accessPortal === "member"
+          ? portalMembership?.memberAffiliation === 1 ||
+            portalMembership?.role === "member"
+          : portalMembership !== null &&
+            portalMembership !== undefined &&
+            ["trainer", "admin", "owner"].includes(portalMembership.role)) ||
         (accessPortal === "member"
           ? user.role === "member"
           : user.role === "trainer" || user.role === "admin"));
@@ -442,6 +443,7 @@ export async function login(
       id: user.id,
       email: user.email,
       name: user.name,
+      lastName: user.lastName,
       avatarDataUrl: user.avatarDataUrl,
       role: user.role,
       accountStatus: user.accountStatus,
@@ -474,6 +476,7 @@ export async function completeMfaLogin(
       "authChallenges.rememberDevice",
       "users.email",
       "users.name",
+      "users.lastName",
       "users.avatarDataUrl",
       "users.role",
       "users.accountStatus",
@@ -523,6 +526,7 @@ export async function completeMfaLogin(
       id: challenge.userId,
       email: challenge.email,
       name: challenge.name,
+      lastName: challenge.lastName,
       avatarDataUrl: challenge.avatarDataUrl,
       role: challenge.role,
       accountStatus: challenge.accountStatus,
@@ -556,6 +560,7 @@ export async function verifyToken(token: string): Promise<SessionData | null> {
       "users.sessionIdleTimeoutMinutes",
       "users.email",
       "users.name",
+      "users.lastName",
       "users.avatarDataUrl",
       "users.role",
       "users.accountStatus",
@@ -602,6 +607,7 @@ export async function verifyToken(token: string): Promise<SessionData | null> {
     userId: record.userId,
     email: record.email,
     name: record.name,
+    lastName: record.lastName,
     avatarDataUrl: record.avatarDataUrl,
     role: record.role,
     accountStatus: record.accountStatus,

@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   CircleAlert,
   LockKeyhole,
+  MailCheck,
   RotateCcw,
   Trash2,
 } from "lucide-react";
@@ -27,7 +28,12 @@ type DataCategory =
 
 interface DeletionReview {
   accountEmail: string;
+  confirmationMethod:
+    "password_totp" | "password_email_code" | "email_code" | "email_code_totp";
+  passwordRequired: boolean;
   mfaRequired: boolean;
+  emailCodeRequired: boolean;
+  emailCodeAvailable: boolean;
   gracePeriodDays: number;
   deletionRequest: {
     id: string;
@@ -63,10 +69,10 @@ interface DeletionReview {
   };
 }
 
-async function reviewRequest(
+async function reviewRequest<T = DeletionReview>(
   path = "/deletion-review",
   init?: RequestInit,
-): Promise<DeletionReview> {
+): Promise<T> {
   const response = await authFetch(`/api/account/lifecycle${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
@@ -82,7 +88,7 @@ async function reviewRequest(
           : "REQUEST_FAILED",
     );
   }
-  return body as DeletionReview;
+  return body as T;
 }
 
 export function AccountDataDeletionPage() {
@@ -94,6 +100,7 @@ export function AccountDataDeletionPage() {
   const [notice, setNotice] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
+  const [emailCode, setEmailCode] = useState("");
 
   const userFacingError = (cause: unknown) => {
     const code = cause instanceof Error ? cause.message : "REQUEST_FAILED";
@@ -102,6 +109,15 @@ export function AccountDataDeletionPage() {
     }
     if (code === "MFA_CONFIRMATION_FAILED") {
       return t("accountDataDeletion.totpRejected");
+    }
+    if (code === "EMAIL_CONFIRMATION_FAILED") {
+      return t("accountDataDeletion.emailCodeRejected");
+    }
+    if (code === "VERIFIED_EMAIL_REQUIRED") {
+      return t("accountDataDeletion.verifiedEmailRequired");
+    }
+    if (code === "DELETION_CODE_RATE_LIMITED") {
+      return t("accountDataDeletion.emailCodeRateLimited");
     }
     if (code === "FORM_VERIFICATION_REQUIRED") {
       return t("accountDataDeletion.formVerificationExpired");
@@ -135,6 +151,7 @@ export function AccountDataDeletionPage() {
   const scheduleAccountClosure = async (
     submittedPassword: string,
     submittedTotpCode: string,
+    submittedEmailCode: string,
   ) => {
     if (!review) return;
     setBusy(true);
@@ -150,12 +167,39 @@ export function AccountDataDeletionPage() {
         body: JSON.stringify({
           password: submittedPassword,
           totpCode: review.mfaRequired ? submittedTotpCode : undefined,
+          emailCode: review.emailCodeRequired ? submittedEmailCode : undefined,
         }),
       });
       await load();
       setPassword("");
       setTotpCode("");
+      setEmailCode("");
       setNotice(t("accountDataDeletion.accountScheduled"));
+    } catch (cause) {
+      setError(userFacingError(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const requestEmailCode = async () => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await reviewRequest<{
+        delivered: boolean;
+        queued: boolean;
+        expiresAt: number;
+      }>("/deletion/verification-code", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      setNotice(
+        result.delivered
+          ? t("accountDataDeletion.emailCodeSent")
+          : t("accountDataDeletion.emailCodeQueued"),
+      );
     } catch (cause) {
       setError(userFacingError(cause));
     } finally {
@@ -226,6 +270,7 @@ export function AccountDataDeletionPage() {
             void scheduleAccountClosure(
               String(form.get("password") ?? ""),
               String(form.get("totpCode") ?? ""),
+              String(form.get("emailCode") ?? ""),
             );
           }}
         >
@@ -344,21 +389,23 @@ export function AccountDataDeletionPage() {
                     email: review?.accountEmail ?? user?.email ?? "",
                   })}
                 </div>
-                <label className="block text-sm font-semibold text-slate-800">
-                  <span className="flex items-center gap-2">
-                    <LockKeyhole size={17} />
-                    {t("accountDataDeletion.passwordConfirmation")}
-                  </span>
-                  <PasswordInput
-                    name="password"
-                    autoComplete="current-password"
-                    value={password}
-                    maxLength={128}
-                    required
-                    onChange={(event) => setPassword(event.target.value)}
-                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5"
-                  />
-                </label>
+                {review?.passwordRequired && (
+                  <label className="block text-sm font-semibold text-slate-800">
+                    <span className="flex items-center gap-2">
+                      <LockKeyhole size={17} />
+                      {t("accountDataDeletion.passwordConfirmation")}
+                    </span>
+                    <PasswordInput
+                      name="password"
+                      autoComplete="current-password"
+                      value={password}
+                      maxLength={128}
+                      required
+                      onChange={(event) => setPassword(event.target.value)}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5"
+                    />
+                  </label>
+                )}
                 {review?.mfaRequired && (
                   <label className="mt-4 block text-sm font-semibold text-slate-800">
                     {t("accountDataDeletion.totpConfirmation")}
@@ -378,6 +425,47 @@ export function AccountDataDeletionPage() {
                     />
                   </label>
                 )}
+                {review?.emailCodeRequired && (
+                  <div className="mt-4">
+                    <label className="block text-sm font-semibold text-slate-800">
+                      <span className="flex items-center gap-2">
+                        <MailCheck size={17} />
+                        {t("accountDataDeletion.emailCodeConfirmation")}
+                      </span>
+                      <input
+                        name="emailCode"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        pattern="[0-9]{6}"
+                        maxLength={6}
+                        required
+                        value={emailCode}
+                        onChange={(event) =>
+                          setEmailCode(event.target.value.replace(/\D/gu, ""))
+                        }
+                        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-mono tracking-[0.25em]"
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      className="mt-3"
+                      variant="outline"
+                      disabled={busy || !review.emailCodeAvailable}
+                      onClick={() => void requestEmailCode()}
+                    >
+                      <MailCheck size={17} />
+                      {t("accountDataDeletion.sendEmailCode")}
+                    </Button>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      {review.emailCodeAvailable
+                        ? t("accountDataDeletion.emailCodeHelp", {
+                            email: review.accountEmail,
+                          })
+                        : t("accountDataDeletion.verifiedEmailRequired")}
+                    </p>
+                  </div>
+                )}
                 <p className="mt-2 text-xs leading-5 text-slate-500">
                   {t("accountDataDeletion.reauthenticationNotice")}
                 </p>
@@ -385,7 +473,14 @@ export function AccountDataDeletionPage() {
                   type="submit"
                   className="mt-4"
                   variant="destructive"
-                  disabled={busy || !review}
+                  disabled={
+                    busy ||
+                    !review ||
+                    (review.passwordRequired && !password) ||
+                    (review.mfaRequired && totpCode.length !== 6) ||
+                    (review.emailCodeRequired &&
+                      (!review.emailCodeAvailable || emailCode.length !== 6))
+                  }
                 >
                   <Trash2 size={17} />
                   {t("accountDataDeletion.deleteAccount")}

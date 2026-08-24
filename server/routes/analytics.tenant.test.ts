@@ -170,6 +170,12 @@ describe("analytics tenant isolation", () => {
       ])
       .execute();
     await database.db
+      .updateTable("facilityMemberships")
+      .set({ workforceRoles: JSON.stringify(["trainer", "admin"]) })
+      .where("userId", "=", "analytics-admin")
+      .where("role", "=", "owner")
+      .execute();
+    await database.db
       .insertInto("activitySessions")
       .values([
         {
@@ -211,6 +217,32 @@ describe("analytics tenant isolation", () => {
           trainerName: "Analytics Trainer",
           maxCapacity: 4,
           scheduledAt: now - 3_600_000,
+        },
+      ])
+      .execute();
+    await database.db
+      .insertInto("activitySessionBookingConfigurations")
+      .values([
+        {
+          activitySessionId: "analytics-secondary-class",
+          configuration: JSON.stringify({ room: "Sala principal" }),
+          lifecycleState: "active",
+          seriesId: null,
+          updatedAt: now,
+        },
+        {
+          activitySessionId: "analytics-trainer-class",
+          configuration: JSON.stringify({ room: "Zona de fuerza" }),
+          lifecycleState: "active",
+          seriesId: null,
+          updatedAt: now,
+        },
+        {
+          activitySessionId: "analytics-trainer-past-class",
+          configuration: JSON.stringify({ room: "zona de fuerza" }),
+          lifecycleState: "active",
+          seriesId: null,
+          updatedAt: now,
         },
       ])
       .execute();
@@ -479,6 +511,9 @@ describe("analytics tenant isolation", () => {
       },
       centreBaseline: {
         activeMembers: 1,
+        activeTrainers: 2,
+        activeSpaces: 2,
+        averageSessionCapacity: 4.3,
         newMembers: 1,
         engagedMembers: 1,
         participationRate: 100,

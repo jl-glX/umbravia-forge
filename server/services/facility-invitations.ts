@@ -12,12 +12,13 @@ import {
   CURRENT_PRIVACY_VERSION,
   CURRENT_TERMS_VERSION,
 } from "../lib/legal-versions.js";
+import { staffMayAffiliateAsMember } from "./facility-member-affiliations.js";
 
 const INVITATION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
-const workerRoles = ["admin", "trainer"] as const;
+const invitationRoles = ["admin", "trainer", "member"] as const;
 
 export type FacilityInvitationRole = "admin" | "trainer" | "member";
-type FacilityWorkerRole = (typeof workerRoles)[number];
+type FacilityInvitationRoleValue = (typeof invitationRoles)[number];
 export type InvitationLocale = "es" | "en" | "de" | "de-CH";
 
 export class FacilityInvitationError extends Error {
@@ -56,8 +57,8 @@ function tokenHash(token: string): string {
 
 function assertInvitationRole(
   role: string,
-): asserts role is FacilityWorkerRole {
-  if (!workerRoles.some((candidate) => candidate === role)) {
+): asserts role is FacilityInvitationRoleValue {
+  if (!invitationRoles.some((candidate) => candidate === role)) {
     throw new FacilityInvitationError("FACILITY_INVITATION_ROLE_INVALID");
   }
 }
@@ -163,13 +164,30 @@ export async function createFacilityInvitation(input: {
   const membership = existingUser
     ? await db
         .selectFrom("facilityMemberships")
-        .select(["id", "status"])
+        .select(["id", "status", "role", "memberAffiliation"])
         .where("facilityId", "=", input.facilityId)
         .where("userId", "=", existingUser.id)
         .executeTakeFirst()
     : undefined;
-  if (membership?.status === "active") {
+  const activeStaffMemberAffiliation = Boolean(
+    role === "member" &&
+    existingUser &&
+    membership?.status === "active" &&
+    membership.role !== "owner" &&
+    membership.role !== "member" &&
+    membership.memberAffiliation === 0,
+  );
+  if (membership?.status === "active" && !activeStaffMemberAffiliation) {
     throw new FacilityInvitationError("FACILITY_MEMBER_ALREADY_ACTIVE", 409);
+  }
+  if (
+    activeStaffMemberAffiliation &&
+    !(await staffMayAffiliateAsMember(input.facilityId, existingUser!.id))
+  ) {
+    throw new FacilityInvitationError(
+      "STAFF_MEMBER_AFFILIATION_NOT_ALLOWED",
+      403,
+    );
   }
   if (membership?.status === "suspended") {
     throw new FacilityInvitationError("FACILITY_MEMBERSHIP_SUSPENDED", 409);
@@ -201,7 +219,10 @@ export async function createFacilityInvitation(input: {
       .where("status", "=", "pending")
       .execute();
     if (existingUser) {
-      if (membership) {
+      if (membership?.status === "active" && activeStaffMemberAffiliation) {
+        // The accepted member affiliation will augment this verified workforce
+        // relationship; it must never replace the staff role while pending.
+      } else if (membership) {
         await transaction
           .updateTable("facilityMemberships")
           .set({ role, status: "invited", updatedAt: now })
@@ -336,15 +357,52 @@ export async function acceptExistingFacilityInvitation(
       403,
     );
   }
+  const activeMembership = await db
+    .selectFrom("facilityMemberships")
+    .select(["role", "status", "memberAffiliation"])
+    .where("facilityId", "=", invitation.facilityId)
+    .where("userId", "=", userId)
+    .executeTakeFirst();
+  const augmentsStaffMembership = Boolean(
+    invitation.role === "member" &&
+    activeMembership?.status === "active" &&
+    activeMembership.role !== "owner" &&
+    activeMembership.role !== "member",
+  );
+  if (
+    augmentsStaffMembership &&
+    !(await staffMayAffiliateAsMember(invitation.facilityId, userId))
+  ) {
+    throw new FacilityInvitationError(
+      "STAFF_MEMBER_AFFILIATION_NOT_ALLOWED",
+      403,
+    );
+  }
   const now = Date.now();
   await db.transaction().execute(async (transaction) => {
-    await transaction
-      .updateTable("facilityMemberships")
-      .set({ role: invitation.role, status: "active", updatedAt: now })
-      .where("facilityId", "=", invitation.facilityId)
-      .where("userId", "=", userId)
-      .where("status", "=", "invited")
-      .executeTakeFirstOrThrow();
+    if (augmentsStaffMembership) {
+      await transaction
+        .updateTable("facilityMemberships")
+        .set({ memberAffiliation: 1, updatedAt: now })
+        .where("facilityId", "=", invitation.facilityId)
+        .where("userId", "=", userId)
+        .where("status", "=", "active")
+        .where("role", "in", ["admin", "trainer"])
+        .executeTakeFirstOrThrow();
+    } else {
+      await transaction
+        .updateTable("facilityMemberships")
+        .set({
+          role: invitation.role,
+          memberAffiliation: invitation.role === "member" ? 1 : 0,
+          status: "active",
+          updatedAt: now,
+        })
+        .where("facilityId", "=", invitation.facilityId)
+        .where("userId", "=", userId)
+        .where("status", "=", "invited")
+        .executeTakeFirstOrThrow();
+    }
     await transaction
       .updateTable("facilityInvitations")
       .set({ status: "accepted", acceptedAt: now, updatedAt: now })
@@ -432,6 +490,7 @@ export async function acceptNewFacilityInvitation(
         facilityId: invitation.facilityId,
         userId,
         role: invitation.role,
+        memberAffiliation: invitation.role === "member" ? 1 : 0,
         status: "active",
         createdAt: now,
         updatedAt: now,
