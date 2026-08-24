@@ -178,7 +178,7 @@ describe("commercial platform identity boundary", () => {
     expect(JSON.parse(spanishCatalog).accountMenu).toEqual({
       open: "Abrir menú de cuenta",
       manage: "Abrir área de cuenta",
-      support: "Ayuda del centro",
+      support: "Soporte y contacto",
     });
   });
 });

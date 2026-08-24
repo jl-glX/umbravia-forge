@@ -27,6 +27,10 @@ import {
 import { completeMfaLogin, login, logout } from "../services/auth.js";
 import { accountSecurityRouter } from "./account-security.js";
 import {
+  publicSupportContacts,
+  umfSupportOperationalWorkspaceEnabled,
+} from "../lib/support-routing.js";
+import {
   beginPasskeyAuthentication,
   finishPasskeyAuthentication,
 } from "../services/passkeys.js";
@@ -447,6 +451,14 @@ umfSupportRouter.patch(
   supportMutationLimiter,
   async (req, res, next) => {
     try {
+      if (!umfSupportOperationalWorkspaceEnabled()) {
+        res.status(503).json({
+          error: "UMF Support operations are temporarily frozen",
+          code: "UMF_SUPPORT_OPERATIONS_FROZEN",
+          contacts: publicSupportContacts(),
+        });
+        return;
+      }
       requireOnlyFields(req.body, ["workspaceName"]);
       res.json(
         await updateUmfSupportWorkspaceName(
@@ -457,6 +469,30 @@ umfSupportRouter.patch(
     } catch (error) {
       next(error);
     }
+  },
+);
+
+umfSupportRouter.use(
+  [
+    "/notification-settings",
+    "/mail",
+    "/mailbox",
+    "/push-subscriptions",
+    "/staff",
+    "/administrator-accounts",
+    "/collaboration-spaces",
+    "/tickets",
+  ],
+  (_req, res, next) => {
+    if (umfSupportOperationalWorkspaceEnabled()) {
+      next();
+      return;
+    }
+    res.status(503).json({
+      error: "UMF Support operations are temporarily frozen",
+      code: "UMF_SUPPORT_OPERATIONS_FROZEN",
+      contacts: publicSupportContacts(),
+    });
   },
 );
 

@@ -1,5 +1,15 @@
 # Correo entrante de Forge Support
 
+> [!NOTE]
+> Estado temporal desde el 25 de agosto de 2026: el receptor interno permanece
+> desactivado y además falla cerrado mientras
+> `INTERNAL_SUPPORT_TICKETS_ENABLED=false`. Las consultas generales se envían a
+> `umbravia-forge-scrf@support.openhelpdesk.dev`, con
+> `umbraviaforge@gmail.com` como alternativa general; ese mismo Gmail recibe el
+> ejercicio de derechos de protección de datos. La arquitectura
+> siguiente se conserva como procedimiento reversible, no como canal operativo
+> vigente.
+
 ## Objetivo
 
 Forge Support puede recibir correo sin exponer Postfix a Internet. La salida y

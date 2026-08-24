@@ -132,9 +132,25 @@
   "accountMenu": {
     "open": "Open account menu",
     "manage": "Open account area",
-    "support": "Facility support"
+    "support": "Support and contact"
   },
   "support": {
+    "external": {
+      "eyebrow": "Umbravia Forge support",
+      "title": "How can we help?",
+      "description": "General enquiries are temporarily handled in Open Helpdesk. Privacy and data protection requests have a separate direct channel.",
+      "generalTitle": "General support",
+      "generalDescription": "Open a ticket for technical, account, billing, or platform operation enquiries.",
+      "openPortal": "Open the support portal",
+      "portalPending": "The custom domain is verified, but Open Helpdesk is not serving it correctly yet. Use email while this is resolved.",
+      "emailFallback": "Email {{email}}",
+      "alternativeEmail": "Alternative email: {{email}}",
+      "rightsTitle": "Privacy and data rights",
+      "rightsDescription": "To exercise rights of access, rectification, erasure, objection, restriction, or portability, contact the service owner directly.",
+      "writeRights": "Email {{email}}",
+      "migrationNotice": "The internal ticket board is temporarily frozen. Its history is preserved, but it no longer accepts new requests.",
+      "safetyNotice": "Do not send passwords, one-time codes, full payment card details, or medical or otherwise highly sensitive information."
+    },
     "eyebrow": "Care and knowledge",
     "description": "A first-party space to request help, follow incidents, and find answers without leaving Umbravia Forge.",
     "tabs": { "tickets": "Requests", "knowledge": "Knowledge", "team": "Team" },
@@ -2314,6 +2330,8 @@
   },
   "umfSupport": {
     "corporateOperations": "Umbravia Forge support workspace",
+    "operationsFrozenTitle": "Support operations are temporarily frozen",
+    "operationsFrozenDescription": "Tickets and email are handled in Open Helpdesk. This workspace keeps its history and is limited to commercial account management.",
     "workspace": {
       "defaultName": "My workspace",
       "nameLabel": "Workspace name",

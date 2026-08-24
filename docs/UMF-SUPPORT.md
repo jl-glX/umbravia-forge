@@ -6,6 +6,16 @@ UMF Support es la aplicación corporativa para atender incidencias de la
 plataforma Umbravia Forge y gestionar el canal de correo corporativo. No es el
 panel que cada centro usa para atender a sus socios:
 
+> [!NOTE]
+> Desde el 25 de agosto de 2026 las operaciones de tickets, buzón, equipo,
+> notificaciones y colaboración están congeladas con
+> `UMF_SUPPORT_OPERATIONAL_WORKSPACE_ENABLED=false`. Las rutas del servidor
+> fallan cerradas y la interfaz oculta esos apartados, pero conserva sus datos y
+> su código para una posible reactivación. UMF Support queda limitado a la
+> gestión de cuentas comerciales de prueba. El soporte general se deriva a
+> Open Helpdesk y los derechos de protección de datos a un buzón directo
+> separado.
+
 | Ámbito           | Aplicación                                          | Autoridad y datos                                                                                        |
 | ---------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Centro deportivo | Forge Support, `/support`, API `/api/support`       | Membresía activa del centro; tickets, agentes y conocimiento aislados por `facilityId`                   |

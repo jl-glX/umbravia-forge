@@ -7,6 +7,15 @@
 > proveedor de datos compartido; se documenta en
 > [UMF Support](./UMF-SUPPORT.md).
 
+> [!NOTE]
+> El tablero interno y sus rutas de ticket están congelados temporalmente. Los
+> datos existentes se conservan, pero `INTERNAL_SUPPORT_TICKETS_ENABLED=false`
+> rechaza nuevas lecturas y mutaciones de tickets con un código estable. La
+> pantalla `/support` muestra los canales externos vigentes: Open Helpdesk para
+> soporte general y un correo directo distinto para ejercer derechos de
+> protección de datos. Esta medida es reversible y no borra el módulo descrito
+> en este documento.
+
 ## Propósito
 
 Forge Support es el módulo de atención y conocimiento de Umbravia Forge. Su
