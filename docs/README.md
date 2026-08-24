@@ -30,7 +30,9 @@ auditoría histórica entra en conflicto con un documento vigente.
   entre jefatura, administración delegada y función de entrenador, con la
   política de afiliación del personal disponible también desde las preferencias
   operativas de la cuenta;
-- [Ciclo de vida, recuperación y cambio verificado de correo](./ACCOUNT-LIFECYCLE.md)
+- [Ciclo de vida, recuperación y cambio verificado de correo](./ACCOUNT-LIFECYCLE.md),
+  incluida la separación entre gestión de privacidad y datos, exportación aún
+  planificada y revisión explícita del cierre de cuenta;
 - [Migración neutral del dominio de actividades](./ACTIVITY-DOMAIN-MIGRATION.md)
   incluidas las series multidía atómicas y la apertura configurable de
   reservas;

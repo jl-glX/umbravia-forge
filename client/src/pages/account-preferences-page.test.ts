@@ -11,17 +11,25 @@ describe("account preferences navigation", () => {
 
     expect(app).toContain('path="/account/preferences"');
     expect(app).toContain("<AccountPreferencesPage />");
+    expect(app).toContain('path="/account/data"');
+    expect(app).toContain("<AccountDataPage />");
     expect(accountControl).toContain('to: "/account/preferences"');
   });
 
-  it("connects privacy and the owner-managed staff affiliation policy", () => {
+  it("separates data management from deletion and connects the owner policy", () => {
     const preferences = read("client/src/pages/AccountPreferencesPage.tsx");
+    const dataManagement = read("client/src/pages/AccountDataPage.tsx");
 
     expect(preferences).toContain(
       'authFetch("/api/users/member-affiliation-policy")',
     );
-    expect(preferences).toContain('to="/privacy"');
-    expect(preferences).toContain('to="/account/delete-data"');
+    expect(preferences).toContain('to="/account/data"');
+    expect(preferences).not.toContain('to="/account/delete-data"');
     expect(preferences).toContain('user?.facility?.role === "owner"');
+    expect(preferences).toContain("policy.allowAllStaff ?");
+    expect(preferences).toContain('t("accountPreferences.specificNotNeeded")');
+    expect(dataManagement).toContain('to="/privacy"');
+    expect(dataManagement).toContain("contacts.legalRightsEmail");
+    expect(dataManagement).toContain('to="/account/delete-data"');
   });
 });

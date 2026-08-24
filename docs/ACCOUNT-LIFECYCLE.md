@@ -348,6 +348,11 @@ failures and never infer legal rules from a country code alone.
 - Manual closure includes a 30-day grace period and remains reversible before
   execution.
 - Selective data deletion and full account closure are separate intentions.
+- The account data-management page keeps privacy information, verified-rights
+  contact and the planned export status separate from full account closure.
+  The destructive review is reachable only through an explicitly labelled
+  closure action; a generic data-management control never links directly to
+  deletion.
 - Retention is configurable and versioned; it is not one hard-coded timer.
 - Legal holds override ordinary expiration until explicitly released.
 - Destructive execution stays disabled until classification, authorization and
