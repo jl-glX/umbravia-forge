@@ -649,8 +649,11 @@ export function CommercialTrialPage() {
               {overview && (
                 <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
                   <Sparkles className="mb-2" />
-                  {t("commercial.trial.provisionalAddress")}:{" "}
+                  {t("commercial.trial.reservedIdentifier")}:{" "}
                   <strong>{overview.trial.subdomain}</strong>
+                  <p className="mt-2 text-xs leading-5">
+                    {t("commercial.trial.routingNotProvisioned")}
+                  </p>
                 </div>
               )}
               <Button type="submit" disabled={saving}>

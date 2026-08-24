@@ -73,6 +73,13 @@ Authentication proves the current identity. Server-side facility resolution,
 membership checks and capability middleware decide what that identity may do;
 hiding an action in React is never an authorization control.
 
+Administrators incorporate trainers and administrative workers through a
+labour-verification flow. The database stores only a hash of the one-time
+verification token. While the membership is `invited`, the worker may select
+and read the intended facility but every mutating request is rejected centrally
+by the server. Acceptance activates that exact membership; it does not grant
+platform-wide authority or access to another tenant.
+
 UMF Support uses a third authentication portal named `support`. Access is
 granted only by an active corporate support membership. This portal does not
 select a facility context and cannot be reached merely by holding the global
@@ -188,6 +195,12 @@ challenges and queues a security notice to the previous address.
 The billing currency allowlist includes Swiss francs (`CHF`). Amounts are formatted by `Intl.NumberFormat` with the active interface locale, so German and Swiss German use their corresponding regional conventions without custom separators.
 
 Known demo classes are localized at display time. User-created names and descriptions remain exactly as entered.
+
+Administrators may create up to 31 dated activity sessions in one atomic
+series. Each date has an independent identifier, capacity, bookings and
+waitlist. A shared lead time is resolved into an absolute `bookingOpensAt` for
+each session; the server remains authoritative and the client merely displays
+the corresponding countdown.
 
 ## Evolution boundaries
 

@@ -16,6 +16,8 @@ export interface AuthUser {
     slug: string;
     name: string;
     role: FacilityRole;
+    membershipStatus: "active" | "invited";
+    accessMode: "full" | "read_only";
   } | null;
   platformOperator?: boolean;
 }

@@ -219,6 +219,8 @@ export function ClassesPage() {
                       bookedCount={activitySession.bookedCount}
                       availablePlaces={activitySession.availablePlaces}
                       waitlistCount={activitySession.waitlistCount}
+                      bookingOpensAt={activitySession.bookingOpensAt}
+                      bookingClosesAt={activitySession.bookingClosesAt}
                       onBookClick={() => handleBook(activitySession.id)}
                       isBooked={userBookedClassIds.has(activitySession.id)}
                       isLoading={bookingInProgress === activitySession.id}

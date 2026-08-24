@@ -6,10 +6,12 @@ import {
   updateClass,
   deleteClass,
   ClassDeletionBlockedError,
+  createClassSeries,
   saveActivitySessionBookingConfiguration,
 } from "../services/classes.js";
 import {
   createClassValidation,
+  createClassSeriesValidation,
   bookingConfigurationValidation,
   updateClassValidation,
   validateId,
@@ -99,6 +101,31 @@ adminClassesRouter.post(
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       console.error("Error creating class:", error);
+      res.status(400).json({ error: message });
+    }
+  },
+);
+
+adminClassesRouter.post(
+  "/series",
+  createClassSeriesValidation,
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const created = await createClassSeries(
+        {
+          name: req.body.name,
+          description: req.body.description || "",
+          trainerId: req.body.trainerId,
+          trainerName: req.body.trainerName,
+          maxCapacity: req.body.maxCapacity,
+          occurrences: req.body.occurrences,
+          bookingOpensMinutesBefore: req.body.bookingOpensMinutesBefore ?? null,
+        },
+        getFacilityContext(res).id,
+      );
+      res.status(201).json(created);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
       res.status(400).json({ error: message });
     }
   },

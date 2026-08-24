@@ -1818,6 +1818,37 @@ async function initializeSqliteSchema(
     `);
   }
 
+  if (!tableNames.includes("facilityInvitations")) {
+    console.log("Creating facilityInvitations table...");
+    sqliteDb.exec(`
+      CREATE TABLE facilityInvitations (
+        id TEXT PRIMARY KEY,
+        facilityId TEXT NOT NULL,
+        invitedEmail TEXT NOT NULL,
+        invitedName TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('admin', 'trainer', 'member')),
+        tokenHash TEXT NOT NULL UNIQUE,
+        invitedByUserId TEXT,
+        invitedUserId TEXT,
+        status TEXT NOT NULL DEFAULT 'pending'
+          CHECK(status IN ('pending', 'accepted', 'declined', 'revoked', 'expired')),
+        expiresAt INTEGER NOT NULL,
+        acceptedAt INTEGER,
+        declinedAt INTEGER,
+        revokedAt INTEGER,
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL,
+        FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(invitedByUserId) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY(invitedUserId) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE INDEX idx_facilityInvitations_facility_status
+        ON facilityInvitations(facilityId, status, createdAt DESC);
+      CREATE INDEX idx_facilityInvitations_email_status
+        ON facilityInvitations(invitedEmail, status, expiresAt);
+    `);
+  }
+
   sqliteDb.exec(`
     CREATE TABLE IF NOT EXISTS crmMemberProfiles (
       id TEXT PRIMARY KEY,
@@ -2281,6 +2312,17 @@ async function initializeSqliteSchema(
       );
     }
   }
+
+  sqliteDb.exec(`
+    CREATE TABLE IF NOT EXISTS commercialLifecycleFacts (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL CHECK(kind IN ('commercial_account_deleted', 'commercial_trial_abandoned')),
+      subjectId TEXT NOT NULL,
+      occurredAt INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_commercialLifecycleFacts_kind_time
+      ON commercialLifecycleFacts(kind, occurredAt DESC);
+  `);
 
   sqliteDb.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_commercialTrials_facility

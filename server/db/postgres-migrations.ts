@@ -2597,6 +2597,49 @@ ALTER TABLE "umfSupportStaff"
   ADD COLUMN IF NOT EXISTS "workspaceName" TEXT;
 `,
   },
+  {
+    version: 51,
+    name: "verified-facility-invitations",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "facilityInvitations" (
+  "id" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "invitedEmail" TEXT NOT NULL,
+  "invitedName" TEXT NOT NULL,
+  "role" TEXT NOT NULL CHECK ("role" IN ('admin', 'trainer', 'member')),
+  "tokenHash" TEXT NOT NULL UNIQUE,
+  "invitedByUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "invitedUserId" TEXT REFERENCES "users" ("id") ON DELETE SET NULL,
+  "status" TEXT NOT NULL DEFAULT 'pending'
+    CHECK ("status" IN ('pending', 'accepted', 'declined', 'revoked', 'expired')),
+  "expiresAt" BIGINT NOT NULL,
+  "acceptedAt" BIGINT,
+  "declinedAt" BIGINT,
+  "revokedAt" BIGINT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_facilityInvitations_facility_status"
+  ON "facilityInvitations" ("facilityId", "status", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_facilityInvitations_email_status"
+  ON "facilityInvitations" ("invitedEmail", "status", "expiresAt");
+`,
+  },
+  {
+    version: 52,
+    name: "commercial-lifecycle-metrics",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "commercialLifecycleFacts" (
+  "id" TEXT PRIMARY KEY,
+  "kind" TEXT NOT NULL
+    CHECK ("kind" IN ('commercial_account_deleted', 'commercial_trial_abandoned')),
+  "subjectId" TEXT NOT NULL,
+  "occurredAt" BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_commercialLifecycleFacts_kind_time"
+  ON "commercialLifecycleFacts" ("kind", "occurredAt" DESC);
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

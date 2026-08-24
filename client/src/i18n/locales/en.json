@@ -787,6 +787,8 @@
     "joiningWaitlist": "Adding to waitlist...",
     "book": "Book class",
     "booking": "Booking...",
+    "bookingOpensIn": "Bookings open in {{value}}",
+    "bookingClosed": "Bookings closed",
     "attendees": "{{booked}}/{{capacity}} attendees",
     "viewDetails": "View details",
     "spotsAvailable_one": "{{count}} spot available",
@@ -959,12 +961,19 @@
     "selectTrainer": "Select a trainer",
     "maxCapacity": "Max capacity *",
     "dateRequired": "Date and time are required",
+    "classDatesAndTimes": "Dates and times",
+    "addClassDate": "Add date",
+    "removeClassDate": "Remove date",
+    "classDatesHint": "Each date creates an independent session with its own capacity and bookings.",
+    "bookingOpeningHours": "Open bookings this many hours before",
+    "bookingOpeningImmediate": "Open immediately",
+    "bookingOpeningHint": "Leave this empty to open immediately. Members will see a countdown until bookings open.",
     "filterRole": "Filter by role:",
     "allRoles": "All roles",
     "members": "Members",
     "trainers": "Trainers",
     "admins": "Admins",
-    "newUser": "New user",
+    "newUser": "Verify worker",
     "noUsers": "No users found",
     "selectAllUsers": "Select all visible users",
     "selectUser": "Select {{name}}",
@@ -978,8 +987,53 @@
     "deletionReviewRequired": "The account contains data that must be retained or reassigned. Review its tickets, documents and responsibilities before deleting it.",
     "editUser": "Edit user",
     "createUser": "Create user",
+    "inviteUser": "Verify worker",
+    "sendInvitation": "Start verification",
+    "invitationSecurityNotice": "The worker will receive a one-time link. Only they can set their password and confirm their employment relationship with the facility.",
+    "workerRoleRequired": "Worker verification only supports administrator or trainer roles.",
+    "invitationEmailNotQueued": "The verification was created, but the email could not be queued. You can try again; the new request will invalidate the previous one.",
+    "pendingInvitations": "Pending worker verifications",
+    "pendingInvitationsDescription": "While verification is pending, the worker can only view the facility and cannot modify it or manage its subscription.",
+    "noPendingInvitations": "There are no pending worker verifications.",
+    "invitationExpires": "Deadline",
+    "revokeInvitation": "Invalidate",
     "passwordOptional": "Password (leave empty to keep current)",
     "passwordRequired": "Password is required for new users"
+  },
+  "workerVerification": {
+    "readOnlyNotice": "Your employment relationship has not been verified yet. You can view the facility, but the server will block every modification."
+  },
+  "facilityInvitation": {
+    "eyebrow": "Verified employment relationship",
+    "title": "Worker verification",
+    "description": "Check the facility and role before confirming the relationship. A pending verification does not grant access.",
+    "facility": "Facility",
+    "existingSignedIn": "You are signed in as {{email}}. The relationship will only be confirmed if it belongs to this account.",
+    "chooseOwnPassword": "Create your own password to activate the account. The facility administrator cannot see it.",
+    "accept": "Confirm relationship",
+    "createAndAccept": "Create account and confirm",
+    "decline": "Reject relationship",
+    "signInToAccept": "Sign in to confirm",
+    "signIn": "Sign in",
+    "openAccount": "Open my account",
+    "accepted": "The employment relationship has been verified. You can now access the facility with the stated role.",
+    "declined": "The relationship has been rejected and grants no access.",
+    "status": {
+      "accepted": "This employment relationship has already been verified.",
+      "declined": "This employment relationship has already been rejected.",
+      "revoked": "The facility has invalidated this verification.",
+      "expired": "The verification period has expired. Ask the facility for a new one."
+    },
+    "errors": {
+      "generic": "The worker verification could not be completed.",
+      "FACILITY_INVITATION_INVALID": "The verification link is invalid.",
+      "FACILITY_INVITATION_NOT_PENDING": "The verification is no longer pending.",
+      "FACILITY_INVITATION_IDENTITY_MISMATCH": "The signed-in session does not belong to the email address in the verification.",
+      "FACILITY_INVITATION_LOGIN_REQUIRED": "An account already exists for this email address. Sign in to accept.",
+      "PASSWORD_POLICY_FAILED": "The password does not meet the security requirements.",
+      "PASSWORD_CONFIRMATION_MISMATCH": "The passwords do not match.",
+      "LEGAL_ACKNOWLEDGEMENT_REQUIRED": "You must accept the terms and privacy policy."
+    }
   },
   "facilityBranding": {
     "title": "Panel customisation",
@@ -1718,6 +1772,8 @@
         "afterTrial": "Outside the trial period, you can continue editing normally. A temporary pause is applied only when many consecutive changes are detected."
       },
       "provisionalAddress": "Provisional address",
+      "reservedIdentifier": "Reserved subdomain identifier",
+      "routingNotProvisioned": "This reservation does not create DNS, proxy routing or hosting. The environment remains in the shared demonstration database.",
       "create": "Save setup",
       "save": "Save changes",
       "duration": {
@@ -2255,6 +2311,19 @@
       "noTrial": "No trial facility associated",
       "resendVerification": "Resend verification",
       "empty": "There are no commercial administrator signups.",
+      "emailAssessment": {
+        "real": "Verified mailbox",
+        "fictitious": "Reserved or fictitious domain",
+        "indeterminate": "Mailbox not yet determined"
+      },
+      "metrics": {
+        "activeAdministratorAccounts": "Active administrator accounts",
+        "pendingVerificationAccounts": "Signups pending verification",
+        "activeTrials": "Trials in progress or review",
+        "abandonedTrials": "Abandoned trials",
+        "deletedAdministratorAccounts": "Deleted administrator accounts",
+        "coverage": "Active accounts and current trials are calculated live. Deleted accounts and removed trials are retained as counters without email addresses or personal data from the metrics migration onwards."
+      },
       "trialStatus": {
         "trial_created": "Trial created",
         "trial_active": "Trial active",

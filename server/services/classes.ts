@@ -40,6 +40,98 @@ export class ClassDeletionBlockedError extends Error {
   }
 }
 
+export async function createClassSeries(
+  data: {
+    name: string;
+    description: string;
+    trainerId: string;
+    trainerName: string;
+    maxCapacity: number;
+    occurrences: number[];
+    bookingOpensMinutesBefore: number | null;
+  },
+  facilityId: string,
+): Promise<ClassWithAvailability[]> {
+  const occurrences = [...new Set(data.occurrences)].sort((a, b) => a - b);
+  if (
+    !data.name ||
+    !data.trainerId ||
+    !data.maxCapacity ||
+    occurrences.length < 1
+  ) {
+    throw new Error("Missing required fields");
+  }
+  if (occurrences.length > 31) {
+    throw new Error("A class series cannot contain more than 31 sessions");
+  }
+  if (data.maxCapacity < 1) {
+    throw new Error("Max capacity must be at least 1");
+  }
+  const now = Date.now();
+  if (occurrences.some((scheduledAt) => scheduledAt <= now)) {
+    throw new Error("All class dates must be in the future");
+  }
+  if (
+    data.bookingOpensMinutesBefore !== null &&
+    (!Number.isSafeInteger(data.bookingOpensMinutesBefore) ||
+      data.bookingOpensMinutesBefore < 0 ||
+      data.bookingOpensMinutesBefore > 525_600)
+  ) {
+    throw new Error("Invalid booking opening lead time");
+  }
+
+  const seriesId =
+    occurrences.length > 1 ? `series-${randomBytes(8).toString("hex")}` : null;
+  const ids = occurrences.map(() => `class-${randomBytes(8).toString("hex")}`);
+
+  await db.transaction().execute(async (transaction) => {
+    await transaction
+      .insertInto("activitySessions")
+      .values(
+        occurrences.map((scheduledAt, index) => ({
+          id: ids[index],
+          facilityId,
+          name: data.name,
+          description: data.description || "",
+          trainerId: data.trainerId,
+          trainerName: data.trainerName,
+          maxCapacity: data.maxCapacity,
+          scheduledAt,
+        })),
+      )
+      .execute();
+
+    if (data.bookingOpensMinutesBefore !== null || seriesId) {
+      await transaction
+        .insertInto("activitySessionBookingConfigurations")
+        .values(
+          occurrences.map((scheduledAt, index) => ({
+            activitySessionId: ids[index],
+            configuration: JSON.stringify({
+              ...defaultBookingConfiguration,
+              bookingOpensAt:
+                data.bookingOpensMinutesBefore === null
+                  ? null
+                  : scheduledAt - data.bookingOpensMinutesBefore * 60_000,
+            }),
+            lifecycleState: "active" as const,
+            seriesId,
+            updatedAt: now,
+          })),
+        )
+        .execute();
+    }
+  });
+
+  const created = await Promise.all(
+    ids.map((id) => getClassWithAvailability(id, facilityId)),
+  );
+  if (created.some((activitySession) => activitySession === null)) {
+    throw new Error("Failed to retrieve created classes");
+  }
+  return created as ClassWithAvailability[];
+}
+
 export async function saveActivitySessionBookingConfiguration(
   activitySessionId: string,
   input: {

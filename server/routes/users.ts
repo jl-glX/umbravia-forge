@@ -12,6 +12,7 @@ import {
 import {
   bulkDeleteUsersValidation,
   createUserValidation,
+  createFacilityInvitationValidation,
   updateRoleValidation,
   updateUserValidation,
   validateId,
@@ -24,6 +25,18 @@ import {
   selectFacilityContext,
 } from "../middleware/authorization.js";
 import { requireRecentFormVerification } from "../middleware/form-verification.js";
+import {
+  createFacilityInvitation,
+  listFacilityInvitations,
+  publicInvitationTokenForTest,
+  revokeFacilityInvitation,
+  FacilityInvitationError,
+  type InvitationLocale,
+} from "../services/facility-invitations.js";
+import {
+  deliverQueuedEmail,
+  queueFacilityInvitationEmail,
+} from "../services/email-delivery.js";
 
 export const usersRouter = express.Router();
 usersRouter.use(
@@ -48,6 +61,18 @@ function sendDeletionError(error: unknown, res: express.Response): void {
   res.status(400).json({ error: message });
 }
 
+function sendInvitationError(error: unknown, res: express.Response): void {
+  if (error instanceof FacilityInvitationError) {
+    res.status(error.httpStatus).json({ error: error.code, code: error.code });
+    return;
+  }
+  console.error("Error managing facility invitation:", error);
+  res.status(500).json({
+    error: "FACILITY_INVITATION_OPERATION_FAILED",
+    code: "FACILITY_INVITATION_OPERATION_FAILED",
+  });
+}
+
 // Get all users
 usersRouter.get("/", async (req: express.Request, res: express.Response) => {
   try {
@@ -59,7 +84,55 @@ usersRouter.get("/", async (req: express.Request, res: express.Response) => {
   }
 });
 
-// Get user by ID
+// Test-only compatibility path. Production staff onboarding must always use a
+// recipient-controlled invitation; an administrator may never choose another
+// person's password or mark their mailbox as verified.
+usersRouter.post(
+  "/",
+  createUserValidation,
+  async (req: express.Request, res: express.Response) => {
+    try {
+      if (
+        process.env.NODE_ENV !== "test" ||
+        req.body.verificationMode !== "test_bypass"
+      ) {
+        res.status(404).json({
+          error: "Use the verified facility invitation workflow",
+          code: "FACILITY_INVITATION_REQUIRED",
+        });
+        return;
+      }
+      const { email, name, password, role } = req.body;
+
+      const user = await createUser(
+        email,
+        name,
+        password,
+        getFacilityContext(res).id,
+        role || "member",
+      );
+      res.status(201).json(user);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      console.error("Error creating user:", error);
+      res.status(400).json({ error: message });
+    }
+  },
+);
+
+usersRouter.get(
+  "/invitations",
+  async (_req: express.Request, res: express.Response) => {
+    try {
+      res.json(await listFacilityInvitations(getFacilityContext(res).id));
+    } catch (error) {
+      sendInvitationError(error, res);
+    }
+  },
+);
+
+// Get user by ID. Keep this parameter route after named collection routes so
+// that "invitations" cannot be interpreted as a user identifier.
 usersRouter.get(
   "/:id",
   validateId("id"),
@@ -78,26 +151,57 @@ usersRouter.get(
   },
 );
 
-// Create user
 usersRouter.post(
-  "/",
-  createUserValidation,
+  "/invitations",
+  createFacilityInvitationValidation,
   async (req: express.Request, res: express.Response) => {
     try {
-      const { email, name, password, role } = req.body;
-
-      const user = await createUser(
-        email,
-        name,
-        password,
-        getFacilityContext(res).id,
-        role || "member",
-      );
-      res.status(201).json(user);
+      const auth = getAuthenticatedUser(res);
+      const { invitation, token } = await createFacilityInvitation({
+        facilityId: getFacilityContext(res).id,
+        invitedByUserId: auth.userId,
+        email: req.body.email,
+        name: req.body.name,
+        role: req.body.role,
+      });
+      let deliveryQueued = false;
+      try {
+        const deliveryId = await queueFacilityInvitationEmail({
+          email: invitation.invitedEmail,
+          name: invitation.invitedName,
+          facilityName: invitation.facilityName,
+          role: invitation.role,
+          token,
+          locale: req.body.locale as InvitationLocale,
+          expiresAt: invitation.expiresAt,
+        });
+        deliveryQueued = true;
+        void deliverQueuedEmail(deliveryId).catch(() => {
+          // The encrypted queue keeps the message for the normal retry worker.
+        });
+      } catch (error) {
+        console.error("Facility invitation email could not be queued:", error);
+      }
+      res.status(201).json({
+        ...invitation,
+        deliveryQueued,
+        testToken: publicInvitationTokenForTest(token),
+      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      console.error("Error creating user:", error);
-      res.status(400).json({ error: message });
+      sendInvitationError(error, res);
+    }
+  },
+);
+
+usersRouter.post(
+  "/invitations/:id/revoke",
+  validateId("id"),
+  async (req: express.Request, res: express.Response) => {
+    try {
+      await revokeFacilityInvitation(req.params.id, getFacilityContext(res).id);
+      res.status(204).end();
+    } catch (error) {
+      sendInvitationError(error, res);
     }
   },
 );

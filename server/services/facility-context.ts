@@ -6,6 +6,8 @@ export interface FacilityContext {
   slug: string;
   name: string;
   role: FacilityRole;
+  membershipStatus: "active" | "invited";
+  accessMode: "full" | "read_only";
 }
 
 export class FacilityAccessDeniedError extends Error {
@@ -18,7 +20,7 @@ export class FacilityAccessDeniedError extends Error {
 export async function listFacilityContexts(
   userId: string,
 ): Promise<FacilityContext[]> {
-  return db
+  const facilities = await db
     .selectFrom("facilityMemberships")
     .innerJoin(
       "facilityProfiles",
@@ -30,13 +32,30 @@ export async function listFacilityContexts(
       "facilityProfiles.slug as slug",
       "facilityProfiles.name as name",
       "facilityMemberships.role as role",
+      "facilityMemberships.status as membershipStatus",
     ])
     .where("facilityMemberships.userId", "=", userId)
-    .where("facilityMemberships.status", "=", "active")
+    .where("facilityMemberships.status", "in", ["active", "invited"])
     .where("facilityProfiles.status", "=", "active")
     .orderBy("facilityMemberships.createdAt", "asc")
     .orderBy("facilityProfiles.id", "asc")
     .execute();
+  return facilities
+    .sort((left, right) => {
+      if (left.membershipStatus === right.membershipStatus) return 0;
+      return left.membershipStatus === "active" ? -1 : 1;
+    })
+    .map((facility) => ({
+      ...facility,
+      membershipStatus:
+        facility.membershipStatus === "active"
+          ? ("active" as const)
+          : ("invited" as const),
+      accessMode:
+        facility.membershipStatus === "active"
+          ? ("full" as const)
+          : ("read_only" as const),
+    }));
 }
 
 export async function isPlatformOperator(userId: string): Promise<boolean> {

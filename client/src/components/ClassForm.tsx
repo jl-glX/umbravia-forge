@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { useAdminClasses, type AdminClass } from "../hooks/useAdminClasses";
 import { useUsers } from "../hooks/useUsers";
@@ -17,7 +18,8 @@ export function ClassForm({
   onSuccess,
 }: ClassFormProps) {
   const { t } = useTranslation();
-  const { createClass, updateClass } = useAdminClasses();
+  const { createClassSeries, updateClass, updateBookingOpening } =
+    useAdminClasses();
   const { users } = useUsers();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,9 +35,25 @@ export function ClassForm({
       activitySession?.trainerName ||
       (trainers.length > 0 ? trainers[0].name : ""),
     maxCapacity: activitySession?.maxCapacity || 20,
-    scheduledAt: activitySession
-      ? new Date(activitySession.scheduledAt).toISOString().slice(0, 16)
-      : "",
+    occurrences: [
+      activitySession
+        ? new Date(activitySession.scheduledAt).toISOString().slice(0, 16)
+        : "",
+    ],
+    bookingOpensHoursBefore:
+      activitySession?.bookingConfiguration.bookingOpensAt === null ||
+      activitySession?.bookingConfiguration.bookingOpensAt === undefined
+        ? ""
+        : String(
+            Math.max(
+              0,
+              Math.round(
+                (activitySession.scheduledAt -
+                  activitySession.bookingConfiguration.bookingOpensAt) /
+                  3_600_000,
+              ),
+            ),
+          ),
   });
 
   useEffect(() => {
@@ -53,15 +71,28 @@ export function ClassForm({
     setError(null);
 
     try {
-      if (!formData.scheduledAt) {
+      const occurrenceValues = formData.occurrences.filter(Boolean);
+      if (occurrenceValues.length < 1) {
         setError(t("admin.dateRequired"));
         setLoading(false);
         return;
       }
 
-      const scheduledAt = new Date(formData.scheduledAt).getTime();
+      const occurrences = occurrenceValues.map((value) =>
+        new Date(value).getTime(),
+      );
+      if (occurrences.some((value) => !Number.isFinite(value))) {
+        setError(t("admin.dateRequired"));
+        setLoading(false);
+        return;
+      }
+      const bookingOpensMinutesBefore =
+        formData.bookingOpensHoursBefore === ""
+          ? null
+          : Math.round(Number(formData.bookingOpensHoursBefore) * 60);
 
       if (activitySession) {
+        const scheduledAt = occurrences[0];
         await updateClass(activitySession.id, {
           name: formData.name,
           description: formData.description,
@@ -70,14 +101,21 @@ export function ClassForm({
           maxCapacity: Number(formData.maxCapacity),
           scheduledAt,
         });
+        await updateBookingOpening(
+          activitySession.id,
+          bookingOpensMinutesBefore === null
+            ? null
+            : scheduledAt - bookingOpensMinutesBefore * 60_000,
+        );
       } else {
-        await createClass({
+        await createClassSeries({
           name: formData.name,
           description: formData.description,
           trainerId: formData.trainerId,
           trainerName: formData.trainerName,
           maxCapacity: Number(formData.maxCapacity),
-          scheduledAt,
+          occurrences,
+          bookingOpensMinutesBefore,
         });
       }
       onSuccess();
@@ -89,8 +127,8 @@ export function ClassForm({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm">
+      <div className="mx-4 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6">
         <h2 className="text-xl font-bold mb-4">
           {activitySession ? t("admin.editClass") : t("admin.createClass")}
         </h2>
@@ -158,19 +196,73 @@ export function ClassForm({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t("common.dateTime")} *
-              </label>
-              <input
-                type="datetime-local"
-                required
-                value={formData.scheduledAt}
-                onChange={(e) =>
-                  setFormData({ ...formData, scheduledAt: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  {activitySession
+                    ? t("common.dateTime")
+                    : t("admin.classDatesAndTimes")}{" "}
+                  *
+                </label>
+                {!activitySession && formData.occurrences.length < 31 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        occurrences: [...formData.occurrences, ""],
+                      })
+                    }
+                  >
+                    <Plus size={14} />
+                    {t("admin.addClassDate")}
+                  </Button>
+                )}
+              </div>
+              {formData.occurrences.map((occurrence, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    type="datetime-local"
+                    required
+                    value={occurrence}
+                    onChange={(event) =>
+                      setFormData({
+                        ...formData,
+                        occurrences: formData.occurrences.map(
+                          (value, itemIndex) =>
+                            itemIndex === index ? event.target.value : value,
+                        ),
+                      })
+                    }
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  />
+                  {!activitySession && formData.occurrences.length > 1 && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      aria-label={t("admin.removeClassDate")}
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          occurrences: formData.occurrences.filter(
+                            (_, itemIndex) => itemIndex !== index,
+                          ),
+                        })
+                      }
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              {!activitySession && (
+                <p className="text-xs text-gray-500">
+                  {t("admin.classDatesHint")}
+                </p>
+              )}
             </div>
 
             <div>
@@ -193,8 +285,37 @@ export function ClassForm({
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t("admin.bookingOpeningHours")}
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="8760"
+              step="1"
+              value={formData.bookingOpensHoursBefore}
+              onChange={(event) =>
+                setFormData({
+                  ...formData,
+                  bookingOpensHoursBefore: event.target.value,
+                })
+              }
+              placeholder={t("admin.bookingOpeningImmediate")}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              {t("admin.bookingOpeningHint")}
+            </p>
+          </div>
+
           <div className="flex gap-2 justify-end pt-4">
-            <Button variant="outline" onClick={onClose} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={loading}
+            >
               {t("common.cancel")}
             </Button>
             <Button disabled={loading}>

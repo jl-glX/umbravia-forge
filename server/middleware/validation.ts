@@ -890,6 +890,29 @@ const classFields = [
 
 export const createClassValidation = validateRequest(classFields);
 
+export const createClassSeriesValidation = validateRequest([
+  strictBody([
+    "name",
+    "description",
+    "trainerId",
+    "trainerName",
+    "maxCapacity",
+    "occurrences",
+    "bookingOpensMinutesBefore",
+  ]),
+  body("name").isString().trim().isLength({ min: 1, max: 100 }),
+  body("description").optional().isString().trim().isLength({ max: 1000 }),
+  body("trainerId").isString().matches(ID_PATTERN),
+  body("trainerName").isString().trim().isLength({ min: 1, max: 100 }),
+  body("maxCapacity").isInt({ min: 1, max: 10000 }).toInt(),
+  body("occurrences").isArray({ min: 1, max: 31 }),
+  body("occurrences.*").isInt({ min: 1 }).toInt(),
+  body("bookingOpensMinutesBefore")
+    .optional({ nullable: true })
+    .isInt({ min: 0, max: 525_600 })
+    .toInt(),
+]);
+
 export const updateClassValidation = validateRequest([
   param("id").isString().matches(ID_PATTERN),
   strictBody(
@@ -952,6 +975,12 @@ export const bookingConfigurationValidation = validateRequest([
   body("configuration.visibility")
     .optional()
     .isIn(["public", "members", "staff"]),
+  body("configuration.bookingOpensAt")
+    .optional({ nullable: true })
+    .isInt({ min: 1 }),
+  body("configuration.bookingClosesAt")
+    .optional({ nullable: true })
+    .isInt({ min: 1 }),
   body("configuration.waitlistEnabled").optional().isBoolean(),
   body("configuration.confirmationRequired").optional().isBoolean(),
   body("configuration.remindersEnabled").optional().isBoolean(),
@@ -1050,7 +1079,7 @@ export const sessionProgressValidation = validateRequest([
 ]);
 
 export const createUserValidation = validateRequest([
-  strictBody(["email", "name", "password", "role"]),
+  strictBody(["email", "name", "password", "role", "verificationMode"]),
   body("email")
     .isString()
     .trim()
@@ -1066,6 +1095,47 @@ export const createUserValidation = validateRequest([
     .matches(/[A-Z]/)
     .matches(/[0-9]/),
   body("role").optional().isIn(roles),
+  body("verificationMode").isIn(["test_bypass"]),
+]);
+
+export const createFacilityInvitationValidation = validateRequest([
+  strictBody(["email", "name", "role", "locale"]),
+  body("email")
+    .isString()
+    .trim()
+    .isEmail()
+    .normalizeEmail()
+    .isLength({ max: 254 }),
+  body("name").isString().trim().isLength({ min: 1, max: 100 }),
+  body("role").isIn(["admin", "trainer"]),
+  body("locale").isIn(["es", "en", "de", "de-CH"]),
+]);
+
+export const acceptNewFacilityInvitationValidation = validateRequest([
+  param("token")
+    .isString()
+    .matches(/^[A-Za-z0-9_-]{40,80}$/),
+  strictBody(["password", "locale", "acceptedTerms", "acceptedPrivacy"]),
+  body("password")
+    .isString()
+    .isLength({ min: 12, max: 128 })
+    .custom(enforcePasswordHashLimit)
+    .matches(/[a-z]/)
+    .matches(/[A-Z]/)
+    .matches(/[0-9]/),
+  body("locale").isIn(["es", "en", "de", "de-CH"]),
+  body("acceptedTerms")
+    .isBoolean()
+    .custom((value) => value === true),
+  body("acceptedPrivacy")
+    .isBoolean()
+    .custom((value) => value === true),
+]);
+
+export const facilityInvitationTokenValidation = validateRequest([
+  param("token")
+    .isString()
+    .matches(/^[A-Za-z0-9_-]{40,80}$/),
 ]);
 
 export const updateUserValidation = validateRequest([

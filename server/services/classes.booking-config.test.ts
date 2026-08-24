@@ -118,4 +118,33 @@ describe("editable booking configuration", () => {
       ),
     ).rejects.toThrow("late cancellation window");
   });
+
+  it("creates independent multi-day sessions with a shared opening rule", async () => {
+    const first = Date.now() + 3 * 86_400_000;
+    const second = Date.now() + 4 * 86_400_000 + 3_600_000;
+    const created = await classes.createClassSeries(
+      {
+        name: "Entrenamiento multidía",
+        description: "Dos sesiones con horarios distintos",
+        trainerId: "trainer-demo",
+        trainerName: "Ana",
+        maxCapacity: 12,
+        occurrences: [second, first],
+        bookingOpensMinutesBefore: 24 * 60,
+      },
+      FACILITY_ID,
+    );
+
+    expect(created).toHaveLength(2);
+    expect(created.map((item) => item.scheduledAt)).toEqual([first, second]);
+    expect(created[0].id).not.toBe(created[1].id);
+    expect(created[0].seriesId).toBeTruthy();
+    expect(created[1].seriesId).toBe(created[0].seriesId);
+    expect(created[0].bookingConfiguration.bookingOpensAt).toBe(
+      first - 24 * 60 * 60_000,
+    );
+    expect(created[1].bookingConfiguration.bookingOpensAt).toBe(
+      second - 24 * 60 * 60_000,
+    );
+  });
 });

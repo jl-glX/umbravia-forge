@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Users,
   User,
@@ -23,6 +24,8 @@ interface ClassCardProps {
   bookedCount: number;
   availablePlaces: number;
   waitlistCount: number;
+  bookingOpensAt: number | null;
+  bookingClosesAt: number | null;
   onBookClick: () => void;
   isBooked: boolean;
   isLoading?: boolean;
@@ -38,13 +41,42 @@ export function ClassCard({
   bookedCount,
   availablePlaces,
   waitlistCount,
+  bookingOpensAt,
+  bookingClosesAt,
   onBookClick,
   isBooked,
   isLoading = false,
 }: ClassCardProps) {
   const { t } = useTranslation();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!bookingOpensAt || bookingOpensAt <= Date.now()) return;
+    const interval = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(interval);
+  }, [bookingOpensAt]);
   const isFuture = isFutureClass(scheduledAt);
   const isFull = availablePlaces === 0;
+  const waitingForBookingOpening = Boolean(
+    bookingOpensAt && bookingOpensAt > now,
+  );
+  const bookingClosed = Boolean(bookingClosesAt && bookingClosesAt <= now);
+  const countdownMilliseconds = Math.max(0, (bookingOpensAt ?? now) - now);
+  const countdownDays = Math.floor(countdownMilliseconds / 86_400_000);
+  const countdownHours = Math.floor(
+    (countdownMilliseconds % 86_400_000) / 3_600_000,
+  );
+  const countdownMinutes = Math.floor(
+    (countdownMilliseconds % 3_600_000) / 60_000,
+  );
+  const countdownSeconds = Math.floor((countdownMilliseconds % 60_000) / 1_000);
+  const openingCountdown = [
+    countdownDays > 0 ? `${countdownDays}d` : "",
+    countdownHours > 0 || countdownDays > 0 ? `${countdownHours}h` : "",
+    `${countdownMinutes}m`,
+    `${countdownSeconds}s`,
+  ]
+    .filter(Boolean)
+    .join(" ");
   const occupancy = Math.min(
     100,
     Math.round((bookedCount / maxCapacity) * 100),
@@ -125,6 +157,15 @@ export function ClassCard({
         {!isFuture ? (
           <Button disabled className="w-full rounded-xl" variant="outline">
             {t("classes.finished")}
+          </Button>
+        ) : waitingForBookingOpening ? (
+          <Button disabled className="w-full rounded-xl" variant="outline">
+            <Clock />
+            {t("classes.bookingOpensIn", { value: openingCountdown })}
+          </Button>
+        ) : bookingClosed ? (
+          <Button disabled className="w-full rounded-xl" variant="outline">
+            {t("classes.bookingClosed")}
           </Button>
         ) : isBooked ? (
           <Button

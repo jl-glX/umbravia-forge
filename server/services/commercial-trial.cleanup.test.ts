@@ -190,6 +190,17 @@ describe("commercial trial abandonment cleanup", () => {
         .where("id", "=", seeded.facilityId)
         .executeTakeFirst(),
     ).resolves.toBeUndefined();
+    await expect(
+      database.db
+        .selectFrom("commercialLifecycleFacts")
+        .select("kind")
+        .where("subjectId", "in", [seeded.trialId, seeded.userId])
+        .orderBy("kind")
+        .execute(),
+    ).resolves.toEqual([
+      { kind: "commercial_account_deleted" },
+      { kind: "commercial_trial_abandoned" },
+    ]);
     await expect(environmentManager.listManagedEnvironments()).resolves.toEqual(
       [],
     );

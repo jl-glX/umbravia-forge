@@ -50,6 +50,7 @@ import {
   getUmfSupportTicket,
   listUmfSupportAdministratorAccounts,
   listCommercialTrialAdministratorAccounts,
+  getCommercialAccountMetrics,
   listUmfSupportCollaborationSpaces,
   listUmfSupportMailbox,
   listUmfSupportMailDrafts,
@@ -656,6 +657,14 @@ umfSupportRouter.get(
     }
   },
 );
+
+umfSupportRouter.get("/commercial-account-metrics", async (_req, res, next) => {
+  try {
+    res.json(await getCommercialAccountMetrics(getAuthenticatedUser(res)));
+  } catch (error) {
+    next(error);
+  }
+});
 
 umfSupportRouter.post(
   "/commercial-trial-administrators/:userId/resend-verification",

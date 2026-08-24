@@ -797,6 +797,8 @@
     "joiningWaitlist": "Añadiendo a la lista...",
     "book": "Reservar clase",
     "booking": "Reservando...",
+    "bookingOpensIn": "Reservas en {{value}}",
+    "bookingClosed": "Reservas cerradas",
     "attendees": "{{booked}}/{{capacity}} asistentes",
     "viewDetails": "Ver detalles",
     "spotsAvailable_one": "Queda {{count}} plaza disponible",
@@ -969,12 +971,19 @@
     "selectTrainer": "Selecciona un entrenador",
     "maxCapacity": "Aforo máximo *",
     "dateRequired": "La fecha y la hora son obligatorias",
+    "classDatesAndTimes": "Fechas y horas",
+    "addClassDate": "Añadir fecha",
+    "removeClassDate": "Quitar fecha",
+    "classDatesHint": "Cada fecha crea una sesión independiente con su propio aforo y reservas.",
+    "bookingOpeningHours": "Abrir reservas con esta antelación (horas)",
+    "bookingOpeningImmediate": "Abiertas desde ahora",
+    "bookingOpeningHint": "Déjalo vacío para abrirlas inmediatamente. Los socios verán una cuenta atrás hasta la apertura.",
     "filterRole": "Filtrar por rol:",
     "allRoles": "Todos los roles",
     "members": "Socios",
     "trainers": "Entrenadores",
     "admins": "Administradores",
-    "newUser": "Nuevo usuario",
+    "newUser": "Verificar trabajador",
     "noUsers": "No se han encontrado usuarios",
     "selectAllUsers": "Seleccionar todos los usuarios visibles",
     "selectUser": "Seleccionar a {{name}}",
@@ -988,8 +997,53 @@
     "deletionReviewRequired": "La cuenta contiene datos que deben conservarse o reasignarse. Revisa sus tickets, documentos y responsabilidades antes de eliminarla.",
     "editUser": "Editar usuario",
     "createUser": "Crear usuario",
+    "inviteUser": "Verificar trabajador",
+    "sendInvitation": "Iniciar verificación",
+    "invitationSecurityNotice": "El trabajador recibirá un enlace de un solo uso. Solo él podrá establecer su contraseña y confirmar la vinculación laboral con el centro.",
+    "workerRoleRequired": "La verificación laboral solo admite los roles de administrador o entrenador.",
+    "invitationEmailNotQueued": "La verificación se ha creado, pero el correo no ha podido entrar en la cola de envío. Puedes volver a intentarlo; la nueva solicitud invalidará la anterior.",
+    "pendingInvitations": "Verificaciones laborales pendientes",
+    "pendingInvitationsDescription": "Mientras estén pendientes, el trabajador solo podrá consultar el centro: no podrá modificarlo ni administrar su suscripción.",
+    "noPendingInvitations": "No hay verificaciones laborales pendientes.",
+    "invitationExpires": "Plazo",
+    "revokeInvitation": "Invalidar",
     "passwordOptional": "Contraseña (déjala vacía para conservar la actual)",
     "passwordRequired": "La contraseña es obligatoria para usuarios nuevos"
+  },
+  "workerVerification": {
+    "readOnlyNotice": "Tu vinculación laboral todavía no está verificada. Puedes consultar el centro, pero el servidor bloqueará cualquier modificación."
+  },
+  "facilityInvitation": {
+    "eyebrow": "Vinculación laboral verificada",
+    "title": "Verificación de trabajador",
+    "description": "Comprueba el centro y el rol antes de confirmar la vinculación. Una verificación pendiente no concede acceso.",
+    "facility": "Centro",
+    "existingSignedIn": "Has iniciado sesión como {{email}}. La vinculación solo se confirmará si corresponde a esta cuenta.",
+    "chooseOwnPassword": "Crea tu propia contraseña para activar la cuenta. El administrador del centro no podrá verla.",
+    "accept": "Confirmar vinculación",
+    "createAndAccept": "Crear cuenta y confirmar",
+    "decline": "Rechazar vinculación",
+    "signInToAccept": "Iniciar sesión para confirmar",
+    "signIn": "Iniciar sesión",
+    "openAccount": "Abrir mi cuenta",
+    "accepted": "La vinculación laboral se ha verificado. Ya puedes acceder al centro con el rol indicado.",
+    "declined": "La vinculación se ha rechazado y no concede acceso.",
+    "status": {
+      "accepted": "Esta vinculación laboral ya fue verificada.",
+      "declined": "Esta vinculación laboral ya fue rechazada.",
+      "revoked": "El centro ha invalidado esta verificación.",
+      "expired": "El plazo de verificación ha caducado. Solicita al centro una nueva."
+    },
+    "errors": {
+      "generic": "No se ha podido completar la verificación laboral.",
+      "FACILITY_INVITATION_INVALID": "El enlace de verificación no es válido.",
+      "FACILITY_INVITATION_NOT_PENDING": "La verificación ya no está pendiente.",
+      "FACILITY_INVITATION_IDENTITY_MISMATCH": "La sesión abierta no pertenece al correo indicado en la verificación.",
+      "FACILITY_INVITATION_LOGIN_REQUIRED": "Ya existe una cuenta con este correo. Inicia sesión para aceptar.",
+      "PASSWORD_POLICY_FAILED": "La contraseña no cumple los requisitos de seguridad.",
+      "PASSWORD_CONFIRMATION_MISMATCH": "Las contraseñas no coinciden.",
+      "LEGAL_ACKNOWLEDGEMENT_REQUIRED": "Debes aceptar las condiciones y la política de privacidad."
+    }
   },
   "facilityBranding": {
     "title": "Personalización del panel",
@@ -1734,6 +1788,8 @@
         "afterTrial": "Fuera del periodo de prueba puedes seguir editando con normalidad. Solo se aplicará una pausa temporal si se detectan muchas modificaciones seguidas."
       },
       "provisionalAddress": "Dirección provisional",
+      "reservedIdentifier": "Identificador de subdominio reservado",
+      "routingNotProvisioned": "Esta reserva no crea DNS, proxy ni alojamiento. El entorno continúa en la base compartida de demostración.",
       "create": "Guardar configuración",
       "save": "Guardar cambios",
       "duration": {
@@ -2272,6 +2328,19 @@
       "noTrial": "Sin centro de prueba asociado",
       "resendVerification": "Reenviar verificación",
       "empty": "No hay altas administrativas comerciales registradas.",
+      "emailAssessment": {
+        "real": "Buzón verificado",
+        "fictitious": "Dominio reservado o ficticio",
+        "indeterminate": "Buzón todavía indeterminado"
+      },
+      "metrics": {
+        "activeAdministratorAccounts": "Cuentas administradoras activas",
+        "pendingVerificationAccounts": "Altas pendientes de verificar",
+        "activeTrials": "Pruebas en curso o revisión",
+        "abandonedTrials": "Pruebas abandonadas",
+        "deletedAdministratorAccounts": "Cuentas administradoras eliminadas",
+        "coverage": "Las cuentas activas y las pruebas actuales se calculan en tiempo real. Las bajas y pruebas ya eliminadas se conservan como contadores sin correo ni datos personales desde la migración de métricas."
+      },
       "trialStatus": {
         "trial_created": "Prueba creada",
         "trial_active": "Prueba activa",

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -28,6 +28,13 @@ import {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedReturnTo = searchParams.get("returnTo") ?? "";
+  const invitationReturnTo = requestedReturnTo.startsWith(
+    "/facility-invitation?token=",
+  )
+    ? requestedReturnTo
+    : "";
   const { login, loginWithPasskey, verifyMfa, isLoading, error, clearError } =
     useAuth();
   const [identifier, setIdentifier] = useState("");
@@ -99,6 +106,14 @@ export function LoginPage() {
         return;
       }
       if (result.user) rememberSignedInAccount(result.user);
+      if (
+        invitationReturnTo &&
+        result.user?.accountStatus !== "security_review"
+      ) {
+        if (result.user) startAppSession(result.user.id);
+        navigate(invitationReturnTo, { replace: true });
+        return;
+      }
       if (result.user?.accountStatus !== "active") {
         navigate(
           result.user?.accountStatus === "pending_verification"
@@ -121,6 +136,14 @@ export function LoginPage() {
     try {
       const verifiedUser = await verifyMfa(mfaCode);
       setSavedAccounts(rememberAccount(verifiedUser, identifier));
+      if (
+        invitationReturnTo &&
+        verifiedUser.accountStatus !== "security_review"
+      ) {
+        startAppSession(verifiedUser.id);
+        navigate(invitationReturnTo, { replace: true });
+        return;
+      }
       if (verifiedUser.accountStatus !== "active") {
         navigate(
           verifiedUser.accountStatus === "pending_verification"
@@ -140,11 +163,13 @@ export function LoginPage() {
     accountStatus: "pending_verification" | "active" | "security_review",
   ) =>
     navigate(
-      accountStatus !== "active"
-        ? accountStatus === "pending_verification"
-          ? "/verify-email"
-          : "/recover-account"
-        : "/",
+      invitationReturnTo && accountStatus !== "security_review"
+        ? invitationReturnTo
+        : accountStatus !== "active"
+          ? accountStatus === "pending_verification"
+            ? "/verify-email"
+            : "/recover-account"
+          : "/",
       { replace: true },
     );
 

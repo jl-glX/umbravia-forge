@@ -39,6 +39,7 @@ export interface CommercialTrialAdministratorAccount {
   email: string;
   accountStatus: "pending_verification" | "active" | "security_review";
   emailVerifiedAt: number | null;
+  emailAssessment: "real" | "fictitious" | "indeterminate";
   createdAt: number;
   pendingProvisioning: {
     facilityName: string;
@@ -53,6 +54,17 @@ export interface CommercialTrialAdministratorAccount {
     startedAt: number;
     expiresAt: number;
   } | null;
+}
+
+export interface CommercialAccountMetrics {
+  measuredAt: number;
+  activeAdministratorAccounts: number;
+  pendingVerificationAccounts: number;
+  activeTrials: number;
+  abandonedTrials: number;
+  deletedAdministratorAccounts: number;
+  historicalCoverage: "from_schema_v52";
+  firstRetainedFactAt: number | null;
 }
 
 export interface UmfSupportDistribution {
@@ -595,6 +607,10 @@ export async function fetchCommercialTrialAdministratorAccounts() {
       "/commercial-trial-administrators",
     )
   ).accounts;
+}
+
+export function fetchCommercialAccountMetrics() {
+  return request<CommercialAccountMetrics>("/commercial-account-metrics");
 }
 
 export function resendCommercialTrialAdministratorVerification(userId: string) {

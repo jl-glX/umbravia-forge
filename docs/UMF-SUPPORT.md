@@ -95,6 +95,17 @@ decisión explícita, firma y nueva validación humana; véase
 - cambio del correo de acceso mediante contraseña actual y código enviado al
   nuevo buzón, con aviso al anterior e invalidación de las demás sesiones y de
   retos temporales anteriores.
+- seguimiento restringido de altas comerciales: cuentas administradoras
+  activas, verificaciones pendientes y pruebas actuales se calculan en vivo;
+  las bajas de cuenta y pruebas eliminadas se conservan desde la migración 52
+  como hechos contables sin correo ni otros datos personales.
+
+La conversión de una prueba continúa siendo deliberadamente de clasificación:
+la persona responsable identifica el origen y decide qué categorías conservar
+o descartar, pero el repositorio no ejecuta aún un borrado ni afirma una
+conversión de pago. El estado de Stripe, la política de transformación por
+categoría y una migración reversible deben aprobarse antes de añadir esa acción
+destructiva.
 
 La dirección de UMF Support exige simultáneamente una fila activa de director
 en `umfSupportStaff` y el cargo activo de jefatura en

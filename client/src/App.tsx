@@ -40,6 +40,10 @@ const VerifyEmailPage = lazyPage(
   () => import("./pages/VerifyEmailPage"),
   "VerifyEmailPage",
 );
+const FacilityInvitationPage = lazyPage(
+  () => import("./pages/FacilityInvitationPage"),
+  "FacilityInvitationPage",
+);
 const TrainerDashboardPage = lazyPage(
   () => import("./pages/TrainerDashboardPage"),
   "TrainerDashboardPage",
@@ -244,6 +248,7 @@ function AppContent() {
       "/signup",
       "/recover-account",
       "/verify-email",
+      "/facility-invitation",
       "/unauthorized",
       "/commercial",
       "/legal-notice",
@@ -264,6 +269,16 @@ function AppContent() {
   return (
     <>
       {user?.accountStatus === "active" && !isShelllessPage && <Navigation />}
+      {user?.accountStatus === "active" &&
+        user.facility?.accessMode === "read_only" &&
+        !isShelllessPage && (
+          <div
+            role="status"
+            className="border-b border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-950"
+          >
+            {t("workerVerification.readOnlyNotice")}
+          </div>
+        )}
       <Suspense
         fallback={
           <div className="flex min-h-screen items-center justify-center text-slate-600">
@@ -286,6 +301,10 @@ function AppContent() {
             element={<UmfCorporateAccountPage />}
           />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route
+            path="/facility-invitation"
+            element={<FacilityInvitationPage />}
+          />
           <Route
             path="/"
             element={
