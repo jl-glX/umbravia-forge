@@ -42,7 +42,7 @@ jobs:
         run: npm run deploy:package
 
       - name: Publish the Windows test package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: umbravia-forge-windows-web-apps-test
           path: |
