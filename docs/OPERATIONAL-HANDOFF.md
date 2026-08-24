@@ -33,11 +33,22 @@ historial de trabajo.
   direcciones y URL no secretas. Los antiguos secretos de Workers, correo y
   almacenamiento no se modifican ni reutilizan para Open Helpdesk.
 - **Preferencias** ya es una opción operativa del área de cuenta: permite
-  cambiar el idioma, abrir la política de privacidad y la gestión de datos. La
-  jefatura dispone además del mismo control protegido por servidor para
-  permitir la afiliación como socio de todo el personal o de personas
+  cambiar el idioma y abrir una gestión de privacidad y datos independiente.
+  Ese recorrido separa la política, el correo verificado para ejercer derechos,
+  el estado todavía pendiente de la exportación y una zona explícita para
+  revisar el cierre; una acción genérica de datos nunca enlaza directamente al
+  borrado. La jefatura dispone además del mismo control protegido por servidor
+  para permitir la afiliación como socio de todo el personal o de personas
   concretas. La renuncia o transferencia de la jefatura continúa expresamente
   pendiente y no se simula con un botón incompleto.
+- El siguiente bloque de producto debe revisar conjuntamente las afiliaciones,
+  la coexistencia de identidad de socio con funciones de entrenador y
+  administración, y el recorrido comercial de Stripe desde la selección del
+  plan hasta Checkout, webhook, Customer, suscripción, factura, portal,
+  reconciliación y permisos. El repositorio contiene una base de facturación,
+  pero no debe presentarse como capacidad comercial activa en Internet sin
+  verificar configuración, modo, Prices, webhook y recorrido extremo a extremo
+  en el entorno autorizado.
 - La puerta local `npm run ci:validate` superó portabilidad, formato, lint, los
   tres `typecheck`, 125 archivos con 611 pruebas favorables y una omitida, las
   tres compilaciones, el paquete Windows y la auditoría de dependencias. La
