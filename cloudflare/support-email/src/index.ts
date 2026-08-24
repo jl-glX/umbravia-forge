@@ -249,12 +249,11 @@ export const supportEmailWorker = {
         throw new Error("Support application rejected the message");
       }
     } catch (error) {
-      console.error({
-        event: "umf_support_inbound_email_failed",
+      console.error("umf_support_inbound_email_failed", {
         failureStage,
         applicationStatus,
         reason: safeFailureReason(error, failureStage),
-        });
+      });
       message.setReject("The support message could not be accepted.");
     }
   },
