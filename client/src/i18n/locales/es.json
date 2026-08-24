@@ -132,9 +132,25 @@
   "accountMenu": {
     "open": "Abrir menú de cuenta",
     "manage": "Abrir área de cuenta",
-    "support": "Ayuda del centro"
+    "support": "Soporte y contacto"
   },
   "support": {
+    "external": {
+      "eyebrow": "Soporte de Umbravia Forge",
+      "title": "¿En qué podemos ayudarte?",
+      "description": "Las consultas generales se gestionan temporalmente en Open Helpdesk. Las solicitudes sobre privacidad y protección de datos disponen de un canal directo separado.",
+      "generalTitle": "Soporte general",
+      "generalDescription": "Abre un ticket para consultas técnicas, de cuenta, facturación o funcionamiento de la plataforma.",
+      "openPortal": "Abrir el portal de soporte",
+      "portalPending": "El dominio personalizado está verificado, pero Open Helpdesk todavía no lo sirve correctamente. Utiliza el correo mientras se resuelve.",
+      "emailFallback": "Escribir a {{email}}",
+      "alternativeEmail": "Correo alternativo: {{email}}",
+      "rightsTitle": "Privacidad y ejercicio de derechos",
+      "rightsDescription": "Para ejercer derechos de acceso, rectificación, supresión, oposición, limitación o portabilidad, escribe directamente al titular del servicio.",
+      "writeRights": "Escribir a {{email}}",
+      "migrationNotice": "El tablero interno de tickets está congelado temporalmente. Su historial se conserva, pero ya no admite nuevas solicitudes.",
+      "safetyNotice": "No envíes contraseñas, códigos de un solo uso, datos completos de tarjetas ni información médica o especialmente sensible."
+    },
     "eyebrow": "Atención y conocimiento",
     "description": "Un espacio propio para solicitar ayuda, seguir incidencias y consultar respuestas sin salir de Umbravia Forge.",
     "tabs": {
@@ -2326,6 +2342,8 @@
   },
   "umfSupport": {
     "corporateOperations": "Panel de trabajo de soporte de Umbravia Forge",
+    "operationsFrozenTitle": "Operaciones de soporte congeladas temporalmente",
+    "operationsFrozenDescription": "Los tickets y el correo se gestionan en Open Helpdesk. Este panel conserva su historial y queda limitado a la gestión de cuentas comerciales.",
     "workspace": {
       "defaultName": "Mi panel de trabajo",
       "nameLabel": "Nombre del panel de trabajo",

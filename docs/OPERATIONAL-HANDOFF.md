@@ -9,6 +9,34 @@ de claves.
 El estado vivo prevalece siempre sobre este documento y sobre cualquier
 historial de trabajo.
 
+## Continuidad del cambio activo — 25 de agosto de 2026
+
+- El tablero de Forge Support y las operaciones generales de UMF Support se
+  congelan de forma reversible. El servidor rechaza las rutas internas de
+  tickets y correo aunque alguien conserve una interfaz antigua; no se elimina
+  ninguna fila, adjunto ni historial. UMF Support conserva accesibles únicamente
+  las métricas y cuentas comerciales de prueba.
+- Las consultas generales se dirigen al correo asignado por Open Helpdesk y
+  muestran `umbraviaforge@gmail.com` como alternativa. Ese mismo Gmail es el
+  canal directo para ejercer derechos de protección de datos, evitando que el
+  proveedor de ticketing sea un intermediario obligatorio para esas
+  solicitudes.
+- `support.umbraviaforge.com` tiene CNAME y prueba TXT publicados y Open
+  Helpdesk lo muestra como verificado. Sin embargo, la comprobación real devuelve
+  `no available server` y un certificado no válido. El enlace permanece oculto
+  mediante `EXTERNAL_HELPDESK_PORTAL_ENABLED=false`; no debe habilitarse hasta
+  que HTTPS y el formulario público funcionen de extremo a extremo. La tarifa
+  pública consultada no documenta el dominio personalizado como prestación de
+  un plan concreto, por lo que una suscripción no debe presentarse como solución
+  confirmada sin respuesta del proveedor.
+- Las plantillas versionadas definen los dos bloqueos en `false` y publican solo
+  direcciones y URL no secretas. Los antiguos secretos de Workers, correo y
+  almacenamiento no se modifican ni reutilizan para Open Helpdesk.
+- La puerta local `npm run ci:validate` superó portabilidad, formato, lint, los
+  tres `typecheck`, 124 archivos con 609 pruebas favorables y una omitida, las
+  tres compilaciones, el paquete Windows y la auditoría de dependencias. La
+  publicación y GitHub Actions siguen siendo verificaciones independientes.
+
 ## Continuidad del cambio activo — 24 de agosto de 2026
 
 - El alta visible de personal del centro se denomina **verificación del

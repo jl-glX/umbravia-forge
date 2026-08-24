@@ -50,6 +50,7 @@ import {
 } from "./email-verification.js";
 import { ensureConfiguredCompanyHead } from "./company-head-designation.js";
 import { commercialTrialProvisioningIsEnabled } from "../lib/commercial-trial.js";
+import { umfSupportOperationalWorkspaceEnabled } from "../lib/support-routing.js";
 
 const priorities = new Set<UmfSupportTicketPriority>([
   "low",
@@ -261,6 +262,7 @@ export async function getUmfSupportCapabilities(auth: AuthenticatedUser) {
     isPlatformHead: Boolean(companyHead),
     canManageCommercialTrials: role === "director" && Boolean(companyHead),
     commercialTrialProvisioningEnabled: commercialTrialProvisioningIsEnabled(),
+    operationalWorkspaceEnabled: umfSupportOperationalWorkspaceEnabled(),
     email,
     deliveryOperationallyVerified:
       email.outboundOperationallyVerified && email.inboundOperationallyVerified,

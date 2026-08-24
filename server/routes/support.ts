@@ -23,10 +23,33 @@ import {
   updateSupportTicket,
 } from "../services/support.js";
 import { supportAttachmentAcceptedMimeTypes } from "../lib/support-attachment-policy.js";
+import {
+  internalSupportTicketsEnabled,
+  publicSupportContacts,
+} from "../lib/support-routing.js";
 
 export const supportRouter = express.Router();
 
+supportRouter.get("/contact", (_req, res) => {
+  res.json({
+    contacts: publicSupportContacts(),
+    internalTicketingEnabled: internalSupportTicketsEnabled(),
+  });
+});
+
 supportRouter.use(authenticate, selectFacilityContext, requireFacility());
+
+supportRouter.use("/tickets", (_req, res, next) => {
+  if (internalSupportTicketsEnabled()) {
+    next();
+    return;
+  }
+  res.status(503).json({
+    error: "Internal support tickets are temporarily routed externally",
+    code: "SUPPORT_TICKETS_EXTERNALLY_ROUTED",
+    contacts: publicSupportContacts(),
+  });
+});
 
 supportRouter.get("/capabilities", async (_req, res, next) => {
   try {

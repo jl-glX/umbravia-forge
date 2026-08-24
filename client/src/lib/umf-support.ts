@@ -16,6 +16,7 @@ export interface UmfSupportCapabilities {
   canManageCollaborationSpaces: boolean;
   canManageCommercialTrials: boolean;
   commercialTrialProvisioningEnabled: boolean;
+  operationalWorkspaceEnabled: boolean;
   isPlatformHead: boolean;
   email: {
     outbound: boolean;

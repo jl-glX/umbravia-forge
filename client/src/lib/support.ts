@@ -86,6 +86,15 @@ export interface SupportCapabilities {
   canManageTeam: boolean;
 }
 
+export interface SupportContacts {
+  helpdeskPortalEnabled: boolean;
+  helpdeskPortalUrl: string;
+  helpdeskEmail: string;
+  generalFallbackEmail: string;
+  legalRightsEmail: string;
+  internalTicketingEnabled: boolean;
+}
+
 export class SupportRequestError extends Error {
   constructor(readonly code?: string) {
     super("Forge Support request failed");
@@ -108,6 +117,17 @@ async function supportRequest<T>(path: string, init?: RequestInit): Promise<T> {
     throw new SupportRequestError(code);
   }
   return payload;
+}
+
+export async function fetchSupportContacts(): Promise<SupportContacts> {
+  const result = await supportRequest<{
+    contacts: Omit<SupportContacts, "internalTicketingEnabled">;
+    internalTicketingEnabled: boolean;
+  }>("/contact");
+  return {
+    ...result.contacts,
+    internalTicketingEnabled: result.internalTicketingEnabled,
+  };
 }
 
 export async function fetchSupportTickets(filters?: {

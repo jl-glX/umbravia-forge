@@ -132,9 +132,25 @@
   "accountMenu": {
     "open": "Kontomenü öffnen",
     "manage": "Kontobereich öffnen",
-    "support": "Hilfe für das Studio"
+    "support": "Support und Kontakt"
   },
   "support": {
+    "external": {
+      "eyebrow": "Umbravia Forge Support",
+      "title": "Wie können wir helfen?",
+      "description": "Allgemeine Anfragen werden vorübergehend in Open Helpdesk bearbeitet. Für Datenschutzanfragen steht ein separater direkter Kanal bereit.",
+      "generalTitle": "Allgemeiner Support",
+      "generalDescription": "Eröffne ein Ticket für technische Fragen sowie Fragen zu Konto, Abrechnung oder Plattformbetrieb.",
+      "openPortal": "Support-Portal öffnen",
+      "portalPending": "Die benutzerdefinierte Domain ist verifiziert, wird von Open Helpdesk aber noch nicht korrekt bereitgestellt. Nutze bis zur Klärung die E-Mail-Adresse.",
+      "emailFallback": "E-Mail an {{email}}",
+      "alternativeEmail": "Alternative E-Mail: {{email}}",
+      "rightsTitle": "Datenschutz und Betroffenenrechte",
+      "rightsDescription": "Zur Ausübung von Auskunft, Berichtigung, Löschung, Widerspruch, Einschränkung oder Datenübertragbarkeit kontaktiere den Dienstinhaber direkt.",
+      "writeRights": "E-Mail an {{email}}",
+      "migrationNotice": "Das interne Ticket-Board ist vorübergehend eingefroren. Der Verlauf bleibt erhalten, neue Anfragen werden dort jedoch nicht mehr angenommen.",
+      "safetyNotice": "Sende keine Passwörter, Einmalcodes, vollständigen Kartendaten oder medizinischen beziehungsweise besonders sensiblen Informationen."
+    },
     "eyebrow": "Betreuung und Wissen",
     "description": "Ein eigener Bereich, um Hilfe anzufordern, Vorgänge zu verfolgen und Antworten zu finden, ohne Umbravia Forge zu verlassen.",
     "tabs": { "tickets": "Anfragen", "knowledge": "Wissen", "team": "Team" },

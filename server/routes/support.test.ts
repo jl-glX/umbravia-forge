@@ -24,6 +24,7 @@ describe("Forge Support API", () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-support-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("INTERNAL_SUPPORT_TICKETS_ENABLED", "true");
     vi.stubEnv("EMAIL_PUBLIC_INBOUND_ENABLED", "true");
     vi.stubEnv("EMAIL_PUBLIC_INBOUND_PROVIDER", "cloudflare");
     vi.stubEnv("SUPPORT_EMAIL_INBOUND_ENABLED", "true");
@@ -808,5 +809,34 @@ describe("Forge Support API", () => {
       "Necesito ayuda desde mi cuenta verificada.",
       "Añado un detalle.",
     ]);
+  });
+
+  it("routes new ticket operations externally while preserving the internal data", async () => {
+    vi.stubEnv("INTERNAL_SUPPORT_TICKETS_ENABLED", "false");
+    try {
+      await request(app)
+        .get("/api/support/contact")
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body).toMatchObject({
+            internalTicketingEnabled: false,
+            contacts: {
+              helpdeskPortalEnabled: false,
+              helpdeskEmail: "umbravia-forge-scrf@support.openhelpdesk.dev",
+              legalRightsEmail: "umbraviaforge@gmail.com",
+            },
+          });
+        });
+      await request(app)
+        .get("/api/support/tickets")
+        .set("Cookie", memberCookie)
+        .set("X-Facility-Id", "facility-alpha")
+        .expect(503)
+        .expect(({ body }) => {
+          expect(body.code).toBe("SUPPORT_TICKETS_EXTERNALLY_ROUTED");
+        });
+    } finally {
+      vi.stubEnv("INTERNAL_SUPPORT_TICKETS_ENABLED", "true");
+    }
   });
 });

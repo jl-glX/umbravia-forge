@@ -6,6 +6,10 @@ import {
 import { resolveUmfSupportEmailConfiguration } from "../lib/umf-support-email.js";
 import { ingestUmfSupportInboundEmail } from "../services/umf-support.js";
 import { notifyUmfSupportAdministrators } from "../services/umf-support-notifications.js";
+import {
+  publicSupportContacts,
+  umfSupportOperationalWorkspaceEnabled,
+} from "../lib/support-routing.js";
 
 export const umfSupportEmailInboundRouter = express.Router();
 
@@ -14,6 +18,14 @@ umfSupportEmailInboundRouter.post(
   express.raw({ type: "application/json", limit: "64kb" }),
   async (req, res, next) => {
     try {
+      if (!umfSupportOperationalWorkspaceEnabled()) {
+        res.status(503).json({
+          error: "UMF Support operations are temporarily frozen",
+          code: "UMF_SUPPORT_OPERATIONS_FROZEN",
+          contacts: publicSupportContacts(),
+        });
+        return;
+      }
       const configuration = resolveUmfSupportEmailConfiguration();
       if (!configuration) {
         res

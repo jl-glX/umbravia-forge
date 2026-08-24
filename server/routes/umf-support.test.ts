@@ -19,6 +19,7 @@ describe("UMF Support corporate API", () => {
     directory = await mkdtemp(join(tmpdir(), "umf-corporate-support-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("UMF_SUPPORT_OPERATIONAL_WORKSPACE_ENABLED", "true");
     vi.stubEnv("PRIVATE_CONTENT_ENCRYPTION_ENABLED", "true");
     vi.stubEnv(
       "PRIVATE_CONTENT_ENCRYPTION_KEY",
@@ -756,5 +757,32 @@ describe("UMF Support corporate API", () => {
       .where("ticketId", "=", ticket.id)
       .execute();
     expect(messages).toHaveLength(2);
+  });
+
+  it("freezes support operations without blocking commercial account management", async () => {
+    vi.stubEnv("UMF_SUPPORT_OPERATIONAL_WORKSPACE_ENABLED", "false");
+    try {
+      await request(app)
+        .get("/api/umf-support/capabilities")
+        .set("Cookie", directorCookie)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.capabilities.operationalWorkspaceEnabled).toBe(false);
+          expect(body.capabilities.canManageCommercialTrials).toBe(true);
+        });
+      await request(app)
+        .get("/api/umf-support/tickets")
+        .set("Cookie", directorCookie)
+        .expect(503)
+        .expect(({ body }) => {
+          expect(body.code).toBe("UMF_SUPPORT_OPERATIONS_FROZEN");
+        });
+      await request(app)
+        .get("/api/umf-support/commercial-account-metrics")
+        .set("Cookie", directorCookie)
+        .expect(200);
+    } finally {
+      vi.stubEnv("UMF_SUPPORT_OPERATIONAL_WORKSPACE_ENABLED", "true");
+    }
   });
 });

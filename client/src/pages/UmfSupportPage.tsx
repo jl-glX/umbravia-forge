@@ -174,7 +174,7 @@ export function UmfSupportPage() {
   );
   const [capabilities, setCapabilities] =
     useState<UmfSupportCapabilities | null>(null);
-  const [view, setView] = useState<View>("tickets");
+  const [view, setView] = useState<View>("commercialTrials");
   const [tickets, setTickets] = useState<UmfSupportTicketSummary[]>([]);
   const [selected, setSelected] = useState<UmfSupportTicket | null>(null);
   const [mail, setMail] = useState<UmfMailboxMessage[]>([]);
@@ -725,15 +725,56 @@ export function UmfSupportPage() {
     return <Navigate to="/umf-support/account" replace />;
 
   const tabs: Array<{ id: View; icon: typeof Inbox; hidden?: boolean }> = [
-    { id: "tickets", icon: ClipboardList },
-    { id: "inbox", icon: Inbox },
-    { id: "drafts", icon: FilePenLine },
-    { id: "scheduled", icon: Clock3 },
-    { id: "outbox", icon: Send },
-    { id: "sent", icon: Mail },
-    { id: "notifications", icon: Bell },
-    { id: "team", icon: Users },
-    { id: "collaboration", icon: LayoutGrid },
+    {
+      id: "commercialTrials",
+      icon: Building2,
+      hidden: !capabilities?.canManageCommercialTrials,
+    },
+    {
+      id: "tickets",
+      icon: ClipboardList,
+      hidden: !capabilities?.operationalWorkspaceEnabled,
+    },
+    {
+      id: "inbox",
+      icon: Inbox,
+      hidden: !capabilities?.operationalWorkspaceEnabled,
+    },
+    {
+      id: "drafts",
+      icon: FilePenLine,
+      hidden: !capabilities?.operationalWorkspaceEnabled,
+    },
+    {
+      id: "scheduled",
+      icon: Clock3,
+      hidden: !capabilities?.operationalWorkspaceEnabled,
+    },
+    {
+      id: "outbox",
+      icon: Send,
+      hidden: !capabilities?.operationalWorkspaceEnabled,
+    },
+    {
+      id: "sent",
+      icon: Mail,
+      hidden: !capabilities?.operationalWorkspaceEnabled,
+    },
+    {
+      id: "notifications",
+      icon: Bell,
+      hidden: !capabilities?.operationalWorkspaceEnabled,
+    },
+    {
+      id: "team",
+      icon: Users,
+      hidden: !capabilities?.operationalWorkspaceEnabled,
+    },
+    {
+      id: "collaboration",
+      icon: LayoutGrid,
+      hidden: !capabilities?.operationalWorkspaceEnabled,
+    },
   ];
 
   const selectView = (nextView: View) => {
@@ -789,93 +830,100 @@ export function UmfSupportPage() {
                   {capabilities?.workspaceName ??
                     t("umfSupport.workspace.defaultName")}
                 </p>
-                <button
-                  type="button"
-                  className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-                  aria-label={t("umfSupport.workspace.editName")}
-                  onClick={() => setEditingWorkspaceName(true)}
-                >
-                  <Pencil size={14} />
-                </button>
+                {capabilities?.operationalWorkspaceEnabled && (
+                  <button
+                    type="button"
+                    className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                    aria-label={t("umfSupport.workspace.editName")}
+                    onClick={() => setEditingWorkspaceName(true)}
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
               </div>
             )}
             <p className="truncate text-xs text-slate-400">
               {t("umfSupport.corporateOperations")}
             </p>
           </div>
-          <div className="relative">
-            <Button
-              type="button"
-              variant="ghost"
-              aria-expanded={functionsMenuOpen}
-              aria-haspopup="menu"
-              className="border border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white"
-              onClick={() => setFunctionsMenuOpen((current) => !current)}
-            >
-              <LayoutGrid size={17} />
-              <span className="hidden sm:inline">
-                {t("umfSupport.functions.title")}
-              </span>
-              <ChevronDown size={15} />
-            </Button>
-            {functionsMenuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-slate-950 shadow-xl"
+          {capabilities?.operationalWorkspaceEnabled && (
+            <div className="relative">
+              <Button
+                type="button"
+                variant="ghost"
+                aria-expanded={functionsMenuOpen}
+                aria-haspopup="menu"
+                className="border border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white"
+                onClick={() => setFunctionsMenuOpen((current) => !current)}
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => selectView("tickets")}
-                  className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-slate-100"
+                <LayoutGrid size={17} />
+                <span className="hidden sm:inline">
+                  {t("umfSupport.functions.title")}
+                </span>
+                <ChevronDown size={15} />
+              </Button>
+              {functionsMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-slate-950 shadow-xl"
                 >
-                  <ClipboardList className="mt-0.5 text-slate-500" size={18} />
-                  <span>
-                    <span className="block text-sm font-semibold">
-                      {t("umfSupport.functions.supportOperations")}
-                    </span>
-                    <span className="block text-xs text-slate-500">
-                      {t("umfSupport.functions.supportOperationsHint")}
-                    </span>
-                  </span>
-                </button>
-                {capabilities?.canManageCommercialTrials && (
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => selectView("commercialTrials")}
+                    onClick={() => selectView("tickets")}
                     className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-slate-100"
                   >
-                    <Building2 className="mt-0.5 text-slate-500" size={18} />
+                    <ClipboardList
+                      className="mt-0.5 text-slate-500"
+                      size={18}
+                    />
                     <span>
                       <span className="block text-sm font-semibold">
-                        {t("umfSupport.functions.commercialTrials")}
+                        {t("umfSupport.functions.supportOperations")}
                       </span>
                       <span className="block text-xs text-slate-500">
-                        {t("umfSupport.functions.commercialTrialsHint")}
+                        {t("umfSupport.functions.supportOperationsHint")}
                       </span>
                     </span>
                   </button>
-                )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => selectView("team")}
-                  className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-slate-100"
-                >
-                  <Users className="mt-0.5 text-slate-500" size={18} />
-                  <span>
-                    <span className="block text-sm font-semibold">
-                      {t("umfSupport.functions.corporateAdministrators")}
+                  {capabilities?.canManageCommercialTrials && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => selectView("commercialTrials")}
+                      className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-slate-100"
+                    >
+                      <Building2 className="mt-0.5 text-slate-500" size={18} />
+                      <span>
+                        <span className="block text-sm font-semibold">
+                          {t("umfSupport.functions.commercialTrials")}
+                        </span>
+                        <span className="block text-xs text-slate-500">
+                          {t("umfSupport.functions.commercialTrialsHint")}
+                        </span>
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => selectView("team")}
+                    className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-slate-100"
+                  >
+                    <Users className="mt-0.5 text-slate-500" size={18} />
+                    <span>
+                      <span className="block text-sm font-semibold">
+                        {t("umfSupport.functions.corporateAdministrators")}
+                      </span>
+                      <span className="block text-xs text-slate-500">
+                        {t("umfSupport.functions.corporateAdministratorsHint")}
+                      </span>
                     </span>
-                    <span className="block text-xs text-slate-500">
-                      {t("umfSupport.functions.corporateAdministratorsHint")}
-                    </span>
-                  </span>
-                </button>
-              </div>
-            )}
-          </div>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <LanguageSwitcher />
           <Link
             to="/umf-support/account"
@@ -921,17 +969,29 @@ export function UmfSupportPage() {
                 );
               })}
           </nav>
-          <div className="mt-5 hidden space-y-2 border-t border-slate-200 pt-4 text-xs text-slate-500 lg:block">
-            <p>
-              {t("umfSupport.activeTickets", { count: queueCounts.active })}
-            </p>
-            <p>
-              {t("umfSupport.urgentTickets", { count: queueCounts.urgent })}
-            </p>
-          </div>
+          {capabilities?.operationalWorkspaceEnabled && (
+            <div className="mt-5 hidden space-y-2 border-t border-slate-200 pt-4 text-xs text-slate-500 lg:block">
+              <p>
+                {t("umfSupport.activeTickets", { count: queueCounts.active })}
+              </p>
+              <p>
+                {t("umfSupport.urgentTickets", { count: queueCounts.urgent })}
+              </p>
+            </div>
+          )}
         </aside>
 
         <section className="min-w-0 border-slate-300 bg-white p-4 sm:p-6 lg:min-h-[calc(100vh-8rem)] lg:rounded-r-xl lg:border">
+          {capabilities && !capabilities.operationalWorkspaceEnabled && (
+            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              <p className="font-bold">
+                {t("umfSupport.operationsFrozenTitle")}
+              </p>
+              <p className="mt-1">
+                {t("umfSupport.operationsFrozenDescription")}
+              </p>
+            </div>
+          )}
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-5">
             <div>
               <h1 className="text-xl font-bold">
