@@ -323,6 +323,21 @@ La instancia y la regla de Email Routing de UMF Support deben estar separadas
 de las usadas por Forge Support. No se habilita un `catch-all`. Configurar estos
 nombres no autoriza a crear o rotar secretos desde el repositorio.
 
+La regla de cada buzón de UMF Support debe usar la acción directa **Enviar al
+Worker** y seleccionar `umbravia-forge-umf-support-email`. La pantalla
+**Dirección de destino** de Email Routing pertenece al recorrido alternativo de
+reenvío hacia un buzón externo verificado; puede permanecer vacía y no forma
+parte de este diseño. Añadir allí `platform-support@umbraviaforge.com`, una
+cuenta personal u otra dirección no conecta el handler `email()` y crearía una
+ruta distinta que debe auditarse por separado.
+
+`staging-umbraviaforge.com` es un dominio independiente, no un subdominio de
+`umbraviaforge.com`, y no forma parte de la configuración versionada ni del
+recorrido de producción descrito aquí. Su ausencia en Email Routing no impide
+que funcione `platform-support@umbraviaforge.com`. Si se recupera un entorno de
+staging, debe tener zona, DNS, Worker, endpoint, secreto y almacenamiento
+separados, y no reutilizar la regla ni las credenciales de producción.
+
 ### Despliegue independiente mediante Workers Builds
 
 La raíz `cloudflare/` contiene una configuración de despliegue exclusiva para
@@ -403,6 +418,24 @@ configuración. El registro debe revisarse junto al
 Activity log de Email Routing: `Handled` demuestra que la regla invocó el
 Worker, mientras que la primera fila persistida `email/inbound` es la evidencia
 de que la aplicación aceptó el recorrido completo.
+
+El diagnóstico operativo debe seguir este orden y detenerse en la primera
+frontera que no aporte evidencia:
+
+1. Email Routing muestra la dirección exacta con acción **Enviar al Worker** y
+   el evento nuevo como `Handled`.
+2. Workers Logs registra la misma ejecución. Si aparece
+   `umf_support_inbound_email_failed`, se usan `failureStage`,
+   `applicationStatus` y `reason` para localizar el rechazo sin inspeccionar el
+   contenido del mensaje.
+3. La aplicación persiste una fila `email/inbound`; solo entonces el panel debe
+   mostrar el correo.
+
+No se añade una dirección externa de destino ni un servicio IMAP para corregir
+la ausencia de cualquiera de estas tres evidencias: el flujo vigente recibe el
+mensaje en Email Routing, ejecuta el Worker y entrega un webhook HTTPS firmado.
+IMAP correspondería a otra arquitectura de buzón y requeriría una decisión y una
+integración independientes.
 
 En el servidor, los nombres `UMF_SUPPORT_*` pueden agruparse junto a las demás
 líneas de soporte porque el orden del archivo de entorno no es significativo.
