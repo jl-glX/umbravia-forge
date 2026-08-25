@@ -41,6 +41,8 @@ import { umfSupportRouter } from "./routes/umf-support.js";
 import { umfSupportEmailInboundRouter } from "./routes/umf-support-email-inbound.js";
 import { stripeBillingWebhookRouter } from "./routes/stripe-billing-webhook.js";
 import { commercialSubscriptionRouter } from "./routes/commercial-subscription.js";
+import { stripeConnectRouter } from "./routes/stripe-connect.js";
+import { stripeConnectWebhookRouter } from "./routes/stripe-connect-webhook.js";
 import { e2eeRouter } from "./routes/e2ee.js";
 import {
   apiLimiter,
@@ -128,6 +130,7 @@ app.use("/api", apiLimiter);
 app.use("/api/internal/support-email", supportEmailInboundRouter);
 app.use("/api/internal/umf-support-email", umfSupportEmailInboundRouter);
 app.use("/api/internal/stripe-billing", stripeBillingWebhookRouter);
+app.use("/api/internal/stripe-connect", stripeConnectWebhookRouter);
 
 // Facility logos use a larger JSON allowance inside their authenticated router.
 // The general API keeps its deliberately small request limit below.
@@ -181,6 +184,7 @@ app.use("/api/account/delegations", delegationsRouter);
 app.use("/api/downloads", downloadsRouter);
 app.use("/api/commercial", commercialRouter);
 app.use("/api/commercial-subscription", commercialSubscriptionRouter);
+app.use("/api/stripe-connect", stripeConnectRouter);
 app.use("/api/community", communityRouter);
 app.use("/api/moderation", moderationRouter);
 app.use("/api/support", supportRouter);

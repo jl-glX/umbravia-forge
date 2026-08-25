@@ -1001,7 +1001,10 @@
     "ordersUnavailable": "La venta y los pedidos todavía no están habilitados.",
     "ordersAvailable": "Ya puedes consultar tus pedidos.",
     "loadFailed": "No se han podido cargar tus pagos y pedidos.",
-    "secureNotice": "Umbravia Forge no procesa cobros bancarios ni almacena datos completos de tarjetas en esta versión."
+    "checkoutFailed": "No se ha podido abrir el pago seguro del centro.",
+    "payWithStripe": "Pagar con Stripe",
+    "openingCheckout": "Abriendo pago…",
+    "secureNotice": "El pago se realiza directamente con tu centro mediante Stripe. Umbravia Forge no almacena los datos completos de tu tarjeta."
   },
   "trainer": {
     "title": "Panel del entrenador",
@@ -1185,7 +1188,27 @@
   "billing": {
     "eyebrow": "Umbravia Forge · Administración financiera",
     "title": "Cuotas, cobros y facturas",
-    "description": "Gestiona cuotas, pagos pendientes, facturas y accesos de prueba del centro. Esta versión registra las operaciones, pero todavía no procesa cobros bancarios.",
+    "description": "Gestiona las cuotas del centro, los cobros pendientes y las facturas. Cuando Stripe Connect esté operativo, cada centro cobrará directamente a sus socios.",
+    "connect": {
+      "title": "Cobros directos con Stripe",
+      "description": "El centro será el comerciante, aparecerá en el pago y gestionará reembolsos y disputas desde Stripe. Umbravia Forge no cobra comisión por operación.",
+      "feeNotice": "La comisión de procesamiento de Stripe corresponde al centro y no se añade como recargo separado al socio.",
+      "create": "Preparar cuenta del centro",
+      "continue": "Continuar alta en Stripe",
+      "reconcile": "Actualizar estado",
+      "mode": {
+        "disabled": "Desactivado",
+        "sandbox": "Sandbox",
+        "live": "Producción"
+      },
+      "status": {
+        "disabled": "La integración permanece cerrada por configuración.",
+        "notCreated": "La jefatura todavía no ha preparado la cuenta Stripe del centro.",
+        "onboarding_required": "Stripe necesita que la jefatura complete el alta del centro.",
+        "restricted": "Stripe requiere revisar o completar información antes de cobrar.",
+        "ready": "El centro puede cobrar directamente a sus socios."
+      }
+    },
     "requestFailed": "No se ha podido completar la operación de facturación",
     "newRecord": "Nuevo registro",
     "customer": "Socio o cliente",

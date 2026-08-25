@@ -371,6 +371,11 @@
     "eyebrow": "Umbravia Forge · Finanzverwaltung",
     "title": "Beiträge, Zahlungen und Rechnungen",
     "description": "Verwalte Studiobeiträge, offene Zahlungen, Rechnungen und Probetrainings.",
+    "connect": {
+      "status": {
+        "onboarding_required": "Stripe verlangt, dass die Einrichtungsleitung das Onboarding abschliesst."
+      }
+    },
     "requestFailed": "Der Abrechnungsvorgang konnte nicht abgeschlossen werden",
     "newRecord": "Neuer Eintrag",
     "customer": "Mitglied oder Kunde",

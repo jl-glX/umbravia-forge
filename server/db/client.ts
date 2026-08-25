@@ -2873,7 +2873,76 @@ async function initializeSqliteSchema(
     );
     CREATE INDEX IF NOT EXISTS idx_stripeWebhookEvents_received
       ON stripeWebhookEvents(receivedAt DESC);
+
+    CREATE TABLE IF NOT EXISTS facilityStripeAccounts (
+      facilityId TEXT NOT NULL,
+      stripeAccountId TEXT NOT NULL UNIQUE,
+      stripeLivemode INTEGER NOT NULL CHECK(stripeLivemode IN (0, 1)),
+      dashboard TEXT NOT NULL DEFAULT 'full',
+      status TEXT NOT NULL DEFAULT 'onboarding_required' CHECK(status IN (
+        'onboarding_required', 'restricted', 'ready'
+      )),
+      cardPaymentsStatus TEXT NOT NULL DEFAULT 'unrequested',
+      sepaDebitPaymentsStatus TEXT NOT NULL DEFAULT 'unrequested',
+      payoutsStatus TEXT NOT NULL DEFAULT 'unrequested',
+      requirementsStatus TEXT NOT NULL DEFAULT 'unknown',
+      lastReconciledAt INTEGER,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      PRIMARY KEY(facilityId, stripeLivemode),
+      FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_facilityStripeAccounts_status
+      ON facilityStripeAccounts(status, updatedAt DESC);
+
+    CREATE TABLE IF NOT EXISTS stripeConnectCheckoutSessions (
+      sessionId TEXT PRIMARY KEY,
+      facilityId TEXT NOT NULL,
+      billingRecordId TEXT NOT NULL,
+      memberUserId TEXT NOT NULL,
+      stripeAccountId TEXT NOT NULL,
+      paymentIntentId TEXT,
+      status TEXT NOT NULL DEFAULT 'open' CHECK(status IN (
+        'open', 'complete', 'expired', 'payment_failed'
+      )),
+      livemode INTEGER NOT NULL CHECK(livemode IN (0, 1)),
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL,
+      completedAt INTEGER,
+      FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE CASCADE,
+      FOREIGN KEY(billingRecordId) REFERENCES billingRecords(id) ON DELETE CASCADE,
+      FOREIGN KEY(memberUserId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(stripeAccountId) REFERENCES facilityStripeAccounts(stripeAccountId) ON DELETE RESTRICT
+    );
+    CREATE INDEX IF NOT EXISTS idx_stripeConnectCheckoutSessions_record
+      ON stripeConnectCheckoutSessions(facilityId, billingRecordId, createdAt DESC);
+
+    CREATE TABLE IF NOT EXISTS stripeConnectWebhookEvents (
+      eventId TEXT PRIMARY KEY,
+      eventType TEXT NOT NULL,
+      stripeAccountId TEXT,
+      facilityId TEXT,
+      livemode INTEGER NOT NULL CHECK(livemode IN (0, 1)),
+      receivedAt INTEGER NOT NULL,
+      processedAt INTEGER NOT NULL,
+      FOREIGN KEY(facilityId) REFERENCES facilityProfiles(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_stripeConnectWebhookEvents_received
+      ON stripeConnectWebhookEvents(receivedAt DESC);
   `);
+
+  const stripeAccountColumns = sqliteDb
+    .prepare("PRAGMA table_info(facilityStripeAccounts)")
+    .all() as Array<{ name: string }>;
+  if (
+    !stripeAccountColumns.some(
+      (column) => column.name === "sepaDebitPaymentsStatus",
+    )
+  ) {
+    sqliteDb.exec(
+      "ALTER TABLE facilityStripeAccounts ADD COLUMN sepaDebitPaymentsStatus TEXT NOT NULL DEFAULT 'unrequested'",
+    );
+  }
 
   const supportStaffColumns = sqliteDb
     .prepare("PRAGMA table_info(umfSupportStaff)")

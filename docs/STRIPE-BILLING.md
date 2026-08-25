@@ -218,6 +218,7 @@ procesador propio ni almacenar datos financieros en Umbravia Forge. La decisión
 fiscal, el código tributario del producto y el comportamiento fiscal del Price
 deben confirmarse fuera del código antes de habilitar impuestos automáticos.
 
-Stripe Connect, reparto de pagos, onboarding de cuentas conectadas, cobros a
-socios, automatización propia de reembolsos y conciliación de un libro financiero
-interno son una fase posterior y no deben confundirse con esta suscripción SaaS.
+El alta de cuentas conectadas y los cobros directos a socios pertenecen a una
+frontera separada descrita en [Stripe Connect](./STRIPE-CONNECT.md). No cambian
+el Customer, la Subscription ni los Prices con los que Umbravia Forge factura
+su SaaS al centro, y no convierten a la plataforma en comerciante de las cuotas.

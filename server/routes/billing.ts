@@ -30,6 +30,7 @@ async function findBillingMember(userId: string, facilityId: string) {
       "users.name",
       "users.email",
       "facilityMemberships.role as facilityRole",
+      "facilityMemberships.memberAffiliation",
     ])
     .where("users.id", "=", userId)
     .where("users.accountStatus", "=", "active")
@@ -75,7 +76,12 @@ billingRouter.get("/members", async (req, res, next) => {
       ])
       .where("facilityMemberships.facilityId", "=", facilityId)
       .where("facilityMemberships.status", "=", "active")
-      .where("facilityMemberships.role", "=", "member")
+      .where((expression) =>
+        expression.or([
+          expression("facilityMemberships.role", "=", "member"),
+          expression("facilityMemberships.memberAffiliation", "=", 1),
+        ]),
+      )
       .where("users.accountStatus", "=", "active")
       .where((eb) =>
         eb.or([
@@ -203,7 +209,11 @@ billingRouter.post(
         res.status(400).json({ error: "Selected member does not exist" });
         return;
       }
-      if (member && member.facilityRole !== "member") {
+      if (
+        member &&
+        member.facilityRole !== "member" &&
+        member.memberAffiliation !== 1
+      ) {
         res.status(400).json({ error: "Selected account is not a member" });
         return;
       }
@@ -283,7 +293,10 @@ billingRouter.patch(
         delete values.userId;
       } else if (req.body.userId) {
         const member = await findBillingMember(req.body.userId, facilityId);
-        if (!member || member.facilityRole !== "member") {
+        if (
+          !member ||
+          (member.facilityRole !== "member" && member.memberAffiliation !== 1)
+        ) {
           res.status(400).json({ error: "Selected member does not exist" });
           return;
         }

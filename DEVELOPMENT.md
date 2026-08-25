@@ -108,6 +108,10 @@ Copy `.env.example` to `.env` to override defaults.
 | `STRIPE_PRICE_FORGE_MONTHLY`                 | Server-authorized monthly recurring Price.                       |
 | `STRIPE_PRICE_FORGE_ANNUAL`                  | Independent server-authorized annual recurring Price.            |
 | `STRIPE_PORTAL_CONFIGURATION_ID`             | Optional explicit Customer Portal configuration.                 |
+| `STRIPE_CONNECT_ENABLED`                     | Explicitly enables direct facility payments.                     |
+| `STRIPE_CONNECT_MODE`                        | Selects isolated Stripe `sandbox` or `live` objects.             |
+| `STRIPE_CONNECT_RESTRICTED_API_KEY`          | Separate restricted key for Accounts v2 and direct Checkout.     |
+| `STRIPE_CONNECT_WEBHOOK_SECRET`              | Signs the connected-account webhook body.                        |
 
 Protected authentication actions use an explicitly rendered Cloudflare
 Turnstile widget. The client sends the short-lived token to the API, which

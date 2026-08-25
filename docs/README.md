@@ -69,6 +69,7 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Gestor de bases y entornos](./DATABASE-ENVIRONMENT-MANAGER.md)
 - [Política de dependencias](./dependency-policy.md)
 - [Suscripciones y facturación con Stripe](./STRIPE-BILLING.md)
+- [Cobros de centros con Stripe Connect](./STRIPE-CONNECT.md)
 - [Política de privacidad](./PRIVACY-POLICY.md)
 
 ## Seguridad, cifrado y comunicaciones

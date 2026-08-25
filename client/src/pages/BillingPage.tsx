@@ -9,6 +9,8 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  ExternalLink,
+  ShieldCheck,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { VerifiedForm } from "../components/VerifiedForm";
@@ -81,6 +83,21 @@ interface BillingMemberResult {
   publicId: string | null;
 }
 
+interface StripeConnectOverview {
+  configured: boolean;
+  mode: "disabled" | "sandbox" | "live";
+  testMode: boolean;
+  canManage: boolean;
+  account: null | {
+    status: "onboarding_required" | "restricted" | "ready";
+    cardPaymentsStatus: string;
+    sepaDebitPaymentsStatus: string;
+    payoutsStatus: string;
+    requirementsStatus: string;
+    lastReconciledAt: number | null;
+  };
+}
+
 export function BillingPage() {
   const { t, i18n } = useTranslation();
   const editingLanguage = i18n.resolvedLanguage ?? i18n.language;
@@ -96,6 +113,8 @@ export function BillingPage() {
   const [memberSearching, setMemberSearching] = useState(false);
   const [deleteRecord, setDeleteRecord] = useState<BillingRecord | null>(null);
   const [deletingRecord, setDeletingRecord] = useState(false);
+  const [connect, setConnect] = useState<StripeConnectOverview | null>(null);
+  const [connectBusy, setConnectBusy] = useState(false);
   const timeZone = useMemo(getDeviceTimeZone, []);
 
   const request = async <T,>(path: string, init?: RequestInit): Promise<T> => {
@@ -112,7 +131,12 @@ export function BillingPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setRecords(await request<BillingRecord[]>("/api/billing"));
+      const [billingRecords, connectOverview] = await Promise.all([
+        request<BillingRecord[]>("/api/billing"),
+        request<StripeConnectOverview>("/api/stripe-connect"),
+      ]);
+      setRecords(billingRecords);
+      setConnect(connectOverview);
       setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -125,6 +149,13 @@ export function BillingPage() {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const flow = new URLSearchParams(window.location.search).get(
+      "stripe-connect",
+    );
+    if (flow === "return") void load();
   }, [load]);
 
   useEffect(() => {
@@ -281,6 +312,28 @@ export function BillingPage() {
     requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
   };
 
+  const connectAction = async (
+    action: "account" | "onboarding" | "reconcile",
+  ) => {
+    setConnectBusy(true);
+    try {
+      const result = await request<StripeConnectOverview | { url: string }>(
+        `/api/stripe-connect/${action}`,
+        { method: "POST", body: "{}" },
+      );
+      if ("url" in result) {
+        window.location.assign(result.url);
+        return;
+      }
+      setConnect(result);
+      setError("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setConnectBusy(false);
+    }
+  };
+
   return (
     <>
       <main className="min-h-screen bg-slate-50 px-4 py-8 print:hidden sm:px-6">
@@ -320,6 +373,70 @@ export function BillingPage() {
             <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               {error}
             </div>
+          )}
+
+          {connect && (
+            <Card className="mt-6 rounded-3xl border-blue-200 p-6 shadow-sm">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
+                    <ShieldCheck />
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-bold text-slate-950">
+                        {t("billing.connect.title")}
+                      </h2>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                        {t(`billing.connect.mode.${connect.mode}`)}
+                      </span>
+                    </div>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                      {t("billing.connect.description")}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-slate-800">
+                      {connect.account
+                        ? t(`billing.connect.status.${connect.account.status}`)
+                        : connect.configured
+                          ? t("billing.connect.status.notCreated")
+                          : t("billing.connect.status.disabled")}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {t("billing.connect.feeNotice")}
+                    </p>
+                  </div>
+                </div>
+                {connect.canManage && connect.configured && (
+                  <VerifiedForm
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void connectAction(
+                        !connect.account
+                          ? "account"
+                          : connect.account.status === "ready"
+                            ? "reconcile"
+                            : "onboarding",
+                      );
+                    }}
+                  >
+                    <Button type="submit" disabled={connectBusy}>
+                      {connect.account?.status === "ready" ? (
+                        <RefreshCw
+                          className={connectBusy ? "animate-spin" : ""}
+                        />
+                      ) : (
+                        <ExternalLink />
+                      )}
+                      {!connect.account
+                        ? t("billing.connect.create")
+                        : connect.account.status === "ready"
+                          ? t("billing.connect.reconcile")
+                          : t("billing.connect.continue")}
+                    </Button>
+                  </VerifiedForm>
+                )}
+              </div>
+            </Card>
           )}
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">

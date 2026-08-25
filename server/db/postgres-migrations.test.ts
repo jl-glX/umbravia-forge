@@ -97,6 +97,22 @@ describe("PostgreSQL migrations", () => {
     expect(workspaceMigration).toContain('ALTER TABLE "umfSupportStaff"');
   });
 
+  it("creates an isolated Stripe Connect tenant boundary", () => {
+    const migration = postgresMigrationSql().find((sql) =>
+      sql.includes('CREATE TABLE IF NOT EXISTS "facilityStripeAccounts"'),
+    );
+    expect(migration).toContain('"stripeAccountId" TEXT NOT NULL UNIQUE');
+    expect(migration).toContain('PRIMARY KEY ("facilityId", "stripeLivemode")');
+    expect(migration).toContain(
+      'CREATE TABLE IF NOT EXISTS "stripeConnectCheckoutSessions"',
+    );
+    expect(migration).toContain(
+      'CREATE TABLE IF NOT EXISTS "stripeConnectWebhookEvents"',
+    );
+    expect(migration).toContain('"sepaDebitPaymentsStatus" TEXT NOT NULL');
+    expect(migration).not.toContain("application_fee_amount");
+  });
+
   it("keeps legacy activity identifiers out of the resulting schema", () => {
     const activityMigration =
       postgresMigrationSql().find((sql) =>

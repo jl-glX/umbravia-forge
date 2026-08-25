@@ -239,6 +239,14 @@ the corresponding countdown.
   entitlements are derived by a separate service and enforced by Analytics and
   CRM middleware. Live-capable code does not prove that Live account objects,
   secrets or end-to-end payments are configured.
+- Stripe Connect is a second, independently gated payment boundary. Accounts
+  v2 represents each facility as the merchant and direct Checkout requests run
+  in that stored connected-account context without an application fee. Only
+  the facility owner can create or onboard the account. Members, including
+  verified workers with an accepted member affiliation, can pay only their own
+  tenant-scoped records. Signed Connect events map the connected account back
+  to the facility before changing local status. The code remains disabled by
+  default and does not prove Sandbox or Live operational readiness.
 - Invoice details, archived records and custom billing cycles belong to Umbravia Forge's financial domain. The visible interface does not expose App-ProTrack as a product name.
 - Facility profile settings store the centre name, logo and accent colour separately from Umbravia Forge's product identity. Logo updates are admin-only and accept PNG, JPEG or WebP images up to 512 KB.
 - There is no implicit or privileged compatibility facility. Every operational

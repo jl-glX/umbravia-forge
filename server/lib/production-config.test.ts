@@ -246,6 +246,16 @@ describe("production configuration", () => {
     ).toThrow(/STRIPE_RESTRICTED_API_KEY/);
   });
 
+  it("fails closed when enabled Stripe Connect is incomplete", () => {
+    expect(() =>
+      validateProductionConfiguration({
+        ...validEnvironment,
+        STRIPE_CONNECT_ENABLED: "true",
+        STRIPE_CONNECT_MODE: "live",
+      }),
+    ).toThrow(/STRIPE_CONNECT_RESTRICTED_API_KEY/);
+  });
+
   it("rejects public binding, Turnstile test data and invalid encryption keys", () => {
     expect(() =>
       validateProductionConfiguration({

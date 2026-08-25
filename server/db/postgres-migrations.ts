@@ -2693,6 +2693,59 @@ SET "memberAffiliation" = 1
 WHERE "role" = 'member' AND "memberAffiliation" = 0;
 `,
   },
+  {
+    version: 57,
+    name: "stripe-connect-foundation",
+    sql: String.raw`
+CREATE TABLE IF NOT EXISTS "facilityStripeAccounts" (
+  "facilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "stripeAccountId" TEXT NOT NULL UNIQUE,
+  "stripeLivemode" SMALLINT NOT NULL CHECK ("stripeLivemode" IN (0, 1)),
+  "dashboard" TEXT NOT NULL DEFAULT 'full',
+  "status" TEXT NOT NULL DEFAULT 'onboarding_required'
+    CHECK ("status" IN ('onboarding_required', 'restricted', 'ready')),
+  "cardPaymentsStatus" TEXT NOT NULL DEFAULT 'unrequested',
+  "sepaDebitPaymentsStatus" TEXT NOT NULL DEFAULT 'unrequested',
+  "payoutsStatus" TEXT NOT NULL DEFAULT 'unrequested',
+  "requirementsStatus" TEXT NOT NULL DEFAULT 'unknown',
+  "lastReconciledAt" BIGINT,
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  PRIMARY KEY ("facilityId", "stripeLivemode")
+);
+CREATE INDEX IF NOT EXISTS "idx_facilityStripeAccounts_status"
+  ON "facilityStripeAccounts" ("status", "updatedAt" DESC);
+
+CREATE TABLE IF NOT EXISTS "stripeConnectCheckoutSessions" (
+  "sessionId" TEXT PRIMARY KEY,
+  "facilityId" TEXT NOT NULL REFERENCES "facilityProfiles" ("id") ON DELETE CASCADE,
+  "billingRecordId" TEXT NOT NULL REFERENCES "billingRecords" ("id") ON DELETE CASCADE,
+  "memberUserId" TEXT NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE,
+  "stripeAccountId" TEXT NOT NULL REFERENCES "facilityStripeAccounts" ("stripeAccountId") ON DELETE RESTRICT,
+  "paymentIntentId" TEXT,
+  "status" TEXT NOT NULL DEFAULT 'open'
+    CHECK ("status" IN ('open', 'complete', 'expired', 'payment_failed')),
+  "livemode" SMALLINT NOT NULL CHECK ("livemode" IN (0, 1)),
+  "createdAt" BIGINT NOT NULL,
+  "updatedAt" BIGINT NOT NULL,
+  "completedAt" BIGINT
+);
+CREATE INDEX IF NOT EXISTS "idx_stripeConnectCheckoutSessions_record"
+  ON "stripeConnectCheckoutSessions" ("facilityId", "billingRecordId", "createdAt" DESC);
+
+CREATE TABLE IF NOT EXISTS "stripeConnectWebhookEvents" (
+  "eventId" TEXT PRIMARY KEY,
+  "eventType" TEXT NOT NULL,
+  "stripeAccountId" TEXT,
+  "facilityId" TEXT REFERENCES "facilityProfiles" ("id") ON DELETE SET NULL,
+  "livemode" SMALLINT NOT NULL CHECK ("livemode" IN (0, 1)),
+  "receivedAt" BIGINT NOT NULL,
+  "processedAt" BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "idx_stripeConnectWebhookEvents_received"
+  ON "stripeConnectWebhookEvents" ("receivedAt" DESC);
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {
