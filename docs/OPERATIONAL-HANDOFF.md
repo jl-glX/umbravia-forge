@@ -41,14 +41,18 @@ historial de trabajo.
   para permitir la afiliación como socio de todo el personal o de personas
   concretas. La renuncia o transferencia de la jefatura continúa expresamente
   pendiente y no se simula con un botón incompleto.
-- El siguiente bloque de producto debe revisar conjuntamente las afiliaciones,
-  la coexistencia de identidad de socio con funciones de entrenador y
-  administración, y el recorrido comercial de Stripe desde la selección del
-  plan hasta Checkout, webhook, Customer, suscripción, factura, portal,
-  reconciliación y permisos. El repositorio contiene una base de facturación,
-  pero no debe presentarse como capacidad comercial activa en Internet sin
-  verificar configuración, modo, Prices, webhook y recorrido extremo a extremo
-  en el entorno autorizado.
+- La revisión de afiliaciones confirma una sola membresía de centro con
+  funciones laborales acumulables y una dimensión independiente de socio. Se
+  ha corregido el libro de facturación para reconocer también al trabajador
+  afiliado como socio; antes buscaba únicamente el rol principal `member`.
+- Stripe Connect incorpora una base Accounts v2 separada de la suscripción SaaS:
+  alta alojada por Stripe reservada a la jefatura, cargos directos del centro,
+  cero comisión de plataforma, bloqueo por capacidades, webhook firmado e
+  idempotente y pago de registros propios por socios —también personal afiliado—.
+  La migración PostgreSQL 57 prepara las tablas. Todo permanece apagado mediante
+  `STRIPE_CONNECT_ENABLED=false`; no existe evidencia operativa de Sandbox o
+  Live y no debe publicitarse como cobro activo hasta validar alta, pago,
+  reembolso, disputa y payout en el entorno autorizado.
 - La puerta local `npm run ci:validate` superó portabilidad, formato, lint, los
   tres `typecheck`, 125 archivos con 611 pruebas favorables y una omitida, las
   tres compilaciones, el paquete Windows y la auditoría de dependencias. La

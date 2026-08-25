@@ -22,6 +22,7 @@ interface CommerceSummary {
   orders: unknown[];
   capabilities: {
     payments: boolean;
+    manualRecords: boolean;
     orders: boolean;
     bankPayments: boolean;
   };
@@ -32,6 +33,7 @@ export function MemberPaymentsPage() {
   const [summary, setSummary] = useState<CommerceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [payingId, setPayingId] = useState<string | null>(null);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -69,6 +71,38 @@ export function MemberPaymentsPage() {
       style: "currency",
       currency: record.currency,
     }).format(record.amountCents / 100);
+
+  const pay = async (paymentId: string) => {
+    setPayingId(paymentId);
+    try {
+      const response = await authFetch(
+        `${API_BASE}/api/member-commerce/payments/${paymentId}/checkout`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        },
+      );
+      if (!response.ok) {
+        throw new Error(
+          await localizedApiErrorMessage(
+            response,
+            t("memberCommerce.checkoutFailed"),
+            (key) => t(key),
+          ),
+        );
+      }
+      const body = (await response.json()) as { url: string };
+      window.location.assign(body.url);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : t("memberCommerce.checkoutFailed"),
+      );
+      setPayingId(null);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -121,9 +155,24 @@ export function MemberPaymentsPage() {
                         {t(`billing.status.${payment.status}`)}
                       </p>
                     </div>
-                    <p className="shrink-0 font-bold text-slate-950">
-                      {formatAmount(payment)}
-                    </p>
+                    <div className="shrink-0 text-right">
+                      <p className="font-bold text-slate-950">
+                        {formatAmount(payment)}
+                      </p>
+                      {payment.status !== "paid" &&
+                        summary.capabilities.payments && (
+                          <button
+                            type="button"
+                            className="mt-2 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                            disabled={payingId === payment.id}
+                            onClick={() => void pay(payment.id)}
+                          >
+                            {payingId === payment.id
+                              ? t("memberCommerce.openingCheckout")
+                              : t("memberCommerce.payWithStripe")}
+                          </button>
+                        )}
+                    </div>
                   </article>
                 ))
               ) : (

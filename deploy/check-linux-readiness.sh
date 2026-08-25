@@ -198,6 +198,45 @@ if [ -f "$ENV_FILE" ]; then
       ;;
   esac
 
+  STRIPE_CONNECT_ENABLED_VALUE=$(sed -n 's/^STRIPE_CONNECT_ENABLED=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
+  case "$STRIPE_CONNECT_ENABLED_VALUE" in
+    ""|false)
+      warn "Stripe Connect permanece desactivado; los centros no cobraran a socios desde la plataforma"
+      ;;
+    true)
+      STRIPE_CONNECT_MODE_VALUE=$(sed -n 's/^STRIPE_CONNECT_MODE=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
+      STRIPE_CONNECT_MODE_VALUE=${STRIPE_CONNECT_MODE_VALUE:-sandbox}
+      case "$STRIPE_CONNECT_MODE_VALUE" in
+        sandbox) STRIPE_CONNECT_KEY_PREFIX='rk_test_' ;;
+        live)
+          STRIPE_CONNECT_KEY_PREFIX='rk_live_'
+          if grep -Eq '^APP_ENV=production$' "$ENV_FILE"; then
+            pass "Stripe Connect Live limitado al perfil de produccion"
+          else
+            fail "Stripe Connect Live requiere APP_ENV=production"
+          fi
+          ;;
+        *)
+          STRIPE_CONNECT_KEY_PREFIX=''
+          fail "STRIPE_CONNECT_MODE debe ser sandbox o live"
+          ;;
+      esac
+      if [ -n "$STRIPE_CONNECT_KEY_PREFIX" ] && grep -Eq "^STRIPE_CONNECT_RESTRICTED_API_KEY=${STRIPE_CONNECT_KEY_PREFIX}.+" "$ENV_FILE"; then
+        pass "clave restringida de Stripe Connect coherente con el modo"
+      else
+        fail "STRIPE_CONNECT_RESTRICTED_API_KEY ausente o incoherente con el modo"
+      fi
+      if grep -Eq '^STRIPE_CONNECT_WEBHOOK_SECRET=whsec_.+' "$ENV_FILE"; then
+        pass "secreto de firma del webhook Connect configurado"
+      else
+        fail "STRIPE_CONNECT_WEBHOOK_SECRET ausente o invalido"
+      fi
+      ;;
+    *)
+      fail "STRIPE_CONNECT_ENABLED debe ser true o false"
+      ;;
+  esac
+
   if grep -Eq '^EMAIL_VERIFICATION_ENABLED=true$' "$ENV_FILE"; then
     pass "EMAIL_VERIFICATION_ENABLED activo"
   else

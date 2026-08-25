@@ -155,6 +155,12 @@ STRIPE_WEBHOOK_SECRET=<secreto del endpoint Live>
 STRIPE_PRICE_FORGE_MONTHLY=<Price recurrente mensual Live>
 STRIPE_PRICE_FORGE_ANNUAL=<Price recurrente anual Live distinto>
 STRIPE_PORTAL_CONFIGURATION_ID=<configuracion Live opcional del portal>
+
+# Cobros directos del centro; mantener cerrado hasta validar Accounts v2.
+STRIPE_CONNECT_ENABLED=false
+STRIPE_CONNECT_MODE=live
+STRIPE_CONNECT_RESTRICTED_API_KEY=<clave restringida Connect Live>
+STRIPE_CONNECT_WEBHOOK_SECRET=<secreto del endpoint Connect Live>
 ```
 
 El hash de la jefatura inicial no es una contraseña ni concede acceso por sí
@@ -228,6 +234,13 @@ secreto incompletos. Staging solo admite objetos Test. Producción Live requiere
 además el recorrido humano de pago, renovación, autenticación, impago,
 cancelación, factura, webhook retrasado y reconciliación descrito en
 [`STRIPE-BILLING.md`](STRIPE-BILLING.md).
+
+Stripe Connect tampoco es requisito de arranque. Su interruptor, clave y
+webhook son independientes de Stripe Billing. Antes de activarlo deben aplicarse
+la migración 57 y el recorrido Sandbox descrito en
+[`STRIPE-CONNECT.md`](STRIPE-CONNECT.md). No reutilizar el secreto del webhook
+SaaS ni presentar una cuenta creada como lista para cobrar sin capacidades de
+tarjeta y payouts activas.
 
 ## Verificación de correo y entrega transaccional
 

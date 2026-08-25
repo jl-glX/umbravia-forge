@@ -71,6 +71,9 @@ export const migrationTableGroups = {
     "analyticsSurveyResponses",
     "analyticsSurveyAnswers",
     "stripeWebhookEvents",
+    "facilityStripeAccounts",
+    "stripeConnectCheckoutSessions",
+    "stripeConnectWebhookEvents",
     "commercialLifecycleFacts",
   ],
   security: [

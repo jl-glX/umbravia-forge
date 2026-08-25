@@ -159,7 +159,8 @@ describe("member commerce API", () => {
     expect(response.body.payments[0]).not.toHaveProperty("notes");
     expect(response.body.orders).toEqual([]);
     expect(response.body.capabilities).toEqual({
-      payments: true,
+      payments: false,
+      manualRecords: true,
       orders: false,
       bankPayments: false,
     });

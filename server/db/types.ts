@@ -1329,6 +1329,48 @@ interface StripeWebhookEvent {
   processedAt: number;
 }
 
+export type FacilityStripeAccountStatus =
+  "onboarding_required" | "restricted" | "ready";
+
+interface FacilityStripeAccount {
+  facilityId: string;
+  stripeAccountId: string;
+  stripeLivemode: 0 | 1;
+  dashboard: string;
+  status: FacilityStripeAccountStatus;
+  cardPaymentsStatus: string;
+  sepaDebitPaymentsStatus: string;
+  payoutsStatus: string;
+  requirementsStatus: string;
+  lastReconciledAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface StripeConnectCheckoutSession {
+  sessionId: string;
+  facilityId: string;
+  billingRecordId: string;
+  memberUserId: string;
+  stripeAccountId: string;
+  paymentIntentId: string | null;
+  status: "open" | "complete" | "expired" | "payment_failed";
+  livemode: 0 | 1;
+  createdAt: number;
+  updatedAt: number;
+  completedAt: number | null;
+}
+
+interface StripeConnectWebhookEvent {
+  eventId: string;
+  eventType: string;
+  stripeAccountId: string | null;
+  facilityId: string | null;
+  livemode: 0 | 1;
+  receivedAt: number;
+  processedAt: number;
+}
+
 interface AdministratorSignupProvisioning {
   userId: string;
   facilityName: string;
@@ -1446,5 +1488,8 @@ export interface Database {
   commercialRequests: CommercialRequest;
   facilityCommercialSubscriptions: FacilityCommercialSubscription;
   stripeWebhookEvents: StripeWebhookEvent;
+  facilityStripeAccounts: FacilityStripeAccount;
+  stripeConnectCheckoutSessions: StripeConnectCheckoutSession;
+  stripeConnectWebhookEvents: StripeConnectWebhookEvent;
   delegationGrants: DelegationGrant;
 }

@@ -370,7 +370,27 @@
   "billing": {
     "eyebrow": "Umbravia Forge · Finanzverwaltung",
     "title": "Beiträge, Zahlungen und Rechnungen",
-    "description": "Verwalte Studiobeiträge, offene Zahlungen, Rechnungen und Probetrainings.",
+    "description": "Verwalten Sie Gebühren, ausstehende Zahlungen und Rechnungen. Sobald Stripe Connect betriebsbereit ist, zieht jede Einrichtung die Beiträge direkt von ihren Mitgliedern ein.",
+    "connect": {
+      "title": "Direkte Zahlungen mit Stripe",
+      "description": "Die Einrichtung ist der Händler, erscheint beim Bezahlen und verwaltet Erstattungen und Streitfälle in Stripe. Umbravia Forge erhebt keine Transaktionsgebühr.",
+      "feeNotice": "Die Stripe-Bearbeitungsgebühr trägt die Einrichtung; sie wird dem Mitglied nicht als gesonderter Aufschlag berechnet.",
+      "create": "Einrichtungskonto vorbereiten",
+      "continue": "Stripe-Onboarding fortsetzen",
+      "reconcile": "Status aktualisieren",
+      "mode": {
+        "disabled": "Deaktiviert",
+        "sandbox": "Sandbox",
+        "live": "Produktion"
+      },
+      "status": {
+        "disabled": "Die Integration bleibt durch die Konfiguration geschlossen.",
+        "notCreated": "Die Einrichtungsleitung hat das Stripe-Konto noch nicht vorbereitet.",
+        "onboarding_required": "Stripe verlangt, dass die Einrichtungsleitung das Onboarding abschließt.",
+        "restricted": "Stripe benötigt weitere oder geprüfte Angaben, bevor Zahlungen möglich sind.",
+        "ready": "Die Einrichtung kann ihre Mitglieder direkt belasten."
+      }
+    },
     "requestFailed": "Der Abrechnungsvorgang konnte nicht abgeschlossen werden",
     "newRecord": "Neuer Eintrag",
     "customer": "Mitglied oder Kunde",
@@ -1087,7 +1107,10 @@
     "ordersAvailable": "Sie können jetzt Ihre Bestellungen überprüfen.",
     "notAvailable": "Es ist noch keine Aktivität verfügbar.",
     "loadFailed": "Ihre Zahlungen und Bestellungen konnten nicht geladen werden.",
-    "secureNotice": "Umbravia Forge verarbeitet in dieser Version keine Bankzahlungen und speichert keine vollständigen Kartendaten."
+    "checkoutFailed": "Die sichere Zahlungsseite der Einrichtung konnte nicht geöffnet werden.",
+    "payWithStripe": "Mit Stripe bezahlen",
+    "openingCheckout": "Zahlung wird geöffnet…",
+    "secureNotice": "Die Zahlung erfolgt über Stripe direkt an Ihre Einrichtung. Umbravia Forge speichert keine vollständigen Kartendaten."
   },
   "trainer": {
     "title": "Trainer-Dashboard",

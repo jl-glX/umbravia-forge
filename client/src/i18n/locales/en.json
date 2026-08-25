@@ -995,7 +995,10 @@
     "ordersUnavailable": "Sales and orders are not enabled yet.",
     "ordersAvailable": "You can now review your orders.",
     "loadFailed": "Your payments and orders could not be loaded.",
-    "secureNotice": "Umbravia Forge does not process bank payments or store full card details in this version."
+    "checkoutFailed": "The facility's secure payment page could not be opened.",
+    "payWithStripe": "Pay with Stripe",
+    "openingCheckout": "Opening payment…",
+    "secureNotice": "Payment is made directly to your facility through Stripe. Umbravia Forge does not store full card details."
   },
   "trainer": {
     "title": "Trainer dashboard",
@@ -1179,7 +1182,27 @@
   "billing": {
     "eyebrow": "Umbravia Forge · Financial administration",
     "title": "Fees, payments and invoices",
-    "description": "Manage facility fees, pending payments, invoices and trial access. This version records operations but does not process bank payments yet.",
+    "description": "Manage facility fees, pending payments and invoices. Once Stripe Connect is operational, each facility will charge its members directly.",
+    "connect": {
+      "title": "Direct payments with Stripe",
+      "description": "The facility is the merchant, appears during payment and manages refunds and disputes in Stripe. Umbravia Forge takes no transaction fee.",
+      "feeNotice": "Stripe processing fees are paid by the facility and are not added as a separate member surcharge.",
+      "create": "Prepare facility account",
+      "continue": "Continue Stripe onboarding",
+      "reconcile": "Refresh status",
+      "mode": {
+        "disabled": "Disabled",
+        "sandbox": "Sandbox",
+        "live": "Production"
+      },
+      "status": {
+        "disabled": "The integration remains closed by configuration.",
+        "notCreated": "The facility head has not prepared the facility Stripe account yet.",
+        "onboarding_required": "Stripe requires the facility head to complete onboarding.",
+        "restricted": "Stripe requires information to be reviewed or completed before charging.",
+        "ready": "The facility can charge its members directly."
+      }
+    },
     "requestFailed": "The billing operation could not be completed",
     "newRecord": "New record",
     "customer": "Member or customer",

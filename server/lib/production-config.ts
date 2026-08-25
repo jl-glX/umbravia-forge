@@ -13,6 +13,7 @@ import { resolveSupportEmailInboundConfiguration } from "./support-email-inbound
 import { resolveUmfSupportEmailConfiguration } from "./umf-support-email.js";
 import { validateManagerConnectionCryptoConfiguration } from "./manager-connection-crypto.js";
 import { resolveStripeBillingConfiguration } from "./stripe-billing-config.js";
+import { resolveStripeConnectConfiguration } from "./stripe-connect-config.js";
 
 type ProductionConfiguration = {
   deploymentProfile: DeploymentProfile;
@@ -123,6 +124,7 @@ export function validateProductionConfiguration(
   validatePrivateContentEncryptionConfiguration(environment);
   validateManagerConnectionCryptoConfiguration(environment);
   resolveStripeBillingConfiguration(environment);
+  resolveStripeConnectConfiguration(environment);
   const host = environment.HOST?.trim() || "127.0.0.1";
 
   if (!emailVerificationEnabled) {
