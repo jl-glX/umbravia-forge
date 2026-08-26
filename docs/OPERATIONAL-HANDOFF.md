@@ -13,6 +13,10 @@
   la posibilidad de sondear destinos arbitrarios. El procedimiento vigente se
   mantiene en `deploy/README.md` y su disponibilidad se valida antes de activar
   cada release.
+- La detección del ejecutable principal resuelve enlaces simbólicos antes de
+  comparar rutas. Esto permite ejecutar la sonda mediante
+  `/opt/umbravia-forge/current` aunque Node resuelva internamente la ruta real
+  de la release, sin producir una salida silenciosa con código `0`.
 
 ## Continuidad del cambio activo — fichas y cuentas comerciales, 26 de agosto de 2026
 

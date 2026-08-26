@@ -1,6 +1,9 @@
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
   executeSupportDiagnosticProbeCommand,
+  isDirectModuleInvocation,
   parseSupportDiagnosticProbeArguments,
 } from "./check-support-diagnostic-probe.js";
 import type { SupportDiagnosticProbeReport } from "../services/support-diagnostic-probe.js";
@@ -54,5 +57,27 @@ describe("support diagnostic probe local command", () => {
     expect(() =>
       parseSupportDiagnosticProbeArguments(["https://internal.example"]),
     ).toThrow("Comprobacion no reconocida");
+  });
+
+  it("recognizes execution through the current release symbolic link", () => {
+    const releasePath = path.resolve(
+      "release",
+      "dist/server/bin/check-support-diagnostic-probe.js",
+    );
+    const currentPath = path.resolve(
+      "current",
+      "dist/server/bin/check-support-diagnostic-probe.js",
+    );
+    const resolveRealPath = vi.fn((candidate: string) =>
+      candidate === currentPath ? releasePath : candidate,
+    );
+
+    expect(
+      isDirectModuleInvocation(
+        pathToFileURL(releasePath).href,
+        currentPath,
+        resolveRealPath,
+      ),
+    ).toBe(true);
   });
 });
