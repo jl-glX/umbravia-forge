@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)]
-  [ValidateSet("umf-support", "commercial")]
+  [ValidateSet("commercial")]
   [string]$Application,
 
   [ValidatePattern("^https://")]
@@ -25,18 +25,10 @@ if ($TestMode -and $Uninstall) {
 if ($TestMode -and $Launch) {
   throw "TestMode no puede combinarse con Launch."
 }
-$product = if ($Application -eq "umf-support") {
-  @{
-    Name = "UMF Support"
-    Slug = "UMF-Support"
-    Path = "/umf-support/access"
-  }
-} else {
-  @{
-    Name = "Umbravia Forge"
-    Slug = "Umbravia-Forge"
-    Path = "/"
-  }
+$product = @{
+  Name = "Umbravia Forge"
+  Slug = "Umbravia-Forge"
+  Path = "/"
 }
 
 if (-not $customInstallRoot) {
@@ -95,14 +87,6 @@ if ($Uninstall) {
 $edgePath = Resolve-EdgePath
 New-Item -ItemType Directory -Path $installDirectory -Force | Out-Null
 $iconPath = $edgePath
-if ($Application -eq "umf-support") {
-  $packagedIcon = Join-Path $PSScriptRoot "umf-support-icon.ico"
-  if (-not (Test-Path -LiteralPath $packagedIcon -PathType Leaf)) {
-    throw "No se ha encontrado el icono de UMF Support incluido en el paquete."
-  }
-  $iconPath = Join-Path $installDirectory "app.ico"
-  Copy-Item -LiteralPath $packagedIcon -Destination $iconPath -Force
-}
 $manifest = [ordered]@{
   schemaVersion = 1
   application = $Application

@@ -1,18 +1,16 @@
 # Paquete histórico de prueba de aplicaciones web para Windows
 
-> **No es un canal vigente de UMF Support.** El portal corporativo se publica
-> únicamente como aplicación web en `/umf-support/access`; su API de
-> distribución declara `channel: web` e `installer: null`, y la interfaz no
-> anuncia descargas. El ZIP se conserva solo como artefacto reproducible para
-> pruebas técnicas anteriores y no demuestra una distribución de escritorio
-> autorizada.
+> **UMF Support queda fuera de este paquete.** No se genera ni conserva ningún
+> instalador, desinstalador, icono o modalidad del script común para el panel
+> corporativo. El ZIP se limita a Umbravia Forge y no demuestra una distribución
+> de escritorio autorizada.
 
 ## Alcance
 
-El repositorio prepara un ZIP de prueba para instalar accesos separados a UMF
-Support y Umbravia Forge en Windows. No convierte la plataforma en una
-aplicación nativa: utiliza el modo aplicación de Microsoft Edge y abre siempre
-el servicio HTTPS publicado.
+El repositorio prepara un ZIP de prueba para instalar el acceso a Umbravia
+Forge en Windows. El paquete no convierte la plataforma en una aplicación
+nativa: utiliza el modo aplicación de Microsoft Edge y abre siempre el servicio
+HTTPS publicado.
 
 ```text
 npm run package:windows-web-apps
@@ -25,12 +23,10 @@ El resultado local, excluido de Git, es:
 .artifacts/umbravia-forge-windows-web-apps-test.zip.sha256
 ```
 
-El ZIP contiene el instalador común, envoltorios separados de instalación y
-desinstalación, el emblema saneado sin letras de UMF Support en PNG e ICO,
-instrucciones y hashes SHA-256 de cada archivo. El acceso instalado de UMF
-Support conserva una copia local del ICO; la aplicación principal sigue usando
-el icono del runtime. El paquete no contiene el servidor, una base de datos,
-secretos, cookies, contraseñas ni datos reales.
+El ZIP contiene el instalador común limitado a Umbravia Forge, sus envoltorios
+de instalación y desinstalación, instrucciones y hashes SHA-256 de cada archivo.
+La aplicación usa el icono del runtime. El paquete no contiene el servidor, una
+base de datos, secretos, cookies, contraseñas ni datos reales.
 
 ## Seguridad reutilizada
 
@@ -58,8 +54,8 @@ pero el paquete todavía no está firmado. Antes de distribuirlo como estable se
 necesita firma de código, publicación mediante HTTPS, hash verificable y una
 prueba en un equipo limpio.
 
-Los instaladores mantienen la consola visible hasta que la persona confirma el
-resultado y abren la aplicación después de crear los accesos. Si el CMD se
+El instalador conserva la consola visible hasta que la persona confirma el
+resultado y abre la aplicación después de crear los accesos. Si el CMD se
 ejecuta sin haber extraído el resto del ZIP, muestran una instrucción explícita
 en lugar de cerrar silenciosamente. Un fallo al abrir Edge no revierte una
 instalación ya completada: el acceso directo permanece disponible.
@@ -70,7 +66,6 @@ El instalador admite `-TestMode` y un directorio explícito para validar la
 resolución del runtime y el manifiesto sin crear accesos externos:
 
 ```powershell
-./Install-WebApp.ps1 -Application umf-support -InstallRoot ./prueba -TestMode
 ./Install-WebApp.ps1 -Application commercial -InstallRoot ./prueba-comercial -TestMode
 ```
 
@@ -78,12 +73,11 @@ La validación humana posterior debe cubrir:
 
 1. extracción y comprobación de hashes;
 2. instalación sin privilegios administrativos;
-3. acceso a UMF Support con una cuenta aprobada, MFA y cierre de sesión;
-4. imposibilidad de entrar con una cuenta que solo administra un centro;
-5. acceso independiente a Umbravia Forge;
-6. actualización de Edge y reapertura de ambos lanzadores;
-7. desinstalación sin borrar perfil ni datos del servidor;
-8. SmartScreen, antivirus y comportamiento en una cuenta de Windows estándar.
+3. ausencia de artefactos o modalidades instalables de UMF Support;
+4. acceso a Umbravia Forge;
+5. actualización de Edge y reapertura del lanzador;
+6. desinstalación sin borrar perfil ni datos del servidor;
+7. SmartScreen, antivirus y comportamiento en una cuenta de Windows estándar.
 
 ## Publicación
 
