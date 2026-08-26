@@ -53,9 +53,9 @@ export function publicSupportContacts(
   environment: NodeJS.ProcessEnv = process.env,
 ) {
   return {
-    helpdeskPortalEnabled: enabled(
-      environment.EXTERNAL_HELPDESK_PORTAL_ENABLED,
-    ),
+    helpdeskPortalEnabled:
+      environment.EXTERNAL_HELPDESK_PORTAL_ENABLED === undefined ||
+      enabled(environment.EXTERNAL_HELPDESK_PORTAL_ENABLED),
     helpdeskPortalUrl: httpsUrl(
       environment.EXTERNAL_HELPDESK_PORTAL_URL,
       DEFAULT_EXTERNAL_HELPDESK_PORTAL_URL,

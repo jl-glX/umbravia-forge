@@ -74,19 +74,16 @@ historial de trabajo.
   tickets y correo aunque alguien conserve una interfaz antigua; no se elimina
   ninguna fila, adjunto ni historial. UMF Support conserva accesibles únicamente
   las métricas y cuentas comerciales de prueba.
-- Las consultas generales se dirigen al correo asignado por Open Helpdesk y
-  muestran `umbraviaforge@gmail.com` como alternativa. Ese mismo Gmail es el
-  canal directo para ejercer derechos de protección de datos, evitando que el
-  proveedor de ticketing sea un intermediario obligatorio para esas
-  solicitudes.
-- `support.umbraviaforge.com` tiene CNAME y prueba TXT publicados y Open
-  Helpdesk lo muestra como verificado. Sin embargo, la comprobación real devuelve
-  `no available server` y un certificado no válido. El enlace permanece oculto
-  mediante `EXTERNAL_HELPDESK_PORTAL_ENABLED=false`; no debe habilitarse hasta
-  que HTTPS y el formulario público funcionen de extremo a extremo. La tarifa
-  pública consultada no documenta el dominio personalizado como prestación de
-  un plan concreto, por lo que una suscripción no debe presentarse como solución
-  confirmada sin respuesta del proveedor.
+- Los tickets, las incidencias y las solicitudes de soporte se dirigen al portal
+  `https://support.umbraviaforge.com`. Las consultas generales se envían a
+  `umbraviaforge@gmail.com`. Ese mismo Gmail continúa como canal directo para
+  ejercer derechos de protección de datos, evitando que el proveedor de
+  ticketing sea un intermediario obligatorio para esas solicitudes.
+- `support.umbraviaforge.com` ya responde mediante HTTPS y el enlace público
+  queda habilitado con `EXTERNAL_HELPDESK_PORTAL_ENABLED=true`. Si una
+  comprobación operativa posterior detecta una caída real del proveedor, la
+  bandera permite ocultar temporalmente el acceso sin reactivar el tablero
+  interno ni convertir Gmail en una cola de incidencias.
 - Las plantillas versionadas definen los dos bloqueos en `false` y publican solo
   direcciones y URL no secretas. Los antiguos secretos de Workers, correo y
   almacenamiento no se modifican ni reutilizan para Open Helpdesk.

@@ -14,7 +14,7 @@ describe("temporary external support routing", () => {
     expect(internalSupportTicketsEnabled({})).toBe(false);
     expect(umfSupportOperationalWorkspaceEnabled({})).toBe(false);
     expect(publicSupportContacts({})).toEqual({
-      helpdeskPortalEnabled: false,
+      helpdeskPortalEnabled: true,
       helpdeskPortalUrl: DEFAULT_EXTERNAL_HELPDESK_PORTAL_URL,
       helpdeskEmail: DEFAULT_EXTERNAL_HELPDESK_EMAIL,
       generalFallbackEmail: DEFAULT_GENERAL_FALLBACK_EMAIL,
@@ -29,6 +29,13 @@ describe("temporary external support routing", () => {
     };
     expect(internalSupportTicketsEnabled(environment)).toBe(true);
     expect(umfSupportOperationalWorkspaceEnabled(environment)).toBe(true);
+  });
+
+  it("allows the external portal to be hidden explicitly during an outage", () => {
+    expect(
+      publicSupportContacts({ EXTERNAL_HELPDESK_PORTAL_ENABLED: "false" })
+        .helpdeskPortalEnabled,
+    ).toBe(false);
   });
 
   it("rejects malformed public contact addresses", () => {

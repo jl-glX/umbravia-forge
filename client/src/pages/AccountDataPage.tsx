@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import { fetchSupportContacts, type SupportContacts } from "../lib/support";
 
 const fallbackContacts: SupportContacts = {
-  helpdeskPortalEnabled: false,
+  helpdeskPortalEnabled: true,
   helpdeskPortalUrl: "https://support.umbraviaforge.com",
   helpdeskEmail: "umbravia-forge-scrf@support.openhelpdesk.dev",
   generalFallbackEmail: "umbraviaforge@gmail.com",
