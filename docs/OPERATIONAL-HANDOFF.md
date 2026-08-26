@@ -1,5 +1,19 @@
 # Relevo operativo
 
+## Continuidad operativa — diagnóstico aislado de Cloudflare, 26 de agosto de 2026
+
+- La sonda Caddy `cf-test.umbraviaforge.com` continúa aislada del sitio y solo
+  expone las comprobaciones `live` y `ready`; cualquier otra ruta responde
+  `404` y su registro permanece separado.
+- La retirada de la antigua terminal web dejó la lógica DNS/TLS/HTTP sin punto
+  de entrada operativo. Se restablece únicamente un ejecutor local Linux que
+  usa el destino fijo, admite `all`, `dns`, `tls`, `live` o `ready` y devuelve
+  error cuando la comprobación queda degradada.
+- No se restaura `ufctl`, una consola del navegador, una API administrativa ni
+  la posibilidad de sondear destinos arbitrarios. El procedimiento vigente se
+  mantiene en `deploy/README.md` y su disponibilidad se valida antes de activar
+  cada release.
+
 ## Continuidad del cambio activo — fichas y cuentas comerciales, 26 de agosto de 2026
 
 - El alta de centros se organiza como un recorrido de ocho pasos y separa los

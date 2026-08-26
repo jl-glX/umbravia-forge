@@ -88,7 +88,9 @@ require_file "$PROJECT_ROOT/deploy/caddy-tenant-subdomains-available/tenant-subd
 require_file "$PROJECT_ROOT/deploy/caddy-tenant-subdomains.env.template"
 require_file "$PROJECT_ROOT/deploy/caddy-tenant-subdomains.service.conf"
 require_file "$PROJECT_ROOT/deploy/manage-caddy-diagnostics.sh"
+require_file "$PROJECT_ROOT/deploy/run-support-diagnostic-probe.sh"
 require_file "$PROJECT_ROOT/deploy/caddy-diagnostics-available/cf-test.caddy"
+require_file "$PROJECT_ROOT/dist/server/bin/check-support-diagnostic-probe.js"
 require_file "$PROJECT_ROOT/deploy/umbravia-forge.service"
 require_file "$PROJECT_ROOT/deploy/backup-postgresql-encrypted.sh"
 require_file "$PROJECT_ROOT/deploy/verify-encrypted-backup.sh"
@@ -105,6 +107,12 @@ if sh -n "$PROJECT_ROOT/deploy/manage-caddy-diagnostics.sh"; then
   pass "gestor modular de diagnosticos Caddy valido"
 else
   fail "gestor modular de diagnosticos Caddy no valido"
+fi
+
+if sh -n "$PROJECT_ROOT/deploy/run-support-diagnostic-probe.sh"; then
+  pass "ejecutor local de diagnosticos Cloudflare valido"
+else
+  fail "ejecutor local de diagnosticos Cloudflare no valido"
 fi
 
 CRYPTO_RUNTIME_OUTPUT=""
