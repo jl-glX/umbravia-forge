@@ -2236,11 +2236,6 @@
     "privacyTitle": "Datenschutzgrenze",
     "privacyDescription": "Das CRM zeigt keine individuellen Umfrageantworten und kombiniert keine Daten verschiedener Zentren. Umfragen bleiben anonym und werden nur aggregiert dargestellt."
   },
-  "umfSupport": {
-    "commercialTrials": {
-      "boundaryNotice": "UMF Support verwaltet nur die betriebliche Nachverfolgung. Konto, Passwort, Sitzung und Berechtigungen bleiben ausschliesslich in der kommerziellen Umbravia-Forge-Plattform."
-    }
-  },
   "unauthorized": {
     "title": "Zugriff verweigert",
     "description": "Sie haben keine Berechtigung, auf diese Seite zuzugreifen. Ihre aktuelle Rolle erlaubt Ihnen nicht, diesen Inhalt anzuzeigen."

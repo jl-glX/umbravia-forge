@@ -81,6 +81,7 @@ export type SecurityEventType =
   | "commercial_trial_administrator_verification_resent"
   | "commercial_trial_resumed_by_support"
   | "commercial_trial_cancelled_by_support"
+  | "commercial_trial_deletion_confirmation_failed"
   | "commercial_trial_deleted_by_support"
   | "email_change_requested"
   | "email_change_cancelled"

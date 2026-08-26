@@ -111,8 +111,12 @@ decisión explícita, firma y nueva validación humana; véase
   como hechos contables sin correo ni otros datos personales;
 - fichas desplegables de cuentas comerciales que muestran el correo de contacto
   y permiten preparar un mensaje, reenviar una verificación y, cuando el estado
-  lo admite, reanudar, cancelar o borrar la prueba. El borrado exige escribir el
-  nombre exacto del centro y conserva la cuenta comercial; una cuenta con cierre
+  lo admite, reanudar, cancelar o borrar la prueba. El bloque de creación de
+  altas no se muestra en el panel: lo sustituye una bandeja de avisos con cada
+  prueba pausada y acciones directas para contactar o reanudar. El borrado usa
+  un diálogo propio que identifica el centro y el correo afectados, exige la
+  contraseña corporativa y un código TOTP vigente, y conserva la cuenta
+  comercial. Sin MFA activo la operación falla cerrada. Una cuenta con cierre
   programado no se etiqueta ni se contabiliza como activa.
 
 La conversión de una prueba continúa siendo deliberadamente de clasificación:

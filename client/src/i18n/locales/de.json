@@ -2576,8 +2576,8 @@
       "title": "Funktionen",
       "supportOperations": "Supportbetrieb",
       "supportOperationsHint": "Tickets, E-Mails und Meldungen des Arbeitsbereichs.",
-      "commercialTrials": "Kommerzielle Testzugänge",
-      "commercialTrialsHint": "Status der Administratorkonten und Testzentren.",
+      "commercialTrials": "Verwaltung kommerzieller Konten",
+      "commercialTrialsHint": "Administratorkonten und Status ihrer Testphasen.",
       "corporateAdministrators": "Administrative Zugänge",
       "corporateAdministratorsHint": "Zugriff auf diesen Arbeitsbereich erteilen oder entziehen."
     },
@@ -2589,7 +2589,7 @@
       "outbox": "Postausgang",
       "sent": "Gesendet",
       "notifications": "Meldungen",
-      "commercialTrials": "Kommerzielle Zugänge",
+      "commercialTrials": "Kommerzielle Konten",
       "access": "Zugänge",
       "team": "Administratoren",
       "company": "Belegschaft",
@@ -2603,7 +2603,7 @@
       "outbox": "Postausgang",
       "sent": "Gesendete E-Mails",
       "notifications": "Betriebliche Meldungen",
-      "commercialTrials": "Kommerzielle Test-Administratorkonten",
+      "commercialTrials": "Kommerzielle Konten und Testphasen",
       "access": "Zugangsanträge",
       "team": "Administratorzugänge",
       "company": "Unternehmensbelegschaft",
@@ -2624,10 +2624,12 @@
       "collaboration": "Informative Entwürfe ohne technische Berechtigungen; Sie entscheiden, was das Personal sieht."
     },
     "commercialTrials": {
-      "provisioningEnabled": "Kommerzielle Testzugänge sind aktiviert",
-      "provisioningDisabled": "Kommerzielle Testzugänge sind geschlossen",
-      "boundaryNotice": "UMF Support verwaltet nur die betriebliche Nachverfolgung. Konto, Passwort, Sitzung und Berechtigungen bleiben ausschließlich in der kommerziellen Umbravia-Forge-Plattform.",
-      "openSignup": "Registrierungsformular öffnen",
+      "pauseAlerts": {
+        "title": "Hinweise zu pausierten kommerziellen Tests",
+        "description": "Prüfen Sie durch den Support pausierte Tests, bevor Sie das Zentrum kontaktieren oder den Zugang wiederherstellen.",
+        "empty": "Keine pausierten kommerziellen Tests erfordern Aufmerksamkeit.",
+        "actionRequired": "Der Test bleibt angehalten, bis UMF Support ihn geprüft und über Kontaktaufnahme oder Fortsetzung entschieden hat."
+      },
       "accountList": "Kommerzielle Administratorkonten",
       "accountListHint": "Nur für die Eigentümerin oder den Eigentümer des Arbeitsbereichs. Zugangsdaten werden nicht geteilt und eine UMF-Support-Sitzung wird nie zu einer kommerziellen Sitzung.",
       "createdAt": "Registrierung begonnen: {{date}}",
@@ -2672,8 +2674,22 @@
       "deletionPending": "Konto zur Löschung vorgemerkt",
       "deletionScheduledFor": "Geplante Schliessung: {{date}}",
       "confirmCancel": "Möchten Sie den Test von {{facility}} abbrechen? Der Zugang wird geschlossen und das öffentliche Profil wird ausgeblendet.",
-      "confirmDelete": "Dadurch wird die Testumgebung endgültig gelöscht, das Geschäftskonto bleibt jedoch erhalten. Geben Sie zum Fortfahren genau „{{facility}}“ ein.",
-      "deleteMismatch": "Der Name des Zentrums stimmt nicht überein. Es wurde nichts gelöscht."
+      "deleteDialog": {
+        "title": "Testumgebung von {{facility}} löschen",
+        "description": "Sie führen gleich einen unumkehrbaren Vorgang für {{facility}} mit dem Kontaktkonto {{email}} aus. Prüfen Sie den Umfang und bestätigen Sie Ihre Unternehmensidentität.",
+        "removedTitle": "Wird gelöscht",
+        "removedBody": "Das Testzentrum, seine Konfiguration, Betriebsdaten und jedes zugehörige öffentliche Profil.",
+        "retainedTitle": "Bleibt erhalten",
+        "retainedBody": "Das Geschäftskonto {{email}}, damit der Kontakt bestehen bleibt und eine spätere Registrierung ohne Wiederverwendung der Zugangsdaten möglich ist.",
+        "checkingSecurity": "Sicherheitsmethoden Ihres UMF-Support-Kontos werden geprüft…",
+        "mfaRequiredTitle": "Aktivieren Sie zuerst die Zwei-Schritt-Authentifizierung",
+        "mfaRequiredBody": "Endgültige Löschungen erfordern Ihr Passwort und einen aktuellen Code aus der Authenticator-App.",
+        "openSecurity": "Kontosicherheit öffnen",
+        "password": "Aktuelles UMF-Support-Passwort",
+        "totp": "Einmaliger Bestätigungscode",
+        "securityHelp": "Geben Sie den sechsstelligen Code ein, den Ihre Authenticator-App aktuell anzeigt. Passwort und Code werden nicht gespeichert.",
+        "confirm": "Bestätigen und Umgebung löschen"
+      }
     },
     "compose": "E-Mail verfassen",
     "composeHint": "Editor für betriebliche Mitteilungen von UMF Support; beliebiges HTML ist nicht zulässig.",
@@ -2957,6 +2973,10 @@
         "SUPPORT_RATE_LIMITED": "Es wurden zu viele Vorgänge nacheinander ausgeführt. Warten Sie kurz und versuchen Sie es erneut.",
         "UNAUTHENTICATED": "Die Sitzung von UMF Support ist abgelaufen. Melden Sie sich erneut an.",
         "ACCOUNT_NOT_ACTIVE": "Das UMF-Support-Konto ist nicht aktiv.",
+        "INVALID_SECURITY_CONFIRMATION_INPUT": "Geben Sie das Passwort und einen sechsstelligen Bestätigungscode ein.",
+        "SECURITY_CONFIRMATION_FAILED": "Das aktuelle UMF-Support-Passwort ist nicht korrekt.",
+        "MFA_CONFIRMATION_FAILED": "Der Bestätigungscode ist ungültig oder abgelaufen.",
+        "UMF_SUPPORT_MFA_REQUIRED": "Aktivieren Sie die Zwei-Schritt-Authentifizierung, bevor Sie eine kommerzielle Umgebung endgültig löschen.",
         "COMMERCIAL_TRIAL_ADMIN_NOT_PENDING": "Das kommerzielle Konto wartet nicht mehr auf Bestätigung oder gehört nicht zu einem Test-Administratorzugang.",
         "INTERNAL_ERROR": "UMF Support konnte den Vorgang aufgrund eines internen Fehlers nicht abschliessen."
       }

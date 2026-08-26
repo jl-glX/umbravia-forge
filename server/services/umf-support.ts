@@ -37,6 +37,7 @@ import {
 import {
   isStrongPassword,
   signupCorporateSupportAccount,
+  verifyUserPassword,
   type AuthResult,
 } from "./auth.js";
 import { isPasswordWithinHashLimit } from "../lib/password-policy.js";
@@ -56,6 +57,7 @@ import {
   deleteCommercialTrialBySupport,
   resumeCommercialTrialBySupport,
 } from "./commercial-trial.js";
+import { mfaStatus, verifyTotpCode } from "./mfa.js";
 
 const priorities = new Set<UmfSupportTicketPriority>([
   "low",
@@ -530,14 +532,39 @@ export async function updateCommercialTrialFromSupport(
 export async function removeCommercialTrialFromSupport(
   auth: AuthenticatedUser,
   trialId: string,
-  confirmation: string,
+  confirmation: { password: string; totpCode: string },
 ) {
   await requirePlatformHeadDirector(auth);
-  const result = await deleteCommercialTrialBySupport(
-    auth.userId,
-    trialId,
-    confirmation,
-  );
+  const mfa = await mfaStatus(auth.userId);
+  if (!mfa.enabled) {
+    throw Object.assign(
+      new Error("Two-step authentication is required for permanent deletion"),
+      { statusCode: 409, code: "UMF_SUPPORT_MFA_REQUIRED" },
+    );
+  }
+  if (!(await verifyUserPassword(auth.userId, confirmation.password))) {
+    await recordSecurityEvent(
+      "commercial_trial_deletion_confirmation_failed",
+      auth.userId,
+      { subjectTrialId: trialId, factor: "password" },
+    );
+    throw Object.assign(new Error("Invalid security confirmation"), {
+      statusCode: 401,
+      code: "SECURITY_CONFIRMATION_FAILED",
+    });
+  }
+  if (!(await verifyTotpCode(auth.userId, auth.email, confirmation.totpCode))) {
+    await recordSecurityEvent(
+      "commercial_trial_deletion_confirmation_failed",
+      auth.userId,
+      { subjectTrialId: trialId, factor: "totp" },
+    );
+    throw Object.assign(new Error("Invalid authenticator code"), {
+      statusCode: 401,
+      code: "MFA_CONFIRMATION_FAILED",
+    });
+  }
+  const result = await deleteCommercialTrialBySupport(auth.userId, trialId);
   await recordSecurityEvent(
     "commercial_trial_deleted_by_support",
     auth.userId,

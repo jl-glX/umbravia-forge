@@ -753,20 +753,31 @@ umfSupportRouter.post(
 umfSupportRouter.delete(
   "/commercial-trials/:trialId",
   supportMutationLimiter,
+  authenticationLimiter,
   requireRecentFormVerification,
   async (req, res, next) => {
     try {
-      requireOnlyFields(req.body, ["confirmation"]);
-      if (typeof req.body.confirmation !== "string") {
-        throw Object.assign(new Error("A confirmation is required"), {
+      requireOnlyFields(req.body, ["password", "totpCode"]);
+      if (
+        typeof req.body.password !== "string" ||
+        req.body.password.length < 1 ||
+        req.body.password.length > 128 ||
+        typeof req.body.totpCode !== "string" ||
+        !/^\d{6}$/u.test(req.body.totpCode)
+      ) {
+        throw Object.assign(new Error("Security confirmation is required"), {
           statusCode: 400,
+          code: "INVALID_SECURITY_CONFIRMATION_INPUT",
         });
       }
       res.json(
         await removeCommercialTrialFromSupport(
           getAuthenticatedUser(res),
           req.params.trialId,
-          req.body.confirmation,
+          {
+            password: req.body.password,
+            totpCode: req.body.totpCode,
+          },
         ),
       );
     } catch (error) {

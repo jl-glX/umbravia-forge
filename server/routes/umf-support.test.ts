@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as OTPAuth from "otpauth";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { signSupportEmailWebhook } from "../lib/support-email-inbound.js";
@@ -340,15 +341,54 @@ describe("UMF Support corporate API", () => {
     await request(app)
       .delete("/api/umf-support/commercial-trials/support-trial")
       .set("Cookie", directorCookie)
-      .send({ confirmation: "wrong centre" })
-      .expect(400)
+      .send({
+        password: "DirectorPassword123",
+        totpCode: "000000",
+      })
+      .expect(409)
       .expect(({ body }) => {
-        expect(body.code).toBe("COMMERCIAL_TRIAL_DELETE_CONFIRMATION_MISMATCH");
+        expect(body.code).toBe("UMF_SUPPORT_MFA_REQUIRED");
+      });
+
+    const mfa = await import("../services/mfa.js");
+    const setup = await mfa.beginMfaSetup(
+      "umf-director",
+      "director@example.com",
+    );
+    const currentCode = () =>
+      new OTPAuth.TOTP({
+        issuer: "Umbravia Forge",
+        label: "director@example.com",
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+        secret: OTPAuth.Secret.fromBase32(setup.secret),
+      }).generate();
+    await mfa.enableMfa("umf-director", "director@example.com", currentCode());
+
+    await request(app)
+      .delete("/api/umf-support/commercial-trials/support-trial")
+      .set("Cookie", directorCookie)
+      .send({ password: "WrongPassword123", totpCode: currentCode() })
+      .expect(401)
+      .expect(({ body }) => {
+        expect(body.code).toBe("SECURITY_CONFIRMATION_FAILED");
       });
     await request(app)
       .delete("/api/umf-support/commercial-trials/support-trial")
       .set("Cookie", directorCookie)
-      .send({ confirmation: "Support Trial Centre" })
+      .send({ password: "DirectorPassword123", totpCode: "000000" })
+      .expect(401)
+      .expect(({ body }) => {
+        expect(body.code).toBe("MFA_CONFIRMATION_FAILED");
+      });
+    await request(app)
+      .delete("/api/umf-support/commercial-trials/support-trial")
+      .set("Cookie", directorCookie)
+      .send({
+        password: "DirectorPassword123",
+        totpCode: currentCode(),
+      })
       .expect(200)
       .expect({
         deleted: true,

@@ -1539,7 +1539,6 @@ export async function cancelCommercialTrialBySupport(
 export async function deleteCommercialTrialBySupport(
   actorUserId: string,
   trialId: string,
-  confirmation: string,
 ) {
   const trial = await db
     .selectFrom("commercialTrials")
@@ -1547,13 +1546,6 @@ export async function deleteCommercialTrialBySupport(
     .where("id", "=", trialId)
     .executeTakeFirst();
   if (!trial) throw domainError("Commercial trial not found", 404);
-  if (confirmation.trim() !== trial.facilityName) {
-    throw domainError(
-      "The facility name confirmation does not match",
-      400,
-      "COMMERCIAL_TRIAL_DELETE_CONFIRMATION_MISMATCH",
-    );
-  }
   return withCoordinatedManagerOperation(
     "account",
     "commercial",
