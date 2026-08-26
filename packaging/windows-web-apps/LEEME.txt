@@ -1,9 +1,8 @@
 UMBRAVIA FORGE - PAQUETE DE PRUEBA PARA WINDOWS
 ================================================
 
-Este ZIP instala accesos web independientes para:
+Este ZIP prepara el acceso web de:
 
-- UMF Support: programa corporativo de soporte.
 - Umbravia Forge: aplicación principal y comercial.
 
 Requisitos:
@@ -16,7 +15,7 @@ Instalación:
 
 1. Extrae todo el ZIP en una carpeta nueva.
 2. Comprueba SHA256SUMS.txt si el archivo procede de una descarga.
-3. Ejecuta Instalar-UMF-Support.cmd o Instalar-Umbravia-Forge.cmd.
+3. Ejecuta Instalar-Umbravia-Forge.cmd.
 4. El instalador abre la aplicación y mantiene la ventana visible hasta que
    confirmes el resultado. Después puedes usar el acceso creado en el
    escritorio o en el menú Inicio.
@@ -27,8 +26,8 @@ completo en una carpeta antes de instalar.
 
 Desinstalación:
 
-Ejecuta el archivo Desinstalar correspondiente. Solo elimina los accesos y el
-manifiesto del perfil actual; no borra cuentas ni datos del servidor.
+Ejecuta Desinstalar-Umbravia-Forge.cmd para retirar la aplicación principal.
+No borra cuentas ni datos del servidor.
 
 Alcance de esta primera prueba:
 
@@ -39,7 +38,5 @@ Alcance de esta primera prueba:
 - El paquete no está firmado todavía. Los envoltorios limitan la excepción de
   ejecución al proceso que abre el script incluido; revisa el hash antes de
   ejecutarlo.
-- El emblema sin letras de UMF Support identifica su acceso directo. Los
-  archivos PNG e ICO incluidos no contienen datos ni credenciales.
 - La instalación real debe probarse con validación humana en un equipo Windows
   limpio antes de anunciarla como distribución estable.

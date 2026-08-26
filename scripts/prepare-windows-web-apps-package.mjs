@@ -11,12 +11,8 @@ const output = path.join(
 );
 const names = [
   "Install-WebApp.ps1",
-  "Instalar-UMF-Support.cmd",
   "Instalar-Umbravia-Forge.cmd",
-  "Desinstalar-UMF-Support.cmd",
   "Desinstalar-Umbravia-Forge.cmd",
-  "umf-support-icon.ico",
-  "umf-support-icon.png",
   "LEEME.txt",
 ];
 

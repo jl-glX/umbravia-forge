@@ -402,11 +402,10 @@ historial de trabajo.
   inventario de encargados y transferencias, los criterios de conservación y
   la revisión jurídica antes de un despliegue abierto.
 - `npm run package:windows-web-apps` conserva un ZIP reproducible como evidencia
-  de pruebas anteriores, pero no es un canal vigente de UMF Support. El portal
-  corporativo declara distribución web en `/umf-support/access`, devuelve
-  `installer: null` y no anuncia una descarga. La aplicación principal mantiene
-  por separado su paquete portable. Cualquier reapertura del instalador
-  corporativo exige una decisión explícita, firma y nueva validación humana.
+  de pruebas anteriores y queda limitado a la aplicación principal. UMF Support
+  no tiene instalador, desinstalador, iconos ni una modalidad admitida en el
+  script común. Cualquier reapertura de ese canal exige una decisión explícita,
+  una revisión de seguridad, firma y nueva validación humana.
 - El HTML del cliente se sirve con `no-store` y los recursos con hash son
   inmutables. Una pestaña que permanece abierta durante un despliegue puede
   conservar el índice JavaScript anterior e intentar cargar después un módulo
