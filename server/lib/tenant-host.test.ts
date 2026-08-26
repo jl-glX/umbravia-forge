@@ -3,6 +3,7 @@ import {
   isConfiguredClientHostname,
   isTenantHostnameCandidate,
   isTrustedTenantHostname,
+  resolveTenantPreviewBaseDomain,
   resolveTenantSubdomainConfiguration,
   tenantOriginForSlug,
   tenantSlugFromHostname,
@@ -50,6 +51,31 @@ describe("tenant hostname parsing", () => {
       tenantSlugFromHostname("centro.umbraviaforge.example", {
         ...enabledEnvironment,
         TENANT_SUBDOMAINS_ENABLED: "false",
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps a parent domain available for previews while routing is disabled", () => {
+    expect(
+      resolveTenantPreviewBaseDomain({
+        TENANT_SUBDOMAINS_ENABLED: "false",
+        CLIENT_ORIGIN: "https://www.umbraviaforge.com",
+      }),
+    ).toBe("umbraviaforge.com");
+    expect(
+      resolveTenantPreviewBaseDomain({
+        TENANT_SUBDOMAINS_ENABLED: "false",
+        TENANT_BASE_DOMAIN: "tenants.umbraviaforge.example",
+        CLIENT_ORIGIN: "https://www.umbraviaforge.com",
+      }),
+    ).toBe("tenants.umbraviaforge.example");
+  });
+
+  it("does not infer a preview domain from local or non-canonical origins", () => {
+    expect(
+      resolveTenantPreviewBaseDomain({
+        TENANT_SUBDOMAINS_ENABLED: "false",
+        CLIENT_ORIGIN: "http://localhost:3000,https://app.example.com",
       }),
     ).toBeNull();
   });

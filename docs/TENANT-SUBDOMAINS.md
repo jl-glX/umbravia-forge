@@ -31,8 +31,12 @@ tenant.
 
 El endpoint público `/api/tenant-context` expone únicamente nombre, slug,
 logotipo y color de marca. Las altas comerciales de prueba reservan el slug
-real del centro. El formulario muestra el nombre reservado durante la prueba y,
-cuando el enrutamiento está aprovisionado, la dirección tenant resultante.
+real del centro. El formulario muestra el nombre editable junto al dominio
+padre fijo como una previsualización inequívoca de la dirección futura. Si
+`TENANT_BASE_DOMAIN` todavía no está configurado, puede inferir ese dominio
+únicamente del origen canónico `www` para la previsualización; esta inferencia
+no activa DNS, TLS ni enrutamiento. Cuando el wildcard está aprovisionado, la
+misma dirección pasa a ser operativa sin cambiar el slug reservado.
 
 ## Configuración de la aplicación
 

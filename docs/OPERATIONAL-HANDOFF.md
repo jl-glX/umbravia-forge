@@ -11,8 +11,10 @@
   subdominio para jefatura y administración; valida nombres reservados y
   colisiones y actualiza atómicamente el slug del perfil y el de la prueba. Al
   terminar la prueba queda bloqueado. La URL completa solo se muestra cuando el
-  dominio base está configurado y, si el cambio se guarda desde el hostname
-  anterior, el cliente navega a la nueva dirección confirmada.
+  dominio base está configurado o puede inferirse de forma segura del origen
+  canónico `www`; en el segundo caso es solo una previsualización y no habilita
+  rutas. Si el cambio se guarda desde el hostname anterior, el cliente navega a
+  la nueva dirección confirmada.
 - La función permanece apagada por defecto. Están preparados el import modular
   de Caddy y la comprobación de rutas/certificados; faltan evidencias externas
   de wildcard DNS, certificado de origen, Cloudflare, WebAuthn, Turnstile y
@@ -25,7 +27,7 @@
   y reserva de slugs, resolución de host, origen de confianza, aislamiento del
   middleware, configuración de producción y altas comerciales. La puerta local
   `npm run ci:validate` superó portabilidad, formato, lint, los tres `typecheck`,
-  131 archivos con 640 pruebas favorables y una omitida, las tres compilaciones,
+  131 archivos con 642 pruebas favorables y una omitida, las tres compilaciones,
   el paquete Windows y la auditoría de dependencias. GitHub Actions continúa
   siendo una validación independiente de la publicación.
 

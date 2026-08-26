@@ -34,6 +34,26 @@ export function resolveTenantSubdomainConfiguration(
   return { enabled, baseDomain };
 }
 
+export function resolveTenantPreviewBaseDomain(
+  environment: NodeJS.ProcessEnv = process.env,
+): string | null {
+  const configured =
+    resolveTenantSubdomainConfiguration(environment).baseDomain;
+  if (configured) return configured;
+
+  for (const value of (environment.CLIENT_ORIGIN ?? "").split(",")) {
+    try {
+      const hostname = normalizeHostname(new URL(value.trim()).hostname);
+      if (!hostname.startsWith("www.")) continue;
+      const candidate = hostname.slice("www.".length);
+      if (isValidBaseDomain(candidate)) return candidate;
+    } catch {
+      // Ignore malformed origins here. Production validation remains authoritative.
+    }
+  }
+  return null;
+}
+
 export function tenantSlugFromHostname(
   hostname: string,
   environment: NodeJS.ProcessEnv = process.env,
