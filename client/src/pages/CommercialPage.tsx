@@ -105,6 +105,11 @@ export function CommercialPage() {
                 {primaryLabel} <ArrowRight />
               </Link>
             </Button>
+            <Button asChild size="lg" variant="outline" className="bg-white/85">
+              <Link to="/centres" viewTransition>
+                {t("commercial.public.browseCentres")}
+              </Link>
+            </Button>
             {!user && (
               <Button
                 asChild

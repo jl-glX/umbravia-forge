@@ -33,6 +33,9 @@ The current implementation provides:
 
 - a stable internal account identifier that is never shown as a credential;
 - a public support identifier that can be shown, copied and rotated;
+- an owner-managed sign-in phone: changes require the current password, enabled
+  MFA and a recently verified form; the number remains private by default and
+  its optional public-profile visibility is controlled separately;
 - an optional user-selected inactivity period;
 - a guided review where the user can select particular data categories without
   closing the account;

@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft,
+  Building2,
   ChevronDown,
   Languages,
+  Phone,
   ShieldCheck,
   Users,
 } from "lucide-react";
@@ -11,6 +13,12 @@ import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useAuth } from "../hooks/useAuth";
 import { authFetch } from "../lib/api";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { PasswordInput } from "../components/PasswordInput";
+import { VerifiedForm } from "../components/VerifiedForm";
+import type { CommercialTrialOverview } from "../lib/commercial";
 
 interface StaffMemberAffiliationPolicy {
   allowAllStaff: boolean;
@@ -24,6 +32,11 @@ interface StaffMemberAffiliationPolicy {
   }>;
 }
 
+interface AccountCentreProfile {
+  email: string;
+  phone: string | null;
+}
+
 export function AccountPreferencesPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -35,6 +48,16 @@ export function AccountPreferencesPage() {
   const [savingPolicy, setSavingPolicy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [centreOverview, setCentreOverview] =
+    useState<CommercialTrialOverview | null>(null);
+  const [accountProfile, setAccountProfile] =
+    useState<AccountCentreProfile | null>(null);
+  const [loadingCentreData, setLoadingCentreData] = useState(isFacilityOwner);
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [phoneDraft, setPhoneDraft] = useState("");
+  const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [mfaRequired, setMfaRequired] = useState(false);
 
   useEffect(() => {
     if (!isFacilityOwner) return;
@@ -45,6 +68,32 @@ export function AccountPreferencesPage() {
       })
       .catch(() => setError(t("accountPreferences.loadError")))
       .finally(() => setLoadingPolicy(false));
+  }, [isFacilityOwner, t]);
+
+  useEffect(() => {
+    if (!isFacilityOwner) return;
+    void Promise.all([
+      authFetch("/api/account/profile").then(async (response) => {
+        if (!response.ok) throw new Error("Account profile unavailable");
+        return (await response.json()) as { user: AccountCentreProfile };
+      }),
+      authFetch("/api/commercial/trial").then(async (response) => {
+        if (!response.ok) throw new Error("Centre data unavailable");
+        return (await response.json()) as CommercialTrialOverview | null;
+      }),
+      authFetch("/api/account/security").then(async (response) => {
+        if (!response.ok) throw new Error("Security status unavailable");
+        return (await response.json()) as { mfa: { enabled: boolean } };
+      }),
+    ])
+      .then(([profile, overview, security]) => {
+        setAccountProfile(profile.user);
+        setPhoneDraft(profile.user.phone ?? "");
+        setCentreOverview(overview);
+        setMfaRequired(security.mfa.enabled);
+      })
+      .catch(() => setError(t("accountPreferences.centreDataLoadError")))
+      .finally(() => setLoadingCentreData(false));
   }, [isFacilityOwner, t]);
 
   const savePolicy = async (
@@ -77,6 +126,92 @@ export function AccountPreferencesPage() {
     policy?.staff
       .filter((person) => person.specificallyAllowed)
       .map((person) => person.userId) ?? [];
+
+  const savePhone = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingPhone(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await authFetch("/api/account/profile/phone", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: phoneDraft,
+          password,
+          ...(mfaRequired ? { totpCode } : {}),
+        }),
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        phone?: string | null;
+        code?: string;
+      };
+      if (!response.ok) {
+        throw new Error(body.code ?? "REQUEST_FAILED");
+      }
+      setAccountProfile((current) =>
+        current ? { ...current, phone: body.phone ?? null } : current,
+      );
+      if (!body.phone) {
+        setCentreOverview((current) =>
+          current
+            ? {
+                ...current,
+                trial: { ...current.trial, showPhonePublicly: false },
+              }
+            : current,
+        );
+      }
+      setPhoneDraft(body.phone ?? "");
+      setPassword("");
+      setTotpCode("");
+      setNotice(t("accountPreferences.phoneSaved"));
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "REQUEST_FAILED";
+      setError(
+        t(`accountPreferences.phoneErrors.${code}`, {
+          defaultValue: t("accountPreferences.phoneSaveError"),
+        }),
+      );
+    } finally {
+      setSavingPhone(false);
+    }
+  };
+
+  const setPhoneVisibility = async (showPhonePublicly: boolean) => {
+    setSavingPhone(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await authFetch("/api/commercial/trial/public-phone", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showPhonePublicly }),
+      });
+      const body = (await response.json().catch(() => ({}))) as
+        CommercialTrialOverview | { code?: string };
+      if (!response.ok) {
+        throw new Error("code" in body ? body.code : "REQUEST_FAILED");
+      }
+      setCentreOverview(body as CommercialTrialOverview);
+      setNotice(
+        t(
+          showPhonePublicly
+            ? "accountPreferences.phoneMadePublic"
+            : "accountPreferences.phoneMadePrivate",
+        ),
+      );
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "REQUEST_FAILED";
+      setError(
+        t(`accountPreferences.phoneErrors.${code}`, {
+          defaultValue: t("accountPreferences.phoneVisibilityError"),
+        }),
+      );
+    } finally {
+      setSavingPhone(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6">
@@ -299,6 +434,193 @@ export function AccountPreferencesPage() {
                     )}
                   </div>
                 ) : null}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {isFacilityOwner && (
+          <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <div className="flex items-start gap-4">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-700">
+                <Building2 aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-bold text-slate-950">
+                  {t("accountPreferences.centreDataTitle")}
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  {t("accountPreferences.centreDataDescription")}
+                </p>
+
+                {loadingCentreData ? (
+                  <p className="mt-5 text-sm text-slate-500">
+                    {t("common.loading")}
+                  </p>
+                ) : (
+                  <>
+                    <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl bg-slate-50 p-4">
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {t("accountPreferences.centreName")}
+                        </dt>
+                        <dd className="mt-1 font-semibold text-slate-950">
+                          {centreOverview?.trial.facilityName ??
+                            user?.facility?.name ??
+                            "—"}
+                        </dd>
+                      </div>
+                      <div className="rounded-2xl bg-slate-50 p-4">
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {t("accountPreferences.centreType")}
+                        </dt>
+                        <dd className="mt-1 font-semibold text-slate-950">
+                          {centreOverview
+                            ? t(
+                                `commercial.facilityTypes.${centreOverview.trial.facilityType}`,
+                              )
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className="rounded-2xl bg-slate-50 p-4">
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {t("accountPreferences.accountEmail")}
+                        </dt>
+                        <dd className="mt-1 break-all font-semibold text-slate-950">
+                          {accountProfile?.email ?? user?.email ?? "—"}
+                        </dd>
+                      </div>
+                      <div className="rounded-2xl bg-slate-50 p-4">
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {t("accountPreferences.centreAddress")}
+                        </dt>
+                        <dd className="mt-1 break-all font-semibold text-slate-950">
+                          {centreOverview?.trial.subdomain
+                            ? `${centreOverview.trial.subdomain}.${centreOverview.environment.tenantBaseDomain ?? "umbraviaforge.com"}`
+                            : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <Link
+                      to="/admin/commercial-trial"
+                      className="mt-4 inline-flex rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-800 hover:bg-slate-50"
+                    >
+                      {t("accountPreferences.reviewCentreData")}
+                    </Link>
+
+                    <div className="mt-6 border-t border-slate-200 pt-6">
+                      <div className="flex items-start gap-3">
+                        <Phone
+                          className="mt-0.5 shrink-0 text-blue-700"
+                          aria-hidden="true"
+                        />
+                        <div>
+                          <h3 className="font-bold text-slate-950">
+                            {t("accountPreferences.loginPhoneTitle")}
+                          </h3>
+                          <p className="mt-1 text-sm leading-6 text-slate-600">
+                            {t("accountPreferences.loginPhoneDescription")}
+                          </p>
+                        </div>
+                      </div>
+
+                      <VerifiedForm
+                        className="mt-5 grid gap-4 md:grid-cols-2"
+                        onSubmit={(event) => void savePhone(event)}
+                      >
+                        <div>
+                          <Label htmlFor="account-login-phone">
+                            {t("accountPreferences.loginPhone")}
+                          </Label>
+                          <Input
+                            id="account-login-phone"
+                            type="tel"
+                            autoComplete="tel"
+                            placeholder="+34 612 345 678"
+                            value={phoneDraft}
+                            onChange={(event) =>
+                              setPhoneDraft(event.target.value)
+                            }
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="account-phone-password">
+                            {t("accountPreferences.currentPassword")}
+                          </Label>
+                          <PasswordInput
+                            id="account-phone-password"
+                            autoComplete="current-password"
+                            value={password}
+                            onChange={(event) =>
+                              setPassword(event.target.value)
+                            }
+                          />
+                        </div>
+                        {mfaRequired && (
+                          <div>
+                            <Label htmlFor="account-phone-totp">
+                              {t("accountPreferences.authenticatorCode")}
+                            </Label>
+                            <Input
+                              id="account-phone-totp"
+                              inputMode="numeric"
+                              autoComplete="one-time-code"
+                              maxLength={6}
+                              value={totpCode}
+                              onChange={(event) =>
+                                setTotpCode(
+                                  event.target.value.replace(/\D/g, ""),
+                                )
+                              }
+                            />
+                          </div>
+                        )}
+                        <div className="flex items-end">
+                          <Button
+                            type="submit"
+                            disabled={savingPhone || !password}
+                          >
+                            {savingPhone
+                              ? t("common.saving")
+                              : t("accountPreferences.savePhone")}
+                          </Button>
+                        </div>
+                      </VerifiedForm>
+
+                      <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <label className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            className="mt-1 size-4 rounded border-slate-300 text-blue-700"
+                            checked={
+                              centreOverview?.trial.showPhonePublicly ?? false
+                            }
+                            disabled={savingPhone || !accountProfile?.phone}
+                            onChange={(event) =>
+                              void setPhoneVisibility(event.target.checked)
+                            }
+                          />
+                          <span>
+                            <span className="block font-semibold text-slate-950">
+                              {t("accountPreferences.showPhonePublicly")}
+                            </span>
+                            <span className="mt-1 block text-sm leading-6 text-slate-600">
+                              {t(
+                                "accountPreferences.showPhonePubliclyDescription",
+                              )}
+                            </span>
+                          </span>
+                        </label>
+                        {!accountProfile?.phone && (
+                          <p className="mt-3 text-sm font-medium text-slate-500">
+                            {t("accountPreferences.phonePrivateByDefault")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </section>

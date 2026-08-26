@@ -46,6 +46,11 @@ export interface CommercialTrialAdministratorAccount {
     facilityName: string;
     facilityType: string;
   } | null;
+  deletionRequest: {
+    status: "scheduled";
+    requestedAt: number;
+    graceEndsAt: number;
+  } | null;
   trial: {
     id: string;
     facilityName: string;
@@ -621,6 +626,34 @@ export function resendCommercialTrialAdministratorVerification(userId: string) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{}",
+    },
+  );
+}
+
+export function updateCommercialTrialFromSupport(
+  trialId: string,
+  action: "resume" | "cancel",
+) {
+  return request<void>(
+    `/commercial-trials/${encodeURIComponent(trialId)}/action`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    },
+  );
+}
+
+export function deleteCommercialTrialFromSupport(
+  trialId: string,
+  confirmation: string,
+) {
+  return request<{ deleted: true; accountDeleted: false }>(
+    `/commercial-trials/${encodeURIComponent(trialId)}`,
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmation }),
     },
   );
 }

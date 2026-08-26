@@ -113,6 +113,17 @@ describe("PostgreSQL migrations", () => {
     expect(migration).not.toContain("application_fee_amount");
   });
 
+  it("stores the centre-controlled public profile in the commercial tenant", () => {
+    const migration = postgresMigrationSql().find((sql) =>
+      sql.includes('ADD COLUMN IF NOT EXISTS "publicDescription"'),
+    );
+    expect(migration).toContain(
+      'ADD COLUMN IF NOT EXISTS "pricingDescription"',
+    );
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS "publicPageEnabled"');
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS "showPhonePublicly"');
+  });
+
   it("keeps legacy activity identifiers out of the resulting schema", () => {
     const activityMigration =
       postgresMigrationSql().find((sql) =>

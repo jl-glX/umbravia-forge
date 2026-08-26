@@ -158,7 +158,11 @@
     },
     "eyebrow": "Care and knowledge",
     "description": "A first-party space to request help, follow incidents, and find answers without leaving Umbravia Forge.",
-    "tabs": { "tickets": "Requests", "knowledge": "Knowledge", "team": "Team" },
+    "tabs": {
+      "tickets": "Requests",
+      "knowledge": "Knowledge",
+      "team": "Team"
+    },
     "searchPlaceholder": "Search by ID, subject, or content…",
     "search": "Search",
     "allStatuses": "All statuses",
@@ -363,7 +367,38 @@
     "noEligibleStaff": "There are no eligible verified staff members for this permission.",
     "saved": "Preferences have been saved.",
     "loadError": "The facility preferences could not be loaded.",
-    "saveError": "Preferences could not be saved."
+    "saveError": "Preferences could not be saved.",
+    "centreDataTitle": "Facility data",
+    "centreDataDescription": "Review the commercial account information and protect data that may also be used to sign in.",
+    "centreDataLoadError": "The facility data could not be loaded.",
+    "centreName": "Facility name",
+    "centreType": "Facility type",
+    "accountEmail": "Account email",
+    "centreAddress": "Digital address",
+    "reviewCentreData": "Review and edit facility data",
+    "loginPhoneTitle": "Sign-in phone",
+    "loginPhoneDescription": "You may use this number to sign in. Changing it requires your password and, when enabled, your second factor.",
+    "loginPhone": "Phone number",
+    "currentPassword": "Current password",
+    "authenticatorCode": "Authenticator app code",
+    "savePhone": "Save phone",
+    "phoneSaved": "The sign-in phone has been updated.",
+    "phoneSaveError": "The sign-in phone could not be updated.",
+    "phoneVisibilityError": "The phone visibility could not be changed.",
+    "phoneMadePublic": "The phone is now visible on the facility's public profile.",
+    "phoneMadePrivate": "The phone is private again.",
+    "showPhonePublicly": "Show this phone on the public profile",
+    "showPhonePubliclyDescription": "This choice is independent from sign-in. You can hide the number again at any time.",
+    "phonePrivateByDefault": "Add and verify a phone first. It will remain private until you enable this option.",
+    "phoneErrors": {
+      "ACCOUNT_PHONE_ALREADY_IN_USE": "This phone is already linked to another account.",
+      "FACILITY_OWNER_REQUIRED": "Only the facility owner may change this phone.",
+      "SECURITY_CONFIRMATION_FAILED": "The current password is incorrect.",
+      "MFA_CONFIRMATION_FAILED": "The authentication code is invalid.",
+      "FORM_VERIFICATION_REQUIRED": "Complete the form verification again.",
+      "COMMERCIAL_PUBLIC_PHONE_REQUIRED": "Add a phone before making it public.",
+      "REQUEST_FAILED": "The request could not be completed."
+    }
   },
   "accountData": {
     "back": "Back to Preferences",
@@ -1462,7 +1497,11 @@
       "campaignCreated": "Monthly campaign scheduled.",
       "campaignCount": "{{count}} campaigns recorded"
     },
-    "period": { "day": "Today", "week": "This week", "month": "This month" },
+    "period": {
+      "day": "Today",
+      "week": "This week",
+      "month": "This month"
+    },
     "recommendations": {
       "COLLECT_MORE_DATA": {
         "title": "Collect more data before deciding",
@@ -1495,9 +1534,18 @@
       "name": "Pilates Core",
       "description": "Strengthen your core with pilates"
     },
-    "spinning": { "name": "Spinning", "description": "Indoor cycling class" },
-    "boxFit": { "name": "Box Fit", "description": "Boxing fitness training" },
-    "zumba": { "name": "Zumba", "description": "Dance fitness class" }
+    "spinning": {
+      "name": "Spinning",
+      "description": "Indoor cycling class"
+    },
+    "boxFit": {
+      "name": "Box Fit",
+      "description": "Boxing fitness training"
+    },
+    "zumba": {
+      "name": "Zumba",
+      "description": "Dance fitness class"
+    }
   },
   "legal": {
     "eyebrow": "Legal information",
@@ -1903,6 +1951,7 @@
       "description": "Configure and test Umbravia Forge without automatic sales calls or hidden commitments. The product explains itself by working.",
       "explore": "Create an account",
       "openEnvironment": "Configure centre",
+      "browseCentres": "Browse centres",
       "returnHome": "Return to the application",
       "signIn": "Sign in",
       "menuLink": "Discover Umbravia Forge",
@@ -1927,6 +1976,58 @@
       "editTitle": "Centre setup",
       "description": "Use a template as a starting point. Every optional detail can be completed or changed later.",
       "centreData": "Centre details",
+      "wizard": {
+        "eyebrow": "Guided centre setup",
+        "progress": "Step {{current}} of {{total}}",
+        "progressLabel": "Configuration progress",
+        "sectionLabel": "Section {{count}}",
+        "back": "Back",
+        "next": "Next",
+        "edit": "Edit",
+        "notProvided": "You can complete this later",
+        "steps": {
+          "identity": {
+            "label": "Identity",
+            "title": "Identify your centre",
+            "description": "Set the name, speciality and basic settings the platform will use."
+          },
+          "operations": {
+            "label": "Operations",
+            "title": "Adapt daily operations",
+            "description": "Describe your activities and how bookings and waitlists should work."
+          },
+          "address": {
+            "label": "Digital address",
+            "title": "Choose your centre address",
+            "description": "Reserve a recognisable address. The parent domain always belongs to Umbravia Forge and cannot be changed."
+          },
+          "review": {
+            "label": "Review",
+            "title": "Check the configuration",
+            "description": "Review every section before saving. You can edit it later from this same area."
+          },
+          "branding": {
+            "label": "Brand",
+            "title": "Present your visual identity",
+            "description": "Add the logo and colour that will identify the centre in its public and private space."
+          },
+          "location": {
+            "label": "Location",
+            "title": "Locate the centre",
+            "description": "These details will appear on the public profile so people know where to find you."
+          },
+          "socials": {
+            "label": "Links",
+            "title": "Connect your public channels",
+            "description": "Add only the website and social networks you want to show on the centre's public profile."
+          },
+          "offers": {
+            "label": "Prices and passes",
+            "title": "Explain the centre's offer",
+            "description": "Publish your own prices, memberships, passes and conditions for prospective members."
+          }
+        }
+      },
       "requestFailed": "The operation could not be completed",
       "errors": {
         "title": "The configuration could not be saved",
@@ -1936,7 +2037,8 @@
         "notEditable": "This centre no longer accepts configuration changes in its current state.",
         "subdomainInvalid": "The subdomain may only contain lowercase letters, numbers or hyphens, cannot start or end with a hyphen, and cannot be a reserved name.",
         "subdomainUnavailable": "That subdomain already belongs to another centre. Choose a different one.",
-        "subdomainLocked": "The subdomain can only be changed while the trial period is active."
+        "subdomainLocked": "The subdomain can only be changed while the trial period is active.",
+        "logoInvalid": "The logo must be PNG, JPEG or WebP and no larger than 512 KB."
       },
       "editPolicy": {
         "trial": "During the trial period, you can edit this configuration as often as needed.",
@@ -2012,6 +2114,9 @@
         "subdomain": "Centre subdomain",
         "subdomainHelpActive": "When saved, the new address immediately replaces the previous one. The account and its permissions still determine access.",
         "subdomainHelpReserved": "The full address is a preview. The name will be reserved for the centre and will not be published until DNS and subdomain routing are enabled.",
+        "subdomainPlaceholder": "your-centre",
+        "subdomainLockedLabel": "The address was locked when the trial ended.",
+        "addressPreview": "This is how the full address will look",
         "approximateMembers": "Approximate members",
         "trainerCount": "Number of trainers",
         "spaceCount": "Rooms or zones",
@@ -2021,8 +2126,41 @@
         "currency": "Currency",
         "language": "Language",
         "schedule": "Schedule description",
+        "scheduleHelp": "E.g. Strength Monday to Friday at 18:00; mobility on Saturdays at 10:00.",
         "usesBookings": "Uses bookings",
-        "usesWaitlist": "Uses a waiting list"
+        "usesBookingsHelp": "Members will be able to reserve a place in the activities you publish.",
+        "usesWaitlist": "Uses a waiting list",
+        "usesWaitlistHelp": "Released places can be offered in order to people who are waiting.",
+        "publicDescription": "Public introduction",
+        "publicDescriptionHelp": "Explain briefly what makes your centre distinctive and who it is for.",
+        "logo": "Centre logo",
+        "logoHelp": "PNG, JPEG or WebP up to 512 KB. You can replace it later.",
+        "logoPreview": "Brand preview",
+        "accentColor": "Primary colour",
+        "addressLine": "Address",
+        "city": "City",
+        "postalCode": "Postcode",
+        "country": "Country",
+        "locationHelp": "Location is optional during the trial. Review it before publishing to avoid displaying an incorrect address.",
+        "websiteUrl": "Website",
+        "instagramUrl": "Instagram",
+        "facebookUrl": "Facebook",
+        "tiktokUrl": "TikTok",
+        "youtubeUrl": "YouTube",
+        "linkedinUrl": "LinkedIn",
+        "socialsHelp": "All links are optional and must include https:// or http://.",
+        "pricingDescription": "Prices and memberships",
+        "pricingDescriptionHelp": "E.g. monthly membership €45, joining fee included and open gym access.",
+        "bonusesDescription": "Passes, packs and promotions",
+        "bonusesDescriptionHelp": "E.g. 10-session pass, validity, price and conditions of use.",
+        "offersHelp": "These are the centre's commercial prices for its members; they do not change the plan the centre pays Umbravia Forge.",
+        "publicPageEnabled": "Public profile control",
+        "publicPageEnabledHelp": "Publish it when you are confident, withdraw it without losing the data, or keep editing it after the trial.",
+        "publishPage": "Publish profile",
+        "unpublishPage": "Withdraw profile",
+        "previewPage": "Public preview",
+        "deletePublicPage": "Delete profile",
+        "deletePublicPageConfirm": "The profile will be withdrawn and its public introduction, location, links and prices will be erased. The centre account will not be deleted. Continue?"
       }
     },
     "facilityTypes": {
@@ -2040,6 +2178,23 @@
       "indoor_cycling": "Indoor cycling",
       "multidisciplinary": "Multidisciplinary centre",
       "custom": "Custom"
+    },
+    "directory": {
+      "eyebrow": "Centres on Umbravia Forge",
+      "title": "Find a centre that suits you",
+      "description": "View activities, location, schedules and prices published directly by each centre.",
+      "search": "Search by name, city or activity",
+      "empty": "No published centres currently match your search.",
+      "noDescription": "This centre has not added a public introduction yet.",
+      "notFound": "This profile is not published",
+      "back": "Back to the directory",
+      "about": "About the centre",
+      "schedule": "Schedule",
+      "prices": "Prices and passes",
+      "location": "Location",
+      "links": "Public links",
+      "noLinks": "The centre has not published any links yet.",
+      "phone": "Phone"
     }
   },
   "captcha": {
@@ -2505,7 +2660,20 @@
         "trial_expired": "Trial expired",
         "trial_converted": "Trial converted",
         "trial_closed": "Trial closed"
-      }
+      },
+      "actions": "Actions",
+      "actionsHint": "The commercial email remains visible so you can make contact without accessing the account or sharing credentials.",
+      "contactEmail": "Contact email: {{email}}",
+      "contact": "Contact",
+      "contactSubject": "Umbravia Forge follow-up · {{facility}}",
+      "resume": "Resume trial",
+      "cancel": "Cancel trial",
+      "delete": "Delete trial period",
+      "deletionPending": "Account queued for deletion",
+      "deletionScheduledFor": "Expected closure: {{date}}",
+      "confirmCancel": "Cancel the trial for {{facility}}? Access will close and its public profile will no longer be shown.",
+      "confirmDelete": "This permanently deletes the trial environment but keeps the commercial account. Type “{{facility}}” exactly to continue.",
+      "deleteMismatch": "The facility name does not match. Nothing was deleted."
     },
     "compose": "Compose email",
     "composeHint": "UMF Support operational communication composer; arbitrary HTML is not accepted.",
@@ -2614,7 +2782,10 @@
       "librewolf": "LibreWolf"
     },
     "thisDevice": "this device",
-    "role": { "director": "Platform head", "agent": "Administrator" },
+    "role": {
+      "director": "Platform head",
+      "agent": "Administrator"
+    },
     "companyPosition": {
       "platform_head": "Head of platform",
       "area_head": "Head of area",
@@ -2622,7 +2793,10 @@
       "staff": "Staff",
       "external_collaborator": "External collaborator"
     },
-    "staffStatus": { "active": "Active", "revoked": "Revoked" },
+    "staffStatus": {
+      "active": "Active",
+      "revoked": "Revoked"
+    },
     "pendingAdministratorAccounts": "Verified accounts awaiting access",
     "pendingAdministratorAccountsHint": "Email verification proves control of the inbox but does not grant platform access.",
     "approveAdministrator": "Approve as administrator",
@@ -2762,7 +2936,12 @@
       "companyStaffAdded": "Person added to company staff without automatic technical permissions.",
       "companyStaffRevoked": "Person removed from company staff and modules returned to vacancy coverage.",
       "commercialVerificationSent": "The verification code was resent to the commercial account email.",
-      "commercialVerificationQueued": "The new verification code was queued in the commercial mail channel."
+      "commercialVerificationQueued": "The new verification code was queued in the commercial mail channel.",
+      "commercialTrial": {
+        "resume": "The trial for {{facility}} has resumed and recovered its paused time.",
+        "cancel": "The trial for {{facility}} has been cancelled.",
+        "delete": "The trial period for {{facility}} has been deleted; the commercial account is retained."
+      }
     },
     "errors": {
       "load": "UMF Support could not be loaded.",

@@ -37,6 +37,7 @@ import {
   cancelScheduledMail,
   createCollaborationSpace,
   createTicket,
+  deleteCommercialTrialFromSupport,
   deleteUmfSupportMailAttachment,
   fetchCapabilities,
   fetchAdministratorAccounts,
@@ -60,6 +61,7 @@ import {
   umfSupportMailAttachmentUrl,
   uploadUmfSupportMailAttachment,
   updateCollaborationSpace,
+  updateCommercialTrialFromSupport,
   updateStaff,
   updateTicket,
   updateNotificationSettings,
@@ -484,6 +486,82 @@ export function UmfSupportPage() {
       );
       setCommercialTrialAccounts(
         await fetchCommercialTrialAdministratorAccounts(),
+      );
+    } catch (cause) {
+      setError(normalizedError(cause, "umfSupport.errors.save"));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const contactCommercialAccount = (
+    account: CommercialTrialAdministratorAccount,
+  ) => {
+    resetComposer();
+    setMailComposer({
+      to: account.email,
+      cc: "",
+      bcc: "",
+      subject: t("umfSupport.commercialTrials.contactSubject", {
+        facility:
+          account.trial?.facilityName ??
+          account.pendingProvisioning?.facilityName ??
+          `${account.name} ${account.lastName}`,
+      }),
+      body: "",
+    });
+    setShowCompose(true);
+    setView("drafts");
+  };
+
+  const manageCommercialTrial = async (
+    account: CommercialTrialAdministratorAccount,
+    action: "resume" | "cancel" | "delete",
+  ) => {
+    if (!account.trial) return;
+    if (
+      action === "cancel" &&
+      !window.confirm(
+        t("umfSupport.commercialTrials.confirmCancel", {
+          facility: account.trial.facilityName,
+        }),
+      )
+    ) {
+      return;
+    }
+    let confirmation = "";
+    if (action === "delete") {
+      confirmation =
+        window.prompt(
+          t("umfSupport.commercialTrials.confirmDelete", {
+            facility: account.trial.facilityName,
+          }),
+        ) ?? "";
+      if (confirmation !== account.trial.facilityName) {
+        if (confirmation) {
+          setError(t("umfSupport.commercialTrials.deleteMismatch"));
+        }
+        return;
+      }
+    }
+    setWorking(true);
+    setError("");
+    try {
+      if (action === "delete") {
+        await deleteCommercialTrialFromSupport(account.trial.id, confirmation);
+      } else {
+        await updateCommercialTrialFromSupport(account.trial.id, action);
+      }
+      const [accounts, metrics] = await Promise.all([
+        fetchCommercialTrialAdministratorAccounts(),
+        fetchCommercialAccountMetrics(),
+      ]);
+      setCommercialTrialAccounts(accounts);
+      setCommercialAccountMetrics(metrics);
+      setNotice(
+        t(`umfSupport.notices.commercialTrial.${action}`, {
+          facility: account.trial.facilityName,
+        }),
       );
     } catch (cause) {
       setError(normalizedError(cause, "umfSupport.errors.save"));
@@ -2255,86 +2333,185 @@ export function UmfSupportPage() {
                     </p>
                   </div>
                   {commercialTrialAccounts.map((account) => (
-                    <article
+                    <details
                       key={account.userId}
-                      className="grid gap-4 border-b border-slate-200 p-4 last:border-0 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto] lg:items-center"
+                      className="group border-b border-slate-200 bg-white last:border-0"
                     >
-                      <div className="min-w-0">
-                        <p className="font-semibold">
-                          {account.name} {account.lastName}
-                        </p>
-                        <p className="truncate text-sm text-slate-500">
-                          {account.email}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {t("umfSupport.commercialTrials.createdAt", {
-                            date: formatDate(account.createdAt, i18n.language),
-                          })}
-                        </p>
-                        <p className="mt-1 text-xs font-semibold text-slate-600">
-                          {t(
-                            `umfSupport.commercialTrials.emailAssessment.${account.emailAssessment}`,
-                          )}
-                        </p>
-                      </div>
-                      <div className="text-sm">
-                        <p className="font-semibold text-slate-700">
-                          {account.emailVerifiedAt === null
-                            ? t(
-                                "umfSupport.commercialTrials.pendingVerification",
-                              )
-                            : t("umfSupport.commercialTrials.emailVerified")}
-                        </p>
-                        <p className="mt-1 text-slate-500">
-                          {account.trial
-                            ? t("umfSupport.commercialTrials.trialSummary", {
-                                facility: account.trial.facilityName,
-                                status: t(
-                                  `umfSupport.commercialTrials.trialStatus.${account.trial.status}`,
-                                ),
-                              })
-                            : account.pendingProvisioning
-                              ? t(
-                                  "umfSupport.commercialTrials.pendingFacility",
-                                  {
-                                    facility:
-                                      account.pendingProvisioning.facilityName,
-                                  },
-                                )
-                              : t("umfSupport.commercialTrials.noTrial")}
-                        </p>
-                        {account.trial && (
+                      <summary className="grid cursor-pointer list-none gap-4 p-4 hover:bg-slate-50 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto] lg:items-center [&::-webkit-details-marker]:hidden">
+                        <div className="min-w-0">
+                          <p className="font-semibold">
+                            {account.name} {account.lastName}
+                          </p>
+                          <p className="truncate text-sm text-slate-500">
+                            {account.email}
+                          </p>
                           <p className="mt-1 text-xs text-slate-500">
-                            {t("umfSupport.commercialTrials.expiresAt", {
+                            {t("umfSupport.commercialTrials.createdAt", {
                               date: formatDate(
-                                account.trial.expiresAt,
+                                account.createdAt,
                                 i18n.language,
                               ),
                             })}
                           </p>
-                        )}
-                      </div>
-                      <div>
-                        {account.accountStatus === "pending_verification" &&
-                          account.pendingProvisioning && (
+                          <p className="mt-1 text-xs font-semibold text-slate-600">
+                            {t(
+                              `umfSupport.commercialTrials.emailAssessment.${account.emailAssessment}`,
+                            )}
+                          </p>
+                        </div>
+                        <div className="text-sm">
+                          <p className="font-semibold text-slate-700">
+                            {account.deletionRequest
+                              ? t("umfSupport.commercialTrials.deletionPending")
+                              : account.emailVerifiedAt === null
+                                ? t(
+                                    "umfSupport.commercialTrials.pendingVerification",
+                                  )
+                                : t(
+                                    "umfSupport.commercialTrials.emailVerified",
+                                  )}
+                          </p>
+                          <p className="mt-1 text-slate-500">
+                            {account.trial
+                              ? t("umfSupport.commercialTrials.trialSummary", {
+                                  facility: account.trial.facilityName,
+                                  status: account.deletionRequest
+                                    ? t(
+                                        "umfSupport.commercialTrials.deletionPending",
+                                      )
+                                    : t(
+                                        `umfSupport.commercialTrials.trialStatus.${account.trial.status}`,
+                                      ),
+                                })
+                              : account.pendingProvisioning
+                                ? t(
+                                    "umfSupport.commercialTrials.pendingFacility",
+                                    {
+                                      facility:
+                                        account.pendingProvisioning
+                                          .facilityName,
+                                    },
+                                  )
+                                : t("umfSupport.commercialTrials.noTrial")}
+                          </p>
+                          {account.deletionRequest ? (
+                            <p className="mt-1 text-xs font-semibold text-amber-700">
+                              {t(
+                                "umfSupport.commercialTrials.deletionScheduledFor",
+                                {
+                                  date: formatDate(
+                                    account.deletionRequest.graceEndsAt,
+                                    i18n.language,
+                                  ),
+                                },
+                              )}
+                            </p>
+                          ) : (
+                            account.trial && (
+                              <p className="mt-1 text-xs text-slate-500">
+                                {t("umfSupport.commercialTrials.expiresAt", {
+                                  date: formatDate(
+                                    account.trial.expiresAt,
+                                    i18n.language,
+                                  ),
+                                })}
+                              </p>
+                            )
+                          )}
+                        </div>
+                        <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
+                          {t("umfSupport.commercialTrials.actions")}
+                          <ChevronDown
+                            className="transition-transform group-open:rotate-180"
+                            size={18}
+                          />
+                        </span>
+                      </summary>
+                      <div className="border-t border-slate-100 bg-slate-50 p-4">
+                        <p className="mb-1 break-all text-sm font-semibold text-slate-800">
+                          {t("umfSupport.commercialTrials.contactEmail", {
+                            email: account.email,
+                          })}
+                        </p>
+                        <p className="mb-3 text-xs leading-5 text-slate-500">
+                          {t("umfSupport.commercialTrials.actionsHint")}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={working}
+                            onClick={() => contactCommercialAccount(account)}
+                          >
+                            <Mail size={16} />
+                            {t("umfSupport.commercialTrials.contact")}
+                          </Button>
+                          {account.accountStatus === "pending_verification" &&
+                            account.pendingProvisioning && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                disabled={working}
+                                onClick={() =>
+                                  void resendCommercialVerification(
+                                    account.userId,
+                                  )
+                                }
+                              >
+                                <Mail size={16} />
+                                {t(
+                                  "umfSupport.commercialTrials.resendVerification",
+                                )}
+                              </Button>
+                            )}
+                          {!account.deletionRequest &&
+                            account.trial?.status ===
+                              "trial_paused_support" && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                disabled={working}
+                                onClick={() =>
+                                  void manageCommercialTrial(account, "resume")
+                                }
+                              >
+                                <RefreshCw size={16} />
+                                {t("umfSupport.commercialTrials.resume")}
+                              </Button>
+                            )}
+                          {!account.deletionRequest &&
+                            account.trial &&
+                            !["trial_closed", "trial_converted"].includes(
+                              account.trial.status,
+                            ) && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                disabled={working}
+                                onClick={() =>
+                                  void manageCommercialTrial(account, "cancel")
+                                }
+                              >
+                                <EyeOff size={16} />
+                                {t("umfSupport.commercialTrials.cancel")}
+                              </Button>
+                            )}
+                          {account.trial && (
                             <Button
                               type="button"
-                              variant="outline"
+                              variant="destructive"
                               disabled={working}
                               onClick={() =>
-                                void resendCommercialVerification(
-                                  account.userId,
-                                )
+                                void manageCommercialTrial(account, "delete")
                               }
                             >
-                              <Mail size={16} />
-                              {t(
-                                "umfSupport.commercialTrials.resendVerification",
-                              )}
+                              <Trash2 size={16} />
+                              {t("umfSupport.commercialTrials.delete")}
                             </Button>
                           )}
+                        </div>
                       </div>
-                    </article>
+                    </details>
                   ))}
                   {!loading && commercialTrialAccounts.length === 0 && (
                     <p className="p-8 text-center text-sm text-slate-500">

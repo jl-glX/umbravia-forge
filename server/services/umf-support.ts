@@ -51,6 +51,11 @@ import {
 import { ensureConfiguredCompanyHead } from "./company-head-designation.js";
 import { commercialTrialProvisioningIsEnabled } from "../lib/commercial-trial.js";
 import { umfSupportOperationalWorkspaceEnabled } from "../lib/support-routing.js";
+import {
+  cancelCommercialTrialBySupport,
+  deleteCommercialTrialBySupport,
+  resumeCommercialTrialBySupport,
+} from "./commercial-trial.js";
 
 const priorities = new Set<UmfSupportTicketPriority>([
   "low",
@@ -309,7 +314,7 @@ export async function listCommercialTrialAdministratorAccounts(
 
   return Promise.all(
     accounts.map(async (account) => {
-      const [pending, trial] = await Promise.all([
+      const [pending, trial, deletionRequest] = await Promise.all([
         db
           .selectFrom("administratorSignupProvisioning")
           .select(["facilityName", "facilityType"])
@@ -328,6 +333,12 @@ export async function listCommercialTrialAdministratorAccounts(
           ])
           .where("ownerUserId", "=", account.userId)
           .orderBy("createdAt", "desc")
+          .executeTakeFirst(),
+        db
+          .selectFrom("accountDeletionRequests")
+          .select(["status", "requestedAt", "graceEndsAt"])
+          .where("userId", "=", account.userId)
+          .where("status", "=", "scheduled")
           .executeTakeFirst(),
       ]);
       const emailSegments = account.email.split("@");
@@ -351,6 +362,7 @@ export async function listCommercialTrialAdministratorAccounts(
             : ("indeterminate" as const),
         pendingProvisioning: pending ?? null,
         trial: trial ?? null,
+        deletionRequest: deletionRequest ?? null,
       };
     }),
   );
@@ -378,6 +390,17 @@ export async function getCommercialAccountMetrics(auth: AuthenticatedUser) {
       .where("users.accountStatus", "=", "active")
       .where("facilityMemberships.status", "=", "active")
       .where("facilityMemberships.role", "in", ["owner", "admin"])
+      .where((expression) =>
+        expression.not(
+          expression.exists(
+            expression
+              .selectFrom("accountDeletionRequests")
+              .select("accountDeletionRequests.id")
+              .whereRef("accountDeletionRequests.userId", "=", "users.id")
+              .where("accountDeletionRequests.status", "=", "scheduled"),
+          ),
+        ),
+      )
       .execute(),
     db
       .selectFrom("administratorSignupProvisioning")
@@ -482,6 +505,48 @@ export async function resendCommercialTrialAdministratorVerification(
     { subjectUserId: userId, deliveryQueued: true, sent },
   );
   return { sent, queued: !sent };
+}
+
+export async function updateCommercialTrialFromSupport(
+  auth: AuthenticatedUser,
+  trialId: string,
+  action: "resume" | "cancel",
+) {
+  await requirePlatformHeadDirector(auth);
+  const result =
+    action === "resume"
+      ? await resumeCommercialTrialBySupport(auth.userId, trialId)
+      : await cancelCommercialTrialBySupport(auth.userId, trialId);
+  await recordSecurityEvent(
+    action === "resume"
+      ? "commercial_trial_resumed_by_support"
+      : "commercial_trial_cancelled_by_support",
+    auth.userId,
+    { subjectTrialId: trialId },
+  );
+  return result;
+}
+
+export async function removeCommercialTrialFromSupport(
+  auth: AuthenticatedUser,
+  trialId: string,
+  confirmation: string,
+) {
+  await requirePlatformHeadDirector(auth);
+  const result = await deleteCommercialTrialBySupport(
+    auth.userId,
+    trialId,
+    confirmation,
+  );
+  await recordSecurityEvent(
+    "commercial_trial_deleted_by_support",
+    auth.userId,
+    {
+      subjectTrialId: trialId,
+      ownerAccountRetained: true,
+    },
+  );
+  return result;
 }
 
 export function getUmfSupportDistribution() {
