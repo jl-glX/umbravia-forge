@@ -1,5 +1,6 @@
 import process from "node:process";
-import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   formatSupportDiagnosticProbeReport,
   runSupportDiagnosticProbe,
@@ -24,6 +25,23 @@ const usage = [
 type ProbeRunner = (
   check: SupportDiagnosticProbeCheck,
 ) => Promise<SupportDiagnosticProbeReport>;
+
+type RealPathResolver = (path: string) => string;
+
+export function isDirectModuleInvocation(
+  moduleUrl: string,
+  invokedPath: string | undefined,
+  resolveRealPath: RealPathResolver = (path) => realpathSync(path),
+): boolean {
+  if (!invokedPath) return false;
+  try {
+    return (
+      resolveRealPath(fileURLToPath(moduleUrl)) === resolveRealPath(invokedPath)
+    );
+  } catch {
+    return moduleUrl === pathToFileURL(invokedPath).href;
+  }
+}
 
 export function parseSupportDiagnosticProbeArguments(
   args: string[],
@@ -63,7 +81,7 @@ export async function executeSupportDiagnosticProbeCommand(
 }
 
 const invokedPath = process.argv[1];
-if (invokedPath && import.meta.url === pathToFileURL(invokedPath).href) {
+if (isDirectModuleInvocation(import.meta.url, invokedPath)) {
   executeSupportDiagnosticProbeCommand(process.argv.slice(2))
     .then((exitCode) => {
       process.exitCode = exitCode;
