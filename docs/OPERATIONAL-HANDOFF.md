@@ -1,5 +1,27 @@
 # Relevo operativo
 
+## Continuidad del cambio activo — 26 de agosto de 2026
+
+- El repositorio resuelve opcionalmente cada centro desde un slug DNS estable
+  bajo `TENANT_BASE_DOMAIN`. El host selecciona contexto, pero la membresía y
+  los permisos del servidor siguen siendo la autoridad. Un host desconocido o
+  un `X-Facility-Id` cruzado falla cerrado.
+- La marca pública se limita a nombre, slug, logotipo y color. Las pruebas
+  comerciales reutilizan el slug real del centro y muestran su URL solo cuando
+  el enrutamiento está aprovisionado.
+- La función permanece apagada por defecto. Están preparados el import modular
+  de Caddy y la comprobación de rutas/certificados; faltan evidencias externas
+  de wildcard DNS, certificado de origen, Cloudflare, WebAuthn, Turnstile y
+  flujo extremo a extremo. Véase `docs/TENANT-SUBDOMAINS.md`.
+- Se añadió `BACKGROUND_JOBS_ENABLED` para designar un único nodo de tareas en
+  una futura topología. No equivale a soporte activo-activo: adjuntos, entornos
+  locales, límites en memoria y coordinación de gestores siguen siendo
+  bloqueantes documentados en `docs/PORTABILITY-AND-MULTI-NODE.md`.
+- La validación focalizada cubre normalización y reserva de slugs, resolución de
+  host, origen de confianza, aislamiento del middleware, configuración de
+  producción y altas comerciales. La puerta completa y la validación en GitHub
+  deben registrarse al cerrar el cambio.
+
 Este documento define cómo retomar el trabajo en Umbravia Forge sin depender
 del contexto de una conversación anterior. Es una referencia saneada y apta
 para el repositorio: no debe contener direcciones de servidores, nombres del

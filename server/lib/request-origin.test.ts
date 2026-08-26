@@ -29,4 +29,22 @@ describe("trusted request origins", () => {
     expect(isTrustedOrigin("https://umbravia-forge.example")).toBe(true);
     expect(isTrustedOrigin("https://attacker.example")).toBe(false);
   });
+
+  it("trusts one-label tenant origins only when routing is enabled", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CLIENT_ORIGIN", "https://www.umbravia-forge.example");
+    vi.stubEnv("TENANT_SUBDOMAINS_ENABLED", "true");
+    vi.stubEnv("TENANT_BASE_DOMAIN", "umbravia-forge.example");
+
+    expect(isTrustedOrigin("https://centro-norte.umbravia-forge.example")).toBe(
+      true,
+    );
+    expect(isTrustedOrigin("https://a.b.umbravia-forge.example")).toBe(false);
+    expect(isTrustedOrigin("https://support.umbravia-forge.example")).toBe(
+      false,
+    );
+    expect(isTrustedOrigin("https://centro-norte.attacker.example")).toBe(
+      false,
+    );
+  });
 });

@@ -1,0 +1,9 @@
+*.{$TENANT_BASE_DOMAIN} {
+	# Cloudflare Origin CA or another explicitly provisioned wildcard
+	# certificate. These paths remain outside the release and the repository.
+	tls {$UMBRAVIA_WILDCARD_ORIGIN_CERT} {$UMBRAVIA_WILDCARD_ORIGIN_KEY} {
+		protocols tls1.3
+	}
+
+	import umbravia_application
+}

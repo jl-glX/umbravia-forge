@@ -54,12 +54,13 @@ import {
   startResourceManager,
   stopResourceManager,
 } from "./services/resource-manager.js";
-import { getAllowedClientOrigins } from "./lib/request-origin.js";
+import { isTrustedOrigin } from "./lib/request-origin.js";
 import { shouldSeedDemoData } from "./lib/demo-data-policy.js";
 import {
   startAccountLifecycleScheduler,
   stopAccountLifecycleScheduler,
 } from "./services/account-lifecycle-scheduler.js";
+import { resolveBackgroundJobsConfiguration } from "./lib/background-jobs-config.js";
 import { validateProductionConfiguration } from "./lib/production-config.js";
 import { parseServerPort } from "./lib/server-endpoint.js";
 import { authenticate } from "./middleware/authorization.js";
@@ -69,6 +70,10 @@ import {
   rejectUnsupportedHttpMethod,
 } from "./middleware/probe-protection.js";
 import { configureHttpServerSecurity } from "./lib/http-server-security.js";
+import {
+  resolveTenantHost,
+  tenantHostContextEndpoint,
+} from "./middleware/tenant-host.js";
 
 dotenv.config();
 
@@ -80,10 +85,15 @@ app.disable("x-powered-by");
 // accepting arbitrary forwarded headers during local development.
 app.set("trust proxy", process.env.NODE_ENV === "production" ? 1 : false);
 
-const clientOrigins = getAllowedClientOrigins();
 app.use(
   cors({
-    origin: clientOrigins.length ? clientOrigins : false,
+    origin(origin, callback) {
+      if (!origin || isTrustedOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(null, false);
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
@@ -124,6 +134,8 @@ app.use(rejectAutomatedProbe);
 app.use("/api", apiSecurityHeaders);
 app.use("/api", enforceTrustedMutationOrigin);
 app.use("/api", apiLimiter);
+app.use(resolveTenantHost);
+app.get("/api/tenant-context", tenantHostContextEndpoint);
 
 // The Email Worker signs the exact JSON bytes. Mount its raw-body endpoint
 // before the general parsers while retaining the common API protections.
@@ -240,8 +252,11 @@ export async function startServer(
     if (shouldSeedDemoData()) {
       await seedDatabase();
     }
-    await startResourceManager();
-    await startAccountLifecycleScheduler();
+    const backgroundJobs = resolveBackgroundJobsConfiguration(process.env);
+    if (backgroundJobs.enabled) {
+      await startResourceManager();
+      await startAccountLifecycleScheduler();
+    }
 
     return await new Promise<Server>((resolve, reject) => {
       const server = app.listen(resolvedPort, host, () => {

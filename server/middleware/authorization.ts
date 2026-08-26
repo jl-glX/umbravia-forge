@@ -15,6 +15,7 @@ import {
   hasFacilityClassPermission,
   type FacilityClassPermission,
 } from "../services/facility-class-permissions.js";
+import { getTenantHostContext } from "./tenant-host.js";
 
 export type UserRole = "member" | "trainer" | "admin";
 
@@ -151,7 +152,16 @@ export async function selectFacilityContext(
 ): Promise<void> {
   try {
     const auth = getAuthenticatedUser(res);
-    const requestedFacilityId = req.get("X-Facility-Id");
+    const tenantHost = getTenantHostContext(res);
+    const headerFacilityId = req.get("X-Facility-Id");
+    if (
+      tenantHost &&
+      headerFacilityId !== undefined &&
+      headerFacilityId !== tenantHost.facilityId
+    ) {
+      throw new FacilityAccessDeniedError();
+    }
+    const requestedFacilityId = tenantHost?.facilityId ?? headerFacilityId;
     if (requestedFacilityId !== undefined) {
       auth.facility = await resolveFacilityContext(
         auth.userId,

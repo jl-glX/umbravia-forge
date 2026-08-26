@@ -14,6 +14,8 @@ import { resolveUmfSupportEmailConfiguration } from "./umf-support-email.js";
 import { validateManagerConnectionCryptoConfiguration } from "./manager-connection-crypto.js";
 import { resolveStripeBillingConfiguration } from "./stripe-billing-config.js";
 import { resolveStripeConnectConfiguration } from "./stripe-connect-config.js";
+import { resolveTenantSubdomainConfiguration } from "./tenant-host.js";
+import { resolveBackgroundJobsConfiguration } from "./background-jobs-config.js";
 
 type ProductionConfiguration = {
   deploymentProfile: DeploymentProfile;
@@ -101,6 +103,8 @@ export function validateProductionConfiguration(
     "WEBAUTHN_ORIGIN",
   );
   const webauthnRpId = required(environment, "WEBAUTHN_RP_ID");
+  const tenantSubdomains = resolveTenantSubdomainConfiguration(environment);
+  resolveBackgroundJobsConfiguration(environment);
   const databaseProvider = required(environment, "DATABASE_PROVIDER");
   const databaseUrl = required(environment, "DATABASE_URL");
   const turnstileSecret = required(environment, "TURNSTILE_SECRET_KEY");
@@ -161,6 +165,26 @@ export function validateProductionConfiguration(
     throw new Error(
       "WEBAUTHN_RP_ID must match the deployed application domain",
     );
+  }
+  if (tenantSubdomains.enabled) {
+    if (!tenantSubdomains.baseDomain) {
+      throw new Error(
+        "TENANT_BASE_DOMAIN is required when tenant subdomains are enabled",
+      );
+    }
+    if (webauthnRpId !== tenantSubdomains.baseDomain) {
+      throw new Error(
+        "WEBAUTHN_RP_ID must equal TENANT_BASE_DOMAIN when tenant subdomains are enabled",
+      );
+    }
+    if (
+      clientOrigin.hostname !== tenantSubdomains.baseDomain &&
+      !clientOrigin.hostname.endsWith(`.${tenantSubdomains.baseDomain}`)
+    ) {
+      throw new Error(
+        "CLIENT_ORIGIN must belong to TENANT_BASE_DOMAIN when tenant subdomains are enabled",
+      );
+    }
   }
   if (environment.SEED_DEMO_DATA === "true") {
     throw new Error("SEED_DEMO_DATA must remain false in production");

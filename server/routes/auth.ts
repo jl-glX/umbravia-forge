@@ -72,7 +72,22 @@ import {
 } from "../services/form-verification.js";
 import { emailVerificationIsEnabled } from "../lib/account-verification-mode.js";
 import { ManagerCoordinationConflictError } from "../services/manager-coordinator.js";
-import { listFacilityContexts } from "../services/facility-context.js";
+import {
+  listFacilityContexts,
+  resolveFacilityContext,
+} from "../services/facility-context.js";
+import { getTenantHostContext } from "../middleware/tenant-host.js";
+
+async function applyTenantHostToUser<
+  T extends { id: string; facility?: unknown },
+>(res: express.Response, user: T): Promise<T> {
+  const tenantHost = getTenantHostContext(res);
+  if (!tenantHost) return user;
+  return {
+    ...user,
+    facility: await resolveFacilityContext(user.id, tenantHost.facilityId),
+  };
+}
 import { finalizeAdministratorSignup } from "../services/commercial-trial.js";
 import { commercialTrialProvisioningIsEnabled } from "../lib/commercial-trial.js";
 
@@ -376,6 +391,7 @@ authRouter.post(
   loginValidation,
   requireCaptcha("login"),
   async (req: express.Request, res: express.Response) => {
+    let issuedSessionToken: string | null = null;
     try {
       const { identifier, password, accessPortal, rememberDevice } = req.body;
       const result = await login(
@@ -391,9 +407,13 @@ authRouter.post(
         return;
       }
 
+      issuedSessionToken = result.sessionToken;
+      result.user = await applyTenantHostToUser(res, result.user);
       setSessionCookie(res, result.sessionToken, result.rememberDevice);
       res.status(200).json({ user: result.user, mfaRequired: false });
     } catch {
+      if (issuedSessionToken)
+        await logout(issuedSessionToken).catch(() => undefined);
       res.status(401).json({
         code: "INVALID_CREDENTIALS",
         error: "Invalid email or password",
@@ -442,6 +462,7 @@ authRouter.post(
       });
       return;
     }
+    let issuedSessionToken: string | null = null;
     try {
       const { origin, rpID } = getWebauthnContext(req);
       const result = await finishPasskeyAuthentication(
@@ -453,9 +474,13 @@ authRouter.post(
         { userAgent: req.get("User-Agent") },
       );
       clearPasskeyChallengeCookie(res);
+      issuedSessionToken = result.sessionToken;
+      result.user = await applyTenantHostToUser(res, result.user);
       setSessionCookie(res, result.sessionToken, result.rememberDevice);
       res.json({ user: result.user });
     } catch {
+      if (issuedSessionToken)
+        await logout(issuedSessionToken).catch(() => undefined);
       clearPasskeyChallengeCookie(res);
       res.status(401).json({
         code: "PASSKEY_VERIFICATION_FAILED",
@@ -478,6 +503,7 @@ authRouter.post(
       return;
     }
 
+    let issuedSessionToken: string | null = null;
     try {
       const { sessionToken, user, rememberDevice } = await completeMfaLogin(
         challengeToken,
@@ -485,9 +511,13 @@ authRouter.post(
         { userAgent: req.get("User-Agent") },
       );
       clearMfaChallengeCookie(res);
+      issuedSessionToken = sessionToken;
+      const selectedUser = await applyTenantHostToUser(res, user);
       setSessionCookie(res, sessionToken, rememberDevice);
-      res.status(200).json({ user });
+      res.status(200).json({ user: selectedUser });
     } catch {
+      if (issuedSessionToken)
+        await logout(issuedSessionToken).catch(() => undefined);
       res.status(401).json({ error: "Invalid verification code" });
     }
   },

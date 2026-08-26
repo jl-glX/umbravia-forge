@@ -46,8 +46,9 @@ export interface CommercialTrialOverview {
   trial: CommercialTrial;
   environment: {
     isolation: "shared_local_demo";
-    routing: "not_provisioned";
-    subdomainMeaning: "reserved_identifier";
+    routing: "not_provisioned" | "tenant_subdomain";
+    subdomainMeaning: "reserved_identifier" | "active_tenant_hostname";
+    tenantOrigin: string | null;
     counts: Record<string, number>;
     modules: string[];
     restorationScope: "commercial_configuration_only";

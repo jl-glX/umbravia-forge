@@ -10,9 +10,12 @@ import {
   COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS,
   COMMERCIAL_TRIAL_MS,
   commercialTemplates,
-  createTrialSubdomain,
   getTrialNotice,
 } from "../lib/commercial-trial.js";
+import {
+  createFacilitySlug,
+  createTrialSubdomain,
+} from "../lib/facility-slug.js";
 import { deleteUserInTransaction, UserDeletionBlockedError } from "./users.js";
 import { stageCommercialEnvironmentRemoval } from "./environment-manager.js";
 import {
@@ -22,6 +25,7 @@ import {
 import { stageCommunityAttachmentFilesRemoval } from "./community-attachments.js";
 import { stageSupportAttachmentFilesRemoval } from "./support.js";
 import type { StagedFileRemoval } from "../lib/staged-file-removal.js";
+import { tenantOriginForSlug } from "../lib/tenant-host.js";
 
 type TrialInput = {
   facilityName: string;
@@ -80,11 +84,6 @@ function createConversionDraft(): ConversionDraftItem[] {
     origin: "demo_seed",
     decision: "pending",
   }));
-}
-
-function createFacilitySlug(name: string): string {
-  const base = createTrialSubdomain(name).replace(/-demo$/, "");
-  return `${base}-${randomUUID().slice(0, 8)}`;
 }
 
 export async function finalizeAdministratorSignupInTransaction(
@@ -148,7 +147,7 @@ export async function finalizeAdministratorSignupInTransaction(
       usesWaitlist: template.usesWaitlist ? 1 : 0,
       templateKey: pending.facilityType,
       status: "trial_active",
-      subdomain: createTrialSubdomain(pending.facilityName),
+      subdomain: slug,
       realDataDeclaration: "undeclared",
       autoCleanupEligible: 1,
       dataReviewRequestedAt: null,
@@ -742,6 +741,7 @@ async function insertCommercialRequest(
 export async function getCommercialTrialOverview(facilityId: string) {
   const trial = await expireIfNeeded(facilityId);
   if (!trial) return null;
+  const tenantOrigin = tenantOriginForSlug(trial.subdomain);
   const [counts, events, requests] = await Promise.all([
     createEnvironmentSummary(facilityId),
     db
@@ -771,8 +771,13 @@ export async function getCommercialTrialOverview(facilityId: string) {
     trial: serializeTrial(trial),
     environment: {
       isolation: "shared_local_demo" as const,
-      routing: "not_provisioned" as const,
-      subdomainMeaning: "reserved_identifier" as const,
+      routing: tenantOrigin
+        ? ("tenant_subdomain" as const)
+        : ("not_provisioned" as const),
+      subdomainMeaning: tenantOrigin
+        ? ("active_tenant_hostname" as const)
+        : ("reserved_identifier" as const),
+      tenantOrigin,
       counts,
       modules: [
         "bookings",
@@ -813,6 +818,12 @@ export async function createCommercialTrial(
 ) {
   if (await expireIfNeeded(facilityId))
     throw domainError("A commercial trial already exists");
+  const facility = await db
+    .selectFrom("facilityProfiles")
+    .select("slug")
+    .where("id", "=", facilityId)
+    .where("status", "=", "active")
+    .executeTakeFirstOrThrow();
   const template = commercialTemplates[input.facilityType];
   const now = Date.now();
   const values = {
@@ -835,7 +846,7 @@ export async function createCommercialTrial(
     usesWaitlist: (input.usesWaitlist ?? template.usesWaitlist) ? 1 : 0,
     templateKey: input.facilityType,
     status: "trial_active" as const,
-    subdomain: createTrialSubdomain(input.facilityName),
+    subdomain: facility.slug || createTrialSubdomain(input.facilityName),
     realDataDeclaration: "undeclared" as const,
     autoCleanupEligible: 0,
     dataReviewRequestedAt: null,

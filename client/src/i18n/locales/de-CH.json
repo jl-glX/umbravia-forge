@@ -1,4 +1,9 @@
 {
+  "tenantHost": {
+    "notFoundEyebrow": "Zentrum nicht gefunden",
+    "notFoundTitle": "Dieser Bereich ist nicht verfügbar",
+    "notFoundBody": "Prüfe die Adresse des Zentrums oder frage das Personal nach dem richtigen Link. Es wurde nicht ersatzweise ein anderes Zentrum geöffnet."
+  },
   "common": {
     "appName": "Umbravia Forge",
     "loading": "Wird geladen...",

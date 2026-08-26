@@ -1,4 +1,9 @@
 {
+  "tenantHost": {
+    "notFoundEyebrow": "Centro no encontrado",
+    "notFoundTitle": "Este espacio no está disponible",
+    "notFoundBody": "Comprueba la dirección del centro o solicita a su personal el enlace correcto. No se ha abierto ningún otro centro como alternativa."
+  },
   "common": {
     "appName": "Umbravia Forge",
     "loading": "Cargando...",
@@ -1949,6 +1954,8 @@
       "provisionalAddress": "Dirección provisional",
       "reservedIdentifier": "Identificador de subdominio reservado",
       "routingNotProvisioned": "Esta reserva no crea DNS, proxy ni alojamiento. El entorno continúa en la base compartida de demostración.",
+      "tenantAddress": "Dirección del centro",
+      "routingProvisioned": "Esta dirección selecciona el centro, pero la cuenta y sus permisos siguen determinando el acceso.",
       "create": "Guardar configuración",
       "save": "Guardar cambios",
       "duration": {

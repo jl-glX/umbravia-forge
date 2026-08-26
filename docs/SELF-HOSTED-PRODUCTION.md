@@ -37,6 +37,13 @@ real sigue bloqueado hasta comprobar migraciones, persistencia y restauración.
 
 ## Perfiles de entorno
 
+Los subdominios por centro y la frontera de varios nodos se documentan en
+[`TENANT-SUBDOMAINS.md`](./TENANT-SUBDOMAINS.md) y
+[`PORTABILITY-AND-MULTI-NODE.md`](./PORTABILITY-AND-MULTI-NODE.md). Mantener
+`TENANT_SUBDOMAINS_ENABLED=false` hasta validar el wildcard completo. En la
+topología vigente de un solo proceso, `BACKGROUND_JOBS_ENABLED=true`; una futura
+réplica web debe usar `false` y dejar las tareas a un único nodo designado.
+
 | Perfil        | Uso                            | Datos                     | Protección obligatoria                                                  |
 | ------------- | ------------------------------ | ------------------------- | ----------------------------------------------------------------------- |
 | `development` | trabajo local                  | SQLite y datos demo       | configuración local                                                     |

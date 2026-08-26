@@ -1,4 +1,5 @@
 import type { Request } from "express";
+import { isTrustedTenantHostname } from "./tenant-host.js";
 
 const DEFAULT_DEVELOPMENT_ORIGIN = "http://localhost:3000";
 
@@ -47,6 +48,12 @@ export function isTrustedOrigin(value: string): boolean {
   const origin = parseOrigin(value);
   if (!origin) return false;
   if (getAllowedClientOrigins().includes(origin.origin)) return true;
+  if (
+    origin.protocol === "https:" &&
+    isTrustedTenantHostname(origin.hostname)
+  ) {
+    return true;
+  }
   return process.env.NODE_ENV !== "production" && isLoopbackOrigin(origin);
 }
 
