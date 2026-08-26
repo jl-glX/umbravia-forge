@@ -603,10 +603,28 @@ export function CommercialTrialPage() {
               {overview && (
                 <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
                   <Sparkles className="mb-2" />
-                  {t("commercial.trial.reservedIdentifier")}:{" "}
-                  <strong>{overview.trial.subdomain}</strong>
+                  {t(
+                    overview.environment.routing === "tenant_subdomain"
+                      ? "commercial.trial.tenantAddress"
+                      : "commercial.trial.reservedIdentifier",
+                  )}
+                  :{" "}
+                  {overview.environment.tenantOrigin ? (
+                    <a
+                      className="font-bold underline underline-offset-2"
+                      href={overview.environment.tenantOrigin}
+                    >
+                      {overview.environment.tenantOrigin}
+                    </a>
+                  ) : (
+                    <strong>{overview.trial.subdomain}</strong>
+                  )}
                   <p className="mt-2 text-xs leading-5">
-                    {t("commercial.trial.routingNotProvisioned")}
+                    {t(
+                      overview.environment.routing === "tenant_subdomain"
+                        ? "commercial.trial.routingProvisioned"
+                        : "commercial.trial.routingNotProvisioned",
+                    )}
                   </p>
                 </div>
               )}

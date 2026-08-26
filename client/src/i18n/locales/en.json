@@ -1,4 +1,9 @@
 {
+  "tenantHost": {
+    "notFoundEyebrow": "Facility not found",
+    "notFoundTitle": "This space is not available",
+    "notFoundBody": "Check the facility address or ask its staff for the correct link. No other facility has been opened as a fallback."
+  },
   "common": {
     "appName": "Umbravia Forge",
     "loading": "Loading...",
@@ -1937,6 +1942,8 @@
       "provisionalAddress": "Provisional address",
       "reservedIdentifier": "Reserved subdomain identifier",
       "routingNotProvisioned": "This reservation does not create DNS, proxy routing or hosting. The environment remains in the shared demonstration database.",
+      "tenantAddress": "Facility address",
+      "routingProvisioned": "This address selects the facility, while the account and its permissions still determine access.",
       "create": "Save setup",
       "save": "Save changes",
       "duration": {

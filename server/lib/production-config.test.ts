@@ -37,6 +37,47 @@ describe("production configuration", () => {
     ).toMatchObject({ webauthnRpId: "demo.umbravia-forge.example" });
   });
 
+  it("validates the background-job role", () => {
+    expect(
+      validateProductionConfiguration(
+        { ...validEnvironment, BACKGROUND_JOBS_ENABLED: "false" },
+        "postgresql",
+      ),
+    ).toMatchObject({ deploymentProfile: "production" });
+    expect(() =>
+      validateProductionConfiguration(
+        { ...validEnvironment, BACKGROUND_JOBS_ENABLED: "sometimes" },
+        "postgresql",
+      ),
+    ).toThrow(/BACKGROUND_JOBS_ENABLED/);
+  });
+
+  it("requires a shared WebAuthn base domain for tenant subdomains", () => {
+    const tenantEnvironment = {
+      ...validEnvironment,
+      CLIENT_ORIGIN: "https://www.umbraviaforge.example",
+      WEBAUTHN_ORIGIN: "https://www.umbraviaforge.example",
+      WEBAUTHN_RP_ID: "umbraviaforge.example",
+      TENANT_SUBDOMAINS_ENABLED: "true",
+      TENANT_BASE_DOMAIN: "umbraviaforge.example",
+    };
+    expect(
+      validateProductionConfiguration(tenantEnvironment, "postgresql"),
+    ).toMatchObject({ webauthnRpId: "umbraviaforge.example" });
+    expect(() =>
+      validateProductionConfiguration(
+        { ...tenantEnvironment, WEBAUTHN_RP_ID: "www.umbraviaforge.example" },
+        "postgresql",
+      ),
+    ).toThrow(/must equal TENANT_BASE_DOMAIN/i);
+    expect(() =>
+      validateProductionConfiguration(
+        { ...tenantEnvironment, TENANT_BASE_DOMAIN: "other.example" },
+        "postgresql",
+      ),
+    ).toThrow(/must equal TENANT_BASE_DOMAIN/i);
+  });
+
   it("applies the same safeguards to staging", () => {
     expect(
       validateProductionConfiguration(

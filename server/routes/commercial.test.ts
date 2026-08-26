@@ -195,7 +195,7 @@ describe("commercial foundation API", () => {
       usesBookings: true,
       status: "trial_active",
     });
-    expect(created.body.trial.subdomain).toBe("fitness-boreal-demo");
+    expect(created.body.trial.subdomain).toBe("facility-alpha");
     expect(created.body.trial.expiresAt - created.body.trial.startedAt).toBe(
       31 * 24 * 60 * 60 * 1000,
     );

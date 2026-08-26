@@ -7,6 +7,31 @@ Internet -> Caddy :443 -> Node 127.0.0.1:3001 -> PostgreSQL 127.0.0.1:5432
 ```
 
 Solo Caddy queda expuesto. Node y PostgreSQL permanecen en la interfaz local.
+
+Esta topología sigue siendo la referencia operativa. La aplicación puede
+trasladarse a otro servidor con una restauración comprobada, pero no debe
+escalarse todavía como activo-activo: consulte
+[`docs/PORTABILITY-AND-MULTI-NODE.md`](../docs/PORTABILITY-AND-MULTI-NODE.md).
+
+## Subdominios por centro
+
+El `Caddyfile` comparte la misma política de perímetro entre el dominio
+principal y un wildcard opcional. El glob
+`umbravia-tenant-subdomains-enabled/*.caddy` queda vacío hasta que DNS y TLS se
+hayan validado. La plantilla disponible está en
+`caddy-tenant-subdomains-available/tenant-subdomains.caddy`; su procedimiento de
+activación y reversión está en
+[`docs/TENANT-SUBDOMAINS.md`](../docs/TENANT-SUBDOMAINS.md).
+
+Las variables `TENANT_BASE_DOMAIN`, `UMBRAVIA_WILDCARD_ORIGIN_CERT` y
+`UMBRAVIA_WILDCARD_ORIGIN_KEY` deben estar en el entorno del servicio Caddy. Se
+incluyen `caddy-tenant-subdomains.env.template` y
+`caddy-tenant-subdomains.service.conf` para mantenerlas en un archivo separado.
+El drop-in se instala bajo `/etc/systemd/system/caddy.service.d/`; después se
+ejecutan `systemctl daemon-reload`, `caddy validate` y una recarga controlada.
+No se debe reutilizar el archivo completo de la aplicación, porque contiene
+secretos que Caddy no necesita.
+
 El paquete se orienta a distribuciones Linux con `systemd`; Ubuntu Server 24.04
 es el primer entorno objetivo, no una dependencia. La secuencia portable se
 documenta en `LINUX.md`.

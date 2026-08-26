@@ -166,17 +166,6 @@ export const commercialTemplates: Record<
   },
 };
 
-export function createTrialSubdomain(name: string): string {
-  const slug = name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 40);
-  return `${slug || "centro"}-demo`;
-}
-
 export function getTrialNotice(
   startedAt: number,
   expiresAt: number,

@@ -3,6 +3,7 @@ set -eu
 
 PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 ENV_FILE=${UMBRAVIA_ENV_FILE:-/etc/umbravia-forge/umbravia-forge.env}
+CADDY_TENANT_ENV_FILE=${UMBRAVIA_CADDY_TENANT_ENV_FILE:-/etc/umbravia-forge/caddy-tenant-subdomains.env}
 FAILED=0
 
 pass() {
@@ -83,6 +84,9 @@ require_file "$PROJECT_ROOT/dist/server/index.js"
 require_file "$PROJECT_ROOT/dist/public/index.html"
 require_file "$PROJECT_ROOT/package-lock.json"
 require_file "$PROJECT_ROOT/deploy/Caddyfile"
+require_file "$PROJECT_ROOT/deploy/caddy-tenant-subdomains-available/tenant-subdomains.caddy"
+require_file "$PROJECT_ROOT/deploy/caddy-tenant-subdomains.env.template"
+require_file "$PROJECT_ROOT/deploy/caddy-tenant-subdomains.service.conf"
 require_file "$PROJECT_ROOT/deploy/manage-caddy-diagnostics.sh"
 require_file "$PROJECT_ROOT/deploy/caddy-diagnostics-available/cf-test.caddy"
 require_file "$PROJECT_ROOT/deploy/umbravia-forge.service"
@@ -138,6 +142,68 @@ if [ -f "$ENV_FILE" ]; then
   else
     fail "TURNSTILE_SECRET_KEY ausente o demasiado corto"
   fi
+
+  TENANT_SUBDOMAINS_ENABLED_VALUE=$(sed -n 's/^TENANT_SUBDOMAINS_ENABLED=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
+  case "$TENANT_SUBDOMAINS_ENABLED_VALUE" in
+    ""|false)
+      warn "subdominios por centro desactivados; no se publicara el wildcard"
+      ;;
+    true)
+      if grep -Eq '^TENANT_BASE_DOMAIN=([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$' "$ENV_FILE"; then
+        pass "TENANT_BASE_DOMAIN configurado"
+      else
+        fail "TENANT_BASE_DOMAIN ausente o invalido"
+      fi
+      if [ -f "$CADDY_TENANT_ENV_FILE" ]; then
+        CADDY_TENANT_ENV_MODE=$(stat -c '%a' "$CADDY_TENANT_ENV_FILE")
+        case "$CADDY_TENANT_ENV_MODE" in
+          600|640) pass "permisos seguros en $CADDY_TENANT_ENV_FILE ($CADDY_TENANT_ENV_MODE)" ;;
+          *) fail "permisos inseguros en $CADDY_TENANT_ENV_FILE ($CADDY_TENANT_ENV_MODE); use 600 o 640" ;;
+        esac
+        APP_TENANT_BASE_DOMAIN=$(sed -n 's/^TENANT_BASE_DOMAIN=//p' "$ENV_FILE" | tail -n 1)
+        CADDY_TENANT_BASE_DOMAIN=$(sed -n 's/^TENANT_BASE_DOMAIN=//p' "$CADDY_TENANT_ENV_FILE" | tail -n 1)
+        if [ "$APP_TENANT_BASE_DOMAIN" = "$CADDY_TENANT_BASE_DOMAIN" ]; then
+          pass "aplicacion y Caddy comparten TENANT_BASE_DOMAIN"
+        else
+          fail "TENANT_BASE_DOMAIN no coincide entre la aplicacion y Caddy"
+        fi
+        for TENANT_TLS_ENV in UMBRAVIA_WILDCARD_ORIGIN_CERT UMBRAVIA_WILDCARD_ORIGIN_KEY; do
+          TENANT_TLS_PATH=$(sed -n "s/^${TENANT_TLS_ENV}=//p" "$CADDY_TENANT_ENV_FILE" | tail -n 1)
+          if [ -n "$TENANT_TLS_PATH" ] && [ -f "$TENANT_TLS_PATH" ] && [ ! -L "$TENANT_TLS_PATH" ]; then
+            pass "$TENANT_TLS_ENV apunta a un archivo regular"
+          else
+            fail "$TENANT_TLS_ENV no apunta a un archivo regular disponible"
+          fi
+        done
+        TENANT_TLS_CERT_PATH=$(sed -n 's/^UMBRAVIA_WILDCARD_ORIGIN_CERT=//p' "$CADDY_TENANT_ENV_FILE" | tail -n 1)
+        TENANT_TLS_KEY_PATH=$(sed -n 's/^UMBRAVIA_WILDCARD_ORIGIN_KEY=//p' "$CADDY_TENANT_ENV_FILE" | tail -n 1)
+        if [ -f "$TENANT_TLS_KEY_PATH" ]; then
+          TENANT_TLS_KEY_MODE=$(stat -c '%a' "$TENANT_TLS_KEY_PATH")
+          case "$TENANT_TLS_KEY_MODE" in
+            600|640) pass "clave privada wildcard con permisos restrictivos ($TENANT_TLS_KEY_MODE)" ;;
+            *) fail "permisos inseguros en la clave privada wildcard ($TENANT_TLS_KEY_MODE); use 600 o 640" ;;
+          esac
+        fi
+      else
+        fail "$CADDY_TENANT_ENV_FILE no existe"
+      fi
+      if [ -f /etc/caddy/umbravia-tenant-subdomains-enabled/tenant-subdomains.caddy ]; then
+        pass "modulo wildcard de Caddy activado"
+      else
+        fail "modulo wildcard de Caddy no instalado en el directorio enabled"
+      fi
+      ;;
+    *)
+      fail "TENANT_SUBDOMAINS_ENABLED debe ser true o false"
+      ;;
+  esac
+
+  BACKGROUND_JOBS_ENABLED_VALUE=$(sed -n 's/^BACKGROUND_JOBS_ENABLED=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
+  case "$BACKGROUND_JOBS_ENABLED_VALUE" in
+    ""|true) pass "este nodo ejecuta los trabajos programados" ;;
+    false) warn "trabajos programados desactivados en esta replica web" ;;
+    *) fail "BACKGROUND_JOBS_ENABLED debe ser true o false" ;;
+  esac
 
   STRIPE_BILLING_ENABLED_VALUE=$(sed -n 's/^STRIPE_BILLING_ENABLED=//p' "$ENV_FILE" | tail -n 1 | tr '[:upper:]' '[:lower:]')
   case "$STRIPE_BILLING_ENABLED_VALUE" in
@@ -400,6 +466,20 @@ if command -v caddy >/dev/null 2>&1; then
     pass "Caddyfile valido"
   else
     fail "Caddyfile no valido"
+  fi
+
+  if [ "${TENANT_SUBDOMAINS_ENABLED_VALUE:-false}" = "true" ] && [ -f /etc/caddy/Caddyfile ]; then
+    if HOME="$CADDY_VALIDATION_HOME" \
+      XDG_CONFIG_HOME="$CADDY_VALIDATION_XDG_HOME" \
+      UMBRAVIA_CADDY_LOG="$CADDY_VALIDATION_LOG" \
+      TENANT_BASE_DOMAIN="$CADDY_TENANT_BASE_DOMAIN" \
+      UMBRAVIA_WILDCARD_ORIGIN_CERT="$TENANT_TLS_CERT_PATH" \
+      UMBRAVIA_WILDCARD_ORIGIN_KEY="$TENANT_TLS_KEY_PATH" \
+      caddy validate --config /etc/caddy/Caddyfile >/dev/null; then
+      pass "Caddyfile instalado valido con el wildcard tenant"
+    else
+      fail "Caddyfile instalado no valida con el wildcard tenant"
+    fi
   fi
 
   if HOME="$CADDY_VALIDATION_HOME" \

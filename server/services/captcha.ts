@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isTrustedOrigin } from "../lib/request-origin.js";
 
 const SITEVERIFY_URL =
   "https://challenges.cloudflare.com/turnstile/v0/siteverify";
@@ -43,22 +44,6 @@ function configuredSecret(): string | null {
     return secret;
   }
   return process.env.NODE_ENV === "production" ? null : DEVELOPMENT_SECRET;
-}
-
-function allowedHostnames(): Set<string> {
-  return new Set(
-    (process.env.CLIENT_ORIGIN ?? "")
-      .split(",")
-      .map((origin) => origin.trim())
-      .filter(Boolean)
-      .flatMap((origin) => {
-        try {
-          return [new URL(origin).hostname];
-        } catch {
-          return [];
-        }
-      }),
-  );
 }
 
 export function captchaIsConfigured(): boolean {
@@ -119,8 +104,7 @@ export async function verifyCaptchaDetailed(
     if (result.action !== action) {
       return { success: false, reason: "action_mismatch" };
     }
-    const hostnames = allowedHostnames();
-    return result.hostname && hostnames.has(result.hostname)
+    return result.hostname && isTrustedOrigin(`https://${result.hostname}`)
       ? { success: true, reason: "verified" }
       : { success: false, reason: "hostname_mismatch" };
   } catch {

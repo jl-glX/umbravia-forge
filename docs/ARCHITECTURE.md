@@ -61,6 +61,15 @@ Development uses a single launcher for Vite and Express. Production builds the c
 
 ## Roles
 
+The optional tenant-host layer resolves a stable `facilityProfiles.slug` from
+one DNS label below `TENANT_BASE_DOMAIN`. Host selection is context, never
+authorization: private routes still require an active membership in that exact
+facility, and a conflicting `X-Facility-Id` fails closed. Unknown or reserved
+wildcard hostnames cannot fall back to the user's last facility. Logged-out
+branding uses a deliberately small public tenant-context contract. The feature
+is disabled by default; deployment and activation are maintained in
+[`TENANT-SUBDOMAINS.md`](./TENANT-SUBDOMAINS.md).
+
 The account role (`member`, `trainer` or `admin`) describes the broad portal an
 identity may enter. Every tenant operation additionally resolves an active
 facility membership with a facility role (`owner`, `admin`, `trainer` or
@@ -113,6 +122,14 @@ environments. UMF Support is not a second physical database in the current
 architecture. Its isolation comes from realm-qualified account relations,
 corporate-only tables and server authorization; sharing a PostgreSQL service
 does not make a commercial account a corporate identity.
+
+HTTP sessions and business data are portable through PostgreSQL, but the
+current deployment is not active-active: attachment stores, environment
+workspaces, rate-limit counters and manager coordination still include local
+state. `BACKGROUND_JOBS_ENABLED` lets exactly one future node own scheduled
+maintenance while web replicas keep it disabled. The complete evidence matrix
+and migration boundary are maintained in
+[`PORTABILITY-AND-MULTI-NODE.md`](./PORTABILITY-AND-MULTI-NODE.md).
 
 Corporate registration creates an independent `corporate_support` identity and
 requires the ordinary bounded mailbox-verification challenge. Verification does

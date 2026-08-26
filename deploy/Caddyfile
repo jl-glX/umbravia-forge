@@ -1,10 +1,6 @@
-# UMBRAVIA_DOMAIN selects the public hostname; every protection below remains
-# identical when the hostname changes.
-{$UMBRAVIA_DOMAIN:www.umbraviaforge.com} {
-	tls {
-		protocols tls1.3
-	}
-
+# Shared application policy. The primary hostname and the optional wildcard
+# tenant site import exactly the same proxy and perimeter controls.
+(umbravia_application) {
 	encode zstd gzip
 
 	@automated_probes {
@@ -49,6 +45,18 @@
 		}
 	}
 }
+
+# UMBRAVIA_DOMAIN selects the primary public hostname.
+{$UMBRAVIA_DOMAIN:www.umbraviaforge.com} {
+	tls {
+		protocols tls1.3
+	}
+	import umbravia_application
+}
+
+# A wildcard tenant site is installed here only after DNS and the origin
+# certificate have been validated. An empty glob leaves routing disabled.
+import umbravia-tenant-subdomains-enabled/*.caddy
 
 # Punto de extension estable para diagnosticos operativos. Un glob vacio es
 # valido en Caddy, de modo que las sondas pueden activarse o retirarse sin
