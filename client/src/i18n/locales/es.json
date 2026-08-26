@@ -2023,7 +2023,7 @@
         "type": "Tipo de centro",
         "subdomain": "Subdominio del centro",
         "subdomainHelpActive": "Al guardar, la nueva dirección sustituirá inmediatamente a la anterior. La cuenta y sus permisos siguen determinando el acceso.",
-        "subdomainHelpReserved": "El nombre quedará reservado para el centro. No publicará una dirección hasta que DNS y el enrutamiento por subdominio estén activados.",
+        "subdomainHelpReserved": "La dirección completa es una vista previa. El nombre quedará reservado para el centro y no se publicará hasta que DNS y el enrutamiento por subdominio estén activados.",
         "approximateMembers": "Socios aproximados",
         "trainerCount": "Número de entrenadores",
         "spaceCount": "Salas o zonas",

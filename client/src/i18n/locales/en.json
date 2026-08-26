@@ -2011,7 +2011,7 @@
         "type": "Centre type",
         "subdomain": "Centre subdomain",
         "subdomainHelpActive": "When saved, the new address immediately replaces the previous one. The account and its permissions still determine access.",
-        "subdomainHelpReserved": "The name will be reserved for the centre. It will not publish an address until DNS and subdomain routing are enabled.",
+        "subdomainHelpReserved": "The full address is a preview. The name will be reserved for the centre and will not be published until DNS and subdomain routing are enabled.",
         "approximateMembers": "Approximate members",
         "trainerCount": "Number of trainers",
         "spaceCount": "Rooms or zones",

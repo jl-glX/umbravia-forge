@@ -27,7 +27,7 @@ import { stageCommunityAttachmentFilesRemoval } from "./community-attachments.js
 import { stageSupportAttachmentFilesRemoval } from "./support.js";
 import type { StagedFileRemoval } from "../lib/staged-file-removal.js";
 import {
-  resolveTenantSubdomainConfiguration,
+  resolveTenantPreviewBaseDomain,
   tenantOriginForSlug,
 } from "../lib/tenant-host.js";
 
@@ -781,7 +781,6 @@ async function insertCommercialRequest(
 export async function getCommercialTrialOverview(facilityId: string) {
   const trial = await expireIfNeeded(facilityId);
   if (!trial) return null;
-  const tenantConfiguration = resolveTenantSubdomainConfiguration();
   const tenantOrigin = tenantOriginForSlug(trial.subdomain);
   const [counts, events, requests] = await Promise.all([
     createEnvironmentSummary(facilityId),
@@ -819,7 +818,7 @@ export async function getCommercialTrialOverview(facilityId: string) {
         ? ("active_tenant_hostname" as const)
         : ("reserved_identifier" as const),
       tenantOrigin,
-      tenantBaseDomain: tenantConfiguration.baseDomain,
+      tenantBaseDomain: resolveTenantPreviewBaseDomain(),
       counts,
       modules: [
         "bookings",

@@ -2024,7 +2024,7 @@
         "type": "Art des Zentrums",
         "subdomain": "Subdomain des Zentrums",
         "subdomainHelpActive": "Nach dem Speichern ersetzt die neue Adresse sofort die bisherige. Der Zugriff wird weiterhin durch das Konto und seine Berechtigungen bestimmt.",
-        "subdomainHelpReserved": "Der Name wird für das Zentrum reserviert. Eine Adresse wird erst veröffentlicht, wenn DNS und Subdomain-Routing aktiviert sind.",
+        "subdomainHelpReserved": "Die vollständige Adresse ist eine Vorschau. Der Name wird für das Zentrum reserviert und erst veröffentlicht, wenn DNS und Subdomain-Routing aktiviert sind.",
         "approximateMembers": "Ungefähre Mitgliederzahl",
         "trainerCount": "Anzahl Trainer",
         "spaceCount": "Räume oder Bereiche",
