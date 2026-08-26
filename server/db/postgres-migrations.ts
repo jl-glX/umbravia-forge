@@ -2746,6 +2746,29 @@ CREATE INDEX IF NOT EXISTS "idx_stripeConnectWebhookEvents_received"
   ON "stripeConnectWebhookEvents" ("receivedAt" DESC);
 `,
   },
+  {
+    version: 58,
+    name: "commercial-centre-public-page",
+    sql: String.raw`
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "publicDescription" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "addressLine" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "city" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "postalCode" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "country" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "websiteUrl" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "instagramUrl" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "facebookUrl" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "tiktokUrl" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "youtubeUrl" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "linkedinUrl" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "pricingDescription" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "bonusesDescription" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "publicPageEnabled" SMALLINT NOT NULL DEFAULT 0
+  CHECK ("publicPageEnabled" IN (0, 1));
+ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "showPhonePublicly" SMALLINT NOT NULL DEFAULT 0
+  CHECK ("showPhonePublicly" IN (0, 1));
+`,
+  },
 ];
 
 async function ensureMigrationTable(client: PoolClient): Promise<void> {

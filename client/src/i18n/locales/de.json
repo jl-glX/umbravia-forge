@@ -158,7 +158,11 @@
     },
     "eyebrow": "Betreuung und Wissen",
     "description": "Ein eigener Bereich, um Hilfe anzufordern, Vorgänge zu verfolgen und Antworten zu finden, ohne Umbravia Forge zu verlassen.",
-    "tabs": { "tickets": "Anfragen", "knowledge": "Wissen", "team": "Team" },
+    "tabs": {
+      "tickets": "Anfragen",
+      "knowledge": "Wissen",
+      "team": "Team"
+    },
     "searchPlaceholder": "Nach ID, Betreff oder Inhalt suchen…",
     "search": "Suchen",
     "allStatuses": "Alle Status",
@@ -593,7 +597,38 @@
     "noEligibleStaff": "Für diese Berechtigung gibt es kein geeignetes verifiziertes Personal.",
     "saved": "Die Einstellungen wurden gespeichert.",
     "loadError": "Die Einstellungen der Einrichtung konnten nicht geladen werden.",
-    "saveError": "Die Einstellungen konnten nicht gespeichert werden."
+    "saveError": "Die Einstellungen konnten nicht gespeichert werden.",
+    "centreDataTitle": "Daten des Zentrums",
+    "centreDataDescription": "Prüfen Sie die Angaben des Geschäftskontos und schützen Sie Daten, die auch zur Anmeldung verwendet werden können.",
+    "centreDataLoadError": "Die Daten des Zentrums konnten nicht geladen werden.",
+    "centreName": "Name des Zentrums",
+    "centreType": "Art des Zentrums",
+    "accountEmail": "E-Mail des Kontos",
+    "centreAddress": "Digitale Adresse",
+    "reviewCentreData": "Daten des Zentrums prüfen und bearbeiten",
+    "loginPhoneTitle": "Telefonnummer für die Anmeldung",
+    "loginPhoneDescription": "Sie können diese Nummer zur Anmeldung verwenden. Eine Änderung erfordert Ihr Passwort und, falls aktiviert, den zweiten Faktor.",
+    "loginPhone": "Telefonnummer",
+    "currentPassword": "Aktuelles Passwort",
+    "authenticatorCode": "Code der Authenticator-App",
+    "savePhone": "Telefonnummer speichern",
+    "phoneSaved": "Die Telefonnummer für die Anmeldung wurde aktualisiert.",
+    "phoneSaveError": "Die Telefonnummer konnte nicht aktualisiert werden.",
+    "phoneVisibilityError": "Die Sichtbarkeit der Telefonnummer konnte nicht geändert werden.",
+    "phoneMadePublic": "Die Telefonnummer ist jetzt im öffentlichen Profil des Zentrums sichtbar.",
+    "phoneMadePrivate": "Die Telefonnummer ist wieder privat.",
+    "showPhonePublicly": "Diese Telefonnummer im öffentlichen Profil anzeigen",
+    "showPhonePubliclyDescription": "Diese Auswahl ist von der Anmeldung unabhängig. Sie können die Nummer jederzeit wieder ausblenden.",
+    "phonePrivateByDefault": "Fügen Sie zuerst eine Telefonnummer hinzu und bestätigen Sie sie. Sie bleibt privat, bis Sie diese Option aktivieren.",
+    "phoneErrors": {
+      "ACCOUNT_PHONE_ALREADY_IN_USE": "Diese Telefonnummer ist bereits mit einem anderen Konto verknüpft.",
+      "FACILITY_OWNER_REQUIRED": "Nur die Inhaberin oder der Inhaber des Zentrums darf diese Telefonnummer ändern.",
+      "SECURITY_CONFIRMATION_FAILED": "Das aktuelle Passwort ist nicht korrekt.",
+      "MFA_CONFIRMATION_FAILED": "Der Authentifizierungscode ist ungültig.",
+      "FORM_VERIFICATION_REQUIRED": "Führen Sie die Formularprüfung erneut durch.",
+      "COMMERCIAL_PUBLIC_PHONE_REQUIRED": "Fügen Sie eine Telefonnummer hinzu, bevor Sie sie veröffentlichen.",
+      "REQUEST_FAILED": "Die Anfrage konnte nicht abgeschlossen werden."
+    }
   },
   "accountData": {
     "back": "Zurück zu den Einstellungen",
@@ -1916,6 +1951,7 @@
       "description": "Umbravia Forge ohne automatische Verkaufsgespräche oder versteckte Verpflichtungen konfigurieren und testen.",
       "explore": "Konto erstellen",
       "openEnvironment": "Zentrum einrichten",
+      "browseCentres": "Zentren entdecken",
       "returnHome": "Zur Anwendung zurückkehren",
       "signIn": "Anmelden",
       "menuLink": "Umbravia Forge kennenlernen",
@@ -1940,6 +1976,58 @@
       "editTitle": "Zentrum einrichten",
       "description": "Eine Vorlage als Ausgangspunkt verwenden. Optionale Angaben können später ergänzt oder geändert werden.",
       "centreData": "Zentrumsdaten",
+      "wizard": {
+        "eyebrow": "Geführte Einrichtung des Zentrums",
+        "progress": "Schritt {{current}} von {{total}}",
+        "progressLabel": "Fortschritt der Konfiguration",
+        "sectionLabel": "Abschnitt {{count}}",
+        "back": "Zurück",
+        "next": "Weiter",
+        "edit": "Bearbeiten",
+        "notProvided": "Kann später ergänzt werden",
+        "steps": {
+          "identity": {
+            "label": "Identität",
+            "title": "Zentrum identifizieren",
+            "description": "Legen Sie Name, Schwerpunkt und Grundeinstellungen der Plattform fest."
+          },
+          "operations": {
+            "label": "Betrieb",
+            "title": "Täglichen Betrieb anpassen",
+            "description": "Beschreiben Sie Ihre Angebote und die Nutzung von Buchungen und Wartelisten."
+          },
+          "address": {
+            "label": "Digitale Adresse",
+            "title": "Adresse des Zentrums wählen",
+            "description": "Reservieren Sie eine eindeutige Adresse. Die übergeordnete Domain gehört immer Umbravia Forge und kann nicht geändert werden."
+          },
+          "review": {
+            "label": "Prüfung",
+            "title": "Konfiguration prüfen",
+            "description": "Prüfen Sie jeden Abschnitt vor dem Speichern. Spätere Änderungen sind in diesem Bereich möglich."
+          },
+          "branding": {
+            "label": "Marke",
+            "title": "Visuelle Identität präsentieren",
+            "description": "Fügen Sie Logo und Farbe hinzu, die das Zentrum öffentlich und intern kennzeichnen."
+          },
+          "location": {
+            "label": "Standort",
+            "title": "Zentrum verorten",
+            "description": "Diese Angaben erscheinen im öffentlichen Profil, damit Interessierte Sie finden."
+          },
+          "socials": {
+            "label": "Links",
+            "title": "Öffentliche Kanäle verbinden",
+            "description": "Fügen Sie nur Website und Netzwerke hinzu, die im öffentlichen Profil erscheinen sollen."
+          },
+          "offers": {
+            "label": "Preise und Karten",
+            "title": "Angebot des Zentrums erklären",
+            "description": "Veröffentlichen Sie eigene Preise, Mitgliedschaften, Karten und Bedingungen für Interessierte."
+          }
+        }
+      },
       "requestFailed": "Der Vorgang konnte nicht abgeschlossen werden",
       "errors": {
         "title": "Die Konfiguration konnte nicht gespeichert werden",
@@ -1949,7 +2037,8 @@
         "notEditable": "Dieses Zentrum erlaubt in seinem aktuellen Status keine Konfigurationsänderungen mehr.",
         "subdomainInvalid": "Die Subdomain darf nur Kleinbuchstaben, Zahlen oder Bindestriche enthalten, nicht mit einem Bindestrich beginnen oder enden und kein reservierter Name sein.",
         "subdomainUnavailable": "Diese Subdomain gehört bereits zu einem anderen Zentrum. Wähle eine andere.",
-        "subdomainLocked": "Die Subdomain kann nur während der aktiven Testphase geändert werden."
+        "subdomainLocked": "Die Subdomain kann nur während der aktiven Testphase geändert werden.",
+        "logoInvalid": "Das Logo muss PNG, JPEG oder WebP sein und darf 512 KB nicht überschreiten."
       },
       "editPolicy": {
         "trial": "Während des Testzeitraums kannst du diese Konfiguration beliebig oft bearbeiten.",
@@ -2025,6 +2114,9 @@
         "subdomain": "Subdomain des Zentrums",
         "subdomainHelpActive": "Nach dem Speichern ersetzt die neue Adresse sofort die bisherige. Der Zugriff wird weiterhin durch das Konto und seine Berechtigungen bestimmt.",
         "subdomainHelpReserved": "Die vollständige Adresse ist eine Vorschau. Der Name wird für das Zentrum reserviert und erst veröffentlicht, wenn DNS und Subdomain-Routing aktiviert sind.",
+        "subdomainPlaceholder": "ihr-zentrum",
+        "subdomainLockedLabel": "Die Adresse wurde nach Ende des Testzeitraums festgeschrieben.",
+        "addressPreview": "So wird die vollständige Adresse aussehen",
         "approximateMembers": "Ungefähre Mitgliederzahl",
         "trainerCount": "Anzahl Trainer",
         "spaceCount": "Räume oder Bereiche",
@@ -2034,8 +2126,41 @@
         "currency": "Währung",
         "language": "Sprache",
         "schedule": "Beschreibung des Zeitplans",
+        "scheduleHelp": "Z. B. Krafttraining Montag bis Freitag um 18:00 Uhr; Mobilität Samstag um 10:00 Uhr.",
         "usesBookings": "Nutzt Buchungen",
-        "usesWaitlist": "Nutzt Warteliste"
+        "usesBookingsHelp": "Mitglieder können Plätze für veröffentlichte Aktivitäten reservieren.",
+        "usesWaitlist": "Nutzt Warteliste",
+        "usesWaitlistHelp": "Frei werdende Plätze können der Reihe nach an Wartende vergeben werden.",
+        "publicDescription": "Öffentliche Vorstellung",
+        "publicDescriptionHelp": "Beschreiben Sie kurz, was Ihr Zentrum auszeichnet und an wen es sich richtet.",
+        "logo": "Logo des Zentrums",
+        "logoHelp": "PNG, JPEG oder WebP bis 512 KB. Es kann später ersetzt werden.",
+        "logoPreview": "Markenvorschau",
+        "accentColor": "Hauptfarbe",
+        "addressLine": "Adresse",
+        "city": "Ort",
+        "postalCode": "Postleitzahl",
+        "country": "Land",
+        "locationHelp": "Der Standort ist während des Tests optional. Prüfen Sie ihn vor der Veröffentlichung.",
+        "websiteUrl": "Website",
+        "instagramUrl": "Instagram",
+        "facebookUrl": "Facebook",
+        "tiktokUrl": "TikTok",
+        "youtubeUrl": "YouTube",
+        "linkedinUrl": "LinkedIn",
+        "socialsHelp": "Alle Links sind optional und müssen https:// oder http:// enthalten.",
+        "pricingDescription": "Preise und Mitgliedschaften",
+        "pricingDescriptionHelp": "Z. B. 45 € monatlich, Aufnahmegebühr inklusive und freier Trainingsbereich.",
+        "bonusesDescription": "Karten, Pakete und Aktionen",
+        "bonusesDescriptionHelp": "Z. B. 10er-Karte, Gültigkeit, Preis und Nutzungsbedingungen.",
+        "offersHelp": "Dies sind die Preise des Zentrums für seine Mitglieder; sie ändern nicht den Tarif bei Umbravia Forge.",
+        "publicPageEnabled": "Öffentliches Profil verwalten",
+        "publicPageEnabledHelp": "Veröffentlichen Sie es bei Bedarf, ziehen Sie es ohne Datenverlust zurück oder bearbeiten Sie es auch nach dem Test weiter.",
+        "publishPage": "Profil veröffentlichen",
+        "unpublishPage": "Profil zurückziehen",
+        "previewPage": "Öffentliche Vorschau",
+        "deletePublicPage": "Profil löschen",
+        "deletePublicPageConfirm": "Das Profil wird zurückgezogen und seine öffentliche Vorstellung, Standortangaben, Links und Preise werden gelöscht. Das Konto des Zentrums bleibt bestehen. Fortfahren?"
       }
     },
     "facilityTypes": {
@@ -2053,6 +2178,23 @@
       "indoor_cycling": "Indoor Cycling",
       "multidisciplinary": "Multidisziplinäres Zentrum",
       "custom": "Benutzerdefiniert"
+    },
+    "directory": {
+      "eyebrow": "Zentren bei Umbravia Forge",
+      "title": "Finden Sie ein passendes Zentrum",
+      "description": "Informieren Sie sich über Angebote, Standort, Zeiten und Preise, die jedes Zentrum selbst veröffentlicht.",
+      "search": "Nach Name, Ort oder Aktivität suchen",
+      "empty": "Derzeit passen keine veröffentlichten Zentren zu Ihrer Suche.",
+      "noDescription": "Dieses Zentrum hat noch keine öffentliche Vorstellung hinzugefügt.",
+      "notFound": "Dieses Profil ist nicht veröffentlicht",
+      "back": "Zurück zum Verzeichnis",
+      "about": "Über das Zentrum",
+      "schedule": "Zeitplan",
+      "prices": "Preise und Karten",
+      "location": "Standort",
+      "links": "Öffentliche Links",
+      "noLinks": "Das Zentrum hat noch keine Links veröffentlicht.",
+      "phone": "Telefon"
     }
   },
   "captcha": {
@@ -2124,7 +2266,10 @@
     "privateJustification": "Als private Kursbegründung senden",
     "channelUnavailable": "Dieser Kanal nimmt in seinem aktuellen Zustand keine neuen Nachrichten an.",
     "members": "Mitglieder",
-    "memberRoles": { "owner": "Eigentümer", "member": "Mitglied" },
+    "memberRoles": {
+      "owner": "Eigentümer",
+      "member": "Mitglied"
+    },
     "addAcceptedContact": "Angenommenen Kontakt hinzufügen",
     "memberAdded": "Der Kontakt wurde zur Community hinzugefügt.",
     "memberRemoved": "Das Mitglied wurde aus der Community entfernt.",
@@ -2150,7 +2295,10 @@
     "facilityLinkRequested": "Die Verbindungsanfrage wurde erfasst.",
     "withdrawFacilityLink": "Anfrage zurückziehen",
     "facilityLinkWithdrawn": "Die Anfrage wurde zurückgezogen.",
-    "facilityLinkModes": { "temporary": "Temporär", "permanent": "Dauerhaft" },
+    "facilityLinkModes": {
+      "temporary": "Temporär",
+      "permanent": "Dauerhaft"
+    },
     "facilityLinkStatuses": {
       "facility_link_requested": "Prüfung ausstehend",
       "facility_link_accepted": "Angenommen",
@@ -2512,7 +2660,20 @@
         "trial_expired": "Test abgelaufen",
         "trial_converted": "Test umgestellt",
         "trial_closed": "Test geschlossen"
-      }
+      },
+      "actions": "Aktionen",
+      "actionsHint": "Die geschäftliche E-Mail bleibt sichtbar, damit Sie Kontakt aufnehmen können, ohne auf das Konto zuzugreifen oder Zugangsdaten weiterzugeben.",
+      "contactEmail": "Kontakt-E-Mail: {{email}}",
+      "contact": "Kontaktieren",
+      "contactSubject": "Umbravia-Forge-Betreuung · {{facility}}",
+      "resume": "Test fortsetzen",
+      "cancel": "Test abbrechen",
+      "delete": "Testzeitraum löschen",
+      "deletionPending": "Konto zur Löschung vorgemerkt",
+      "deletionScheduledFor": "Geplante Schliessung: {{date}}",
+      "confirmCancel": "Möchten Sie den Test von {{facility}} abbrechen? Der Zugang wird geschlossen und das öffentliche Profil wird ausgeblendet.",
+      "confirmDelete": "Dadurch wird die Testumgebung endgültig gelöscht, das Geschäftskonto bleibt jedoch erhalten. Geben Sie zum Fortfahren genau „{{facility}}“ ein.",
+      "deleteMismatch": "Der Name des Zentrums stimmt nicht überein. Es wurde nichts gelöscht."
     },
     "compose": "E-Mail verfassen",
     "composeHint": "Editor für betriebliche Mitteilungen von UMF Support; beliebiges HTML ist nicht zulässig.",
@@ -2621,7 +2782,10 @@
       "librewolf": "LibreWolf"
     },
     "thisDevice": "dieses Gerät",
-    "role": { "director": "Plattformleitung", "agent": "Administrator" },
+    "role": {
+      "director": "Plattformleitung",
+      "agent": "Administrator"
+    },
     "companyPosition": {
       "platform_head": "Plattformleitung",
       "area_head": "Bereichsleitung",
@@ -2629,7 +2793,10 @@
       "staff": "Personal",
       "external_collaborator": "Externe Mitarbeit"
     },
-    "staffStatus": { "active": "Aktiv", "revoked": "Widerrufen" },
+    "staffStatus": {
+      "active": "Aktiv",
+      "revoked": "Widerrufen"
+    },
     "pendingAdministratorAccounts": "Bestätigte Konten warten auf Zugriff",
     "pendingAdministratorAccountsHint": "Die E-Mail-Bestätigung weist das Postfach nach, gewährt aber keinen Plattformzugriff.",
     "approveAdministrator": "Als Administrator freigeben",
@@ -2769,7 +2936,12 @@
       "companyStaffAdded": "Person ohne automatische technische Berechtigungen zur Belegschaft hinzugefügt.",
       "companyStaffRevoked": "Person aus der Belegschaft entfernt; Module fallen an die Leerstandsabdeckung zurück.",
       "commercialVerificationSent": "Der Bestätigungscode wurde erneut an die E-Mail-Adresse des kommerziellen Kontos gesendet.",
-      "commercialVerificationQueued": "Der neue Bestätigungscode wurde in die kommerzielle Mail-Warteschlange gestellt."
+      "commercialVerificationQueued": "Der neue Bestätigungscode wurde in die kommerzielle Mail-Warteschlange gestellt.",
+      "commercialTrial": {
+        "resume": "Der Test von {{facility}} wurde fortgesetzt und die Pausenzeit wurde gutgeschrieben.",
+        "cancel": "Der Test von {{facility}} wurde abgebrochen.",
+        "delete": "Der Testzeitraum von {{facility}} wurde gelöscht; das Geschäftskonto bleibt erhalten."
+      }
     },
     "errors": {
       "load": "UMF Support konnte nicht geladen werden.",

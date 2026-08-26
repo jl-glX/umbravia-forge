@@ -16,6 +16,7 @@ describe("commercial foundation API", () => {
     directory = await mkdtemp(join(tmpdir(), "umbravia-forge-commercial-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("TENANT_BASE_DOMAIN", "umbraviaforge.test");
     vi.resetModules();
     database = await import("../db/client.js");
     const auth = await import("../services/auth.js");
@@ -148,6 +149,14 @@ describe("commercial foundation API", () => {
       .expect(403);
   });
 
+  it("exposes the configured parent domain to authorised setup forms", async () => {
+    await request(app)
+      .get("/api/commercial/trial/setup")
+      .set("Cookie", adminCookie)
+      .expect(200)
+      .expect({ tenantBaseDomain: "umbraviaforge.test" });
+  });
+
   it("keeps trial provisioning opt-in in production", async () => {
     try {
       vi.stubEnv("NODE_ENV", "production");
@@ -179,10 +188,17 @@ describe("commercial foundation API", () => {
       .send({
         facilityName: "Fitness Boreal",
         facilityType: "crossfit",
+        subdomain: "fitness-boreal-preview",
         classTypes: ["WOD", "Movilidad"],
         locale: "es",
         currency: "eur",
         usesBookings: true,
+        publicDescription: "Entrenamiento de fuerza y acondicionamiento.",
+        city: "Jaén",
+        country: "España",
+        websiteUrl: "https://fitness-boreal.example",
+        pricingDescription: "Cuota mensual: 45 €.",
+        publicPageEnabled: true,
       })
       .expect(201);
 
@@ -195,7 +211,11 @@ describe("commercial foundation API", () => {
       usesBookings: true,
       status: "trial_active",
     });
-    expect(created.body.trial.subdomain).toBe("facility-alpha");
+    expect(created.body.trial).toMatchObject({
+      subdomain: "fitness-boreal-preview",
+      publicDescription: "Entrenamiento de fuerza y acondicionamiento.",
+      publicPageEnabled: true,
+    });
     expect(created.body.trial.expiresAt - created.body.trial.startedAt).toBe(
       31 * 24 * 60 * 60 * 1000,
     );
@@ -204,6 +224,24 @@ describe("commercial foundation API", () => {
       remainingDays: 31,
     });
     expect(created.body.trial).not.toHaveProperty("conversionDraft");
+
+    await request(app)
+      .get("/api/commercial/public-centres")
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toHaveLength(1);
+        expect(body[0]).toMatchObject({
+          slug: "fitness-boreal-preview",
+          name: "Fitness Boreal",
+          city: "Jaén",
+        });
+      });
+    await request(app)
+      .get("/api/commercial/public-centres/fitness-boreal-preview")
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.pricingDescription).toBe("Cuota mensual: 45 €.");
+      });
 
     const updated = await request(app)
       .patch("/api/commercial/trial")

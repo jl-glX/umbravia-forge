@@ -144,6 +144,14 @@ const CommercialTrialPage = lazyPage(
   () => import("./pages/CommercialTrialPage"),
   "CommercialTrialPage",
 );
+const CommercialCentresPage = lazyPage(
+  () => import("./pages/CommercialCentresPage"),
+  "CommercialCentresPage",
+);
+const PublishedCommercialCentrePage = lazyPage(
+  () => import("./pages/CommercialCentresPage"),
+  "PublishedCommercialCentrePage",
+);
 const CommercialSubscriptionPage = lazyPage(
   () => import("./pages/CommercialSubscriptionPage"),
   "CommercialSubscriptionPage",
@@ -264,7 +272,8 @@ function AppContent() {
       "/conditions-of-use",
       "/privacy",
     ].includes(pathname) ||
-    pathname.startsWith("/umf-support");
+    pathname.startsWith("/umf-support") ||
+    pathname.startsWith("/centres");
 
   if (isInitializing) {
     return (
@@ -537,6 +546,11 @@ function AppContent() {
             }
           />
           <Route path="/commercial" element={<CommercialPage />} />
+          <Route path="/centres" element={<CommercialCentresPage />} />
+          <Route
+            path="/centres/:slug"
+            element={<PublishedCommercialCentrePage />}
+          />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/recover-account" element={<RecoverAccountPage />} />
           <Route

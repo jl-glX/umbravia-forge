@@ -1,5 +1,29 @@
 # Relevo operativo
 
+## Continuidad del cambio activo — fichas y cuentas comerciales, 26 de agosto de 2026
+
+- El alta de centros se organiza como un recorrido de ocho pasos y separa los
+  datos mínimos de los contenidos públicos opcionales. La ficha se publica,
+  retira o elimina de forma explícita y permanece editable durante y después de
+  la prueba. El directorio público solo consulta fichas publicadas.
+- Preferencias muestra a la jefatura los datos del centro y permite mantener un
+  teléfono de inicio de sesión después de confirmar contraseña, segundo factor
+  activo y verificación reciente. El teléfono es privado por defecto; una
+  opción separada permite mostrarlo u ocultarlo en la ficha y eliminar el número
+  retira su visibilidad en la misma transacción.
+- UMF Support muestra cada cuenta comercial como ficha desplegable con su correo
+  y acciones compatibles con el estado. Puede reanudar una pausa de soporte,
+  cancelar o borrar una prueba con confirmación exacta sin borrar la identidad
+  comercial. Las cuentas con cierre programado quedan fuera de la métrica de
+  cuentas activas.
+- Estas garantías describen el código, la migración y las pruebas del cambio.
+  No demuestran que el directorio, los subdominios, DNS/TLS o el esquema estén
+  desplegados en un servidor; la comprobación operativa sigue siendo separada.
+- La puerta local `npm run ci:validate` superó portabilidad, formato, lint, los
+  tres chequeos de tipos, 131 archivos con 648 pruebas favorables y una omitida,
+  las tres compilaciones, el paquete Windows y la auditoría de dependencias.
+  GitHub Actions continúa siendo una validación independiente de la publicación.
+
 ## Continuidad del cambio activo — 26 de agosto de 2026
 
 - El repositorio resuelve opcionalmente cada centro desde un slug DNS estable

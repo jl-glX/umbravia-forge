@@ -108,7 +108,12 @@ decisión explícita, firma y nueva validación humana; véase
 - seguimiento restringido de altas comerciales: cuentas administradoras
   activas, verificaciones pendientes y pruebas actuales se calculan en vivo;
   las bajas de cuenta y pruebas eliminadas se conservan desde la migración 52
-  como hechos contables sin correo ni otros datos personales.
+  como hechos contables sin correo ni otros datos personales;
+- fichas desplegables de cuentas comerciales que muestran el correo de contacto
+  y permiten preparar un mensaje, reenviar una verificación y, cuando el estado
+  lo admite, reanudar, cancelar o borrar la prueba. El borrado exige escribir el
+  nombre exacto del centro y conserva la cuenta comercial; una cuenta con cierre
+  programado no se etiqueta ni se contabiliza como activa.
 
 La conversión de una prueba continúa siendo deliberadamente de clasificación:
 la persona responsable identifica el origen y decide qué categorías conservar

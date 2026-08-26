@@ -41,6 +41,23 @@ type TrialInput = {
   currency?: string;
   usesBookings?: boolean;
   usesWaitlist?: boolean;
+  publicDescription?: string;
+  addressLine?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+  websiteUrl?: string;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  tiktokUrl?: string;
+  youtubeUrl?: string;
+  linkedinUrl?: string;
+  pricingDescription?: string;
+  bonusesDescription?: string;
+  publicPageEnabled?: boolean;
+  showPhonePublicly?: boolean;
+  logoDataUrl?: string;
+  accentColor?: string;
 };
 
 export type AdministratorTrialTenantInput = Pick<
@@ -253,6 +270,12 @@ function serializeTrial<T extends { classTypes: string }>(trial: T) {
     classTypes: JSON.parse(trial.classTypes) as string[],
     usesBookings: Boolean((trial as T & { usesBookings: number }).usesBookings),
     usesWaitlist: Boolean((trial as T & { usesWaitlist: number }).usesWaitlist),
+    publicPageEnabled: Boolean(
+      (trial as T & { publicPageEnabled: number }).publicPageEnabled,
+    ),
+    showPhonePublicly: Boolean(
+      (trial as T & { showPhonePublicly: number }).showPhonePublicly,
+    ),
     autoCleanupEligible: Boolean(
       (trial as T & { autoCleanupEligible: number }).autoCleanupEligible,
     ),
@@ -292,6 +315,7 @@ function cleanupExecutionEnabled(): boolean {
 async function deleteTrialTenantInTransaction(
   transaction: Transaction<Database>,
   trial: { id: string; facilityId: string; ownerUserId: string },
+  options: { deleteOrphanedOwnerAccount?: boolean } = {},
 ) {
   const facility = await transaction
     .selectFrom("facilityProfiles")
@@ -407,6 +431,13 @@ async function deleteTrialTenantInTransaction(
     return {
       accountDeleted: false as const,
       retainedFor: ["other_active_tenant"],
+    };
+  }
+
+  if (options.deleteOrphanedOwnerAccount === false) {
+    return {
+      accountDeleted: false as const,
+      retainedFor: ["support_requested_account_retention"],
     };
   }
 
@@ -782,7 +813,7 @@ export async function getCommercialTrialOverview(facilityId: string) {
   const trial = await expireIfNeeded(facilityId);
   if (!trial) return null;
   const tenantOrigin = tenantOriginForSlug(trial.subdomain);
-  const [counts, events, requests] = await Promise.all([
+  const [counts, events, requests, branding] = await Promise.all([
     createEnvironmentSummary(facilityId),
     db
       .selectFrom("commercialTrialEvents")
@@ -806,9 +837,15 @@ export async function getCommercialTrialOverview(facilityId: string) {
       .orderBy("createdAt", "desc")
       .limit(12)
       .execute(),
+    db
+      .selectFrom("facilityProfiles")
+      .select(["logoDataUrl", "accentColor"])
+      .where("id", "=", facilityId)
+      .executeTakeFirstOrThrow(),
   ]);
   return {
     trial: serializeTrial(trial),
+    branding,
     environment: {
       isolation: "shared_local_demo" as const,
       routing: tenantOrigin
@@ -837,6 +874,88 @@ export async function getCommercialTrialOverview(facilityId: string) {
     })),
     requests,
   };
+}
+
+export async function getPublishedCommercialCentre(slug: string) {
+  const result = await db
+    .selectFrom("facilityProfiles")
+    .innerJoin(
+      "commercialTrials",
+      "commercialTrials.facilityId",
+      "facilityProfiles.id",
+    )
+    .innerJoin("users", "users.id", "commercialTrials.ownerUserId")
+    .select([
+      "facilityProfiles.slug",
+      "facilityProfiles.name",
+      "facilityProfiles.logoDataUrl",
+      "facilityProfiles.accentColor",
+      "commercialTrials.facilityType",
+      "commercialTrials.publicDescription",
+      "commercialTrials.addressLine",
+      "commercialTrials.city",
+      "commercialTrials.postalCode",
+      "commercialTrials.country",
+      "commercialTrials.websiteUrl",
+      "commercialTrials.instagramUrl",
+      "commercialTrials.facebookUrl",
+      "commercialTrials.tiktokUrl",
+      "commercialTrials.youtubeUrl",
+      "commercialTrials.linkedinUrl",
+      "commercialTrials.scheduleNotes",
+      "commercialTrials.pricingDescription",
+      "commercialTrials.bonusesDescription",
+      "commercialTrials.classTypes",
+      "commercialTrials.usesBookings",
+      "commercialTrials.usesWaitlist",
+      "commercialTrials.showPhonePublicly",
+      "users.phone",
+    ])
+    .where("facilityProfiles.slug", "=", slug)
+    .where("facilityProfiles.status", "=", "active")
+    .where("commercialTrials.publicPageEnabled", "=", 1)
+    .executeTakeFirst();
+  if (!result) throw domainError("Published centre not found", 404);
+  const { showPhonePublicly, phone, ...publicResult } = result;
+  return {
+    ...publicResult,
+    phone: showPhonePublicly === 1 ? (phone ?? "") : "",
+    classTypes: JSON.parse(result.classTypes) as string[],
+    usesBookings: Boolean(result.usesBookings),
+    usesWaitlist: Boolean(result.usesWaitlist),
+  };
+}
+
+export async function listPublishedCommercialCentres() {
+  return db
+    .selectFrom("facilityProfiles")
+    .innerJoin(
+      "commercialTrials",
+      "commercialTrials.facilityId",
+      "facilityProfiles.id",
+    )
+    .select([
+      "facilityProfiles.slug",
+      "facilityProfiles.name",
+      "facilityProfiles.logoDataUrl",
+      "facilityProfiles.accentColor",
+      "commercialTrials.facilityType",
+      "commercialTrials.publicDescription",
+      "commercialTrials.city",
+      "commercialTrials.country",
+      "commercialTrials.classTypes",
+    ])
+    .where("facilityProfiles.status", "=", "active")
+    .where("commercialTrials.publicPageEnabled", "=", 1)
+    .orderBy("facilityProfiles.name", "asc")
+    .limit(200)
+    .execute()
+    .then((centres) =>
+      centres.map((centre) => ({
+        ...centre,
+        classTypes: JSON.parse(centre.classTypes) as string[],
+      })),
+    );
 }
 
 export async function requestCommercialContact(
@@ -891,6 +1010,21 @@ export async function createCommercialTrial(
     usualCapacity: template.usualCapacity,
     classTypes: JSON.stringify(input.classTypes ?? template.classTypes),
     scheduleNotes: input.scheduleNotes ?? "",
+    publicDescription: input.publicDescription ?? "",
+    addressLine: input.addressLine ?? "",
+    city: input.city ?? "",
+    postalCode: input.postalCode ?? "",
+    country: input.country ?? "",
+    websiteUrl: input.websiteUrl ?? "",
+    instagramUrl: input.instagramUrl ?? "",
+    facebookUrl: input.facebookUrl ?? "",
+    tiktokUrl: input.tiktokUrl ?? "",
+    youtubeUrl: input.youtubeUrl ?? "",
+    linkedinUrl: input.linkedinUrl ?? "",
+    pricingDescription: input.pricingDescription ?? "",
+    bonusesDescription: input.bonusesDescription ?? "",
+    publicPageEnabled: input.publicPageEnabled ? 1 : 0,
+    showPhonePublicly: input.showPhonePublicly ? 1 : 0,
     locale: input.locale ?? ("es" as const),
     currency: (input.currency ?? "EUR").toUpperCase(),
     usesBookings: input.usesBookings === false ? 0 : 1,
@@ -915,7 +1049,17 @@ export async function createCommercialTrial(
       await trx.insertInto("commercialTrials").values(values).execute();
       await trx
         .updateTable("facilityProfiles")
-        .set({ name: input.facilityName, slug: subdomain, updatedAt: now })
+        .set({
+          name: input.facilityName,
+          slug: subdomain,
+          ...(input.logoDataUrl !== undefined
+            ? { logoDataUrl: input.logoDataUrl }
+            : {}),
+          ...(input.accentColor !== undefined
+            ? { accentColor: input.accentColor }
+            : {}),
+          updatedAt: now,
+        })
         .where("id", "=", facilityId)
         .execute();
     });
@@ -1018,6 +1162,39 @@ export async function updateCommercialTrial(
     ...(input.scheduleNotes !== undefined
       ? { scheduleNotes: input.scheduleNotes }
       : {}),
+    ...(input.publicDescription !== undefined
+      ? { publicDescription: input.publicDescription }
+      : {}),
+    ...(input.addressLine !== undefined
+      ? { addressLine: input.addressLine }
+      : {}),
+    ...(input.city !== undefined ? { city: input.city } : {}),
+    ...(input.postalCode !== undefined ? { postalCode: input.postalCode } : {}),
+    ...(input.country !== undefined ? { country: input.country } : {}),
+    ...(input.websiteUrl !== undefined ? { websiteUrl: input.websiteUrl } : {}),
+    ...(input.instagramUrl !== undefined
+      ? { instagramUrl: input.instagramUrl }
+      : {}),
+    ...(input.facebookUrl !== undefined
+      ? { facebookUrl: input.facebookUrl }
+      : {}),
+    ...(input.tiktokUrl !== undefined ? { tiktokUrl: input.tiktokUrl } : {}),
+    ...(input.youtubeUrl !== undefined ? { youtubeUrl: input.youtubeUrl } : {}),
+    ...(input.linkedinUrl !== undefined
+      ? { linkedinUrl: input.linkedinUrl }
+      : {}),
+    ...(input.pricingDescription !== undefined
+      ? { pricingDescription: input.pricingDescription }
+      : {}),
+    ...(input.bonusesDescription !== undefined
+      ? { bonusesDescription: input.bonusesDescription }
+      : {}),
+    ...(input.publicPageEnabled !== undefined
+      ? { publicPageEnabled: input.publicPageEnabled ? 1 : 0 }
+      : {}),
+    ...(input.showPhonePublicly !== undefined
+      ? { showPhonePublicly: input.showPhonePublicly ? 1 : 0 }
+      : {}),
     ...(input.locale !== undefined ? { locale: input.locale } : {}),
     ...(input.currency !== undefined
       ? { currency: input.currency.toUpperCase() }
@@ -1037,7 +1214,12 @@ export async function updateCommercialTrial(
         .set(update)
         .where("id", "=", trial.id)
         .execute();
-      if (input.facilityName !== undefined || subdomain !== undefined) {
+      if (
+        input.facilityName !== undefined ||
+        subdomain !== undefined ||
+        input.logoDataUrl !== undefined ||
+        input.accentColor !== undefined
+      ) {
         await trx
           .updateTable("facilityProfiles")
           .set({
@@ -1045,6 +1227,12 @@ export async function updateCommercialTrial(
               ? { name: input.facilityName }
               : {}),
             ...(subdomain !== undefined ? { slug: subdomain } : {}),
+            ...(input.logoDataUrl !== undefined
+              ? { logoDataUrl: input.logoDataUrl }
+              : {}),
+            ...(input.accentColor !== undefined
+              ? { accentColor: input.accentColor }
+              : {}),
             updatedAt: now,
           })
           .where("id", "=", facilityId)
@@ -1092,6 +1280,45 @@ export async function restoreCommercialTrialConfiguration(
       scope: "commercial_configuration_only",
     },
   );
+  return getCommercialTrialOverview(facilityId);
+}
+
+export async function updateCommercialTrialPublicPhoneVisibility(
+  actorUserId: string,
+  facilityId: string,
+  showPhonePublicly: boolean,
+) {
+  const [trial, owner] = await Promise.all([
+    db
+      .selectFrom("commercialTrials")
+      .select("id")
+      .where("facilityId", "=", facilityId)
+      .executeTakeFirst(),
+    db
+      .selectFrom("users")
+      .select("phone")
+      .where("id", "=", actorUserId)
+      .executeTakeFirst(),
+  ]);
+  if (!trial) throw domainError("Commercial trial not found", 404);
+  if (showPhonePublicly && !owner?.phone) {
+    throw domainError(
+      "A login phone is required before it can be shown publicly",
+      409,
+      "COMMERCIAL_PUBLIC_PHONE_REQUIRED",
+    );
+  }
+  await db
+    .updateTable("commercialTrials")
+    .set({
+      showPhonePublicly: showPhonePublicly ? 1 : 0,
+      updatedAt: Date.now(),
+    })
+    .where("id", "=", trial.id)
+    .executeTakeFirstOrThrow();
+  await recordEvent(trial.id, actorUserId, "public_phone_visibility_updated", {
+    showPhonePublicly,
+  });
   return getCommercialTrialOverview(facilityId);
 }
 
@@ -1211,4 +1438,164 @@ export async function closeCommercialTrial(
     .execute();
   await recordEvent(trial.id, actorUserId, "trial_closed");
   return getCommercialTrialOverview(facilityId);
+}
+
+export async function resumeCommercialTrialBySupport(
+  actorUserId: string,
+  trialId: string,
+) {
+  const trial = await db
+    .selectFrom("commercialTrials")
+    .select(["id", "facilityId", "status", "pausedAt", "expiresAt"])
+    .where("id", "=", trialId)
+    .executeTakeFirst();
+  if (!trial) throw domainError("Commercial trial not found", 404);
+  if (trial.status !== "trial_paused_support") {
+    throw domainError("Only a support-paused trial can be resumed");
+  }
+  return withCoordinatedManagerOperation(
+    "account",
+    "commercial",
+    "resume-commercial-trial-by-support",
+    [`commercial-trial:${trial.facilityId}`],
+    async () => {
+      const now = Date.now();
+      const pausedDuration = Math.max(0, now - (trial.pausedAt ?? now));
+      const expiresAt = trial.expiresAt + pausedDuration;
+      const status = expiresAt > now ? "trial_active" : "trial_expired";
+      await db
+        .updateTable("commercialTrials")
+        .set({
+          status,
+          realDataDeclaration: "undeclared",
+          expiresAt,
+          pausedAt: null,
+          dataReviewRequestedAt: status === "trial_active" ? null : now,
+          cleanupEligibleAt: null,
+          updatedAt: now,
+        })
+        .where("id", "=", trial.id)
+        .where("status", "=", "trial_paused_support")
+        .executeTakeFirstOrThrow();
+      await recordEvent(trial.id, actorUserId, "trial_resumed_by_support", {
+        restoredPausedMilliseconds: pausedDuration,
+        resultingStatus: status,
+      });
+      return getCommercialTrialOverview(trial.facilityId);
+    },
+  );
+}
+
+export async function cancelCommercialTrialBySupport(
+  actorUserId: string,
+  trialId: string,
+) {
+  const trial = await db
+    .selectFrom("commercialTrials")
+    .select([
+      "id",
+      "facilityId",
+      "status",
+      "realDataDeclaration",
+      "autoCleanupEligible",
+      "dataReviewRequestedAt",
+    ])
+    .where("id", "=", trialId)
+    .executeTakeFirst();
+  if (!trial) throw domainError("Commercial trial not found", 404);
+  if (["trial_closed", "trial_converted"].includes(trial.status)) {
+    throw domainError("This trial cannot be cancelled");
+  }
+  return withCoordinatedManagerOperation(
+    "account",
+    "commercial",
+    "cancel-commercial-trial-by-support",
+    [`commercial-trial:${trial.facilityId}`],
+    async () => {
+      const now = Date.now();
+      const cleanupEligible = ["undeclared", "no"].includes(
+        trial.realDataDeclaration,
+      );
+      await db
+        .updateTable("commercialTrials")
+        .set({
+          status: "trial_closed",
+          publicPageEnabled: 0,
+          pausedAt: null,
+          closedAt: now,
+          dataReviewRequestedAt: trial.dataReviewRequestedAt ?? now,
+          cleanupEligibleAt:
+            cleanupEligible && trial.autoCleanupEligible === 1 ? now : null,
+          updatedAt: now,
+        })
+        .where("id", "=", trial.id)
+        .executeTakeFirstOrThrow();
+      await recordEvent(trial.id, actorUserId, "trial_cancelled_by_support");
+      return getCommercialTrialOverview(trial.facilityId);
+    },
+  );
+}
+
+export async function deleteCommercialTrialBySupport(
+  actorUserId: string,
+  trialId: string,
+  confirmation: string,
+) {
+  const trial = await db
+    .selectFrom("commercialTrials")
+    .select(["id", "facilityId", "ownerUserId", "facilityName", "subdomain"])
+    .where("id", "=", trialId)
+    .executeTakeFirst();
+  if (!trial) throw domainError("Commercial trial not found", 404);
+  if (confirmation.trim() !== trial.facilityName) {
+    throw domainError(
+      "The facility name confirmation does not match",
+      400,
+      "COMMERCIAL_TRIAL_DELETE_CONFIRMATION_MISMATCH",
+    );
+  }
+  return withCoordinatedManagerOperation(
+    "account",
+    "commercial",
+    "delete-commercial-trial-by-support",
+    [`commercial-trial:${trial.facilityId}`],
+    async () => {
+      const environment = await stageCommercialEnvironmentRemoval(
+        trial.subdomain,
+      );
+      let result;
+      try {
+        result = await db.transaction().execute(async (transaction) => {
+          const attachments = await stageTrialAttachmentRemoval(
+            transaction,
+            trial.facilityId,
+          );
+          try {
+            return {
+              outcome: await deleteTrialTenantInTransaction(
+                transaction,
+                trial,
+                { deleteOrphanedOwnerAccount: false },
+              ),
+              attachments,
+            };
+          } catch (error) {
+            await attachments.rollback();
+            throw error;
+          }
+        });
+      } catch (error) {
+        await environment.rollback();
+        throw error;
+      }
+      await result.attachments.commit();
+      await environment.commit();
+      return {
+        deleted: true as const,
+        accountDeleted: false as const,
+        ownerUserId: trial.ownerUserId,
+        actorUserId,
+      };
+    },
+  );
 }

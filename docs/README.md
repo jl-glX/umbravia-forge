@@ -27,6 +27,9 @@ auditoría histórica entra en conflicto con un documento vigente.
   por host, autorización por membresía, edición controlada y previsualización
   del dominio padre durante la prueba, pero desactivados hasta validar DNS, TLS,
   Caddy, WebAuthn y Turnstile en el entorno autorizado;
+- [Fichas públicas de centros](./PUBLIC-CENTRE-PROFILES.md), con alta guiada,
+  publicación y retirada explícitas, edición posterior a la prueba, teléfono
+  privado por defecto y directorio público limitado a los datos elegidos;
 - [Portabilidad y ejecución en varios nodos](./PORTABILITY-AND-MULTI-NODE.md),
   incluida la separación del rol de trabajos programados y los bloqueantes
   reales de almacenamiento local, límites y coordinación;

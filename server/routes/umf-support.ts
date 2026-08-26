@@ -62,6 +62,7 @@ import {
   listUmfSupportTickets,
   registerUmfSupportAccount,
   resendCommercialTrialAdministratorVerification,
+  removeCommercialTrialFromSupport,
   replyToUmfSupportTicket,
   saveUmfSupportMailDraft,
   sendUmfSupportMailDraft,
@@ -69,6 +70,7 @@ import {
   updateUmfSupportStaff,
   updateUmfSupportWorkspaceName,
   updateUmfSupportTicket,
+  updateCommercialTrialFromSupport,
   verifyUmfSupportRegistration,
 } from "../services/umf-support.js";
 import {
@@ -717,6 +719,56 @@ umfSupportRouter.post(
             req.params.userId,
           ),
         );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.post(
+  "/commercial-trials/:trialId/action",
+  supportMutationLimiter,
+  requireRecentFormVerification,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, ["action"]);
+      if (req.body.action !== "resume" && req.body.action !== "cancel") {
+        throw Object.assign(new Error("Invalid commercial trial action"), {
+          statusCode: 400,
+        });
+      }
+      res.json(
+        await updateCommercialTrialFromSupport(
+          getAuthenticatedUser(res),
+          req.params.trialId,
+          req.body.action,
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+umfSupportRouter.delete(
+  "/commercial-trials/:trialId",
+  supportMutationLimiter,
+  requireRecentFormVerification,
+  async (req, res, next) => {
+    try {
+      requireOnlyFields(req.body, ["confirmation"]);
+      if (typeof req.body.confirmation !== "string") {
+        throw Object.assign(new Error("A confirmation is required"), {
+          statusCode: 400,
+        });
+      }
+      res.json(
+        await removeCommercialTrialFromSupport(
+          getAuthenticatedUser(res),
+          req.params.trialId,
+          req.body.confirmation,
+        ),
+      );
     } catch (error) {
       next(error);
     }

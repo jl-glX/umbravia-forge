@@ -27,6 +27,21 @@ export interface CommercialTrial {
   usualCapacity: number | null;
   classTypes: string[];
   scheduleNotes: string;
+  publicDescription: string;
+  addressLine: string;
+  city: string;
+  postalCode: string;
+  country: string;
+  websiteUrl: string;
+  instagramUrl: string;
+  facebookUrl: string;
+  tiktokUrl: string;
+  youtubeUrl: string;
+  linkedinUrl: string;
+  pricingDescription: string;
+  bonusesDescription: string;
+  publicPageEnabled: boolean;
+  showPhonePublicly: boolean;
   locale: "es" | "en" | "de" | "de-CH";
   currency: string;
   usesBookings: boolean;
@@ -44,6 +59,10 @@ export interface CommercialTrial {
 
 export interface CommercialTrialOverview {
   trial: CommercialTrial;
+  branding: {
+    logoDataUrl: string;
+    accentColor: string;
+  };
   environment: {
     isolation: "shared_local_demo";
     routing: "not_provisioned" | "tenant_subdomain";
@@ -60,6 +79,36 @@ export interface CommercialTrialOverview {
     metadata: Record<string, unknown>;
     createdAt: number;
   }>;
+}
+
+export interface PublishedCommercialCentre {
+  slug: string;
+  name: string;
+  logoDataUrl: string;
+  accentColor: string;
+  facilityType: CommercialFacilityType;
+  publicDescription: string;
+  addressLine: string;
+  city: string;
+  postalCode: string;
+  country: string;
+  websiteUrl: string;
+  instagramUrl: string;
+  facebookUrl: string;
+  tiktokUrl: string;
+  youtubeUrl: string;
+  linkedinUrl: string;
+  scheduleNotes: string;
+  pricingDescription: string;
+  bonusesDescription: string;
+  phone: string;
+  classTypes: string[];
+  usesBookings: boolean;
+  usesWaitlist: boolean;
+}
+
+export interface CommercialTrialSetup {
+  tenantBaseDomain: string | null;
 }
 
 export type ConversionOrigin =

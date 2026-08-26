@@ -176,15 +176,13 @@
     "subject": "Asunto",
     "categoryLabel": "Categoría",
     "priorityLabel": "Prioridad",
-    "assignee": "Persona asignada",
+    "assignee": "Responsable",
     "unassigned": "Sin asignar",
     "message": "Descripción",
     "createAction": "Crear solicitud",
     "welcomeTitle": "Tu canal directo con soporte",
     "welcomeDescription": "Selecciona una solicitud existente o crea una nueva. Cada cambio queda vinculado a un historial privado y auditable.",
     "statusLabel": "Estado",
-    "assignee": "Responsable",
-    "unassigned": "Sin asignar",
     "slaOverdue": "Objetivo de atención superado",
     "systemAuthor": "Sistema",
     "internalNote": "Nota interna",
@@ -369,7 +367,38 @@
     "noEligibleStaff": "No hay personal verificado elegible para este permiso.",
     "saved": "Las preferencias se han guardado.",
     "loadError": "No se han podido cargar las preferencias del centro.",
-    "saveError": "No se han podido guardar las preferencias."
+    "saveError": "No se han podido guardar las preferencias.",
+    "centreDataTitle": "Datos del centro",
+    "centreDataDescription": "Revisa la información de la cuenta comercial y protege los datos que también pueden utilizarse para iniciar sesión.",
+    "centreDataLoadError": "No se han podido cargar los datos del centro.",
+    "centreName": "Nombre del centro",
+    "centreType": "Tipo de centro",
+    "accountEmail": "Correo de la cuenta",
+    "centreAddress": "Dirección digital",
+    "reviewCentreData": "Revisar y editar los datos del centro",
+    "loginPhoneTitle": "Teléfono de acceso",
+    "loginPhoneDescription": "Puedes utilizar este número para iniciar sesión. Para cambiarlo debes confirmar tu contraseña y, si está activo, el segundo factor.",
+    "loginPhone": "Número de teléfono",
+    "currentPassword": "Contraseña actual",
+    "authenticatorCode": "Código de la aplicación de autenticación",
+    "savePhone": "Guardar teléfono",
+    "phoneSaved": "El teléfono de acceso se ha actualizado.",
+    "phoneSaveError": "No se ha podido actualizar el teléfono de acceso.",
+    "phoneVisibilityError": "No se ha podido cambiar la visibilidad del teléfono.",
+    "phoneMadePublic": "El teléfono ahora es visible en la ficha pública del centro.",
+    "phoneMadePrivate": "El teléfono ha vuelto a ser privado.",
+    "showPhonePublicly": "Mostrar este teléfono en la ficha pública",
+    "showPhonePubliclyDescription": "Esta opción es independiente del inicio de sesión. Puedes ocultarlo de nuevo cuando quieras.",
+    "phonePrivateByDefault": "Añade y verifica primero un teléfono. Permanecerá privado hasta que actives esta opción.",
+    "phoneErrors": {
+      "ACCOUNT_PHONE_ALREADY_IN_USE": "Este teléfono ya está vinculado a otra cuenta.",
+      "FACILITY_OWNER_REQUIRED": "Solo la persona propietaria del centro puede cambiar este teléfono.",
+      "SECURITY_CONFIRMATION_FAILED": "La contraseña actual no es correcta.",
+      "MFA_CONFIRMATION_FAILED": "El código de autenticación no es válido.",
+      "FORM_VERIFICATION_REQUIRED": "Vuelve a completar la verificación del formulario.",
+      "COMMERCIAL_PUBLIC_PHONE_REQUIRED": "Añade un teléfono antes de hacerlo público.",
+      "REQUEST_FAILED": "No se ha podido completar la solicitud."
+    }
   },
   "accountData": {
     "back": "Volver a Preferencias",
@@ -1468,7 +1497,11 @@
       "campaignCreated": "Campaña mensual programada.",
       "campaignCount": "{{count}} campañas registradas"
     },
-    "period": { "day": "Hoy", "week": "Esta semana", "month": "Este mes" },
+    "period": {
+      "day": "Hoy",
+      "week": "Esta semana",
+      "month": "Este mes"
+    },
     "recommendations": {
       "COLLECT_MORE_DATA": {
         "title": "Recoge más datos antes de decidir",
@@ -1509,7 +1542,10 @@
       "name": "Box Fit",
       "description": "Entrenamiento físico basado en boxeo"
     },
-    "zumba": { "name": "Zumba", "description": "Clase de ejercicio y baile" }
+    "zumba": {
+      "name": "Zumba",
+      "description": "Clase de ejercicio y baile"
+    }
   },
   "legal": {
     "eyebrow": "Información legal",
@@ -1915,6 +1951,7 @@
       "description": "Configura y prueba Umbravia Forge sin llamadas comerciales automáticas ni compromisos ocultos. El producto se explica funcionando.",
       "explore": "Crear una cuenta",
       "openEnvironment": "Configurar el centro",
+      "browseCentres": "Explorar centros",
       "returnHome": "Volver a la aplicación",
       "signIn": "Iniciar sesión",
       "menuLink": "Conocer Umbravia Forge",
@@ -1939,6 +1976,58 @@
       "editTitle": "Configuración del centro",
       "description": "Usa una plantilla como punto de partida. Todos los datos opcionales se pueden completar o cambiar más tarde.",
       "centreData": "Datos del centro",
+      "wizard": {
+        "eyebrow": "Alta guiada del centro",
+        "progress": "Paso {{current}} de {{total}}",
+        "progressLabel": "Progreso de la configuración",
+        "sectionLabel": "Bloque {{count}}",
+        "back": "Atrás",
+        "next": "Siguiente",
+        "edit": "Editar",
+        "notProvided": "Lo completarás más adelante",
+        "steps": {
+          "identity": {
+            "label": "Identidad",
+            "title": "Identifica tu centro",
+            "description": "Define el nombre, la especialidad y los ajustes básicos con los que trabajará la plataforma."
+          },
+          "operations": {
+            "label": "Operativa",
+            "title": "Adapta la operativa diaria",
+            "description": "Indica qué actividades ofreces y cómo quieres gestionar reservas y listas de espera."
+          },
+          "address": {
+            "label": "Dirección digital",
+            "title": "Elige la dirección de tu centro",
+            "description": "Reserva una dirección reconocible. El dominio padre pertenece siempre a Umbravia Forge y no se puede modificar."
+          },
+          "review": {
+            "label": "Revisión",
+            "title": "Comprueba la configuración",
+            "description": "Revisa cada bloque antes de guardar. Podrás volver a editarlo después desde esta misma área."
+          },
+          "branding": {
+            "label": "Marca",
+            "title": "Presenta tu identidad visual",
+            "description": "Añade el logotipo y el color que identificarán al centro en su espacio público y privado."
+          },
+          "location": {
+            "label": "Ubicación",
+            "title": "Sitúa el centro",
+            "description": "Estos datos se mostrarán en la ficha pública para que las personas sepan dónde encontrarte."
+          },
+          "socials": {
+            "label": "Enlaces",
+            "title": "Conecta tus canales públicos",
+            "description": "Añade solo la web y las redes que quieras mostrar en la ficha pública del centro."
+          },
+          "offers": {
+            "label": "Tarifas y bonos",
+            "title": "Explica la oferta del centro",
+            "description": "Publica tus propias tarifas, cuotas, bonos y condiciones para futuros socios."
+          }
+        }
+      },
       "requestFailed": "No se ha podido completar la operación",
       "errors": {
         "title": "No se ha podido guardar la configuración",
@@ -1948,7 +2037,8 @@
         "notEditable": "Este centro ya no admite cambios de configuración en su estado actual.",
         "subdomainInvalid": "El subdominio debe usar solo letras minúsculas, números o guiones, sin guiones al principio ni al final, y no puede ser un nombre reservado.",
         "subdomainUnavailable": "Ese subdominio ya pertenece a otro centro. Elige uno diferente.",
-        "subdomainLocked": "El subdominio solo se puede cambiar mientras el periodo de prueba está activo."
+        "subdomainLocked": "El subdominio solo se puede cambiar mientras el periodo de prueba está activo.",
+        "logoInvalid": "El logotipo debe ser PNG, JPEG o WebP y no superar 512 KB."
       },
       "editPolicy": {
         "trial": "Durante el periodo de prueba puedes editar esta configuración tantas veces como necesites.",
@@ -2024,6 +2114,9 @@
         "subdomain": "Subdominio del centro",
         "subdomainHelpActive": "Al guardar, la nueva dirección sustituirá inmediatamente a la anterior. La cuenta y sus permisos siguen determinando el acceso.",
         "subdomainHelpReserved": "La dirección completa es una vista previa. El nombre quedará reservado para el centro y no se publicará hasta que DNS y el enrutamiento por subdominio estén activados.",
+        "subdomainPlaceholder": "tu-centro",
+        "subdomainLockedLabel": "La dirección quedó fijada al terminar el periodo de prueba.",
+        "addressPreview": "Así se verá la dirección completa",
         "approximateMembers": "Socios aproximados",
         "trainerCount": "Número de entrenadores",
         "spaceCount": "Salas o zonas",
@@ -2033,8 +2126,41 @@
         "currency": "Moneda",
         "language": "Idioma",
         "schedule": "Descripción del horario",
+        "scheduleHelp": "Ej.: Fuerza de lunes a viernes a las 18:00; movilidad los sábados a las 10:00.",
         "usesBookings": "Utiliza reservas",
-        "usesWaitlist": "Utiliza lista de espera"
+        "usesBookingsHelp": "Los socios podrán reservar plaza en las actividades que publiques.",
+        "usesWaitlist": "Utiliza lista de espera",
+        "usesWaitlistHelp": "Las plazas liberadas podrán ofrecerse de forma ordenada a quienes estén esperando.",
+        "publicDescription": "Presentación pública",
+        "publicDescriptionHelp": "Cuenta en pocas líneas qué hace especial a tu centro y a quién se dirige.",
+        "logo": "Logotipo del centro",
+        "logoHelp": "PNG, JPEG o WebP de hasta 512 KB. Podrás sustituirlo más tarde.",
+        "logoPreview": "Vista previa de la marca",
+        "accentColor": "Color principal",
+        "addressLine": "Dirección",
+        "city": "Ciudad",
+        "postalCode": "Código postal",
+        "country": "País",
+        "locationHelp": "La ubicación es opcional durante la prueba. Revísala antes de publicar la ficha para evitar mostrar una dirección incorrecta.",
+        "websiteUrl": "Sitio web",
+        "instagramUrl": "Instagram",
+        "facebookUrl": "Facebook",
+        "tiktokUrl": "TikTok",
+        "youtubeUrl": "YouTube",
+        "linkedinUrl": "LinkedIn",
+        "socialsHelp": "Todos los enlaces son opcionales y deben incluir https:// o http://.",
+        "pricingDescription": "Tarifas y cuotas",
+        "pricingDescriptionHelp": "Ej.: cuota mensual 45 €, matrícula incluida y acceso libre a sala.",
+        "bonusesDescription": "Bonos, packs y promociones",
+        "bonusesDescriptionHelp": "Ej.: bono de 10 sesiones, validez, precio y condiciones de uso.",
+        "offersHelp": "Estas son las tarifas comerciales del centro para sus socios; no cambian el plan que el centro paga a Umbravia Forge.",
+        "publicPageEnabled": "Control de la ficha pública",
+        "publicPageEnabledHelp": "Puedes publicarla cuando estés seguro, retirarla sin perder los datos o seguir editándola también después de la prueba.",
+        "publishPage": "Publicar ficha",
+        "unpublishPage": "Retirar ficha",
+        "previewPage": "Vista previa pública",
+        "deletePublicPage": "Eliminar ficha",
+        "deletePublicPageConfirm": "Se retirará la ficha y se borrarán su presentación, ubicación, enlaces y tarifas públicas. La cuenta del centro no se eliminará. ¿Continuar?"
       }
     },
     "facilityTypes": {
@@ -2052,6 +2178,23 @@
       "indoor_cycling": "Ciclo indoor",
       "multidisciplinary": "Centro multidisciplinar",
       "custom": "Personalizado"
+    },
+    "directory": {
+      "eyebrow": "Centros en Umbravia Forge",
+      "title": "Encuentra un centro que encaje contigo",
+      "description": "Consulta actividades, ubicación, horarios y tarifas publicadas directamente por cada centro.",
+      "search": "Buscar por nombre, ciudad o actividad",
+      "empty": "Todavía no hay centros publicados que coincidan con la búsqueda.",
+      "noDescription": "Este centro todavía no ha añadido una presentación pública.",
+      "notFound": "Esta ficha no está publicada",
+      "back": "Volver al directorio",
+      "about": "Sobre el centro",
+      "schedule": "Horario",
+      "prices": "Tarifas y bonos",
+      "location": "Ubicación",
+      "links": "Enlaces públicos",
+      "noLinks": "El centro todavía no ha publicado enlaces.",
+      "phone": "Teléfono"
     }
   },
   "captcha": {
@@ -2480,7 +2623,10 @@
       "company": "Borrador organizativo sin autoridad operativa.",
       "collaboration": "Borradores informativos sin permisos técnicos; tú decides cuáles se muestran al personal."
     },
-    "role": { "director": "Jefatura", "agent": "Administrador" },
+    "role": {
+      "director": "Jefatura",
+      "agent": "Administrador"
+    },
     "commercialTrials": {
       "provisioningEnabled": "Las altas comerciales de prueba están habilitadas",
       "provisioningDisabled": "Las altas comerciales de prueba están cerradas",
@@ -2518,7 +2664,20 @@
         "trial_expired": "Prueba caducada",
         "trial_converted": "Prueba convertida",
         "trial_closed": "Prueba cerrada"
-      }
+      },
+      "actions": "Acciones",
+      "actionsHint": "El correo comercial permanece visible para que puedas contactar sin acceder a la cuenta ni compartir credenciales.",
+      "contactEmail": "Correo de contacto: {{email}}",
+      "contact": "Contactar",
+      "contactSubject": "Seguimiento de Umbravia Forge · {{facility}}",
+      "resume": "Reanudar prueba",
+      "cancel": "Cancelar prueba",
+      "delete": "Eliminar periodo de prueba",
+      "deletionPending": "Cuenta en cola de borrado",
+      "deletionScheduledFor": "Cierre previsto: {{date}}",
+      "confirmCancel": "¿Quieres cancelar la prueba de {{facility}}? El acceso se cerrará y su ficha pública dejará de mostrarse.",
+      "confirmDelete": "Esta acción elimina el entorno de prueba de forma irreversible, pero conserva la cuenta comercial. Escribe exactamente «{{facility}}» para continuar.",
+      "deleteMismatch": "El nombre del centro no coincide. No se ha eliminado nada."
     },
     "companyPosition": {
       "platform_head": "Jefe de plataforma",
@@ -2527,7 +2686,10 @@
       "staff": "Personal",
       "external_collaborator": "Colaborador externo"
     },
-    "staffStatus": { "active": "Activo", "revoked": "Revocado" },
+    "staffStatus": {
+      "active": "Activo",
+      "revoked": "Revocado"
+    },
     "pendingAdministratorAccounts": "Cuentas verificadas pendientes de alta",
     "pendingAdministratorAccountsHint": "La verificación del correo acredita el buzón, pero no concede acceso a la plataforma.",
     "approveAdministrator": "Dar de alta como administrador",
@@ -2693,7 +2855,10 @@
       "enableDevice": "Autorizar este dispositivo",
       "revokeDevice": "Revocar",
       "noDevices": "No hay dispositivos autorizados.",
-      "deviceStatus": { "active": "Activo", "revoked": "Revocado" },
+      "deviceStatus": {
+        "active": "Activo",
+        "revoked": "Revocado"
+      },
       "events": {
         "ticket_created": {
           "title": "Nuevo ticket",
@@ -2771,7 +2936,12 @@
       "companyStaffAdded": "Persona incorporada a la plantilla sin permisos técnicos automáticos.",
       "companyStaffRevoked": "Persona retirada de la plantilla y módulos devueltos a la cobertura vacante.",
       "commercialVerificationSent": "Se ha reenviado el código de verificación al correo de la cuenta comercial.",
-      "commercialVerificationQueued": "El nuevo código de verificación ha quedado en la cola de correo comercial."
+      "commercialVerificationQueued": "El nuevo código de verificación ha quedado en la cola de correo comercial.",
+      "commercialTrial": {
+        "resume": "La prueba de {{facility}} se ha reanudado y recupera el tiempo que estuvo pausada.",
+        "cancel": "La prueba de {{facility}} se ha cancelado.",
+        "delete": "El periodo de prueba de {{facility}} se ha eliminado; la cuenta comercial se conserva."
+      }
     },
     "errors": {
       "load": "No se pudo cargar UMF Support.",

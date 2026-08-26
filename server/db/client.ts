@@ -2306,6 +2306,21 @@ async function initializeSqliteSchema(
         usualCapacity INTEGER,
         classTypes TEXT NOT NULL DEFAULT '[]',
         scheduleNotes TEXT NOT NULL DEFAULT '',
+        publicDescription TEXT NOT NULL DEFAULT '',
+        addressLine TEXT NOT NULL DEFAULT '',
+        city TEXT NOT NULL DEFAULT '',
+        postalCode TEXT NOT NULL DEFAULT '',
+        country TEXT NOT NULL DEFAULT '',
+        websiteUrl TEXT NOT NULL DEFAULT '',
+        instagramUrl TEXT NOT NULL DEFAULT '',
+        facebookUrl TEXT NOT NULL DEFAULT '',
+        tiktokUrl TEXT NOT NULL DEFAULT '',
+        youtubeUrl TEXT NOT NULL DEFAULT '',
+        linkedinUrl TEXT NOT NULL DEFAULT '',
+        pricingDescription TEXT NOT NULL DEFAULT '',
+        bonusesDescription TEXT NOT NULL DEFAULT '',
+        publicPageEnabled INTEGER NOT NULL DEFAULT 0 CHECK(publicPageEnabled IN (0, 1)),
+        showPhonePublicly INTEGER NOT NULL DEFAULT 0 CHECK(showPhonePublicly IN (0, 1)),
         locale TEXT NOT NULL CHECK(locale IN ('es', 'en', 'de', 'de-CH')),
         currency TEXT NOT NULL,
         usesBookings INTEGER NOT NULL DEFAULT 1 CHECK(usesBookings IN (0, 1)),
@@ -2385,6 +2400,42 @@ async function initializeSqliteSchema(
     ) {
       sqliteDb.exec(
         "ALTER TABLE commercialTrials ADD COLUMN cleanupEligibleAt INTEGER",
+      );
+    }
+    const publicTextColumns = [
+      "publicDescription",
+      "addressLine",
+      "city",
+      "postalCode",
+      "country",
+      "websiteUrl",
+      "instagramUrl",
+      "facebookUrl",
+      "tiktokUrl",
+      "youtubeUrl",
+      "linkedinUrl",
+      "pricingDescription",
+      "bonusesDescription",
+    ];
+    for (const column of publicTextColumns) {
+      if (!commercialColumns.some((candidate) => candidate.name === column)) {
+        sqliteDb.exec(
+          `ALTER TABLE commercialTrials ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`,
+        );
+      }
+    }
+    if (
+      !commercialColumns.some((column) => column.name === "publicPageEnabled")
+    ) {
+      sqliteDb.exec(
+        "ALTER TABLE commercialTrials ADD COLUMN publicPageEnabled INTEGER NOT NULL DEFAULT 0 CHECK(publicPageEnabled IN (0, 1))",
+      );
+    }
+    if (
+      !commercialColumns.some((column) => column.name === "showPhonePublicly")
+    ) {
+      sqliteDb.exec(
+        "ALTER TABLE commercialTrials ADD COLUMN showPhonePublicly INTEGER NOT NULL DEFAULT 0 CHECK(showPhonePublicly IN (0, 1))",
       );
     }
   }

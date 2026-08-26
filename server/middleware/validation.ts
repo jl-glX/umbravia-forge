@@ -221,7 +221,33 @@ const commercialTrialFields = [
   "currency",
   "usesBookings",
   "usesWaitlist",
+  "publicDescription",
+  "addressLine",
+  "city",
+  "postalCode",
+  "country",
+  "websiteUrl",
+  "instagramUrl",
+  "facebookUrl",
+  "tiktokUrl",
+  "youtubeUrl",
+  "linkedinUrl",
+  "pricingDescription",
+  "bonusesDescription",
+  "publicPageEnabled",
+  "logoDataUrl",
+  "accentColor",
 ];
+
+function optionalPublicUrl(value: string): boolean {
+  if (value === "") return true;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
 
 const optionalCommercialTrialFields = () => [
   body("subdomain")
@@ -247,6 +273,56 @@ const optionalCommercialTrialFields = () => [
     .matches(/^[A-Z]{3}$/),
   body("usesBookings").optional().isBoolean(),
   body("usesWaitlist").optional().isBoolean(),
+  body("publicDescription")
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ max: 2_000 }),
+  body("addressLine").optional().isString().trim().isLength({ max: 240 }),
+  body("city").optional().isString().trim().isLength({ max: 120 }),
+  body("postalCode").optional().isString().trim().isLength({ max: 24 }),
+  body("country").optional().isString().trim().isLength({ max: 120 }),
+  ...[
+    "websiteUrl",
+    "instagramUrl",
+    "facebookUrl",
+    "tiktokUrl",
+    "youtubeUrl",
+    "linkedinUrl",
+  ].map((field) =>
+    body(field)
+      .optional()
+      .isString()
+      .trim()
+      .isLength({ max: 500 })
+      .custom(optionalPublicUrl),
+  ),
+  body("pricingDescription")
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ max: 4_000 }),
+  body("bonusesDescription")
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ max: 4_000 }),
+  body("publicPageEnabled").optional().isBoolean(),
+  body("accentColor")
+    .optional()
+    .isString()
+    .matches(/^#[0-9a-fA-F]{6}$/),
+  body("logoDataUrl")
+    .optional()
+    .isString()
+    .custom((value: string) => {
+      if (value === "") return true;
+      const match = value.match(
+        /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/,
+      );
+      if (!match) throw new Error("Logo must be a PNG, JPEG or WebP image");
+      return Buffer.byteLength(match[2], "base64") <= 512 * 1024;
+    }),
 ];
 
 export const createCommercialTrialValidation = validateRequest([
@@ -265,6 +341,11 @@ export const updateCommercialTrialValidation = validateRequest([
     .isLength({ min: 2, max: 120 }),
   body("facilityType").optional().isIn(commercialFacilityTypes),
   ...optionalCommercialTrialFields(),
+]);
+
+export const commercialPublicPhoneVisibilityValidation = validateRequest([
+  strictBody(["showPhonePublicly"]),
+  body("showPhonePublicly").isBoolean(),
 ]);
 
 export const emptyCommercialTrialActionValidation = validateRequest([
@@ -694,6 +775,7 @@ export const facilityProfileValidation = validateRequest([
 export const accountProfileValidation = validateRequest([
   strictBody(["avatarDataUrl"], true),
   body("avatarDataUrl")
+    .optional()
     .isString()
     .custom((value: string) => {
       if (value === "") return true;
@@ -725,6 +807,29 @@ export const accountProfileValidation = validateRequest([
       }
       return true;
     }),
+]);
+
+export const accountPhoneValidation = validateRequest([
+  strictBody(["phone", "password", "totpCode"]),
+  body("phone")
+    .isString()
+    .trim()
+    .custom((value: string) => {
+      if (value === "") return true;
+      const normalized = value.replace(/[\s().-]/g, "");
+      if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
+        throw new Error(
+          "Phone must include its country code, for example +34612345678",
+        );
+      }
+      return true;
+    }),
+  body("password").isString().isLength({ min: 1, max: 128 }),
+  body("totpCode")
+    .optional()
+    .isString()
+    .trim()
+    .matches(/^\d{6}$/),
 ]);
 
 const billingFields = [

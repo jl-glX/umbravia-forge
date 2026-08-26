@@ -158,7 +158,11 @@
     },
     "eyebrow": "Betreuung und Wissen",
     "description": "Ein eigener Bereich, um Hilfe anzufordern, Vorgänge zu verfolgen und Antworten zu finden, ohne Umbravia Forge zu verlassen.",
-    "tabs": { "tickets": "Anfragen", "knowledge": "Wissen", "team": "Team" },
+    "tabs": {
+      "tickets": "Anfragen",
+      "knowledge": "Wissen",
+      "team": "Team"
+    },
     "searchPlaceholder": "Nach ID, Betreff oder Inhalt suchen…",
     "search": "Suchen",
     "allStatuses": "Alle Status",
@@ -1770,6 +1774,7 @@
       "description": "Umbravia Forge ohne automatische Verkaufsgespräche oder versteckte Verpflichtungen konfigurieren und testen.",
       "explore": "Konto erstellen",
       "openEnvironment": "Zentrum einrichten",
+      "browseCentres": "Zentren entdecken",
       "returnHome": "Zur Anwendung zurückkehren",
       "signIn": "Anmelden",
       "menuLink": "Umbravia Forge kennenlernen",
@@ -1794,6 +1799,58 @@
       "editTitle": "Zentrum einrichten",
       "description": "Eine Vorlage als Ausgangspunkt verwenden. Optionale Angaben können später ergänzt oder geändert werden.",
       "centreData": "Zentrumsdaten",
+      "wizard": {
+        "eyebrow": "Geführte Einrichtung des Zentrums",
+        "progress": "Schritt {{current}} von {{total}}",
+        "progressLabel": "Fortschritt der Konfiguration",
+        "sectionLabel": "Abschnitt {{count}}",
+        "back": "Zurück",
+        "next": "Weiter",
+        "edit": "Bearbeiten",
+        "notProvided": "Kann später ergänzt werden",
+        "steps": {
+          "identity": {
+            "label": "Identität",
+            "title": "Zentrum identifizieren",
+            "description": "Legen Sie Name, Schwerpunkt und Grundeinstellungen der Plattform fest."
+          },
+          "operations": {
+            "label": "Betrieb",
+            "title": "Täglichen Betrieb anpassen",
+            "description": "Beschreiben Sie Ihre Angebote und die Nutzung von Buchungen und Wartelisten."
+          },
+          "address": {
+            "label": "Digitale Adresse",
+            "title": "Adresse des Zentrums wählen",
+            "description": "Reservieren Sie eine eindeutige Adresse. Die übergeordnete Domain gehört immer Umbravia Forge und kann nicht geändert werden."
+          },
+          "review": {
+            "label": "Prüfung",
+            "title": "Konfiguration prüfen",
+            "description": "Prüfen Sie jeden Abschnitt vor dem Speichern. Spätere Änderungen sind in diesem Bereich möglich."
+          },
+          "branding": {
+            "label": "Marke",
+            "title": "Visuelle Identität präsentieren",
+            "description": "Fügen Sie Logo und Farbe hinzu, die das Zentrum öffentlich und intern kennzeichnen."
+          },
+          "location": {
+            "label": "Standort",
+            "title": "Zentrum verorten",
+            "description": "Diese Angaben erscheinen im öffentlichen Profil, damit Interessierte Sie finden."
+          },
+          "socials": {
+            "label": "Links",
+            "title": "Öffentliche Kanäle verbinden",
+            "description": "Fügen Sie nur Website und Netzwerke hinzu, die im öffentlichen Profil erscheinen sollen."
+          },
+          "offers": {
+            "label": "Preise und Karten",
+            "title": "Angebot des Zentrums erklären",
+            "description": "Veröffentlichen Sie eigene Preise, Mitgliedschaften, Karten und Bedingungen für Interessierte."
+          }
+        }
+      },
       "requestFailed": "Der Vorgang konnte nicht abgeschlossen werden",
       "errors": {
         "title": "Die Konfiguration konnte nicht gespeichert werden",
@@ -1803,7 +1860,8 @@
         "notEditable": "Dieses Zentrum erlaubt in seinem aktuellen Status keine Konfigurationsänderungen mehr.",
         "subdomainInvalid": "Die Subdomain darf nur Kleinbuchstaben, Zahlen oder Bindestriche enthalten, nicht mit einem Bindestrich beginnen oder enden und kein reservierter Name sein.",
         "subdomainUnavailable": "Diese Subdomain gehört bereits zu einem anderen Zentrum. Wähle eine andere.",
-        "subdomainLocked": "Die Subdomain kann nur während der aktiven Testphase geändert werden."
+        "subdomainLocked": "Die Subdomain kann nur während der aktiven Testphase geändert werden.",
+        "logoInvalid": "Das Logo muss PNG, JPEG oder WebP sein und darf 512 KB nicht überschreiten."
       },
       "editPolicy": {
         "trial": "Während des Testzeitraums kannst du diese Konfiguration beliebig oft bearbeiten.",
@@ -1879,6 +1937,9 @@
         "subdomain": "Subdomain des Zentrums",
         "subdomainHelpActive": "Nach dem Speichern ersetzt die neue Adresse sofort die bisherige. Der Zugriff wird weiterhin durch das Konto und seine Berechtigungen bestimmt.",
         "subdomainHelpReserved": "Die vollständige Adresse ist eine Vorschau. Der Name wird für das Zentrum reserviert und erst veröffentlicht, wenn DNS und Subdomain-Routing aktiviert sind.",
+        "subdomainPlaceholder": "ihr-zentrum",
+        "subdomainLockedLabel": "Die Adresse wurde nach Ende des Testzeitraums festgeschrieben.",
+        "addressPreview": "So wird die vollständige Adresse aussehen",
         "approximateMembers": "Ungefähre Mitgliederzahl",
         "trainerCount": "Anzahl Trainer",
         "spaceCount": "Räume oder Bereiche",
@@ -1888,8 +1949,41 @@
         "currency": "Währung",
         "language": "Sprache",
         "schedule": "Beschreibung des Zeitplans",
+        "scheduleHelp": "Z. B. Krafttraining Montag bis Freitag um 18:00 Uhr; Mobilität Samstag um 10:00 Uhr.",
         "usesBookings": "Nutzt Buchungen",
-        "usesWaitlist": "Nutzt Warteliste"
+        "usesBookingsHelp": "Mitglieder können Plätze für veröffentlichte Aktivitäten reservieren.",
+        "usesWaitlist": "Nutzt Warteliste",
+        "usesWaitlistHelp": "Frei werdende Plätze können der Reihe nach an Wartende vergeben werden.",
+        "publicDescription": "Öffentliche Vorstellung",
+        "publicDescriptionHelp": "Beschreiben Sie kurz, was Ihr Zentrum auszeichnet und an wen es sich richtet.",
+        "logo": "Logo des Zentrums",
+        "logoHelp": "PNG, JPEG oder WebP bis 512 KB. Es kann später ersetzt werden.",
+        "logoPreview": "Markenvorschau",
+        "accentColor": "Hauptfarbe",
+        "addressLine": "Adresse",
+        "city": "Ort",
+        "postalCode": "Postleitzahl",
+        "country": "Land",
+        "locationHelp": "Der Standort ist während des Tests optional. Prüfen Sie ihn vor der Veröffentlichung.",
+        "websiteUrl": "Website",
+        "instagramUrl": "Instagram",
+        "facebookUrl": "Facebook",
+        "tiktokUrl": "TikTok",
+        "youtubeUrl": "YouTube",
+        "linkedinUrl": "LinkedIn",
+        "socialsHelp": "Alle Links sind optional und müssen https:// oder http:// enthalten.",
+        "pricingDescription": "Preise und Mitgliedschaften",
+        "pricingDescriptionHelp": "Z. B. 45 € monatlich, Aufnahmegebühr inklusive und freier Trainingsbereich.",
+        "bonusesDescription": "Karten, Pakete und Aktionen",
+        "bonusesDescriptionHelp": "Z. B. 10er-Karte, Gültigkeit, Preis und Nutzungsbedingungen.",
+        "offersHelp": "Dies sind die Preise des Zentrums für seine Mitglieder; sie ändern nicht den Tarif bei Umbravia Forge.",
+        "publicPageEnabled": "Öffentliches Profil verwalten",
+        "publicPageEnabledHelp": "Veröffentlichen Sie es bei Bedarf, ziehen Sie es ohne Datenverlust zurück oder bearbeiten Sie es auch nach dem Test weiter.",
+        "publishPage": "Profil veröffentlichen",
+        "unpublishPage": "Profil zurückziehen",
+        "previewPage": "Öffentliche Vorschau",
+        "deletePublicPage": "Profil löschen",
+        "deletePublicPageConfirm": "Das Profil wird zurückgezogen und seine öffentliche Vorstellung, Standortangaben, Links und Preise werden gelöscht. Das Konto des Zentrums bleibt bestehen. Fortfahren?"
       }
     },
     "facilityTypes": {
@@ -1907,6 +2001,22 @@
       "indoor_cycling": "Indoor Cycling",
       "multidisciplinary": "Multidisziplinäres Zentrum",
       "custom": "Benutzerdefiniert"
+    },
+    "directory": {
+      "eyebrow": "Zentren bei Umbravia Forge",
+      "title": "Finden Sie ein passendes Zentrum",
+      "description": "Informieren Sie sich über Angebote, Standort, Zeiten und Preise, die jedes Zentrum selbst veröffentlicht.",
+      "search": "Nach Name, Ort oder Aktivität suchen",
+      "empty": "Derzeit passen keine veröffentlichten Zentren zu Ihrer Suche.",
+      "noDescription": "Dieses Zentrum hat noch keine öffentliche Vorstellung hinzugefügt.",
+      "notFound": "Dieses Profil ist nicht veröffentlicht",
+      "back": "Zurück zum Verzeichnis",
+      "about": "Über das Zentrum",
+      "schedule": "Zeitplan",
+      "prices": "Preise und Karten",
+      "location": "Standort",
+      "links": "Öffentliche Links",
+      "noLinks": "Das Zentrum hat noch keine Links veröffentlicht."
     }
   },
   "captcha": {
@@ -1978,7 +2088,10 @@
     "privateJustification": "Als private Kursbegründung senden",
     "channelUnavailable": "Dieser Kanal nimmt in seinem aktuellen Zustand keine neuen Nachrichten an.",
     "members": "Mitglieder",
-    "memberRoles": { "owner": "Eigentümer", "member": "Mitglied" },
+    "memberRoles": {
+      "owner": "Eigentümer",
+      "member": "Mitglied"
+    },
     "addAcceptedContact": "Angenommenen Kontakt hinzufügen",
     "memberAdded": "Der Kontakt wurde zur Community hinzugefügt.",
     "memberRemoved": "Das Mitglied wurde aus der Community entfernt.",
@@ -2004,7 +2117,10 @@
     "facilityLinkRequested": "Die Verbindungsanfrage wurde erfasst.",
     "withdrawFacilityLink": "Anfrage zurückziehen",
     "facilityLinkWithdrawn": "Die Anfrage wurde zurückgezogen.",
-    "facilityLinkModes": { "temporary": "Temporär", "permanent": "Dauerhaft" },
+    "facilityLinkModes": {
+      "temporary": "Temporär",
+      "permanent": "Dauerhaft"
+    },
     "facilityLinkStatuses": {
       "facility_link_requested": "Prüfung ausstehend",
       "facility_link_accepted": "Angenommen",

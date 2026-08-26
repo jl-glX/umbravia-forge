@@ -16,6 +16,7 @@ import {
 } from "../middleware/authorization.js";
 import {
   commercialConversionDraftValidation,
+  commercialPublicPhoneVisibilityValidation,
   commercialRequestValidation,
   commercialTrialDataDeclarationValidation,
   createCommercialTrialValidation,
@@ -28,11 +29,15 @@ import {
   declareCommercialTrialData,
   getCommercialConversionDraft,
   getCommercialTrialOverview,
+  getPublishedCommercialCentre,
+  listPublishedCommercialCentres,
   restoreCommercialTrialConfiguration,
   requestCommercialContact,
   updateCommercialTrial,
   updateCommercialConversionDraft,
+  updateCommercialTrialPublicPhoneVisibility,
 } from "../services/commercial-trial.js";
+import { resolveTenantPreviewBaseDomain } from "../lib/tenant-host.js";
 
 export const commercialRouter = express.Router();
 
@@ -67,6 +72,34 @@ commercialRouter.get("/", (_req, res) => {
   });
 });
 
+commercialRouter.get(
+  "/public-centres",
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await listPublishedCommercialCentres());
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+commercialRouter.get(
+  "/public-centres/:slug",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(
+        await getPublishedCommercialCentre(
+          String(req.params.slug ?? "")
+            .trim()
+            .toLowerCase(),
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 commercialRouter.use(
   "/trial",
   authenticate,
@@ -81,6 +114,29 @@ commercialRouter.get("/trial", async (_req, res, next) => {
     next(error);
   }
 });
+
+commercialRouter.get("/trial/setup", (_req, res) => {
+  res.json({ tenantBaseDomain: resolveTenantPreviewBaseDomain() });
+});
+
+commercialRouter.put(
+  "/trial/public-phone",
+  requireFacility("owner"),
+  commercialPublicPhoneVisibilityValidation,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(
+        await updateCommercialTrialPublicPhoneVisibility(
+          getAuthenticatedUser(res).userId,
+          getFacilityContext(res).id,
+          req.body.showPhonePublicly,
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 commercialRouter.post(
   "/trial/contact",

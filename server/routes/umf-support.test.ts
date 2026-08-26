@@ -223,6 +223,234 @@ describe("UMF Support corporate API", () => {
       });
   });
 
+  it("lets the platform head contact and operate a commercial trial without deleting its account", async () => {
+    const now = Date.now();
+    await database.db
+      .insertInto("users")
+      .values({
+        id: "support-trial-owner",
+        email: "support-trial-owner@example.com",
+        identityRealm: "commercial",
+        phone: null,
+        name: "Support Trial Owner",
+        avatarDataUrl: "",
+        password: "test-only",
+        role: "admin",
+        accountStatus: "active",
+        emailVerifiedAt: now,
+        sessionIdleTimeoutMinutes: 10_080,
+        createdAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "support-trial-facility",
+        slug: "support-trial-facility",
+        name: "Support Trial Centre",
+        logoDataUrl: "",
+        accentColor: "#2563eb",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values({
+        id: "support-trial-membership",
+        facilityId: "support-trial-facility",
+        userId: "support-trial-owner",
+        role: "owner",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("commercialTrials")
+      .values({
+        id: "support-trial",
+        facilityId: "support-trial-facility",
+        ownerUserId: "support-trial-owner",
+        facilityName: "Support Trial Centre",
+        facilityType: "traditional_gym",
+        approximateMembers: null,
+        trainerCount: null,
+        spaceCount: null,
+        usualCapacity: 20,
+        classTypes: "[]",
+        scheduleNotes: "",
+        locale: "es",
+        currency: "EUR",
+        usesBookings: 1,
+        usesWaitlist: 1,
+        templateKey: "traditional_gym",
+        status: "trial_paused_support",
+        subdomain: "support-trial-centre",
+        realDataDeclaration: "undeclared",
+        autoCleanupEligible: 1,
+        dataReviewRequestedAt: null,
+        cleanupEligibleAt: null,
+        conversionDraft: "[]",
+        startedAt: now - 10_000,
+        expiresAt: now + 86_400_000,
+        pausedAt: now - 5_000,
+        closedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+
+    await request(app)
+      .get("/api/umf-support/commercial-trial-administrators")
+      .set("Cookie", directorCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.accounts).toContainEqual(
+          expect.objectContaining({
+            userId: "support-trial-owner",
+            email: "support-trial-owner@example.com",
+            trial: expect.objectContaining({
+              id: "support-trial",
+              status: "trial_paused_support",
+            }),
+          }),
+        );
+      });
+
+    await request(app)
+      .post("/api/umf-support/commercial-trials/support-trial/action")
+      .set("Cookie", directorCookie)
+      .send({ action: "resume" })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.trial.status).toBe("trial_active");
+        expect(body.trial.pausedAt).toBeNull();
+      });
+    await request(app)
+      .post("/api/umf-support/commercial-trials/support-trial/action")
+      .set("Cookie", directorCookie)
+      .send({ action: "cancel" })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.trial.status).toBe("trial_closed");
+        expect(body.trial.publicPageEnabled).toBe(false);
+      });
+    await request(app)
+      .delete("/api/umf-support/commercial-trials/support-trial")
+      .set("Cookie", directorCookie)
+      .send({ confirmation: "wrong centre" })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.code).toBe("COMMERCIAL_TRIAL_DELETE_CONFIRMATION_MISMATCH");
+      });
+    await request(app)
+      .delete("/api/umf-support/commercial-trials/support-trial")
+      .set("Cookie", directorCookie)
+      .send({ confirmation: "Support Trial Centre" })
+      .expect(200)
+      .expect({
+        deleted: true,
+        accountDeleted: false,
+        ownerUserId: "support-trial-owner",
+        actorUserId: "umf-director",
+      });
+    await expect(
+      database.db
+        .selectFrom("users")
+        .select("id")
+        .where("id", "=", "support-trial-owner")
+        .executeTakeFirst(),
+    ).resolves.toEqual({ id: "support-trial-owner" });
+    await expect(
+      database.db
+        .selectFrom("commercialTrials")
+        .select("id")
+        .where("id", "=", "support-trial")
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
+  });
+
+  it("does not count a commercial account queued for deletion as active", async () => {
+    const now = Date.now();
+    await database.db
+      .insertInto("users")
+      .values({
+        id: "queued-commercial-owner",
+        email: "queued-commercial-owner@example.com",
+        identityRealm: "commercial",
+        phone: null,
+        name: "Queued Owner",
+        avatarDataUrl: "",
+        password: "test-only",
+        role: "admin",
+        accountStatus: "active",
+        emailVerifiedAt: now,
+        sessionIdleTimeoutMinutes: 10_080,
+        createdAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityProfiles")
+      .values({
+        id: "queued-commercial-facility",
+        slug: "queued-commercial-facility",
+        name: "Queued Commercial Centre",
+        logoDataUrl: "",
+        accentColor: "#2563eb",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("facilityMemberships")
+      .values({
+        id: "queued-commercial-membership",
+        facilityId: "queued-commercial-facility",
+        userId: "queued-commercial-owner",
+        role: "owner",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .execute();
+    await database.db
+      .insertInto("accountDeletionRequests")
+      .values({
+        id: "queued-commercial-deletion",
+        userId: "queued-commercial-owner",
+        trigger: "manual",
+        status: "scheduled",
+        requestedAt: now,
+        graceEndsAt: now + 30 * 24 * 60 * 60 * 1000,
+        cancelledAt: null,
+        completedAt: null,
+      })
+      .execute();
+
+    await request(app)
+      .get("/api/umf-support/commercial-trial-administrators")
+      .set("Cookie", directorCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.accounts).toContainEqual(
+          expect.objectContaining({
+            userId: "queued-commercial-owner",
+            deletionRequest: expect.objectContaining({ status: "scheduled" }),
+          }),
+        );
+      });
+    await request(app)
+      .get("/api/umf-support/commercial-account-metrics")
+      .set("Cookie", directorCookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.activeAdministratorAccounts).toBe(0);
+      });
+  });
+
   it("creates an agent account after mailbox verification without preauthorization", async () => {
     const browser = request.agent(app);
     const registered = await browser
