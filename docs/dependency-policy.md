@@ -35,6 +35,15 @@ Do not use `npm audit fix --force` as an update strategy. Major upgrades are
 reviewed independently. Dependabot groups compatible minor and patch updates;
 major releases remain isolated for explicit migration and testing.
 
+## GitHub Dependency Review
+
+The pull-request workflow runs GitHub Dependency Review when the repository is
+public. GitHub requires Advanced Security to provide that service for a private
+repository, so the job records the limitation instead of failing when the
+repository is private. This does not replace the project gate: `validate`
+continues to run the pinned lockfile checks and `npm run audit:ci` for every
+pull request.
+
 ## Temporary React Router advisory
 
 React Router 7.18.2 is the safest currently verified release for this client,
