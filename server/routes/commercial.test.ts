@@ -208,10 +208,14 @@ describe("commercial foundation API", () => {
     const updated = await request(app)
       .patch("/api/commercial/trial")
       .set("Cookie", adminCookie)
-      .send({ scheduleNotes: "Horario provisional" })
+      .send({
+        scheduleNotes: "Horario provisional",
+        subdomain: "Fitness-Boreal",
+      })
       .expect(200);
     expect(updated.body.trial).toMatchObject({
       scheduleNotes: "Horario provisional",
+      subdomain: "fitness-boreal",
     });
 
     expect(updated.body.environment).toMatchObject({
@@ -241,6 +245,7 @@ describe("commercial foundation API", () => {
       .where("id", "=", "facility-alpha")
       .executeTakeFirstOrThrow();
     expect(facility.name).toBe("Fitness Boreal");
+    expect(facility.slug).toBe("fitness-boreal");
   });
 
   it("rejects unknown fields and duplicate trial creation", async () => {
@@ -327,6 +332,41 @@ describe("commercial foundation API", () => {
     expect(selectedSecondary.body.trial.facilityName).toBe("Secondary Centre");
   });
 
+  it("rejects reserved and already assigned subdomains without partial updates", async () => {
+    await request(app)
+      .patch("/api/commercial/trial")
+      .set("Cookie", adminCookie)
+      .send({ subdomain: "support" })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.code).toBe("COMMERCIAL_TRIAL_SUBDOMAIN_INVALID");
+      });
+
+    await request(app)
+      .patch("/api/commercial/trial")
+      .set("Cookie", adminCookie)
+      .send({ subdomain: "commercial-secondary" })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.code).toBe("COMMERCIAL_TRIAL_SUBDOMAIN_UNAVAILABLE");
+      });
+
+    const [trial, facility] = await Promise.all([
+      database.db
+        .selectFrom("commercialTrials")
+        .select("subdomain")
+        .where("facilityId", "=", "facility-alpha")
+        .executeTakeFirstOrThrow(),
+      database.db
+        .selectFrom("facilityProfiles")
+        .select("slug")
+        .where("id", "=", "facility-alpha")
+        .executeTakeFirstOrThrow(),
+    ]);
+    expect(trial.subdomain).toBe("fitness-boreal");
+    expect(facility.slug).toBe("fitness-boreal");
+  });
+
   it("keeps repeated configuration edits unrestricted during the active trial", async () => {
     for (let index = 0; index < 21; index += 1) {
       const response = await request(app)
@@ -363,6 +403,16 @@ describe("commercial foundation API", () => {
         .set({ status: "trial_expired" })
         .where("id", "in", [facility_alpha.id, secondary.id])
         .execute();
+
+      await request(app)
+        .patch("/api/commercial/trial")
+        .set("Cookie", adminCookie)
+        .send({ subdomain: "locked-after-trial" })
+        .expect(409)
+        .expect(({ body }) => {
+          expect(body.code).toBe("COMMERCIAL_TRIAL_SUBDOMAIN_LOCKED");
+        });
+
       await database.db
         .insertInto("commercialTrialEvents")
         .values(

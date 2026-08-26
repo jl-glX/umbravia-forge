@@ -1933,17 +1933,15 @@
         "provisioningDisabled": "New trial centre creation is not enabled right now. You can still edit an existing centre from the account area.",
         "editCooldown_one": "You have made many consecutive edits. Wait about {{count}} minute before saving again.",
         "editCooldown_other": "You have made many consecutive edits. Wait about {{count}} minutes before saving again.",
-        "notEditable": "This centre no longer accepts configuration changes in its current state."
+        "notEditable": "This centre no longer accepts configuration changes in its current state.",
+        "subdomainInvalid": "The subdomain may only contain lowercase letters, numbers or hyphens, cannot start or end with a hyphen, and cannot be a reserved name.",
+        "subdomainUnavailable": "That subdomain already belongs to another centre. Choose a different one.",
+        "subdomainLocked": "The subdomain can only be changed while the trial period is active."
       },
       "editPolicy": {
         "trial": "During the trial period, you can edit this configuration as often as needed.",
         "afterTrial": "Outside the trial period, you can continue editing normally. A temporary pause is applied only when many consecutive changes are detected."
       },
-      "provisionalAddress": "Provisional address",
-      "reservedIdentifier": "Reserved subdomain identifier",
-      "routingNotProvisioned": "This reservation does not create DNS, proxy routing or hosting. The environment remains in the shared demonstration database.",
-      "tenantAddress": "Facility address",
-      "routingProvisioned": "This address selects the facility, while the account and its permissions still determine access.",
       "create": "Save setup",
       "save": "Save changes",
       "duration": {
@@ -2011,6 +2009,9 @@
       "fields": {
         "name": "Centre name",
         "type": "Centre type",
+        "subdomain": "Centre subdomain",
+        "subdomainHelpActive": "When saved, the new address immediately replaces the previous one. The account and its permissions still determine access.",
+        "subdomainHelpReserved": "The name will be reserved for the centre. It will not publish an address until DNS and subdomain routing are enabled.",
         "approximateMembers": "Approximate members",
         "trainerCount": "Number of trainers",
         "spaceCount": "Rooms or zones",

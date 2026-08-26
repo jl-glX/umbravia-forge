@@ -49,6 +49,7 @@ export interface CommercialTrialOverview {
     routing: "not_provisioned" | "tenant_subdomain";
     subdomainMeaning: "reserved_identifier" | "active_tenant_hostname";
     tenantOrigin: string | null;
+    tenantBaseDomain: string | null;
     counts: Record<string, number>;
     modules: string[];
     restorationScope: "commercial_configuration_only";

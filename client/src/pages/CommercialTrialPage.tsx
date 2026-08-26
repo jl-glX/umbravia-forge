@@ -7,7 +7,6 @@ import {
   LoaderCircle,
   RefreshCw,
   Save,
-  Sparkles,
   Timer,
   Trash2,
 } from "lucide-react";
@@ -29,6 +28,7 @@ import { Label } from "../components/ui/label";
 const emptyForm = {
   facilityName: "",
   facilityType: "traditional_gym" as CommercialFacilityType,
+  subdomain: "",
   classTypes: "",
   scheduleNotes: "",
   locale: "es" as "es" | "en" | "de" | "de-CH",
@@ -76,6 +76,12 @@ export function CommercialTrialPage() {
           });
         if (cause.code === "COMMERCIAL_TRIAL_NOT_EDITABLE")
           return t("commercial.trial.errors.notEditable");
+        if (cause.code === "COMMERCIAL_TRIAL_SUBDOMAIN_INVALID")
+          return t("commercial.trial.errors.subdomainInvalid");
+        if (cause.code === "COMMERCIAL_TRIAL_SUBDOMAIN_UNAVAILABLE")
+          return t("commercial.trial.errors.subdomainUnavailable");
+        if (cause.code === "COMMERCIAL_TRIAL_SUBDOMAIN_LOCKED")
+          return t("commercial.trial.errors.subdomainLocked");
       }
       return cause instanceof Error ? cause.message : String(cause);
     },
@@ -120,6 +126,7 @@ export function CommercialTrialPage() {
         setForm({
           facilityName: trial.facilityName,
           facilityType: trial.facilityType,
+          subdomain: trial.subdomain,
           classTypes: trial.classTypes.join(", "),
           scheduleNotes: trial.scheduleNotes,
           locale: trial.locale,
@@ -142,20 +149,34 @@ export function CommercialTrialPage() {
     event.preventDefault();
     setSaving(true);
     try {
+      const { subdomain, ...configuration } = form;
       const payload = {
-        ...form,
+        ...configuration,
+        ...(overview?.trial.status === "trial_active" ? { subdomain } : {}),
         classTypes: form.classTypes
           .split(",")
           .map((value) => value.trim())
           .filter(Boolean),
       };
-      setOverview(
-        await request<CommercialTrialOverview>("/api/commercial/trial", {
+      const previousTenantOrigin = overview?.environment.tenantOrigin;
+      const result = await request<CommercialTrialOverview>(
+        "/api/commercial/trial",
+        {
           method: overview ? "PATCH" : "POST",
           body: JSON.stringify(payload),
-        }),
+        },
       );
+      setOverview(result);
       setError("");
+      if (
+        previousTenantOrigin === window.location.origin &&
+        result.environment.tenantOrigin &&
+        result.environment.tenantOrigin !== window.location.origin
+      ) {
+        window.location.assign(
+          `${result.environment.tenantOrigin}${window.location.pathname}${window.location.search}${window.location.hash}`,
+        );
+      }
     } catch (cause) {
       setError(formatRequestError(cause));
     } finally {
@@ -516,6 +537,54 @@ export function CommercialTrialPage() {
                     ))}
                   </select>
                 </div>
+                {overview?.trial.status === "trial_active" && (
+                  <div className="md:col-span-2">
+                    <Label htmlFor="subdomain">
+                      {t("commercial.trial.fields.subdomain")}
+                    </Label>
+                    <div className="mt-2 flex items-stretch rounded-md border border-slate-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
+                      <input
+                        id="subdomain"
+                        required
+                        minLength={1}
+                        maxLength={63}
+                        pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+                        value={form.subdomain}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            subdomain: event.target.value.toLowerCase(),
+                          })
+                        }
+                        className="min-w-0 flex-1 rounded-l-md px-3 py-2 font-mono text-sm outline-none"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                      />
+                      {overview.environment.tenantBaseDomain && (
+                        <span className="flex items-center rounded-r-md border-l border-slate-200 bg-slate-50 px-3 font-mono text-sm text-slate-500">
+                          .{overview.environment.tenantBaseDomain}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      {t(
+                        overview.environment.routing === "tenant_subdomain"
+                          ? "commercial.trial.fields.subdomainHelpActive"
+                          : "commercial.trial.fields.subdomainHelpReserved",
+                      )}
+                      {overview.environment.tenantBaseDomain && (
+                        <>
+                          {" "}
+                          <span className="font-mono font-semibold text-blue-700">
+                            https://{form.subdomain}.
+                            {overview.environment.tenantBaseDomain}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                )}
                 <div className="md:col-span-2">
                   <Label htmlFor="classTypes">
                     {t("commercial.trial.fields.classTypes")}
@@ -600,34 +669,6 @@ export function CommercialTrialPage() {
                   </label>
                 ))}
               </div>
-              {overview && (
-                <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-                  <Sparkles className="mb-2" />
-                  {t(
-                    overview.environment.routing === "tenant_subdomain"
-                      ? "commercial.trial.tenantAddress"
-                      : "commercial.trial.reservedIdentifier",
-                  )}
-                  :{" "}
-                  {overview.environment.tenantOrigin ? (
-                    <a
-                      className="font-bold underline underline-offset-2"
-                      href={overview.environment.tenantOrigin}
-                    >
-                      {overview.environment.tenantOrigin}
-                    </a>
-                  ) : (
-                    <strong>{overview.trial.subdomain}</strong>
-                  )}
-                  <p className="mt-2 text-xs leading-5">
-                    {t(
-                      overview.environment.routing === "tenant_subdomain"
-                        ? "commercial.trial.routingProvisioned"
-                        : "commercial.trial.routingNotProvisioned",
-                    )}
-                  </p>
-                </div>
-              )}
               <Button type="submit" disabled={saving}>
                 {saving ? <LoaderCircle className="animate-spin" /> : <Save />}
                 {overview

@@ -214,6 +214,7 @@ export const loginValidation = validateRequest([
 const commercialTrialFields = [
   "facilityName",
   "facilityType",
+  "subdomain",
   "classTypes",
   "scheduleNotes",
   "locale",
@@ -223,6 +224,13 @@ const commercialTrialFields = [
 ];
 
 const optionalCommercialTrialFields = () => [
+  body("subdomain")
+    .optional()
+    .isString()
+    .trim()
+    .toLowerCase()
+    .isLength({ min: 1, max: 63 })
+    .matches(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u),
   body("classTypes").optional().isArray({ max: 20 }),
   body("classTypes.*")
     .optional()

@@ -15,6 +15,7 @@ import {
 import {
   createFacilitySlug,
   createTrialSubdomain,
+  isAllowedFacilitySlug,
 } from "../lib/facility-slug.js";
 import { deleteUserInTransaction, UserDeletionBlockedError } from "./users.js";
 import { stageCommercialEnvironmentRemoval } from "./environment-manager.js";
@@ -25,11 +26,15 @@ import {
 import { stageCommunityAttachmentFilesRemoval } from "./community-attachments.js";
 import { stageSupportAttachmentFilesRemoval } from "./support.js";
 import type { StagedFileRemoval } from "../lib/staged-file-removal.js";
-import { tenantOriginForSlug } from "../lib/tenant-host.js";
+import {
+  resolveTenantSubdomainConfiguration,
+  tenantOriginForSlug,
+} from "../lib/tenant-host.js";
 
 type TrialInput = {
   facilityName: string;
   facilityType: CommercialFacilityType;
+  subdomain?: string;
   classTypes?: string[];
   scheduleNotes?: string;
   locale?: "es" | "en" | "de" | "de-CH";
@@ -203,6 +208,41 @@ function domainError(
     ...(code ? { code } : {}),
     ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
   });
+}
+
+function normalizeEditableSubdomain(value: string): string {
+  const subdomain = value.trim().toLowerCase();
+  if (!isAllowedFacilitySlug(subdomain)) {
+    throw domainError(
+      "Subdomain must be a non-reserved DNS label of up to 63 characters",
+      400,
+      "COMMERCIAL_TRIAL_SUBDOMAIN_INVALID",
+    );
+  }
+  return subdomain;
+}
+
+function isFacilitySlugUniquenessError(error: unknown): boolean {
+  const candidate = error as {
+    code?: unknown;
+    constraint?: unknown;
+    message?: unknown;
+  };
+  const constraint = String(candidate.constraint ?? "");
+  const message = String(candidate.message ?? "");
+  return (
+    (candidate.code === "23505" &&
+      /facilityprofiles.*slug|idx_facilityprofiles_slug/i.test(constraint)) ||
+    /unique constraint failed:\s*facilityprofiles\.slug/i.test(message)
+  );
+}
+
+function subdomainUnavailableError() {
+  return domainError(
+    "Subdomain is already in use",
+    409,
+    "COMMERCIAL_TRIAL_SUBDOMAIN_UNAVAILABLE",
+  );
 }
 
 function serializeTrial<T extends { classTypes: string }>(trial: T) {
@@ -741,6 +781,7 @@ async function insertCommercialRequest(
 export async function getCommercialTrialOverview(facilityId: string) {
   const trial = await expireIfNeeded(facilityId);
   if (!trial) return null;
+  const tenantConfiguration = resolveTenantSubdomainConfiguration();
   const tenantOrigin = tenantOriginForSlug(trial.subdomain);
   const [counts, events, requests] = await Promise.all([
     createEnvironmentSummary(facilityId),
@@ -778,6 +819,7 @@ export async function getCommercialTrialOverview(facilityId: string) {
         ? ("active_tenant_hostname" as const)
         : ("reserved_identifier" as const),
       tenantOrigin,
+      tenantBaseDomain: tenantConfiguration.baseDomain,
       counts,
       modules: [
         "bookings",
@@ -826,6 +868,16 @@ export async function createCommercialTrial(
     .executeTakeFirstOrThrow();
   const template = commercialTemplates[input.facilityType];
   const now = Date.now();
+  const subdomain = input.subdomain
+    ? normalizeEditableSubdomain(input.subdomain)
+    : facility.slug || createTrialSubdomain(input.facilityName);
+  const conflictingFacility = await db
+    .selectFrom("facilityProfiles")
+    .select("id")
+    .where("slug", "=", subdomain)
+    .where("id", "!=", facilityId)
+    .executeTakeFirst();
+  if (conflictingFacility) throw subdomainUnavailableError();
   const values = {
     id: `trial-${facilityId}`,
     facilityId,
@@ -846,7 +898,7 @@ export async function createCommercialTrial(
     usesWaitlist: (input.usesWaitlist ?? template.usesWaitlist) ? 1 : 0,
     templateKey: input.facilityType,
     status: "trial_active" as const,
-    subdomain: facility.slug || createTrialSubdomain(input.facilityName),
+    subdomain,
     realDataDeclaration: "undeclared" as const,
     autoCleanupEligible: 0,
     dataReviewRequestedAt: null,
@@ -859,14 +911,19 @@ export async function createCommercialTrial(
     createdAt: now,
     updatedAt: now,
   };
-  await db.transaction().execute(async (trx) => {
-    await trx.insertInto("commercialTrials").values(values).execute();
-    await trx
-      .updateTable("facilityProfiles")
-      .set({ name: input.facilityName, updatedAt: now })
-      .where("id", "=", facilityId)
-      .execute();
-  });
+  try {
+    await db.transaction().execute(async (trx) => {
+      await trx.insertInto("commercialTrials").values(values).execute();
+      await trx
+        .updateTable("facilityProfiles")
+        .set({ name: input.facilityName, slug: subdomain, updatedAt: now })
+        .where("id", "=", facilityId)
+        .execute();
+    });
+  } catch (error) {
+    if (isFacilitySlugUniquenessError(error)) throw subdomainUnavailableError();
+    throw error;
+  }
   await recordEvent(values.id, actorUserId, "trial_created", {
     facilityType: input.facilityType,
   });
@@ -888,6 +945,27 @@ export async function updateCommercialTrial(
       409,
       "COMMERCIAL_TRIAL_NOT_EDITABLE",
     );
+  }
+  if (input.subdomain !== undefined && trial.status !== "trial_active") {
+    throw domainError(
+      "The subdomain can only be changed during the active trial",
+      409,
+      "COMMERCIAL_TRIAL_SUBDOMAIN_LOCKED",
+    );
+  }
+
+  const subdomain =
+    input.subdomain === undefined
+      ? undefined
+      : normalizeEditableSubdomain(input.subdomain);
+  if (subdomain !== undefined) {
+    const conflictingFacility = await db
+      .selectFrom("facilityProfiles")
+      .select("id")
+      .where("slug", "=", subdomain)
+      .where("id", "!=", facilityId)
+      .executeTakeFirst();
+    if (conflictingFacility) throw subdomainUnavailableError();
   }
 
   // During the trial, edits are deliberately unlimited. Once the trial has
@@ -934,6 +1012,7 @@ export async function updateCommercialTrial(
     ...(input.facilityType !== undefined
       ? { facilityType: input.facilityType, templateKey: input.facilityType }
       : {}),
+    ...(subdomain !== undefined ? { subdomain } : {}),
     ...(input.classTypes !== undefined
       ? { classTypes: JSON.stringify(input.classTypes) }
       : {}),
@@ -952,17 +1031,30 @@ export async function updateCommercialTrial(
       : {}),
     updatedAt: now,
   };
-  await db
-    .updateTable("commercialTrials")
-    .set(update)
-    .where("id", "=", trial.id)
-    .execute();
-  if (input.facilityName) {
-    await db
-      .updateTable("facilityProfiles")
-      .set({ name: input.facilityName, updatedAt: now })
-      .where("id", "=", facilityId)
-      .execute();
+  try {
+    await db.transaction().execute(async (trx) => {
+      await trx
+        .updateTable("commercialTrials")
+        .set(update)
+        .where("id", "=", trial.id)
+        .execute();
+      if (input.facilityName !== undefined || subdomain !== undefined) {
+        await trx
+          .updateTable("facilityProfiles")
+          .set({
+            ...(input.facilityName !== undefined
+              ? { name: input.facilityName }
+              : {}),
+            ...(subdomain !== undefined ? { slug: subdomain } : {}),
+            updatedAt: now,
+          })
+          .where("id", "=", facilityId)
+          .execute();
+      }
+    });
+  } catch (error) {
+    if (isFacilitySlugUniquenessError(error)) throw subdomainUnavailableError();
+    throw error;
   }
   await recordEvent(trial.id, actorUserId, "trial_configuration_updated", {
     fields: Object.keys(input),
