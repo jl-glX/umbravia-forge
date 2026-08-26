@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { fetchSupportContacts, type SupportContacts } from "../lib/support";
 
 const fallbackContacts: SupportContacts = {
-  helpdeskPortalEnabled: false,
+  helpdeskPortalEnabled: true,
   helpdeskPortalUrl: "https://support.umbraviaforge.com",
   helpdeskEmail: "umbravia-forge-scrf@support.openhelpdesk.dev",
   generalFallbackEmail: "umbraviaforge@gmail.com",
@@ -44,50 +44,49 @@ export function SupportPage() {
           </div>
         </header>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="mt-6 grid gap-6 lg:grid-cols-3">
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
             <LifeBuoy className="text-blue-600" aria-hidden="true" />
+            <h2 className="mt-4 text-2xl font-bold">
+              {t("support.external.ticketTitle")}
+            </h2>
+            <p className="mt-2 text-slate-600">
+              {t("support.external.ticketDescription")}
+            </p>
+            {contacts.helpdeskPortalEnabled ? (
+              <a
+                href={contacts.helpdeskPortalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
+              >
+                <ExternalLink size={18} aria-hidden="true" />
+                {t("support.external.openPortal")}
+              </a>
+            ) : (
+              <p className="mt-6 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
+                {t("support.external.portalUnavailable")}
+              </p>
+            )}
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <Mail className="text-blue-600" aria-hidden="true" />
             <h2 className="mt-4 text-2xl font-bold">
               {t("support.external.generalTitle")}
             </h2>
             <p className="mt-2 text-slate-600">
               {t("support.external.generalDescription")}
             </p>
-            <div className="mt-6 flex flex-col gap-3">
-              {contacts.helpdeskPortalEnabled ? (
-                <a
-                  href={contacts.helpdeskPortalUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
-                >
-                  <ExternalLink size={18} aria-hidden="true" />
-                  {t("support.external.openPortal")}
-                </a>
-              ) : (
-                <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
-                  {t("support.external.portalPending")}
-                </p>
-              )}
-              <a
-                href={`mailto:${contacts.helpdeskEmail}`}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-800 hover:bg-slate-50"
-              >
-                <Mail size={18} aria-hidden="true" />
-                {t("support.external.emailFallback", {
-                  email: contacts.helpdeskEmail,
-                })}
-              </a>
-              <a
-                href={`mailto:${contacts.generalFallbackEmail}`}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-800 hover:bg-slate-50"
-              >
-                <Mail size={18} aria-hidden="true" />
-                {t("support.external.alternativeEmail", {
-                  email: contacts.generalFallbackEmail,
-                })}
-              </a>
-            </div>
+            <a
+              href={`mailto:${contacts.generalFallbackEmail}`}
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              <Mail size={18} aria-hidden="true" />
+              {t("support.external.writeGeneral", {
+                email: contacts.generalFallbackEmail,
+              })}
+            </a>
           </section>
 
           <section className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm sm:p-8">

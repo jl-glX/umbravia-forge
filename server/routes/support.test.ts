@@ -821,7 +821,7 @@ describe("Forge Support API", () => {
           expect(body).toMatchObject({
             internalTicketingEnabled: false,
             contacts: {
-              helpdeskPortalEnabled: false,
+              helpdeskPortalEnabled: true,
               helpdeskEmail: "umbravia-forge-scrf@support.openhelpdesk.dev",
               legalRightsEmail: "umbraviaforge@gmail.com",
             },

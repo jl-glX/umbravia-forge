@@ -11,10 +11,11 @@
 > El tablero interno y sus rutas de ticket están congelados temporalmente. Los
 > datos existentes se conservan, pero `INTERNAL_SUPPORT_TICKETS_ENABLED=false`
 > rechaza nuevas lecturas y mutaciones de tickets con un código estable. La
-> pantalla `/support` muestra los canales externos vigentes: Open Helpdesk para
-> soporte general y un correo directo distinto para ejercer derechos de
-> protección de datos. Esta medida es reversible y no borra el módulo descrito
-> en este documento.
+> pantalla `/support` muestra los canales externos vigentes: el portal
+> `support.umbraviaforge.com` para tickets, incidencias y soporte;
+> `umbraviaforge@gmail.com` para consultas generales; y un correo directo para
+> ejercer derechos de protección de datos. Esta medida es reversible y no
+> borra el módulo descrito en este documento.
 
 ## Propósito
 
