@@ -1945,17 +1945,15 @@
         "provisioningDisabled": "La creación de nuevos centros de prueba no está habilitada en este momento. La configuración de un centro existente sigue disponible desde el área de cuenta.",
         "editCooldown_one": "Has realizado muchas ediciones seguidas. Espera aproximadamente {{count}} minuto antes de volver a guardar.",
         "editCooldown_other": "Has realizado muchas ediciones seguidas. Espera aproximadamente {{count}} minutos antes de volver a guardar.",
-        "notEditable": "Este centro ya no admite cambios de configuración en su estado actual."
+        "notEditable": "Este centro ya no admite cambios de configuración en su estado actual.",
+        "subdomainInvalid": "El subdominio debe usar solo letras minúsculas, números o guiones, sin guiones al principio ni al final, y no puede ser un nombre reservado.",
+        "subdomainUnavailable": "Ese subdominio ya pertenece a otro centro. Elige uno diferente.",
+        "subdomainLocked": "El subdominio solo se puede cambiar mientras el periodo de prueba está activo."
       },
       "editPolicy": {
         "trial": "Durante el periodo de prueba puedes editar esta configuración tantas veces como necesites.",
         "afterTrial": "Fuera del periodo de prueba puedes seguir editando con normalidad. Solo se aplicará una pausa temporal si se detectan muchas modificaciones seguidas."
       },
-      "provisionalAddress": "Dirección provisional",
-      "reservedIdentifier": "Identificador de subdominio reservado",
-      "routingNotProvisioned": "Esta reserva no crea DNS, proxy ni alojamiento. El entorno continúa en la base compartida de demostración.",
-      "tenantAddress": "Dirección del centro",
-      "routingProvisioned": "Esta dirección selecciona el centro, pero la cuenta y sus permisos siguen determinando el acceso.",
       "create": "Guardar configuración",
       "save": "Guardar cambios",
       "duration": {
@@ -2023,6 +2021,9 @@
       "fields": {
         "name": "Nombre del centro",
         "type": "Tipo de centro",
+        "subdomain": "Subdominio del centro",
+        "subdomainHelpActive": "Al guardar, la nueva dirección sustituirá inmediatamente a la anterior. La cuenta y sus permisos siguen determinando el acceso.",
+        "subdomainHelpReserved": "El nombre quedará reservado para el centro. No publicará una dirección hasta que DNS y el enrutamiento por subdominio estén activados.",
         "approximateMembers": "Socios aproximados",
         "trainerCount": "Número de entrenadores",
         "spaceCount": "Salas o zonas",

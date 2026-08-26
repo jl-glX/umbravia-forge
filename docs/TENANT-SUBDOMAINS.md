@@ -5,10 +5,20 @@ defecto y pendiente de validación operativa en DNS, Cloudflare y el servidor**.
 
 ## Modelo de seguridad
 
-Cada centro dispone de un `facilityProfiles.slug` único y estable. Ese valor se
-normaliza como una etiqueta DNS segura al crear el centro; no se deriva de forma
-dinámica en cada petición y no admite nombres reservados como `www`, `api`,
-`support`, `mail` o `admin`.
+Cada centro dispone de un `facilityProfiles.slug` único. Ese valor se normaliza
+como una etiqueta DNS segura al crear el centro; no se deriva dinámicamente en
+cada petición y no admite nombres reservados como `www`, `api`, `support`,
+`mail` o `admin`. Durante una prueba comercial activa, la jefatura o una cuenta
+administradora del mismo centro puede editarlo desde **Configuración del
+centro**. El servidor comprueba formato, reserva y colisiones y actualiza en una
+sola transacción tanto el perfil del centro como la prueba. Al finalizar la
+prueba, el identificador queda bloqueado.
+
+Cuando existe enrutamiento tenant y la edición se realiza desde la dirección
+anterior, la interfaz navega a la nueva dirección después de que el servidor
+confirma el cambio. El hostname anterior deja de seleccionar ese centro. Esta
+edición no concede membresías ni permisos y no cambia la frontera de
+autorización.
 
 Cuando se activa el enrutamiento, una petición a
 `<slug>.<TENANT_BASE_DOMAIN>` selecciona el centro antes de autenticar las rutas
@@ -21,8 +31,8 @@ tenant.
 
 El endpoint público `/api/tenant-context` expone únicamente nombre, slug,
 logotipo y color de marca. Las altas comerciales de prueba reservan el slug
-real del centro y muestran la dirección tenant cuando el enrutamiento está
-aprovisionado.
+real del centro. El formulario muestra el nombre reservado durante la prueba y,
+cuando el enrutamiento está aprovisionado, la dirección tenant resultante.
 
 ## Configuración de la aplicación
 

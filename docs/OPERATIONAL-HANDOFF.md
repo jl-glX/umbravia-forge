@@ -6,9 +6,13 @@
   bajo `TENANT_BASE_DOMAIN`. El host selecciona contexto, pero la membresía y
   los permisos del servidor siguen siendo la autoridad. Un host desconocido o
   un `X-Facility-Id` cruzado falla cerrado.
-- La marca pública se limita a nombre, slug, logotipo y color. Las pruebas
-  comerciales reutilizan el slug real del centro y muestran su URL solo cuando
-  el enrutamiento está aprovisionado.
+- La marca pública se limita a nombre, slug, logotipo y color. Durante una
+  prueba activa, **Configuración del centro** contiene un editor real de
+  subdominio para jefatura y administración; valida nombres reservados y
+  colisiones y actualiza atómicamente el slug del perfil y el de la prueba. Al
+  terminar la prueba queda bloqueado. La URL completa solo se muestra cuando el
+  dominio base está configurado y, si el cambio se guarda desde el hostname
+  anterior, el cliente navega a la nueva dirección confirmada.
 - La función permanece apagada por defecto. Están preparados el import modular
   de Caddy y la comprobación de rutas/certificados; faltan evidencias externas
   de wildcard DNS, certificado de origen, Cloudflare, WebAuthn, Turnstile y
@@ -17,10 +21,13 @@
   una futura topología. No equivale a soporte activo-activo: adjuntos, entornos
   locales, límites en memoria y coordinación de gestores siguen siendo
   bloqueantes documentados en `docs/PORTABILITY-AND-MULTI-NODE.md`.
-- La validación focalizada cubre normalización y reserva de slugs, resolución de
-  host, origen de confianza, aislamiento del middleware, configuración de
-  producción y altas comerciales. La puerta completa y la validación en GitHub
-  deben registrarse al cerrar el cambio.
+- La validación focalizada cubre normalización, edición activa, bloqueo posterior
+  y reserva de slugs, resolución de host, origen de confianza, aislamiento del
+  middleware, configuración de producción y altas comerciales. La puerta local
+  `npm run ci:validate` superó portabilidad, formato, lint, los tres `typecheck`,
+  131 archivos con 640 pruebas favorables y una omitida, las tres compilaciones,
+  el paquete Windows y la auditoría de dependencias. GitHub Actions continúa
+  siendo una validación independiente de la publicación.
 
 Este documento define cómo retomar el trabajo en Umbravia Forge sin depender
 del contexto de una conversación anterior. Es una referencia saneada y apta
@@ -54,8 +61,10 @@ historial de trabajo.
 - Las plantillas versionadas definen los dos bloqueos en `false` y publican solo
   direcciones y URL no secretas. Los antiguos secretos de Workers, correo y
   almacenamiento no se modifican ni reutilizan para Open Helpdesk.
-- **Preferencias** ya es una opción operativa del área de cuenta: permite
-  cambiar el idioma y abrir una gestión de privacidad y datos independiente.
+- **Preferencias** ya es una opción operativa del área de cuenta y es el único
+  lugar del área autenticada donde se cambia el idioma; el selector redundante
+  se retiró del menú de usuario. También abre una gestión de privacidad y datos
+  independiente.
   Ese recorrido separa la política, el correo verificado para ejercer derechos,
   el estado todavía pendiente de la exportación y una zona explícita para
   revisar el cierre; una acción genérica de datos nunca enlaza directamente al

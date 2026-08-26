@@ -1946,17 +1946,15 @@
         "provisioningDisabled": "Die Erstellung neuer Testzentren ist derzeit nicht aktiviert. Ein bestehendes Zentrum kann weiterhin im Kontobereich bearbeitet werden.",
         "editCooldown_one": "Du hast viele Änderungen direkt hintereinander vorgenommen. Warte etwa {{count}} Minute, bevor du erneut speicherst.",
         "editCooldown_other": "Du hast viele Änderungen direkt hintereinander vorgenommen. Warte etwa {{count}} Minuten, bevor du erneut speicherst.",
-        "notEditable": "Dieses Zentrum erlaubt in seinem aktuellen Status keine Konfigurationsänderungen mehr."
+        "notEditable": "Dieses Zentrum erlaubt in seinem aktuellen Status keine Konfigurationsänderungen mehr.",
+        "subdomainInvalid": "Die Subdomain darf nur Kleinbuchstaben, Zahlen oder Bindestriche enthalten, nicht mit einem Bindestrich beginnen oder enden und kein reservierter Name sein.",
+        "subdomainUnavailable": "Diese Subdomain gehört bereits zu einem anderen Zentrum. Wähle eine andere.",
+        "subdomainLocked": "Die Subdomain kann nur während der aktiven Testphase geändert werden."
       },
       "editPolicy": {
         "trial": "Während des Testzeitraums kannst du diese Konfiguration beliebig oft bearbeiten.",
         "afterTrial": "Außerhalb des Testzeitraums kannst du normal weiterarbeiten. Eine vorübergehende Pause wird nur bei sehr vielen Änderungen direkt hintereinander angewendet."
       },
-      "provisionalAddress": "Vorläufige Adresse",
-      "reservedIdentifier": "Reservierte Subdomain-Kennung",
-      "routingNotProvisioned": "Diese Reservierung erstellt weder DNS noch Proxy-Routing oder Hosting. Die Umgebung verbleibt in der gemeinsamen Demonstrationsdatenbank.",
-      "tenantAddress": "Adresse des Zentrums",
-      "routingProvisioned": "Diese Adresse wählt das Zentrum aus; der Zugriff wird weiterhin durch das Konto und seine Berechtigungen bestimmt.",
       "create": "Konfiguration speichern",
       "save": "Änderungen speichern",
       "duration": {
@@ -2024,6 +2022,9 @@
       "fields": {
         "name": "Name des Zentrums",
         "type": "Art des Zentrums",
+        "subdomain": "Subdomain des Zentrums",
+        "subdomainHelpActive": "Nach dem Speichern ersetzt die neue Adresse sofort die bisherige. Der Zugriff wird weiterhin durch das Konto und seine Berechtigungen bestimmt.",
+        "subdomainHelpReserved": "Der Name wird für das Zentrum reserviert. Eine Adresse wird erst veröffentlicht, wenn DNS und Subdomain-Routing aktiviert sind.",
         "approximateMembers": "Ungefähre Mitgliederzahl",
         "trainerCount": "Anzahl Trainer",
         "spaceCount": "Räume oder Bereiche",

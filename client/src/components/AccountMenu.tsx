@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
-import { LanguageSwitcher } from "./LanguageSwitcher";
 import {
   clearAppNavigationHistory,
   getSessionStorage,
@@ -150,19 +149,11 @@ export function AccountMenu() {
           </Link>
 
           <div className="my-3 border-t border-slate-100" />
-
-          <div className="rounded-2xl bg-slate-50 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {t("language.label")}
-            </p>
-            <LanguageSwitcher />
-          </div>
-
           <button
             type="button"
             role="menuitem"
             onClick={() => void handleLogout()}
-            className="mt-3 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+            className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
           >
             <LogOut size={19} />
             {t("nav.logout")}
