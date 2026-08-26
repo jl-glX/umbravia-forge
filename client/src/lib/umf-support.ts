@@ -619,6 +619,16 @@ export function fetchCommercialAccountMetrics() {
   return request<CommercialAccountMetrics>("/commercial-account-metrics");
 }
 
+export function fetchSupportSecurityOverview() {
+  return request<{
+    mfa: {
+      enabled: boolean;
+      enabledAt: number | null;
+      recoveryCodesRemaining: number;
+    };
+  }>("/account/security");
+}
+
 export function resendCommercialTrialAdministratorVerification(userId: string) {
   return request<{ sent: boolean; queued: boolean }>(
     `/commercial-trial-administrators/${encodeURIComponent(userId)}/resend-verification`,
@@ -646,14 +656,14 @@ export function updateCommercialTrialFromSupport(
 
 export function deleteCommercialTrialFromSupport(
   trialId: string,
-  confirmation: string,
+  confirmation: { password: string; totpCode: string },
 ) {
   return request<{ deleted: true; accountDeleted: false }>(
     `/commercial-trials/${encodeURIComponent(trialId)}`,
     {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ confirmation }),
+      body: JSON.stringify(confirmation),
     },
   );
 }

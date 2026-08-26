@@ -2576,8 +2576,8 @@
       "title": "Funciones",
       "supportOperations": "Operaciones de soporte",
       "supportOperationsHint": "Tickets, correo y alertas del panel.",
-      "commercialTrials": "Altas comerciales de prueba",
-      "commercialTrialsHint": "Estado de cuentas administradoras y centros de prueba.",
+      "commercialTrials": "Gestión de cuentas comerciales",
+      "commercialTrialsHint": "Cuentas administradoras y estado de sus pruebas.",
       "corporateAdministrators": "Accesos administrativos",
       "corporateAdministratorsHint": "Altas y bajas de las personas con acceso al panel."
     },
@@ -2589,7 +2589,7 @@
       "outbox": "Bandeja de salida",
       "sent": "Enviados",
       "notifications": "Alertas",
-      "commercialTrials": "Altas comerciales",
+      "commercialTrials": "Cuentas comerciales",
       "access": "Altas",
       "team": "Administradores",
       "company": "Plantilla",
@@ -2603,7 +2603,7 @@
       "outbox": "Bandeja de salida",
       "sent": "Correo enviado",
       "notifications": "Alertas operativas",
-      "commercialTrials": "Altas administrativas comerciales de prueba",
+      "commercialTrials": "Cuentas y pruebas comerciales",
       "access": "Solicitudes de acceso",
       "team": "Altas de administrador",
       "company": "Plantilla de la empresa",
@@ -2628,10 +2628,12 @@
       "agent": "Administrador"
     },
     "commercialTrials": {
-      "provisioningEnabled": "Las altas comerciales de prueba están habilitadas",
-      "provisioningDisabled": "Las altas comerciales de prueba están cerradas",
-      "boundaryNotice": "UMF Support solo administra el seguimiento operativo. La cuenta, la contraseña, la sesión y los permisos siguen perteneciendo exclusivamente a Umbravia Forge comercial.",
-      "openSignup": "Abrir formulario de alta",
+      "pauseAlerts": {
+        "title": "Avisos de pausas de pruebas comerciales",
+        "description": "Revisa las pruebas pausadas por soporte antes de contactar con el centro o devolverle el acceso.",
+        "empty": "No hay pruebas comerciales pausadas que requieran atención.",
+        "actionRequired": "La prueba permanece detenida hasta que UMF Support la revise y decida si debe contactar o reanudar."
+      },
       "accountList": "Cuentas administradoras comerciales",
       "accountListHint": "Vista restringida a la persona propietaria del panel. No comparte credenciales ni convierte una sesión de UMF Support en una sesión comercial.",
       "createdAt": "Alta iniciada: {{date}}",
@@ -2676,8 +2678,22 @@
       "deletionPending": "Cuenta en cola de borrado",
       "deletionScheduledFor": "Cierre previsto: {{date}}",
       "confirmCancel": "¿Quieres cancelar la prueba de {{facility}}? El acceso se cerrará y su ficha pública dejará de mostrarse.",
-      "confirmDelete": "Esta acción elimina el entorno de prueba de forma irreversible, pero conserva la cuenta comercial. Escribe exactamente «{{facility}}» para continuar.",
-      "deleteMismatch": "El nombre del centro no coincide. No se ha eliminado nada."
+      "deleteDialog": {
+        "title": "Eliminar el entorno de prueba de {{facility}}",
+        "description": "Vas a ejecutar una operación irreversible sobre {{facility}}, cuya cuenta de contacto es {{email}}. Revisa el alcance y confirma tu identidad corporativa.",
+        "removedTitle": "Se eliminará",
+        "removedBody": "El centro de prueba, su configuración, sus datos operativos y cualquier ficha pública asociada.",
+        "retainedTitle": "Se conservará",
+        "retainedBody": "La cuenta comercial {{email}}, para mantener el contacto y permitir una futura alta sin reutilizar sus credenciales.",
+        "checkingSecurity": "Comprobando los métodos de seguridad de tu cuenta de UMF Support…",
+        "mfaRequiredTitle": "Activa primero la autenticación en dos pasos",
+        "mfaRequiredBody": "Los borrados definitivos requieren contraseña y un código actual de la aplicación de autenticación.",
+        "openSecurity": "Abrir seguridad de mi cuenta",
+        "password": "Contraseña actual de UMF Support",
+        "totp": "Código de verificación de un solo uso",
+        "securityHelp": "Introduce el código de seis cifras que muestra ahora tu aplicación de autenticación. La contraseña y el código no se guardan.",
+        "confirm": "Confirmar y eliminar el entorno"
+      }
     },
     "companyPosition": {
       "platform_head": "Jefe de plataforma",
@@ -2957,6 +2973,10 @@
         "SUPPORT_RATE_LIMITED": "Se han realizado demasiadas operaciones seguidas. Espera un momento y vuelve a intentarlo.",
         "UNAUTHENTICATED": "La sesión de UMF Support ha caducado. Vuelve a iniciar sesión.",
         "ACCOUNT_NOT_ACTIVE": "La cuenta de UMF Support no está activa.",
+        "INVALID_SECURITY_CONFIRMATION_INPUT": "Introduce la contraseña y un código de verificación de seis cifras.",
+        "SECURITY_CONFIRMATION_FAILED": "La contraseña actual de UMF Support no es correcta.",
+        "MFA_CONFIRMATION_FAILED": "El código de verificación no es válido o ha caducado.",
+        "UMF_SUPPORT_MFA_REQUIRED": "Activa la autenticación en dos pasos antes de eliminar definitivamente un entorno comercial.",
         "COMMERCIAL_TRIAL_ADMIN_NOT_PENDING": "La cuenta comercial ya no está pendiente de verificación o no corresponde a un alta administrativa de prueba.",
         "INTERNAL_ERROR": "UMF Support no pudo completar la operación por un error interno."
       }

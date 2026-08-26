@@ -48,6 +48,7 @@ import {
   fetchMailDrafts,
   fetchNotificationSettings,
   fetchStaff,
+  fetchSupportSecurityOverview,
   fetchSupportSession,
   fetchTicket,
   fetchTickets,
@@ -87,6 +88,7 @@ import {
 } from "../lib/umf-support";
 import { getUmfSupportMailNotices } from "../lib/umf-support-mail-readiness";
 import { AttachmentPreviewDialog } from "../components/AttachmentPreviewDialog";
+import { CommercialTrialDeletionDialog } from "../components/CommercialTrialDeletionDialog";
 import {
   attachmentCanBePreviewed,
   type AttachmentPreviewSource,
@@ -200,6 +202,22 @@ export function UmfSupportPage() {
   >([]);
   const [commercialAccountMetrics, setCommercialAccountMetrics] =
     useState<CommercialAccountMetrics | null>(null);
+  const [commercialTrialDeletionTarget, setCommercialTrialDeletionTarget] =
+    useState<CommercialTrialAdministratorAccount | null>(null);
+  const [
+    commercialTrialDeletionMfaEnabled,
+    setCommercialTrialDeletionMfaEnabled,
+  ] = useState<boolean | null>(null);
+  const [
+    commercialTrialDeletionSecurityLoading,
+    setCommercialTrialDeletionSecurityLoading,
+  ] = useState(false);
+  const [commercialTrialDeletionPassword, setCommercialTrialDeletionPassword] =
+    useState("");
+  const [commercialTrialDeletionTotp, setCommercialTrialDeletionTotp] =
+    useState("");
+  const [commercialTrialDeletionError, setCommercialTrialDeletionError] =
+    useState("");
   const [collaborationSpaces, setCollaborationSpaces] = useState<
     UmfSupportCollaborationSpace[]
   >([]);
@@ -451,6 +469,15 @@ export function UmfSupportPage() {
     }),
     [tickets],
   );
+  const pausedCommercialTrialAccounts = useMemo(
+    () =>
+      commercialTrialAccounts.filter(
+        (account) =>
+          account.trial?.status === "trial_paused_support" &&
+          !account.deletionRequest,
+      ),
+    [commercialTrialAccounts],
+  );
 
   const approveAdministrator = async (userId: string) => {
     setWorking(true);
@@ -516,7 +543,7 @@ export function UmfSupportPage() {
 
   const manageCommercialTrial = async (
     account: CommercialTrialAdministratorAccount,
-    action: "resume" | "cancel" | "delete",
+    action: "resume" | "cancel",
   ) => {
     if (!account.trial) return;
     if (
@@ -529,29 +556,10 @@ export function UmfSupportPage() {
     ) {
       return;
     }
-    let confirmation = "";
-    if (action === "delete") {
-      confirmation =
-        window.prompt(
-          t("umfSupport.commercialTrials.confirmDelete", {
-            facility: account.trial.facilityName,
-          }),
-        ) ?? "";
-      if (confirmation !== account.trial.facilityName) {
-        if (confirmation) {
-          setError(t("umfSupport.commercialTrials.deleteMismatch"));
-        }
-        return;
-      }
-    }
     setWorking(true);
     setError("");
     try {
-      if (action === "delete") {
-        await deleteCommercialTrialFromSupport(account.trial.id, confirmation);
-      } else {
-        await updateCommercialTrialFromSupport(account.trial.id, action);
-      }
+      await updateCommercialTrialFromSupport(account.trial.id, action);
       const [accounts, metrics] = await Promise.all([
         fetchCommercialTrialAdministratorAccounts(),
         fetchCommercialAccountMetrics(),
@@ -565,6 +573,72 @@ export function UmfSupportPage() {
       );
     } catch (cause) {
       setError(normalizedError(cause, "umfSupport.errors.save"));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const closeCommercialTrialDeletion = () => {
+    if (working) return;
+    setCommercialTrialDeletionTarget(null);
+    setCommercialTrialDeletionMfaEnabled(null);
+    setCommercialTrialDeletionPassword("");
+    setCommercialTrialDeletionTotp("");
+    setCommercialTrialDeletionError("");
+  };
+
+  const openCommercialTrialDeletion = async (
+    account: CommercialTrialAdministratorAccount,
+  ) => {
+    if (!account.trial) return;
+    setCommercialTrialDeletionTarget(account);
+    setCommercialTrialDeletionMfaEnabled(null);
+    setCommercialTrialDeletionPassword("");
+    setCommercialTrialDeletionTotp("");
+    setCommercialTrialDeletionError("");
+    setCommercialTrialDeletionSecurityLoading(true);
+    try {
+      const security = await fetchSupportSecurityOverview();
+      setCommercialTrialDeletionMfaEnabled(security.mfa.enabled);
+    } catch (cause) {
+      setCommercialTrialDeletionError(
+        normalizedError(cause, "umfSupport.errors.load"),
+      );
+    } finally {
+      setCommercialTrialDeletionSecurityLoading(false);
+    }
+  };
+
+  const confirmCommercialTrialDeletion = async (event: FormEvent) => {
+    event.preventDefault();
+    const account = commercialTrialDeletionTarget;
+    if (!account?.trial) return;
+    setWorking(true);
+    setCommercialTrialDeletionError("");
+    try {
+      await deleteCommercialTrialFromSupport(account.trial.id, {
+        password: commercialTrialDeletionPassword,
+        totpCode: commercialTrialDeletionTotp,
+      });
+      const [accounts, metrics] = await Promise.all([
+        fetchCommercialTrialAdministratorAccounts(),
+        fetchCommercialAccountMetrics(),
+      ]);
+      setCommercialTrialAccounts(accounts);
+      setCommercialAccountMetrics(metrics);
+      setNotice(
+        t("umfSupport.notices.commercialTrial.delete", {
+          facility: account.trial.facilityName,
+        }),
+      );
+      setCommercialTrialDeletionTarget(null);
+      setCommercialTrialDeletionMfaEnabled(null);
+      setCommercialTrialDeletionPassword("");
+      setCommercialTrialDeletionTotp("");
+    } catch (cause) {
+      setCommercialTrialDeletionError(
+        normalizedError(cause, "umfSupport.errors.save"),
+      );
     } finally {
       setWorking(false);
     }
@@ -2260,36 +2334,74 @@ export function UmfSupportPage() {
           {view === "commercialTrials" &&
             capabilities?.canManageCommercialTrials && (
               <div className="space-y-5">
-                <section
-                  className={`rounded-xl border p-4 ${
-                    capabilities.commercialTrialProvisioningEnabled
-                      ? "border-emerald-200 bg-emerald-50"
-                      : "border-amber-200 bg-amber-50"
-                  }`}
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h2 className="font-semibold">
-                        {capabilities.commercialTrialProvisioningEnabled
-                          ? t("umfSupport.commercialTrials.provisioningEnabled")
-                          : t(
-                              "umfSupport.commercialTrials.provisioningDisabled",
-                            )}
-                      </h2>
-                      <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
-                        {t("umfSupport.commercialTrials.boundaryNotice")}
-                      </p>
+                <section className="overflow-hidden rounded-xl border border-amber-200 bg-amber-50">
+                  <div className="border-b border-amber-200 px-4 py-3">
+                    <div className="flex items-start gap-3">
+                      <Bell
+                        className="mt-0.5 shrink-0 text-amber-700"
+                        size={20}
+                      />
+                      <div>
+                        <h2 className="font-semibold text-amber-950">
+                          {t("umfSupport.commercialTrials.pauseAlerts.title")}
+                        </h2>
+                        <p className="mt-1 text-sm leading-6 text-amber-900">
+                          {t(
+                            "umfSupport.commercialTrials.pauseAlerts.description",
+                          )}
+                        </p>
+                      </div>
                     </div>
-                    {capabilities.commercialTrialProvisioningEnabled && (
-                      <Link
-                        to="/signup"
-                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-                      >
-                        <UserPlus size={17} />
-                        {t("umfSupport.commercialTrials.openSignup")}
-                      </Link>
-                    )}
                   </div>
+                  {pausedCommercialTrialAccounts.length === 0 ? (
+                    <p className="bg-white/60 p-4 text-sm text-slate-600">
+                      {t("umfSupport.commercialTrials.pauseAlerts.empty")}
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-amber-200">
+                      {pausedCommercialTrialAccounts.map((account) => (
+                        <article
+                          key={account.userId}
+                          className="flex flex-col gap-4 bg-white/70 p-4 md:flex-row md:items-center"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-slate-950">
+                              {account.trial?.facilityName}
+                            </p>
+                            <p className="mt-1 break-all text-sm text-slate-600">
+                              {account.email}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-amber-800">
+                              {t(
+                                "umfSupport.commercialTrials.pauseAlerts.actionRequired",
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={working}
+                              onClick={() => contactCommercialAccount(account)}
+                            >
+                              <Mail size={16} />
+                              {t("umfSupport.commercialTrials.contact")}
+                            </Button>
+                            <Button
+                              type="button"
+                              disabled={working}
+                              onClick={() =>
+                                void manageCommercialTrial(account, "resume")
+                              }
+                            >
+                              <RefreshCw size={16} />
+                              {t("umfSupport.commercialTrials.resume")}
+                            </Button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
                 </section>
 
                 {commercialAccountMetrics && (
@@ -2502,7 +2614,7 @@ export function UmfSupportPage() {
                               variant="destructive"
                               disabled={working}
                               onClick={() =>
-                                void manageCommercialTrial(account, "delete")
+                                void openCommercialTrialDeletion(account)
                               }
                             >
                               <Trash2 size={16} />
@@ -2639,6 +2751,21 @@ export function UmfSupportPage() {
             source={attachmentPreview}
             onClose={() => setAttachmentPreview(null)}
           />
+          {commercialTrialDeletionTarget && (
+            <CommercialTrialDeletionDialog
+              account={commercialTrialDeletionTarget}
+              mfaEnabled={commercialTrialDeletionMfaEnabled}
+              securityLoading={commercialTrialDeletionSecurityLoading}
+              password={commercialTrialDeletionPassword}
+              totpCode={commercialTrialDeletionTotp}
+              error={commercialTrialDeletionError}
+              busy={working}
+              onPasswordChange={setCommercialTrialDeletionPassword}
+              onTotpCodeChange={setCommercialTrialDeletionTotp}
+              onConfirm={confirmCommercialTrialDeletion}
+              onCancel={closeCommercialTrialDeletion}
+            />
+          )}
         </section>
       </div>
     </main>

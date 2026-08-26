@@ -2576,8 +2576,8 @@
       "title": "Functions",
       "supportOperations": "Support operations",
       "supportOperationsHint": "Workspace tickets, mail and alerts.",
-      "commercialTrials": "Commercial trial signups",
-      "commercialTrialsHint": "Administrator account and trial facility status.",
+      "commercialTrials": "Commercial account management",
+      "commercialTrialsHint": "Administrator accounts and the status of their trials.",
       "corporateAdministrators": "Administrative access",
       "corporateAdministratorsHint": "Grant or revoke access to this workspace."
     },
@@ -2589,7 +2589,7 @@
       "outbox": "Outbox",
       "sent": "Sent",
       "notifications": "Alerts",
-      "commercialTrials": "Commercial signups",
+      "commercialTrials": "Commercial accounts",
       "access": "Access",
       "team": "Administrators",
       "company": "Company",
@@ -2603,7 +2603,7 @@
       "outbox": "Outbox",
       "sent": "Sent mail",
       "notifications": "Operational alerts",
-      "commercialTrials": "Commercial trial administrator signups",
+      "commercialTrials": "Commercial accounts and trials",
       "access": "Access requests",
       "team": "Administrator access",
       "company": "Company staff",
@@ -2624,10 +2624,12 @@
       "collaboration": "Informational drafts without technical permissions; you choose what staff can see."
     },
     "commercialTrials": {
-      "provisioningEnabled": "Commercial trial signups are enabled",
-      "provisioningDisabled": "Commercial trial signups are closed",
-      "boundaryNotice": "UMF Support only handles operational tracking. The account, password, session and permissions remain exclusively within commercial Umbravia Forge.",
-      "openSignup": "Open signup form",
+      "pauseAlerts": {
+        "title": "Commercial trial pause alerts",
+        "description": "Review trials paused by support before contacting the facility or restoring its access.",
+        "empty": "No paused commercial trials require attention.",
+        "actionRequired": "The trial remains stopped until UMF Support reviews it and decides whether to make contact or resume it."
+      },
       "accountList": "Commercial administrator accounts",
       "accountListHint": "Restricted to the workspace owner. Credentials are not shared and a UMF Support session never becomes a commercial session.",
       "createdAt": "Signup started: {{date}}",
@@ -2672,8 +2674,22 @@
       "deletionPending": "Account queued for deletion",
       "deletionScheduledFor": "Expected closure: {{date}}",
       "confirmCancel": "Cancel the trial for {{facility}}? Access will close and its public profile will no longer be shown.",
-      "confirmDelete": "This permanently deletes the trial environment but keeps the commercial account. Type “{{facility}}” exactly to continue.",
-      "deleteMismatch": "The facility name does not match. Nothing was deleted."
+      "deleteDialog": {
+        "title": "Delete the trial environment for {{facility}}",
+        "description": "You are about to perform an irreversible operation on {{facility}}, whose contact account is {{email}}. Review the scope and confirm your corporate identity.",
+        "removedTitle": "This will be deleted",
+        "removedBody": "The trial facility, its configuration, operational data and any associated public profile.",
+        "retainedTitle": "This will be retained",
+        "retainedBody": "The commercial account {{email}}, so contact can be maintained and a future signup remains possible without reusing its credentials.",
+        "checkingSecurity": "Checking the security methods on your UMF Support account…",
+        "mfaRequiredTitle": "Enable two-step authentication first",
+        "mfaRequiredBody": "Permanent deletions require your password and a current code from your authenticator app.",
+        "openSecurity": "Open my account security",
+        "password": "Current UMF Support password",
+        "totp": "One-time verification code",
+        "securityHelp": "Enter the six-digit code currently shown by your authenticator app. The password and code are not stored.",
+        "confirm": "Confirm and delete environment"
+      }
     },
     "compose": "Compose email",
     "composeHint": "UMF Support operational communication composer; arbitrary HTML is not accepted.",
@@ -2957,6 +2973,10 @@
         "SUPPORT_RATE_LIMITED": "Too many operations were performed in succession. Wait a moment and try again.",
         "UNAUTHENTICATED": "The UMF Support session has expired. Sign in again.",
         "ACCOUNT_NOT_ACTIVE": "The UMF Support account is not active.",
+        "INVALID_SECURITY_CONFIRMATION_INPUT": "Enter the password and a six-digit verification code.",
+        "SECURITY_CONFIRMATION_FAILED": "The current UMF Support password is incorrect.",
+        "MFA_CONFIRMATION_FAILED": "The verification code is invalid or has expired.",
+        "UMF_SUPPORT_MFA_REQUIRED": "Enable two-step authentication before permanently deleting a commercial environment.",
         "COMMERCIAL_TRIAL_ADMIN_NOT_PENDING": "The commercial account is no longer awaiting verification or is not a trial administrator signup.",
         "INTERNAL_ERROR": "UMF Support could not complete the operation because of an internal error."
       }

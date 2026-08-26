@@ -1,6 +1,6 @@
 # Índice de documentación
 
-Estado revisado contra el código y las pruebas del cambio activo el 25 de agosto
+Estado revisado contra el código y las pruebas del cambio activo el 26 de agosto
 de 2026. El índice evita fijar un SHA que quede obsoleto con cada actualización:
 la sincronización se comprueba en el diff y en la validación del commit que se
 publica. Esta referencia describe el repositorio; no demuestra por sí sola el
@@ -58,8 +58,8 @@ auditoría histórica entra en conflicto con un documento vigente.
   técnica, los espacios de
   colaboración de privilegio reducido, el panel de correo con preparación y
   evidencia operativa separadas para entrada y salida, los adjuntos salientes
-  cifrados y aislados de cada centro, la administración limitada de altas
-  comerciales de prueba, las alertas configurables, el historial de seguridad
+  cifrados y aislados de cada centro, la gestión limitada de cuentas y pruebas
+  comerciales, las alertas configurables, el historial de seguridad
   limitado a treinta días, el despliegue independiente y reproducible de su
   Worker de correo mediante Workers Builds, el endpoint público no sensible
   conservado en la configuración versionada, la entrega firmada del Worker al
@@ -72,8 +72,10 @@ auditoría histórica entra en conflicto con un documento vigente.
   categorías seguras, los
   realms independientes y el
   saneamiento que preserva la cuenta comercial y sus solicitudes de borrado,
-  y el bloqueo reversible de operaciones que deja visible solo la gestión de
-  cuentas comerciales mientras el soporte general se deriva externamente
+  los avisos operativos de pruebas comerciales pausadas, la confirmación con
+  contraseña y TOTP para borrar definitivamente sus entornos, y el bloqueo
+  reversible de operaciones que deja visible solo la gestión de cuentas
+  comerciales mientras el soporte general se deriva externamente
 - [Forge Notify](./FORGE-NOTIFY.md), incluida la separación persistente de
   entregas y señales entre `commercial` y `support`
 - [Gestor de bases y entornos](./DATABASE-ENVIRONMENT-MANAGER.md)

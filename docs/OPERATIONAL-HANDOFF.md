@@ -13,9 +13,12 @@
   retira su visibilidad en la misma transacción.
 - UMF Support muestra cada cuenta comercial como ficha desplegable con su correo
   y acciones compatibles con el estado. Puede reanudar una pausa de soporte,
-  cancelar o borrar una prueba con confirmación exacta sin borrar la identidad
-  comercial. Las cuentas con cierre programado quedan fuera de la métrica de
-  cuentas activas.
+  cancelar o borrar una prueba sin borrar la identidad comercial. El panel de
+  altas se sustituye por avisos de pruebas pausadas; el borrado definitivo
+  identifica el centro y el correo, exige contraseña corporativa, formulario
+  verificado y TOTP vigente, y se bloquea si la cuenta de soporte no tiene MFA.
+  Las cuentas con cierre programado quedan fuera de la métrica de cuentas
+  activas.
 - Estas garantías describen el código, la migración y las pruebas del cambio.
   No demuestran que el directorio, los subdominios, DNS/TLS o el esquema estén
   desplegados en un servidor; la comprobación operativa sigue siendo separada.
