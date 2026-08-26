@@ -161,11 +161,19 @@ sudo sh deploy/manage-caddy-diagnostics.sh status
 ```
 
 La antigua consola web/API de gestores y su orden `ufctl` ya no forman parte
-del canal operativo. La sonda se comprueba desde el propio servidor mediante
-las herramientas de operación de solo lectura y el destino fijo
-`https://cf-test.umbraviaforge.com`; el administrador local Linux compartido
-solo presenta estado y señales saneadas de los gestores y no actúa como una
-terminal de red genérica.
+del canal operativo. La sonda se comprueba desde el propio servidor con un
+ejecutor local de solo lectura y el destino fijo
+`https://cf-test.umbraviaforge.com`:
+
+```text
+sudo -u umbravia sh /opt/umbravia-forge/current/deploy/run-support-diagnostic-probe.sh all
+```
+
+También admite una única comprobación `dns`, `tls`, `live` o `ready`. Devuelve
+código distinto de cero si la comprobación solicitada queda degradada, no
+acepta un destino por línea de órdenes y no abre ninguna API administrativa ni
+terminal de red genérica. El destino alternativo solo puede proceder de la
+configuración operativa `UMBRAVIA_DIAGNOSTIC_PROBE_ORIGIN`.
 
 El gestor conserva una copia del Caddyfile, valida la configuración candidata
 antes de instalarla y restaura la anterior si Caddy no puede recargarse. La

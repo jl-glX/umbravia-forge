@@ -9,15 +9,20 @@ const execFileAsync = promisify(execFile);
 
 describe("systemd deployment service", () => {
   it.skipIf(process.platform === "win32")(
-    "keeps the diagnostic Caddy manager valid POSIX shell",
+    "keeps the diagnostic Caddy tools valid POSIX shell",
     async () => {
-      const result = await execFileAsync("sh", [
-        "-n",
-        path.resolve("deploy", "manage-caddy-diagnostics.sh"),
-      ]);
+      for (const script of [
+        "manage-caddy-diagnostics.sh",
+        "run-support-diagnostic-probe.sh",
+      ]) {
+        const result = await execFileAsync("sh", [
+          "-n",
+          path.resolve("deploy", script),
+        ]);
 
-      expect(result.stdout).toBe("");
-      expect(result.stderr).toBe("");
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toBe("");
+      }
     },
   );
 
@@ -70,11 +75,16 @@ describe("systemd deployment service", () => {
   });
 
   it("validates Caddy without taking ownership of its production log", async () => {
-    const [caddyfile, readiness, diagnosticManager] = await Promise.all([
-      readFile(path.resolve("deploy", "Caddyfile"), "utf8"),
-      readFile(path.resolve("deploy", "check-linux-readiness.sh"), "utf8"),
-      readFile(path.resolve("deploy", "manage-caddy-diagnostics.sh"), "utf8"),
-    ]);
+    const [caddyfile, readiness, diagnosticManager, diagnosticRunner] =
+      await Promise.all([
+        readFile(path.resolve("deploy", "Caddyfile"), "utf8"),
+        readFile(path.resolve("deploy", "check-linux-readiness.sh"), "utf8"),
+        readFile(path.resolve("deploy", "manage-caddy-diagnostics.sh"), "utf8"),
+        readFile(
+          path.resolve("deploy", "run-support-diagnostic-probe.sh"),
+          "utf8",
+        ),
+      ]);
 
     expect(caddyfile).toContain(
       "{$UMBRAVIA_CADDY_LOG:/var/log/caddy/umbravia-forge-access.log}",
@@ -108,6 +118,10 @@ describe("systemd deployment service", () => {
       "SMTP_USER y SMTP_PASSWORD deben configurarse juntos",
     );
     expect(readiness).toContain("dist/server/bin/check-mail-dns.js");
+    expect(readiness).toContain(
+      "dist/server/bin/check-support-diagnostic-probe.js",
+    );
+    expect(readiness).toContain("run-support-diagnostic-probe.sh");
     expect(readiness).toContain("EMAIL_PUBLIC_DNS_CHECK=strict");
     expect(readiness).toContain("DNS publico del MTA local incompleto");
     expect(readiness).toContain(
@@ -142,6 +156,10 @@ describe("systemd deployment service", () => {
     expect(diagnosticManager).not.toMatch(
       /^\s*caddy validate --config "\$CONFIG_PATH"/m,
     );
+    expect(diagnosticRunner).toContain(
+      "dist/server/bin/check-support-diagnostic-probe.js",
+    );
+    expect(diagnosticRunner).not.toContain("ufctl");
   });
 
   it("keeps portable authenticated private-content encryption in the production package", async () => {

@@ -98,6 +98,8 @@ auditoría histórica entra en conflicto con un documento vigente.
 - [Relevo operativo](./OPERATIONAL-HANDOFF.md)
 - [Preparación para producción propia](./SELF-HOSTED-PRODUCTION.md)
 - [Despliegue protegido](../deploy/README.md)
+  incluido el diagnóstico aislado de Cloudflare mediante `cf-test`, ejecutable
+  únicamente desde Linux local y sin restaurar la consola web retirada;
 - [Despliegue portable en Linux](../deploy/LINUX.md)
 
 ## Auditorías y puntos históricos
