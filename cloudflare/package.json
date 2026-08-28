@@ -13,7 +13,7 @@
     "preview:umf-support-email": "wrangler versions upload"
   },
   "dependencies": {
-    "postal-mime": "2.7.6"
+    "postal-mime": "3.0.0"
   },
   "devDependencies": {
     "wrangler": "4.125.0"
