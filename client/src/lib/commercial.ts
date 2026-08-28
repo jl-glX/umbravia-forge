@@ -42,7 +42,18 @@ export interface CommercialTrial {
   bonusesDescription: string;
   publicPageEnabled: boolean;
   showPhonePublicly: boolean;
-  locale: "es" | "en" | "de" | "de-CH";
+  locale:
+    | "es"
+    | "en"
+    | "de"
+    | "de-CH"
+    | "fr"
+    | "it"
+    | "gl"
+    | "ca"
+    | "ca-valencia"
+    | "eu"
+    | "oc-aranes";
   currency: string;
   usesBookings: boolean;
   usesWaitlist: boolean;
@@ -59,6 +70,23 @@ export interface CommercialTrial {
 
 export interface CommercialTrialOverview {
   trial: CommercialTrial;
+  /**
+   * Added to the overview contract after the first commercial-trial release.
+   * Keep it optional while clients and servers can be rolled back independently.
+   */
+  dataReview?: {
+    visible: boolean;
+    canDeclare: boolean;
+    opensAt: number | null;
+    serverNow: number;
+    declarationBlockReason:
+      | "invalid-time"
+      | "not-open"
+      | "cleanup-started"
+      | "already-declared"
+      | "inapplicable-state"
+      | null;
+  };
   branding: {
     logoDataUrl: string;
     accentColor: string;

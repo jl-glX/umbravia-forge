@@ -19,7 +19,18 @@ const invitationRoles = ["admin", "trainer", "member"] as const;
 
 export type FacilityInvitationRole = "admin" | "trainer" | "member";
 type FacilityInvitationRoleValue = (typeof invitationRoles)[number];
-export type InvitationLocale = "es" | "en" | "de" | "de-CH";
+export type InvitationLocale =
+  | "es"
+  | "en"
+  | "de"
+  | "de-CH"
+  | "fr"
+  | "it"
+  | "gl"
+  | "ca"
+  | "ca-valencia"
+  | "eu"
+  | "oc-aranes";
 
 export class FacilityInvitationError extends Error {
   constructor(

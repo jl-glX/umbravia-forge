@@ -14,6 +14,7 @@ import { PasswordInput } from "../components/PasswordInput";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { canonicalizeLocale } from "../i18n/supported-locales";
 import {
   beginSupportPasskey,
   fetchSupportSession,
@@ -117,7 +118,7 @@ export function UmfSupportAccessPage() {
           lastName,
           password,
           countryCode,
-          locale: i18n.resolvedLanguage ?? "es",
+          locale: canonicalizeLocale(i18n.resolvedLanguage ?? i18n.language),
           acceptedTerms,
           acceptedPrivacy,
           captchaToken,

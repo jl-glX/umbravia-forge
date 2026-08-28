@@ -24,6 +24,13 @@ import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import { getAccessRole } from "../context/auth-context";
 import { useAuth } from "../hooks/useAuth";
 import { authFetch } from "../lib/api";
+import { resolveIntlLocale } from "../i18n/supported-locales";
+import {
+  communityPrincipleTranslationKeys,
+  communityPrinciplesEndpoint,
+  readCommunityPrincipleIds,
+  type CommunityPrincipleId,
+} from "../lib/community-principles";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 const FIELD_IDS = {
@@ -104,10 +111,30 @@ interface CommunityAttachment {
   sizeBytes: number;
   messageId: string | null;
 }
-interface Principles {
-  neutrality: string;
-  reciprocity: string;
-  conductBasedModeration: string;
+
+export function CommunityPrinciplesCard({
+  principles,
+}: {
+  principles: readonly CommunityPrincipleId[] | null;
+}) {
+  const { t } = useTranslation();
+  if (!principles || principles.length === 0) return null;
+
+  return (
+    <Card className="mt-6 rounded-3xl border-emerald-200 bg-emerald-50 p-6">
+      <h2 className="flex items-center gap-2 font-bold">
+        <ShieldCheck />
+        {t("community.principles")}
+      </h2>
+      <ul className="mt-3 space-y-2 text-sm">
+        {principles.map((principleId) => (
+          <li key={principleId}>
+            {t(communityPrincipleTranslationKeys[principleId])}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
 }
 
 export function CommunityPage() {
@@ -147,7 +174,9 @@ export function CommunityPage() {
   const [groupName, setGroupName] = useState("");
   const [people, setPeople] = useState<Person[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [principles, setPrinciples] = useState<Principles | null>(null);
+  const [principles, setPrinciples] = useState<CommunityPrincipleId[] | null>(
+    null,
+  );
   const [notice, setNotice] = useState("");
   const [usernameError, setUsernameError] = useState("");
   const selectedChannel = channels.find((channel) => channel.id === channelId);
@@ -173,7 +202,7 @@ export function CommunityPage() {
         api<Profile | null>("/api/community/profile"),
         api<Channel[]>("/api/community/channels"),
         api<Contact[]>("/api/community/contacts"),
-        api<Principles>("/api/community/principles"),
+        api<unknown>(communityPrinciplesEndpoint),
       ]);
       if (saved)
         setProfile({
@@ -185,7 +214,7 @@ export function CommunityPage() {
         });
       setChannels(channelList);
       setContacts(contactList);
-      setPrinciples(policy);
+      setPrinciples(readCommunityPrincipleIds(policy));
       setChannelId((current) =>
         channelList.some((channel) => channel.id === current)
           ? current
@@ -777,10 +806,13 @@ export function CommunityPage() {
                         {item.authorName} · {item.authorRole}
                       </strong>
                       <span>
-                        {new Intl.DateTimeFormat(i18n.language, {
-                          dateStyle: "short",
-                          timeStyle: "short",
-                        }).format(item.createdAt)}
+                        {new Intl.DateTimeFormat(
+                          resolveIntlLocale(i18n.language),
+                          {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          },
+                        ).format(item.createdAt)}
                       </span>
                     </div>
                     {item.parentId && (
@@ -1063,19 +1095,7 @@ export function CommunityPage() {
             </div>
           </div>
         </Card>
-        {principles && (
-          <Card className="mt-6 rounded-3xl border-emerald-200 bg-emerald-50 p-6">
-            <h2 className="flex items-center gap-2 font-bold">
-              <ShieldCheck />
-              {t("community.principles")}
-            </h2>
-            <ul className="mt-3 space-y-2 text-sm">
-              <li>{principles.neutrality}</li>
-              <li>{principles.reciprocity}</li>
-              <li>{principles.conductBasedModeration}</li>
-            </ul>
-          </Card>
-        )}
+        <CommunityPrinciplesCard principles={principles} />
         <FacilityLinksPanel />
       </div>
       <ConfirmDialog

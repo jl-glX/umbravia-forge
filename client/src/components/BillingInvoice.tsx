@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { formatBillingDate, type BillingRecord } from "../lib/billing";
 import { Button } from "./ui/button";
 import { useFacilityProfile } from "../hooks/useFacilityProfile";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 
 export function BillingInvoice({
   record,
@@ -18,7 +19,7 @@ export function BillingInvoice({
   onSavePdf?: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const language = i18n.resolvedLanguage ?? i18n.language;
+  const language = resolveIntlLocale(i18n.resolvedLanguage ?? i18n.language);
   const { profile } = useFacilityProfile();
   const gymName = profile.name;
   const money = new Intl.NumberFormat(language, {

@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { VerifiedForm } from "../components/VerifiedForm";
 import { authFetch } from "../lib/api";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 
@@ -206,7 +207,7 @@ export function CommercialSubscriptionPage() {
                 <p className="mt-2 text-xs text-amber-800">
                   {t("subscription.lastInvoiceEvent", {
                     date: new Intl.DateTimeFormat(
-                      i18n.resolvedLanguage ?? i18n.language,
+                      resolveIntlLocale(i18n.resolvedLanguage ?? i18n.language),
                       { dateStyle: "medium", timeStyle: "short" },
                     ).format(overview.subscription.lastInvoiceEventAt),
                   })}
@@ -235,7 +236,7 @@ export function CommercialSubscriptionPage() {
                       ? t("subscription.endsOn")
                       : t("subscription.renewsOn")}{" "}
                     {new Intl.DateTimeFormat(
-                      i18n.resolvedLanguage ?? i18n.language,
+                      resolveIntlLocale(i18n.resolvedLanguage ?? i18n.language),
                       {
                         dateStyle: "long",
                       },
@@ -281,7 +282,7 @@ export function CommercialSubscriptionPage() {
               <p className="mt-3 text-xs text-slate-500">
                 {t("subscription.lastReconciled", {
                   date: new Intl.DateTimeFormat(
-                    i18n.resolvedLanguage ?? i18n.language,
+                    resolveIntlLocale(i18n.resolvedLanguage ?? i18n.language),
                     { dateStyle: "medium", timeStyle: "short" },
                   ).format(overview.subscription.lastReconciledAt),
                 })}

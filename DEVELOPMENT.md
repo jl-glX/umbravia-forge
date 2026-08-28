@@ -175,7 +175,7 @@ service and the SMTP/MTA delivery layer.
 client/src/
   components/   shared and domain UI
   hooks/        data access and view state
-  i18n/         language configuration and ES/EN/DE/DE-CH catalogues
+  i18n/         configuración, catálogos completos y variantes regionales
   lib/          API, date and localization helpers
   pages/        route-level screens
 
@@ -195,8 +195,22 @@ docs/           maintained technical and release documentation
 - Keep authorization in server middleware and services; hiding a button is not a security control.
 - Validate external input before it reaches domain services.
 - Keep business rules out of React components.
-- Add visible interface text to the Spanish, English and German catalogues.
-- Add a `de-CH` override only when Swiss spelling or regional wording differs from standard German.
+- Añade cada texto visible a los catálogos completos `es`, `en`, `de`, `fr`,
+  `it`, `gl`, `ca`, `eu` y `oc-aranes`. La prueba de catálogos debe demostrar
+  igualdad de claves y preservación de marcadores, HTML, rutas, URL, saltos y
+  espacios significativos.
+- Añade a `de-CH` y `ca-valencia` únicamente diferencias regionales respecto a
+  `de` y `ca`; no dupliques el catálogo base. Los nombres y el contenido
+  introducidos por usuarios nunca se traducen.
+- Usa los canonicalizadores de `client/src/i18n/supported-locales.ts` o
+  `server/lib/supported-locales.ts` según el entorno. Las entradas HTTP se
+  validan y canonicalizan antes de persistirse; no añadas listas locales ni
+  cortes una etiqueta por el primer guion.
+- Resuelve fechas, números y monedas mediante `resolveIntlLocale`. Las listas de
+  idioma proceden de `sortedLanguageOptions` y se ordenan por la etiqueta
+  realmente visible con el locale activo.
+- Registra en `docs/LOCALIZATION.md` el origen, revisión, licencia, parámetros y
+  nivel de revisión lingüística de cualquier catálogo generado o actualizado.
 - Do not automatically translate names or content entered by users.
 - Add or update tests for authentication, authorization, reservation and waitlist rules.
 - Use `.js` extensions for relative server imports because the server compiles as Node ESM.
@@ -251,6 +265,8 @@ identity, billing or community data. See
 1. Identify the relevant domain and permission level.
 2. Add server validation, authorization and service logic first when data changes are involved.
 3. Add the route and typed client integration.
-4. Add Spanish, English and German strings plus any necessary Swiss German override.
+4. Add every visible string to the nine complete catalogues listed in the
+   working conventions above. Add `de-CH` or `ca-valencia` entries only when a
+   real regional difference exists.
 5. Cover critical behavior with tests.
 6. Run the complete validation sequence.

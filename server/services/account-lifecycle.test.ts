@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 describe("account lifecycle", () => {
@@ -10,7 +11,7 @@ describe("account lifecycle", () => {
   let lifecycle: typeof import("./account-lifecycle.js");
   let userId: string;
 
-  async function createInactiveAccount(label: string) {
+  async function createInactiveAccount(label: string, locale = "es") {
     const account = await auth.signup(
       `${label}@example.com`,
       `Inactive ${label}`,
@@ -19,7 +20,7 @@ describe("account lifecycle", () => {
     const lastActivity = Date.now() - 7 * 31 * 24 * 60 * 60 * 1000;
     await database.db
       .updateTable("users")
-      .set({ accountStatus: "active", emailVerifiedAt: Date.now() })
+      .set({ accountStatus: "active", emailVerifiedAt: Date.now(), locale })
       .where("id", "=", account.user.id)
       .execute();
     await database.db
@@ -586,6 +587,68 @@ describe("account lifecycle", () => {
       status: "pending",
       stage: "awaiting_usage_confirmation",
     });
+  });
+
+  it("uses the persisted locale for inactivity and deletion-preparation emails", async () => {
+    for (const [persistedLocale, queuedLocale] of [
+      ["fr", "fr"],
+      ["it", "it"],
+      ["ca-valencia", "ca-valencia"],
+      ["eu", "eu"],
+      ["xx", "es"],
+    ] as const) {
+      const account =
+        persistedLocale === "xx"
+          ? await (async () => {
+              await sql`PRAGMA ignore_check_constraints = ON`.execute(
+                database.db,
+              );
+              try {
+                return await createInactiveAccount(
+                  `localized-${persistedLocale}`,
+                  persistedLocale,
+                );
+              } finally {
+                await sql`PRAGMA ignore_check_constraints = OFF`.execute(
+                  database.db,
+                );
+              }
+            })()
+          : await createInactiveAccount(
+              `localized-${persistedLocale}`,
+              persistedLocale,
+            );
+      if (persistedLocale === "xx") {
+        const pragma = await sql<{ ignore_check_constraints: number }>`
+          PRAGMA ignore_check_constraints
+        `.execute(database.db);
+        expect(pragma.rows[0]?.ignore_check_constraints).toBe(0);
+      }
+      await lifecycle.evaluateUnconfiguredInactivityReviews();
+      const inactivityDelivery = await database.db
+        .selectFrom("emailDeliveries")
+        .select(["locale", "status"])
+        .where("userId", "=", account.user.id)
+        .orderBy("createdAt", "desc")
+        .executeTakeFirstOrThrow();
+      expect(inactivityDelivery).toEqual({
+        locale: queuedLocale,
+        status: "queued",
+      });
+
+      await lifecycle.scheduleAccountDeletion(account.user.id, "manual");
+      const deliveries = await database.db
+        .selectFrom("emailDeliveries")
+        .select("locale")
+        .where("userId", "=", account.user.id)
+        .orderBy("createdAt", "asc")
+        .execute();
+      expect(deliveries).toHaveLength(2);
+      expect(deliveries).toEqual([
+        { locale: queuedLocale },
+        { locale: queuedLocale },
+      ]);
+    }
   });
 
   it("schedules deletion after silence on the delivered usage question", async () => {

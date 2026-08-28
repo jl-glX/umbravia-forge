@@ -1045,7 +1045,18 @@ interface UmfSupportAccessRequest {
   lastName: string;
   requestedRole: UmfSupportRole;
   activationKind: "staff" | "designated_head";
-  locale: "es" | "en" | "de" | "de-CH";
+  locale:
+    | "es"
+    | "en"
+    | "de"
+    | "de-CH"
+    | "fr"
+    | "it"
+    | "gl"
+    | "ca"
+    | "ca-valencia"
+    | "eu"
+    | "oc-aranes";
   status: "pending" | "approved" | "rejected" | "activated" | "expired";
   activationCodeHash: string | null;
   activationAttempts: number;
@@ -1237,7 +1248,18 @@ interface CommercialTrial {
   bonusesDescription: Generated<string>;
   publicPageEnabled: Generated<number>;
   showPhonePublicly: Generated<number>;
-  locale: "es" | "en" | "de" | "de-CH";
+  locale:
+    | "es"
+    | "en"
+    | "de"
+    | "de-CH"
+    | "fr"
+    | "it"
+    | "gl"
+    | "ca"
+    | "ca-valencia"
+    | "eu"
+    | "oc-aranes";
   currency: string;
   usesBookings: number;
   usesWaitlist: number;
@@ -1390,7 +1412,18 @@ interface AdministratorSignupProvisioning {
   userId: string;
   facilityName: string;
   facilityType: CommercialFacilityType;
-  locale: "es" | "en" | "de" | "de-CH";
+  locale:
+    | "es"
+    | "en"
+    | "de"
+    | "de-CH"
+    | "fr"
+    | "it"
+    | "gl"
+    | "ca"
+    | "ca-valencia"
+    | "eu"
+    | "oc-aranes";
   createdAt: number;
 }
 

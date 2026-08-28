@@ -87,6 +87,7 @@ import {
   type UmfTicketStatus,
 } from "../lib/umf-support";
 import { getUmfSupportMailNotices } from "../lib/umf-support-mail-readiness";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 import { AttachmentPreviewDialog } from "../components/AttachmentPreviewDialog";
 import { CommercialTrialDeletionDialog } from "../components/CommercialTrialDeletionDialog";
 import {
@@ -129,7 +130,7 @@ const categories: UmfTicketCategory[] = [
   "security",
 ];
 function formatDate(value: number, locale: string) {
-  return new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(resolveIntlLocale(locale), {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(value);

@@ -180,6 +180,38 @@ describe("community, identity and moderation APIs", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("preserves textual v1 and offers an opt-in semantic v2 response", async () => {
+    const legacyPrinciples = {
+      neutrality:
+        "La plataforma no condiciona el acceso a adhesiones políticas, religiosas o ideológicas.",
+      reciprocity:
+        "La libertad, privacidad y dignidad de cada persona exigen el mismo respeto hacia usuarios, centros y plataforma.",
+      conductBasedModeration:
+        "Las decisiones se basan en conducta, contexto, pruebas, daño, reiteración, gravedad y proporcionalidad.",
+    };
+
+    await request(app)
+      .get("/api/community/principles")
+      .set("Cookie", memberCookie)
+      .expect(200, legacyPrinciples);
+    await request(app)
+      .get("/api/community/principles?format=unknown")
+      .set("Cookie", memberCookie)
+      .expect(200, legacyPrinciples);
+
+    const semantic = await request(app)
+      .get("/api/community/principles?format=keys")
+      .set("Cookie", memberCookie)
+      .expect(200);
+    expect(semantic.body).toEqual({
+      version: 2,
+      principleIds: ["neutrality", "reciprocity", "conductBasedModeration"],
+    });
+    expect(JSON.stringify(semantic.body)).not.toContain(
+      legacyPrinciples.neutrality,
+    );
+  });
+
   it("stores a unique social identity and granular privacy", async () => {
     const response = await request(app)
       .patch("/api/community/profile")

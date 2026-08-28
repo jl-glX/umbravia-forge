@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
 const root = path.join(process.cwd(), ".deployment-package");
@@ -71,6 +71,8 @@ for (const requiredFile of [
   "deploy/umbravia-forge.service",
   "deploy/umbravia-forge.env.template",
   "deploy/auto-update.sh",
+  "deploy/check-locale-rollback-safety.mjs",
+  "deploy/release-capabilities.json",
   "deploy/umbravia-forge-update.env.template",
   "deploy/umbravia-forge-update.service",
   "deploy/umbravia-forge-update.timer",
@@ -81,6 +83,22 @@ for (const requiredFile of [
   if (!files.includes(platformPath)) {
     throw new Error(`Deployment package is incomplete: ${requiredFile}`);
   }
+}
+
+const releaseCapabilities = JSON.parse(
+  await readFile(
+    path.join(root, "deploy", "release-capabilities.json"),
+    "utf8",
+  ),
+);
+if (
+  releaseCapabilities.schemaVersion !== 1 ||
+  !Array.isArray(releaseCapabilities.supportedLocales) ||
+  releaseCapabilities.supportedLocales.length === 0 ||
+  new Set(releaseCapabilities.supportedLocales).size !==
+    releaseCapabilities.supportedLocales.length
+) {
+  throw new Error("Deployment release capabilities are invalid.");
 }
 
 console.log(`Deployment package audit passed (${files.length} files).`);

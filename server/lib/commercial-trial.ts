@@ -5,6 +5,90 @@ export const COMMERCIAL_TRIAL_MS = COMMERCIAL_TRIAL_DAYS * 24 * 60 * 60 * 1000;
 export const COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_HOURS = 6;
 export const COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS =
   COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_HOURS * 60 * 60 * 1000;
+export const COMMERCIAL_TRIAL_MIN_EPOCH_MS = 1;
+
+type CommercialTrialDataReviewState = {
+  status: string;
+  realDataDeclaration: "undeclared" | "yes" | "no" | "assistance";
+  expiresAt: number;
+  cleanupEligibleAt?: number | null;
+};
+
+export type CommercialTrialDataReviewAvailability = {
+  visible: boolean;
+  canDeclare: boolean;
+  opensAt: number | null;
+  declarationBlockReason:
+    | "invalid-time"
+    | "not-open"
+    | "cleanup-started"
+    | "already-declared"
+    | "inapplicable-state"
+    | null;
+};
+
+export function getCommercialTrialDataReviewAvailability(
+  trial: CommercialTrialDataReviewState,
+  now = Date.now(),
+): CommercialTrialDataReviewAvailability {
+  if (
+    !Number.isFinite(trial.expiresAt) ||
+    trial.expiresAt < COMMERCIAL_TRIAL_MIN_EPOCH_MS ||
+    !Number.isFinite(now) ||
+    now < COMMERCIAL_TRIAL_MIN_EPOCH_MS ||
+    (trial.cleanupEligibleAt !== null &&
+      trial.cleanupEligibleAt !== undefined &&
+      (!Number.isFinite(trial.cleanupEligibleAt) ||
+        trial.cleanupEligibleAt < COMMERCIAL_TRIAL_MIN_EPOCH_MS))
+  ) {
+    return {
+      visible: false,
+      canDeclare: false,
+      opensAt: null,
+      declarationBlockReason: "invalid-time",
+    };
+  }
+  const opensAt = trial.expiresAt - COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS;
+  const pendingDeclaration = trial.realDataDeclaration === "undeclared";
+  if (now < opensAt) {
+    return {
+      visible: false,
+      canDeclare: false,
+      opensAt,
+      declarationBlockReason: pendingDeclaration
+        ? "not-open"
+        : "already-declared",
+    };
+  }
+
+  const declarationStateIsApplicable =
+    trial.status === "trial_active" || trial.status === "trial_expired";
+  const cleanupStarted =
+    trial.cleanupEligibleAt !== null &&
+    trial.cleanupEligibleAt !== undefined &&
+    trial.cleanupEligibleAt <= now;
+  const canDeclare =
+    pendingDeclaration && declarationStateIsApplicable && !cleanupStarted;
+  const recordedDecisionRemainsApplicable =
+    (trial.realDataDeclaration === "yes" &&
+      trial.status === "trial_conversion_review") ||
+    (trial.realDataDeclaration === "assistance" &&
+      trial.status === "trial_paused_support") ||
+    (trial.realDataDeclaration === "no" && trial.status === "trial_closed");
+
+  return {
+    visible: canDeclare || recordedDecisionRemainsApplicable,
+    canDeclare,
+    opensAt,
+    declarationBlockReason: canDeclare
+      ? null
+      : !pendingDeclaration
+        ? "already-declared"
+        : cleanupStarted
+          ? "cleanup-started"
+          : "inapplicable-state",
+  };
+}
 
 export function commercialTrialProvisioningIsEnabled(): boolean {
   return (
@@ -85,7 +169,7 @@ export const commercialFoundation = {
     implementedThroughPoint: 7,
     point8FoundationAvailable: true,
     conversionExecutionAvailable: false,
-    isolatedTenantProvisioningAvailable: true,
+    isolatedTenantProvisioningAvailable: false,
   },
   trialPolicy: {
     durationDays: COMMERCIAL_TRIAL_DAYS,

@@ -118,7 +118,7 @@ describe("SQLite identity realm migration", () => {
         email TEXT NOT NULL,
         name TEXT NOT NULL,
         lastName TEXT NOT NULL,
-        locale TEXT NOT NULL,
+        locale TEXT NOT NULL CHECK(locale IN ('es', 'en', 'de', 'de-CH')),
         status TEXT NOT NULL,
         activationCodeHash TEXT,
         activationAttempts INTEGER NOT NULL DEFAULT 0,

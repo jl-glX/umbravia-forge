@@ -1,5 +1,36 @@
 import Stripe from "stripe";
 import type { StripeConnectConfiguration } from "../lib/stripe-connect-config.js";
+import {
+  isSupportedLocale,
+  type PlatformLocale,
+} from "../lib/supported-locales.js";
+
+export type StripeAccountLocale = "es" | "en" | "de" | "fr" | "it";
+
+const STRIPE_ACCOUNT_LOCALE_BY_PLATFORM_LOCALE: Record<
+  PlatformLocale,
+  StripeAccountLocale | undefined
+> = {
+  es: "es",
+  en: "en",
+  de: "de",
+  "de-CH": "de",
+  fr: "fr",
+  it: "it",
+  gl: undefined,
+  ca: undefined,
+  "ca-valencia": undefined,
+  eu: undefined,
+  "oc-aranes": undefined,
+};
+
+export function resolveStripeAccountLocale(
+  locale: unknown,
+): StripeAccountLocale | undefined {
+  return isSupportedLocale(locale)
+    ? STRIPE_ACCOUNT_LOCALE_BY_PLATFORM_LOCALE[locale]
+    : undefined;
+}
 
 export interface ConnectedAccountSnapshot {
   id: string;
@@ -17,7 +48,7 @@ export interface StripeConnectGateway {
     displayName: string;
     contactEmail: string;
     country: string;
-    locale: "es" | "en" | "de";
+    locale?: StripeAccountLocale;
     idempotencyKey: string;
   }): Promise<ConnectedAccountSnapshot>;
   retrieveConnectedAccount(
@@ -84,7 +115,7 @@ export class OfficialStripeConnectGateway implements StripeConnectGateway {
     displayName: string;
     contactEmail: string;
     country: string;
-    locale: "es" | "en" | "de";
+    locale?: StripeAccountLocale;
     idempotencyKey: string;
   }) {
     const account = await this.stripe.v2.core.accounts.create(
@@ -103,7 +134,7 @@ export class OfficialStripeConnectGateway implements StripeConnectGateway {
         },
         defaults: {
           currency: "eur",
-          locales: [input.locale],
+          ...(input.locale ? { locales: [input.locale] } : {}),
           responsibilities: {
             fees_collector: "stripe",
             losses_collector: "stripe",

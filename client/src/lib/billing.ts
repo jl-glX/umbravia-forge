@@ -1,3 +1,5 @@
+import { resolveIntlLocale } from "../i18n/supported-locales";
+
 export type BillingStatus = "paid" | "unpaid" | "pending";
 export type BillingCycle =
   "monthly" | "quarterly" | "semiannual" | "annual" | "trial_day" | "custom";
@@ -31,7 +33,7 @@ export function formatBillingDate(
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return "—";
 
-  return new Intl.DateTimeFormat(language, {
+  return new Intl.DateTimeFormat(resolveIntlLocale(language), {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

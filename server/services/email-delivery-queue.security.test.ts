@@ -1,8 +1,44 @@
 import { randomBytes } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:net";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+function decodeQuotedPrintableChunk(value: string): string {
+  const bytes: number[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    if (
+      value[index] === "=" &&
+      /^[0-9A-F]{2}$/i.test(value.slice(index + 1, index + 3))
+    ) {
+      bytes.push(Number.parseInt(value.slice(index + 1, index + 3), 16));
+      index += 2;
+    } else {
+      bytes.push(value.charCodeAt(index));
+    }
+  }
+  return Buffer.from(bytes).toString("utf8");
+}
+
+function readableSmtpMessage(raw: string): string {
+  const separator = raw.indexOf("\r\n\r\n");
+  const headers = separator >= 0 ? raw.slice(0, separator) : raw;
+  const body = separator >= 0 ? raw.slice(separator + 4) : "";
+  const decodedHeaders = headers
+    .replace(/(\?=)\r\n[ \t]+(?==\?UTF-8\?Q\?)/gi, "$1")
+    .replace(/\r\n[ \t]+/g, " ")
+    .replace(/=\?UTF-8\?Q\?([^?]+)\?=/gi, (_match, encoded: string) =>
+      decodeQuotedPrintableChunk(encoded.replace(/_/g, " ")),
+    );
+  const decodedBody = body
+    .replace(/=\r\n/g, "")
+    .replace(/(?:=[0-9A-F]{2})+/gi, (encoded) =>
+      decodeQuotedPrintableChunk(encoded),
+    );
+  return `${decodedHeaders}\r\n\r\n${decodedBody}`;
+}
 
 describe("email delivery queue security", () => {
   let directory: string;
@@ -59,6 +95,17 @@ describe("email delivery queue security", () => {
     });
   }
 
+  it("decodes folded UTF-8 subjects without treating header folds as body soft breaks", () => {
+    const raw =
+      "Subject: =?UTF-8?Q?Recupera_el_teu_compte_d=E2=80=99Umbravi?=\r\n" +
+      " =?UTF-8?Q?a_Forge?=\r\nContent-Type: text/plain\r\n\r\nBody=20text";
+    const readable = readableSmtpMessage(raw);
+    expect(readable).toContain(
+      "Subject: Recupera el teu compte d’Umbravia Forge",
+    );
+    expect(readable).toContain("Body text");
+  });
+
   it("stores recovery contents only inside an authenticated ciphertext", async () => {
     const code = "654321";
     const deliveryId = await queueRecovery(code, Date.now() + 60_000);
@@ -85,6 +132,254 @@ describe("email delivery queue security", () => {
     expect(stored.payloadEncrypted).not.toContain(code);
     expect(stored.payloadEncrypted).not.toContain("Synthetic Recipient");
     expect(stored.payloadEncrypted).not.toContain(stored.recipient);
+  });
+
+  it("canonicalizes variant and unknown locales before encryption and delivery", async () => {
+    const receivedMessages: string[] = [];
+    const server = createServer((socket) => {
+      socket.setEncoding("utf8");
+      socket.write("220 localhost Umbravia queue locale test SMTP\r\n");
+      let buffer = "";
+      let message = "";
+      let receivingData = false;
+      socket.on("data", (chunk) => {
+        buffer += String(chunk);
+        while (buffer.length > 0) {
+          if (receivingData) {
+            const end = buffer.indexOf("\r\n.\r\n");
+            if (end < 0) {
+              message += buffer;
+              buffer = "";
+              return;
+            }
+            message += buffer.slice(0, end);
+            buffer = buffer.slice(end + 5);
+            receivedMessages.push(message);
+            message = "";
+            receivingData = false;
+            socket.write("250 2.0.0 queued\r\n");
+            continue;
+          }
+          const end = buffer.indexOf("\r\n");
+          if (end < 0) return;
+          const line = buffer.slice(0, end);
+          buffer = buffer.slice(end + 2);
+          if (line.startsWith("EHLO")) {
+            socket.write("250-localhost\r\n250 SIZE 1000000\r\n");
+          } else if (line === "DATA") {
+            receivingData = true;
+            socket.write("354 End data with <CR><LF>.<CR><LF>\r\n");
+          } else if (line === "QUIT") {
+            socket.end("221 2.0.0 bye\r\n");
+          } else {
+            socket.write("250 2.0.0 ok\r\n");
+          }
+        }
+      });
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const port = (server.address() as AddressInfo).port;
+    vi.stubEnv("SMTP_HOST", "127.0.0.1");
+    vi.stubEnv("SMTP_PORT", String(port));
+    vi.stubEnv("SMTP_SECURE", "false");
+    vi.stubEnv("SMTP_REQUIRE_TLS", "false");
+    vi.stubEnv("EMAIL_FROM", "Umbravia Forge <no-reply@localhost>");
+    vi.stubEnv("CLIENT_ORIGIN", "https://www.umbraviaforge.com");
+    emailDelivery.resetEmailTransportForTests();
+
+    try {
+      const expectDelivered = async (
+        deliveryId: string,
+        locale: string,
+      ): Promise<void> => {
+        await expect(
+          database.db
+            .selectFrom("emailDeliveries")
+            .select("locale")
+            .where("id", "=", deliveryId)
+            .executeTakeFirstOrThrow(),
+        ).resolves.toEqual({ locale });
+        await expect(
+          emailDelivery.deliverQueuedEmail(deliveryId),
+        ).resolves.toBe(true);
+        await expect(
+          database.db
+            .selectFrom("emailDeliveries")
+            .select(["status", "lastError"])
+            .where("id", "=", deliveryId)
+            .executeTakeFirstOrThrow(),
+        ).resolves.toEqual({ status: "sent", lastError: null });
+      };
+      const variants = [
+        {
+          locale: "ca_ES_valencia",
+          canonical: "ca-valencia",
+          code: "441122",
+          email: "ca-recovery@example.com",
+        },
+        {
+          locale: "xx",
+          canonical: "es",
+          code: "883344",
+          email: "es-fallback-recovery@example.com",
+        },
+      ] as const;
+      for (const variant of variants) {
+        const queueInput = {
+          userId,
+          platformScope: "commercial",
+          email: variant.email,
+          name: "Synthetic Recipient",
+          code: variant.code,
+          locale: variant.locale as never,
+          expiresAt: Date.now() + 60_000,
+        } as const;
+        const deliveryId =
+          await emailDelivery.queueAccountRecoveryCode(queueInput);
+        expect(queueInput.locale).toBe(variant.locale);
+        await expectDelivered(deliveryId, variant.canonical);
+      }
+
+      await expectDelivered(
+        await emailDelivery.queueAccountDeletionVerificationCode({
+          userId,
+          email: "fr-deletion@example.com",
+          name: "Synthetic Recipient",
+          code: "771155",
+          locale: "FR_fr" as never,
+          expiresAt: Date.now() + 60_000,
+        }),
+        "fr",
+      );
+      await expectDelivered(
+        await emailDelivery.queueEmailChangedNotice({
+          userId,
+          platformScope: "commercial",
+          oldEmail: "it-email-changed@example.com",
+          newEmail: "new-email@example.com",
+          name: "Synthetic Recipient",
+          locale: "it_IT" as never,
+          recoveryUrl: "https://www.umbraviaforge.com/recover-account",
+        }),
+        "it",
+      );
+      await expectDelivered(
+        await emailDelivery.queueAccountInactivityReviewEmail({
+          userId,
+          email: "oc-inactivity@example.com",
+          name: "Synthetic Recipient",
+          locale: "oc_ES_aranes" as never,
+          actionUrl: "https://www.umbraviaforge.com/account/lifecycle",
+        }),
+        "oc-aranes",
+      );
+      await expectDelivered(
+        await emailDelivery.queueFacilityInvitationEmail({
+          email: "admin-invite@example.com",
+          name: "Invited Administrator",
+          facilityName: "Umbravia Test",
+          role: "admin",
+          token: "admin-queue-token",
+          locale: "gl",
+          expiresAt: Date.now() + 60_000,
+        }),
+        "gl",
+      );
+      await expectDelivered(
+        await emailDelivery.queueFacilityInvitationEmail({
+          email: "worker-invite@example.com",
+          name: "Invited Worker",
+          facilityName: "Umbravia Test",
+          role: "trainer",
+          token: "worker-queue-token",
+          locale: "CA_es_VALENCIA" as never,
+          expiresAt: Date.now() + 60_000,
+        }),
+        "ca-valencia",
+      );
+      await expectDelivered(
+        await emailDelivery.queueFacilityInvitationEmail({
+          email: "member-invite@example.com",
+          name: "Invited Member",
+          facilityName: "Umbravia Test",
+          role: "member",
+          token: "member-queue-token",
+          locale: "eu",
+          expiresAt: Date.now() + 60_000,
+        }),
+        "eu",
+      );
+      expect(receivedMessages.join("\n")).toContain("441122");
+      expect(receivedMessages.join("\n")).toContain("883344");
+      expect(receivedMessages.join("\n")).toContain("771155");
+      expect(receivedMessages.join("\n")).toContain("new-email@example.com");
+      expect(receivedMessages.join("\n")).toContain("/account/lifecycle");
+      expect(receivedMessages.join("\n")).toContain("worker-queue-token");
+      expect(receivedMessages.join("\n")).toContain("member-queue-token");
+      expect(receivedMessages.join("\n")).toContain("admin-queue-token");
+      expect(receivedMessages.join("\n")).not.toContain("undefined");
+
+      const messageFor = (recipient: string): string => {
+        const raw = receivedMessages.find((message) =>
+          message.includes(`To: ${recipient}`),
+        );
+        expect(raw, `missing SMTP message for ${recipient}`).toBeDefined();
+        return readableSmtpMessage(raw ?? "");
+      };
+      const catalanRecovery = messageFor("ca-recovery@example.com");
+      expect(catalanRecovery).toContain("Recupera el teu compte");
+      expect(catalanRecovery).toContain(
+        "Fes servir aquest codi per establir una contrasenya nova",
+      );
+      expect(catalanRecovery).toContain("441122");
+
+      const spanishFallback = messageFor("es-fallback-recovery@example.com");
+      expect(spanishFallback).toContain("Recupera tu cuenta");
+      expect(spanishFallback).toContain("Usa este c");
+      expect(spanishFallback).toContain("883344");
+
+      const deletion = messageFor("fr-deletion@example.com");
+      expect(deletion).toContain("Code de confirmation de la fermeture");
+      expect(deletion).toContain("Saisissez ce code");
+      expect(deletion).toContain("771155");
+
+      const changed = messageFor("it-email-changed@example.com");
+      expect(changed).toContain("email del tuo account");
+      expect(changed).toContain("Le altre sessioni sono state chiuse");
+      expect(changed).toContain("new-email@example.com");
+
+      const inactivity = messageFor("oc-inactivity@example.com");
+      expect(inactivity).toContain('<html lang="oc-aranes">');
+      expect(inactivity).toContain(
+        "Non auem registrat activitat pendent sies mesi",
+      );
+      expect(inactivity).toContain("/account/lifecycle");
+
+      const worker = messageFor("worker-invite@example.com");
+      expect(worker).toContain("Verificaci");
+      expect(worker).toContain("com a entrenador");
+      expect(worker).toContain("Umbravia Test");
+      expect(worker).toContain("worker-queue-token");
+
+      const admin = messageFor("admin-invite@example.com");
+      expect(admin).toContain("Verificaci");
+      expect(admin).toContain("como administrador");
+      expect(admin).toContain("Umbravia Test");
+      expect(admin).toContain("admin-queue-token");
+
+      const member = messageFor("member-invite@example.com");
+      expect(member).toContain("Afiliazio");
+      expect(member).toContain("zure kontua kide gisa");
+      expect(member).toContain("Umbravia Test");
+      expect(member).toContain("member-queue-token");
+    } finally {
+      emailDelivery.resetEmailTransportForTests();
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
   });
 
   it("rejects and purges a manipulated ciphertext without retrying or disclosing its contents", async () => {

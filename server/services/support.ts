@@ -406,8 +406,10 @@ export async function createSupportTicket(
       category === "technical" || category === "safety"
         ? "problem_reported"
         : "ticket_created",
-    title: `Nuevo aviso ${ticket.publicId}`,
-    message: `${ticket.subject} · prioridad ${ticket.priority}`,
+    ticketPublicId: ticket.publicId,
+    subject: ticket.subject,
+    priority: ticket.priority,
+    category: ticket.category,
     url: "/umf-support",
     excludeUserId: auth.userId,
   }).catch(() => undefined);
@@ -664,9 +666,32 @@ export async function addSupportMessage(
         const deliveryId = await queueSupportUpdateEmail({
           userId: ticket.requesterUserId,
           email: requester.email,
-          locale: (["es", "en", "de", "de-CH"].includes(requester.locale)
+          locale: ([
+            "es",
+            "en",
+            "de",
+            "de-CH",
+            "fr",
+            "it",
+            "gl",
+            "ca",
+            "ca-valencia",
+            "eu",
+            "oc-aranes",
+          ].includes(requester.locale)
             ? requester.locale
-            : "es") as "es" | "en" | "de" | "de-CH",
+            : "es") as
+            | "es"
+            | "en"
+            | "de"
+            | "de-CH"
+            | "fr"
+            | "it"
+            | "gl"
+            | "ca"
+            | "ca-valencia"
+            | "eu"
+            | "oc-aranes",
           ticketPublicId: ticket.publicId,
           subject: ticket.subject,
           message: body,
@@ -701,8 +726,8 @@ export async function addSupportMessage(
     await notifySupportInbox(ticket, body);
     void notifyUmfSupportAdministrators({
       event: "conversation_received",
-      title: `Nueva respuesta en ${ticket.publicId}`,
-      message: ticket.subject,
+      ticketPublicId: ticket.publicId,
+      subject: ticket.subject,
       url: "/umf-support",
       excludeUserId: auth.userId,
     }).catch(() => undefined);

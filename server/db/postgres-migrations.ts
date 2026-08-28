@@ -1,4 +1,9 @@
 import type { Pool, PoolClient } from "pg";
+import { SUPPORTED_LOCALES } from "../lib/supported-locales.js";
+
+const POSTGRES_SUPPORTED_LOCALES_SQL = SUPPORTED_LOCALES.map(
+  (locale) => `'${locale}'`,
+).join(", ");
 
 type Migration = {
   version: number;
@@ -359,7 +364,7 @@ CREATE TABLE IF NOT EXISTS "commercialTrials" (
   "usualCapacity" INTEGER,
   "classTypes" TEXT NOT NULL DEFAULT '[]',
   "scheduleNotes" TEXT NOT NULL DEFAULT '',
-  "locale" TEXT NOT NULL CHECK ("locale" IN ('es', 'en', 'de', 'de-CH')),
+  "locale" TEXT NOT NULL CHECK ("locale" IN (${POSTGRES_SUPPORTED_LOCALES_SQL})),
   "currency" TEXT NOT NULL,
   "usesBookings" SMALLINT NOT NULL DEFAULT 1 CHECK ("usesBookings" IN (0, 1)),
   "usesWaitlist" SMALLINT NOT NULL DEFAULT 1 CHECK ("usesWaitlist" IN (0, 1)),
@@ -395,7 +400,7 @@ CREATE TABLE IF NOT EXISTS "administratorSignupProvisioning" (
   "userId" TEXT PRIMARY KEY REFERENCES "users" ("id") ON DELETE CASCADE,
   "facilityName" TEXT NOT NULL,
   "facilityType" TEXT NOT NULL CHECK ("facilityType" IN ('traditional_gym', 'crossfit', 'hyrox', 'functional_training', 'personal_training', 'powerlifting', 'strongman', 'bodybuilding', 'martial_arts', 'yoga', 'pilates', 'indoor_cycling', 'multidisciplinary', 'custom')),
-  "locale" TEXT NOT NULL CHECK ("locale" IN ('es', 'en', 'de', 'de-CH')),
+  "locale" TEXT NOT NULL CHECK ("locale" IN (${POSTGRES_SUPPORTED_LOCALES_SQL})),
   "createdAt" BIGINT NOT NULL
 );
 
@@ -1464,7 +1469,7 @@ CREATE TABLE IF NOT EXISTS "administratorSignupProvisioning" (
   "userId" TEXT PRIMARY KEY REFERENCES "users" ("id") ON DELETE CASCADE,
   "facilityName" TEXT NOT NULL,
   "facilityType" TEXT NOT NULL CHECK ("facilityType" IN ('traditional_gym', 'crossfit', 'hyrox', 'functional_training', 'personal_training', 'powerlifting', 'strongman', 'bodybuilding', 'martial_arts', 'yoga', 'pilates', 'indoor_cycling', 'multidisciplinary', 'custom')),
-  "locale" TEXT NOT NULL CHECK ("locale" IN ('es', 'en', 'de', 'de-CH')),
+  "locale" TEXT NOT NULL CHECK ("locale" IN (${POSTGRES_SUPPORTED_LOCALES_SQL})),
   "createdAt" BIGINT NOT NULL
 );
 `,
@@ -2202,7 +2207,7 @@ CREATE TABLE IF NOT EXISTS "umfSupportAccessRequests" (
   "lastName" TEXT NOT NULL,
   "requestedRole" TEXT NOT NULL DEFAULT 'agent' CHECK ("requestedRole" IN ('director', 'agent')),
   "activationKind" TEXT NOT NULL DEFAULT 'staff' CHECK ("activationKind" IN ('staff', 'designated_head')),
-  "locale" TEXT NOT NULL CHECK ("locale" IN ('es', 'en', 'de', 'de-CH')),
+  "locale" TEXT NOT NULL CHECK ("locale" IN (${POSTGRES_SUPPORTED_LOCALES_SQL})),
   "status" TEXT NOT NULL DEFAULT 'pending' CHECK ("status" IN ('pending', 'approved', 'rejected', 'activated', 'expired')),
   "activationCodeHash" TEXT,
   "activationAttempts" INTEGER NOT NULL DEFAULT 0 CHECK ("activationAttempts" >= 0),
@@ -2767,6 +2772,29 @@ ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "publicPageEnabled" SMAL
   CHECK ("publicPageEnabled" IN (0, 1));
 ALTER TABLE "commercialTrials" ADD COLUMN IF NOT EXISTS "showPhonePublicly" SMALLINT NOT NULL DEFAULT 0
   CHECK ("showPhonePublicly" IN (0, 1));
+`,
+  },
+  {
+    version: 59,
+    name: "supported-locale-expansion",
+    sql: String.raw`
+ALTER TABLE "commercialTrials"
+  DROP CONSTRAINT IF EXISTS "commercialTrials_locale_check";
+ALTER TABLE "commercialTrials"
+  ADD CONSTRAINT "commercialTrials_locale_check"
+  CHECK ("locale" IN (${POSTGRES_SUPPORTED_LOCALES_SQL}));
+
+ALTER TABLE "administratorSignupProvisioning"
+  DROP CONSTRAINT IF EXISTS "administratorSignupProvisioning_locale_check";
+ALTER TABLE "administratorSignupProvisioning"
+  ADD CONSTRAINT "administratorSignupProvisioning_locale_check"
+  CHECK ("locale" IN (${POSTGRES_SUPPORTED_LOCALES_SQL}));
+
+ALTER TABLE "umfSupportAccessRequests"
+  DROP CONSTRAINT IF EXISTS "umfSupportAccessRequests_locale_check";
+ALTER TABLE "umfSupportAccessRequests"
+  ADD CONSTRAINT "umfSupportAccessRequests_locale_check"
+  CHECK ("locale" IN (${POSTGRES_SUPPORTED_LOCALES_SQL}));
 `,
   },
 ];

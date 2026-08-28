@@ -7,6 +7,7 @@ import { PasswordInput } from "../components/PasswordInput";
 import { useAuth } from "../hooks/useAuth";
 import { authFetch } from "../lib/api";
 import { isPasswordWithinHashLimit } from "../lib/passwordPolicy";
+import { buildInvitationAcceptancePayload } from "../lib/invitationLocalization";
 
 type InvitationStatus =
   "pending" | "accepted" | "declined" | "revoked" | "expired";
@@ -128,25 +129,19 @@ export function FacilityInvitationPage() {
     }
     setSubmitting(true);
     try {
-      const resolved = i18n.resolvedLanguage ?? i18n.language;
-      const locale = resolved.toLowerCase().startsWith("de-ch")
-        ? "de-CH"
-        : resolved.toLowerCase().startsWith("de")
-          ? "de"
-          : resolved.toLowerCase().startsWith("en")
-            ? "en"
-            : "es";
       const response = await authFetch(
         `/api/facility-invitations/${encodeURIComponent(token)}/accept-new`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            password,
-            locale,
-            acceptedTerms,
-            acceptedPrivacy,
-          }),
+          body: JSON.stringify(
+            buildInvitationAcceptancePayload({
+              password,
+              acceptedTerms,
+              acceptedPrivacy,
+              interfaceLocale: i18n.resolvedLanguage ?? i18n.language,
+            }),
+          ),
         },
       );
       if (!response.ok) throw new Error(await invitationError(response));

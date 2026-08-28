@@ -23,6 +23,7 @@ import {
   type SurveyQuestionInput,
 } from "../services/analytics-surveys.js";
 import type { AnalyticsSurveyPrivacyMode } from "../db/types.js";
+import { db } from "../db/client.js";
 import { requireCommercialCapability } from "../middleware/commercial-capability.js";
 import { monthValidation, validateId } from "../middleware/validation.js";
 import {
@@ -245,10 +246,17 @@ analyticsRouter.get(
         return;
       }
 
+      const requester = await db
+        .selectFrom("users")
+        .select("locale")
+        .where("id", "=", getAuthenticatedUser(res).userId)
+        .executeTakeFirst();
+
       const metrics = await getMonthlyMetrics(
         year,
         month,
         getFacilityContext(res).id,
+        requester?.locale,
       );
       res.json(metrics);
     } catch (error) {

@@ -3,7 +3,12 @@ import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { resolveNpmInvocation } from "./lib/npm-invocation.mjs";
 
-const protectedFiles = ["package.json", "package-lock.json"];
+const protectedFiles = [
+  "package.json",
+  "package-lock.json",
+  "cloudflare/package.json",
+  "cloudflare/package-lock.json",
+];
 
 async function digest(file) {
   const contents = await readFile(file);
@@ -50,6 +55,15 @@ const before = await snapshot();
 // second registry request before tests have even started.
 runNpm([
   "ci",
+  "--ignore-scripts=false",
+  "--audit=false",
+  "--fund=false",
+  "--prefer-offline",
+]);
+runNpm([
+  "ci",
+  "--prefix",
+  "cloudflare",
   "--ignore-scripts=false",
   "--audit=false",
   "--fund=false",

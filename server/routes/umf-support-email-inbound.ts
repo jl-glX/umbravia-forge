@@ -55,9 +55,7 @@ umfSupportEmailInboundRouter.post(
       if (!result.duplicate) {
         void notifyUmfSupportAdministrators({
           event: "inbound_email",
-          title: `Correo recibido en ${result.ticketPublicId}`,
-          message:
-            "UMF Support ha recibido un correo nuevo o una respuesta autenticada.",
+          ticketPublicId: result.ticketPublicId,
           url: "/umf-support",
         }).catch(() => undefined);
       }

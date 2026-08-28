@@ -55,7 +55,11 @@ protegida y validación previa.
   `/usr/local/bin` o `/usr/bin` y aislamiento del sistema de archivos.
 - `auto-update.sh`: actualización ascendente y atómica desde `origin/main`,
   con bloqueo de concurrencia, compilación aislada, validación de salud y
-  reversión si la release nueva no responde.
+  reversión condicionada a un inventario de locales compatible.
+- `check-locale-rollback-safety.mjs` y `release-capabilities.json`: puerta de
+  solo lectura que compara las capacidades de ambas releases y bloquea una
+  reversión cuando los datos persistidos usan un locale no admitido por la
+  anterior.
 - `umbravia-forge-update.service` y `.timer`: comprobación periódica de cambios
   cada 15 minutos, con un retraso aleatorio corto para evitar ejecuciones
   simultáneas tras reinicios.
@@ -73,6 +77,7 @@ protegida y validación previa.
    sudo useradd --system --home /var/lib/umbravia-forge --shell /usr/sbin/nologin umbravia
    sudo install -d -o root -g root -m 0755 /opt/umbravia-forge/releases
    sudo install -d -o root -g umbravia -m 0750 /etc/umbravia-forge
+   sudo install -d -o umbravia -g umbravia -m 0750 /var/lib/umbravia-forge /var/lib/umbravia-forge/environments
    sudo install -d -o caddy -g caddy -m 0750 /var/log/caddy
    ```
 
@@ -83,10 +88,13 @@ protegida y validación previa.
    de Cloudflare Turnstile y que la configuración de producción mantenga
    activas la validación de Turnstile en la API y la verificación de correo.
    El paquete no contiene `node_modules`: dentro de la versión copiada debe
-   ejecutarse `npm ci --omit=dev`. Esto es obligatorio aunque el paquete se
-   haya construido en Windows, porque las dependencias nativas deben instalarse
-   para Linux y desde el `package-lock.json` validado. A continuación se ejecuta
-   `npm rebuild argon2 --foreground-scripts`, limitado al módulo nativo revisado.
+   ejecutarse `npm ci --omit=dev --strict-allow-scripts=true`. El paquete excluye
+   `.npmrc` deliberadamente, de modo que la política no puede depender de una
+   configuración implícita. Esto es obligatorio aunque el paquete se haya
+   construido en Windows, porque las dependencias nativas deben instalarse para
+   Linux y desde el `package-lock.json` validado. A continuación se ejecuta
+   `npm rebuild argon2 --foreground-scripts --strict-allow-scripts=true`,
+   limitado al módulo nativo revisado.
    La preparación prueba Argon2id, AES-256-GCM y la lectura compatible de
    XChaCha20-Poly1305 con operaciones reales antes de activar la release.
 3. Copiar `deploy/umbravia-forge.env.template` a
@@ -216,7 +224,82 @@ La construcción se realiza en un `worktree` temporal con el usuario aislado
 `umbravia-updater`. Solo después de superar el empaquetado, la auditoría de la
 release, la instalación Linux de dependencias y el comprobador de preparación
 se cambia atómicamente el enlace `current`. La release anterior se conserva
-como mecanismo de reversión y se restaura si falla la salud local o pública.
+como mecanismo de reversión. Antes de activar se exige que ambas releases
+publiquen `deploy/release-capabilities.json` y se ejecuta un inventario
+preliminar de locales. Después de detener la aplicación se repite el inventario
+para cerrar escrituras antes de cambiar el enlace. Un resultado incompatible o
+indeterminado bloquea la activación sin eliminar la candidata.
+
+Si la candidata falla al arrancar o no supera la salud local o pública, el
+actualizador la detiene y comprueba que el servicio está realmente inactivo.
+Solo restaura la anterior cuando un nuevo inventario de solo lectura devuelve
+código `0`; después exige que la versión restaurada supere la misma salud. Los
+códigos `2` (datos incompatibles) y `3` (inventario incompleto o no verificable)
+impiden cambiar el enlace. En ese caso `current` conserva la candidata detenida
+y ambas releases quedan disponibles para una reparación hacia delante o una
+decisión manual autorizada. Ni el inventario ni la recuperación descifran
+payloads, reescriben locales o reducen restricciones de base.
+
+La primera transición desde una release histórica que no contiene el marcador
+de capacidades se bloquea antes de detener el servicio. Esa ampliación debe
+desplegarse una sola vez mediante el procedimiento manual controlado, con el
+temporizador pausado y el inventario descrito en
+[el relevo operativo](../docs/OPERATIONAL-HANDOFF.md); no se debe añadir un
+marcador a mano a una release inmutable. Cuando la primera release marcada quede
+activa, las actualizaciones posteriores podrán aplicar la puerta automática.
+
+La única transición histórica admitida por el comprobador está vinculada al
+commit `da5466706a0026f018f8b211b352c793eb7a1cfd`, cuya release generada por el
+actualizador anterior declara su identidad en `.umbravia-release-commit` y
+`.umbravia-release-complete` y admite solo `es`, `en`, `de` y `de-CH`. No se
+acepta otro commit, una carpeta renombrada, un marcador simbólico ni una release
+que ya publique capacidades. Procedimiento único:
+
+1. Instalar primero este `auto-update.sh`, pausar el temporizador y ejecutar una
+   comprobación manual del updater. La candidata completa quedará preservada
+   cuando la puerta automática detecte el destino histórico sin capacidades.
+2. Fijar y comprobar las rutas físicas de ambas releases, sin inventar ni
+   modificar marcadores:
+
+   ```text
+   LEGACY_COMMIT=da5466706a0026f018f8b211b352c793eb7a1cfd
+   CANDIDATE_COMMIT=<commit preparado y revisado>
+   LEGACY_RELEASE=/opt/umbravia-forge/releases/$LEGACY_COMMIT
+   CANDIDATE_RELEASE=/opt/umbravia-forge/releases/$CANDIDATE_COMMIT
+   test "$(readlink -f /opt/umbravia-forge/current)" = "$LEGACY_RELEASE"
+   test "$(sed -n '1p' "$LEGACY_RELEASE/.umbravia-release-commit")" = "$LEGACY_COMMIT"
+   test "$(sed -n '1p' "$LEGACY_RELEASE/.umbravia-release-complete")" = "$LEGACY_COMMIT"
+   test "$(sed -n '1p' "$CANDIDATE_RELEASE/.umbravia-release-commit")" = "$CANDIDATE_COMMIT"
+   test "$(sed -n '1p' "$CANDIDATE_RELEASE/.umbravia-release-complete")" = "$CANDIDATE_COMMIT"
+   ```
+
+3. Detener la aplicación, confirmar `ActiveState=inactive` y ejecutar el
+   inventario autoritativo con el usuario de la aplicación:
+
+   ```text
+   sudo systemctl disable --now umbravia-forge-update.timer
+   sudo systemctl stop umbravia-forge.service
+   test "$(systemctl show umbravia-forge.service --property=ActiveState --value)" = inactive
+   sudo -u umbravia env HOME=/var/lib/umbravia-forge node \
+     "$CANDIDATE_RELEASE/deploy/check-locale-rollback-safety.mjs" \
+     --environment-file /etc/umbravia-forge/umbravia-forge.env \
+     --candidate-release "$CANDIDATE_RELEASE" \
+     --target-release "$LEGACY_RELEASE" \
+     --legacy-target-commit "$LEGACY_COMMIT"
+   ```
+
+   Solo el código `0` autoriza continuar. Los códigos `2` o `3` obligan a
+   conservar ambas releases, arrancar de nuevo la histórica y reparar o revisar
+   el inventario; nunca se reescriben locales.
+
+4. Con código `0`, cambiar `current` mediante `current.next`, arrancar la
+   candidata y exigir salud local y, si está configurada, pública. Reactivar el
+   temporizador únicamente después de registrar commit, resultado del
+   inventario y salud. Si la salud falla, detener la candidata, repetir el mismo
+   inventario antes de seleccionar la histórica y conservar ambas releases.
+
+El updater automático no utiliza `--legacy-target-commit`; la excepción existe
+solo para este relevo manual, exacto y observable.
 
 Cada release preparada termina con `.umbravia-release-complete`. Si una fase
 falla después de crear el directorio de release y antes de activarlo, el
@@ -226,7 +309,9 @@ inconsistentes) se considera incompleto, se limpia y se reconstruye. Una
 release marcada como completa que no sea la activa se conserva y provoca un
 error explícito para permitir su revisión manual. Las protecciones de limpieza
 rechazan siempre borrar el destino de `current` o la release anterior reservada
-para rollback. Bajo el mismo `flock`, cada ejecución elimina además enlaces
+para rollback. Una candidata completa que haya fallado o quede bloqueada por el
+preflight se conserva también como evidencia; no entra en la limpieza de
+releases incompletas. Bajo el mismo `flock`, cada ejecución elimina además enlaces
 `current.next`, builds abandonados y registros obsoletos de `git worktree`; solo
 se consideran temporales los directorios `build-*` dentro del directorio fijo
 del updater.
@@ -264,6 +349,14 @@ sudo systemctl enable --now umbravia-forge-update.timer
 systemctl list-timers umbravia-forge-update.timer
 ```
 
+`DATA_DIRECTORY` y `ENVIRONMENT_DATA_ROOT` deben ser rutas absolutas y estables
+fuera de cada release. El preflight devuelve únicamente fuente, locale y
+recuento agregados. Se ejecuta bajo el usuario de la aplicación; un archivo,
+tabla, columna, manifiesto o raíz ausente o ilegible produce código `3` y nunca
+se interpreta como inventario vacío. Incluso una instalación que todavía no
+tenga entornos administrados debe provisionar la raíz vacía indicada en el paso
+1; una raíz ausente no equivale a un inventario vacío demostrable.
+
 El intervalo predeterminado es de 15 minutos. Se cambia mediante un override de
 `systemd` sobre `OnUnitActiveSec`; no es necesario modificar el script ni la
 aplicación. La ejecución usa un bloqueo exclusivo, por lo que una compilación
@@ -275,9 +368,12 @@ Para volver temporalmente a despliegues manuales, ejecute como root:
 sudo deploy/disable-automatic-updates.sh
 ```
 
-El script desactiva y retira únicamente el temporizador y el área de trabajo
-del actualizador. Conserva la release activa, el servicio principal, Caddy, la
-base de datos y los archivos de entorno.
+El script verifica primero que la aplicación siga activa, deshabilita el
+temporizador y exige que no haya una actualización en curso ni un bloqueo
+ocupado. Solo entonces retira las unidades y el área de trabajo del
+actualizador. Si alguna comprobación falla, conserva todo para reintentar cuando
+termine la ejecución. La release activa, el servicio principal, Caddy, la base
+de datos y los archivos de entorno no se eliminan.
 
 Los escaneos de Internet no se pueden impedir por completo. La defensa busca
 que sean inofensivos y observables: Caddy corta las sondas conocidas, Express

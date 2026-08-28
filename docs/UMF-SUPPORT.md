@@ -408,6 +408,14 @@ Ruta: /cloudflare
 Comando de despliegue: npx wrangler deploy
 ```
 
+`cloudflare/package.json` fija `packageManager: npm@11.18.0` y exige Node 24
+(24.15.0 o posterior dentro de la línea 24) y npm 11.18.x. El lockfile del
+subproyecto conserva esos motores porque esta raíz no hereda el manifiesto de
+la aplicación. Workers Builds debe configurarse con Node 24; antes de aceptar
+una publicación, su log tiene que mostrar npm 11.18.0 durante la instalación
+bloqueada. Esta configuración versionada no demuestra todavía la versión
+efectiva de una compilación del proveedor.
+
 Las compilaciones de ramas no productivas y Cloudflare Access permanecen
 desactivados durante la primera activación. El token de compilación puede ser
 generado por Cloudflare con un nombre limitado a este Worker. Los campos de

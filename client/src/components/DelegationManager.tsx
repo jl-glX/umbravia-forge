@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, Clock3, Copy, KeyRound, Trash2, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { authFetch } from "../lib/api";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
@@ -130,7 +131,7 @@ export function DelegationManager() {
 
   const formatExpiry = (expiresAt: number | null) =>
     expiresAt
-      ? new Intl.DateTimeFormat(i18n.language, {
+      ? new Intl.DateTimeFormat(resolveIntlLocale(i18n.language), {
           dateStyle: "medium",
           timeStyle: "short",
         }).format(expiresAt)

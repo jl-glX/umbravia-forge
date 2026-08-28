@@ -2,6 +2,16 @@ import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { AuthContext, AuthUser } from "../context/auth-context";
 import { authFetch } from "../lib/api";
 import { startAuthentication } from "@simplewebauthn/browser";
+import {
+  LOGIN_PUBLIC_ERROR_CODES,
+  PASSKEY_PUBLIC_ERROR_CODES,
+  SIGNUP_PUBLIC_ERROR_CODES,
+  normalizePublicAuthError,
+  readPublicAuthResponse,
+  requirePublicAuthUser,
+  type PublicAuthErrorCode,
+} from "../lib/public-auth-errors";
+import type { SupportedLocale } from "../i18n/supported-locales";
 
 const API_BASE =
   typeof window !== "undefined" && window.location.hostname === "localhost"
@@ -12,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<PublicAuthErrorCode | null>(null);
   const clearError = useCallback(() => setError(null), []);
 
   const refreshUser = useCallback(async () => {
@@ -56,23 +66,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             captchaToken,
           }),
         });
-        const data = (await response.json()) as {
+        const data = await readPublicAuthResponse<{
           user?: AuthUser;
-          code?: string;
-          error?: string;
           demoVerificationCode?: string;
           mfaRequired?: boolean;
-        };
-        if (!response.ok)
-          throw new Error(data.code ?? data.error ?? "LOGIN_FAILED");
+        }>(response, LOGIN_PUBLIC_ERROR_CODES);
         if (data.mfaRequired) return { mfaRequired: true };
-        if (!data.user) throw new Error(data.error ?? "Login failed");
-        setUser(data.user);
-        return { mfaRequired: false, user: data.user };
+        const authenticatedUser = requirePublicAuthUser(data.user);
+        setUser(authenticatedUser);
+        return { mfaRequired: false, user: authenticatedUser };
       } catch (cause) {
-        const message = cause instanceof Error ? cause.message : "Login failed";
-        setError(message);
-        throw cause;
+        const publicError = normalizePublicAuthError(cause);
+        setError(publicError.code);
+        throw publicError;
       } finally {
         setIsLoading(false);
       }
@@ -103,19 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }),
           },
         );
-        const options = (await optionsResponse.json()) as {
-          code?: string;
-          error?: string;
-        };
-        if (!optionsResponse.ok) {
-          throw new Error(
-            options.code ?? options.error ?? "PASSKEY_NOT_CONFIGURED",
-          );
-        }
+        const options = await readPublicAuthResponse<
+          Parameters<typeof startAuthentication>[0]["optionsJSON"]
+        >(optionsResponse, PASSKEY_PUBLIC_ERROR_CODES);
         const response = await startAuthentication({
-          optionsJSON: options as Parameters<
-            typeof startAuthentication
-          >[0]["optionsJSON"],
+          optionsJSON: options,
         });
         const verificationResponse = await authFetch(
           `${API_BASE}/api/auth/passkey/verify`,
@@ -125,23 +123,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify({ response }),
           },
         );
-        const data = (await verificationResponse.json()) as {
+        const data = await readPublicAuthResponse<{
           user?: AuthUser;
-          code?: string;
-          error?: string;
-        };
-        if (!verificationResponse.ok || !data.user) {
-          throw new Error(
-            data.code ?? data.error ?? "PASSKEY_VERIFICATION_FAILED",
-          );
-        }
-        setUser(data.user);
-        return data.user;
+        }>(verificationResponse, PASSKEY_PUBLIC_ERROR_CODES);
+        const authenticatedUser = requirePublicAuthUser(data.user);
+        setUser(authenticatedUser);
+        return authenticatedUser;
       } catch (cause) {
-        const message =
-          cause instanceof Error ? cause.message : "Passkey login failed";
-        setError(message);
-        throw cause;
+        const publicError = normalizePublicAuthError(cause);
+        setError(publicError.code);
+        throw publicError;
       } finally {
         setIsLoading(false);
       }
@@ -158,19 +149,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
-      const data = (await response.json()) as {
+      const data = await readPublicAuthResponse<{
         user?: AuthUser;
-        error?: string;
-      };
-      if (!response.ok || !data.user)
-        throw new Error(data.error ?? "Verification failed");
-      setUser(data.user);
-      return data.user;
+      }>(response);
+      const authenticatedUser = requirePublicAuthUser(data.user);
+      setUser(authenticatedUser);
+      return authenticatedUser;
     } catch (cause) {
-      const message =
-        cause instanceof Error ? cause.message : "Verification failed";
-      setError(message);
-      throw cause;
+      const publicError = normalizePublicAuthError(cause);
+      setError(publicError.code);
+      throw publicError;
     } finally {
       setIsLoading(false);
     }
@@ -183,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastName: string;
       password: string;
       countryCode: string;
-      locale: "es" | "en" | "de" | "de-CH";
+      locale: SupportedLocale;
       acceptedTerms: boolean;
       acceptedPrivacy: boolean;
       captchaToken: string;
@@ -199,25 +187,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(input),
         });
-        const data = (await response.json()) as {
+        const data = await readPublicAuthResponse<{
           user?: AuthUser;
-          error?: string;
           demoVerificationCode?: string;
           verificationRequired?: boolean;
-        };
-        if (!response.ok || !data.user)
-          throw new Error(data.error ?? "Signup failed");
-        setUser(data.user);
+        }>(response, SIGNUP_PUBLIC_ERROR_CODES);
+        const authenticatedUser = requirePublicAuthUser(data.user);
+        setUser(authenticatedUser);
         return {
-          user: data.user,
+          user: authenticatedUser,
           verificationRequired: Boolean(data.verificationRequired),
           demoVerificationCode: data.demoVerificationCode,
         };
       } catch (cause) {
-        const message =
-          cause instanceof Error ? cause.message : "Signup failed";
-        setError(message);
-        throw cause;
+        const publicError = normalizePublicAuthError(cause);
+        setError(publicError.code);
+        throw publicError;
       } finally {
         setIsLoading(false);
       }

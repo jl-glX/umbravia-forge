@@ -10,6 +10,10 @@ import {
   MAX_PASSWORD_BYTES,
   isPasswordWithinHashLimit,
 } from "../lib/password-policy.js";
+import {
+  canonicalizeLocaleOrNull,
+  isSupportedLocale,
+} from "../lib/supported-locales.js";
 import { isSupportId } from "../lib/support-id.js";
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
@@ -62,6 +66,15 @@ const strictBody = (allowedFields: string[], requireAtLeastOne = false) =>
 
     return true;
   });
+
+const supportedLocaleBody = (field: string, optional = false) => {
+  const chain = body(field);
+  if (optional) chain.optional();
+  return chain
+    .customSanitizer((value) => canonicalizeLocaleOrNull(value) ?? value)
+    .custom(isSupportedLocale)
+    .withMessage("Unsupported locale");
+};
 
 const emptyObjectOrMissing = (value: unknown): boolean => {
   if (value === undefined) return true;
@@ -142,7 +155,7 @@ export const signupValidation = validateRequest([
     .trim()
     .toUpperCase()
     .matches(/^[A-Z]{2}$/),
-  body("locale").isIn(["es", "en", "de", "de-CH"]),
+  supportedLocaleBody("locale"),
   body("accountType").optional().isIn(["member", "administrator"]),
   body("facilityName")
     .optional()
@@ -261,10 +274,10 @@ const optionalCommercialTrialFields = () => [
   body("classTypes.*")
     .optional()
     .isString()
-    .trim()
-    .isLength({ min: 1, max: 80 }),
+    .isLength({ max: 80 })
+    .custom((value: string) => value.trim().length > 0),
   body("scheduleNotes").optional().isString().trim().isLength({ max: 2_000 }),
-  body("locale").optional().isIn(["es", "en", "de", "de-CH"]),
+  supportedLocaleBody("locale", true),
   body("currency")
     .optional()
     .isString()
@@ -1215,7 +1228,7 @@ export const createFacilityInvitationValidation = validateRequest([
     .isLength({ max: 254 }),
   body("name").isString().trim().isLength({ min: 1, max: 100 }),
   body("role").isIn(["admin", "trainer", "member"]),
-  body("locale").isIn(["es", "en", "de", "de-CH"]),
+  supportedLocaleBody("locale"),
 ]);
 
 export const acceptNewFacilityInvitationValidation = validateRequest([
@@ -1230,7 +1243,7 @@ export const acceptNewFacilityInvitationValidation = validateRequest([
     .matches(/[a-z]/)
     .matches(/[A-Z]/)
     .matches(/[0-9]/),
-  body("locale").isIn(["es", "en", "de", "de-CH"]),
+  supportedLocaleBody("locale"),
   body("acceptedTerms")
     .isBoolean()
     .custom((value) => value === true),

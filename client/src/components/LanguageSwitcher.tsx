@@ -1,5 +1,7 @@
 import { Languages } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { canonicalizeLocale } from "../i18n/supported-locales";
+import { sortedLanguageOptions } from "../i18n/language-options";
 
 interface LanguageSwitcherProps {
   compact?: boolean;
@@ -11,10 +13,12 @@ export function LanguageSwitcher({
   inverted = false,
 }: LanguageSwitcherProps) {
   const { i18n, t } = useTranslation();
-  const resolvedLanguage = i18n.resolvedLanguage ?? "es";
-  const language = resolvedLanguage.toLowerCase().startsWith("de-ch")
-    ? "de-CH"
-    : resolvedLanguage.split("-")[0];
+  const language = canonicalizeLocale(i18n.resolvedLanguage ?? i18n.language);
+  const options = sortedLanguageOptions(
+    (key) => t(key),
+    i18n.resolvedLanguage ?? i18n.language,
+    compact ? "compact" : "full",
+  );
 
   return (
     <label
@@ -28,10 +32,11 @@ export function LanguageSwitcher({
         onChange={(event) => void i18n.changeLanguage(event.target.value)}
         className={`cursor-pointer bg-transparent font-semibold outline-none ${compact ? "w-10" : "w-auto"} ${inverted ? "text-white [&>option]:text-slate-900" : "text-slate-700"}`}
       >
-        <option value="es">{compact ? "ES" : t("language.es")}</option>
-        <option value="en">{compact ? "EN" : t("language.en")}</option>
-        <option value="de">{compact ? "DE" : t("language.de")}</option>
-        <option value="de-CH">{compact ? "CH" : t("language.deCH")}</option>
+        {options.map((option) => (
+          <option key={option.code} value={option.code}>
+            {compact ? option.compactLabel : option.label}
+          </option>
+        ))}
       </select>
     </label>
   );

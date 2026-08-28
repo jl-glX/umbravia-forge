@@ -458,6 +458,31 @@ describe("analytics tenant isolation", () => {
     ).expect(404);
   });
 
+  it.each([
+    ["en" as const, "January"],
+    ["fr" as const, "janvier"],
+    ["ca-valencia" as const, "gener"],
+  ])(
+    "uses the requester's persisted %s locale for monthly analytics",
+    async (locale, expectedMonth) => {
+      await database.db
+        .updateTable("users")
+        .set({ locale })
+        .where("id", "=", "analytics-admin")
+        .execute();
+
+      const response = await secondary(
+        request(app)
+          .get("/api/analytics/monthly")
+          .query({ year: 2026, month: 1 }),
+      ).expect(200);
+
+      expect(response.body.month.toLowerCase()).toContain(
+        expectedMonth.toLowerCase(),
+      );
+    },
+  );
+
   it("counts only active real members in the selected facility", async () => {
     const response = await secondary(
       request(app).get("/api/analytics/members"),

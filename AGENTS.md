@@ -40,8 +40,10 @@ las fronteras de seguridad o la organización documental.
   realm comercial.
 - Validar entradas externas y mantener las reglas de negocio fuera de los
   componentes React.
-- Añadir texto visible a los catálogos español, inglés y alemán; usar `de-CH`
-  solo para diferencias regionales. No traducir contenido introducido por
+- Añadir texto visible a los catálogos completos `es`, `en`, `de`, `fr`, `it`,
+  `gl`, `ca`, `eu` y `oc-aranes`; usar `de-CH` y `ca-valencia` solo para
+  diferencias regionales respecto a `de` y `ca`. Mantener origen y nivel de
+  revisión en `docs/LOCALIZATION.md`. No traducir contenido introducido por
   usuarios.
 - Usar extensiones `.js` en importaciones relativas del servidor ESM.
 - TypeScript 7 nativo compila el proyecto. TypeScript 6 permanece únicamente

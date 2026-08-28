@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS } from "../lib/commercial-trial.js";
 import { createActiveTestFacility } from "../testing/facility-fixtures.js";
 
 describe("commercial foundation API", () => {
@@ -128,7 +129,7 @@ describe("commercial foundation API", () => {
       implementedThroughPoint: 7,
       point8FoundationAvailable: true,
       conversionExecutionAvailable: false,
-      isolatedTenantProvisioningAvailable: true,
+      isolatedTenantProvisioningAvailable: false,
     });
     expect(response.body.trialPolicy).toEqual({
       durationDays: 31,
@@ -181,7 +182,144 @@ describe("commercial foundation API", () => {
     }
   });
 
+  it("materializes localized defaults without rewriting explicit activities", async () => {
+    const now = Date.now();
+    for (const facilityId of ["localized-commercial", "empty-commercial"]) {
+      await createActiveTestFacility(database.db, facilityId, {
+        createdAt: now,
+      });
+      await database.db
+        .insertInto("facilityMemberships")
+        .values({
+          id: `${facilityId}:commercial-admin`,
+          facilityId,
+          userId: "commercial-admin",
+          role: "owner",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .execute();
+    }
+
+    const created = await request(app)
+      .post("/api/commercial/trial")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "localized-commercial")
+      .send({
+        facilityName: "Centre localisé",
+        facilityType: "traditional_gym",
+        locale: "fr-FR",
+      })
+      .expect(201);
+    expect(created.body.trial).toMatchObject({
+      locale: "fr",
+      classTypes: ["Accès libre à la salle", "Cours encadré"],
+    });
+
+    const explicitActivities = ["  Circuit Ω — 50 %  ", " Mobilité/équilibre "];
+    await request(app)
+      .patch("/api/commercial/trial")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "localized-commercial")
+      .send({ classTypes: explicitActivities })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.trial.classTypes).toEqual(explicitActivities);
+      });
+
+    await request(app)
+      .patch("/api/commercial/trial")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "localized-commercial")
+      .send({ locale: "it_IT", facilityType: "hyrox" })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.trial).toMatchObject({
+          locale: "it",
+          facilityType: "hyrox",
+          classTypes: explicitActivities,
+        });
+      });
+
+    await request(app)
+      .patch("/api/commercial/trial")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "localized-commercial")
+      .send({ classTypes: [] })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.trial.classTypes).toEqual([]);
+      });
+
+    await request(app)
+      .post("/api/commercial/trial/restore-configuration")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "localized-commercial")
+      .send({})
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.trial.classTypes).toEqual([
+          "HYROX",
+          "Tecnica delle stazioni",
+        ]);
+      });
+
+    await request(app)
+      .post("/api/commercial/trial")
+      .set("Cookie", adminCookie)
+      .set("X-Facility-Id", "empty-commercial")
+      .send({
+        facilityName: "Empty activities",
+        facilityType: "bodybuilding",
+        locale: "de-CH",
+        classTypes: [],
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.trial).toMatchObject({
+          locale: "de-CH",
+          classTypes: [],
+        });
+      });
+
+    await request(app)
+      .get("/api/commercial")
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.templates.traditional_gym.classTypes).toEqual([
+          "Sala libre",
+          "Clase dirigida",
+        ]);
+        expect(body.templates.hyrox.classTypes).toEqual([
+          "HYROX",
+          "Técnica de estaciones",
+        ]);
+      });
+  });
+
   it("creates an editable centre from a template and preserves configuration", async () => {
+    for (const locale of [
+      "xx",
+      "oc",
+      "oc-ES",
+      "oc-FR",
+      "oc-Latn-ES",
+      "ca-FR-valencia",
+      "ca-US-valencia",
+      "oc-FR-aranes",
+    ]) {
+      await request(app)
+        .post("/api/commercial/trial")
+        .set("Cookie", adminCookie)
+        .send({
+          facilityName: "Invalid Locale Centre",
+          facilityType: "crossfit",
+          locale,
+        })
+        .expect(400);
+    }
+
     const created = await request(app)
       .post("/api/commercial/trial")
       .set("Cookie", adminCookie)
@@ -190,7 +328,7 @@ describe("commercial foundation API", () => {
         facilityType: "crossfit",
         subdomain: "fitness-boreal-preview",
         classTypes: ["WOD", "Movilidad"],
-        locale: "es",
+        locale: "CA_es_VALENCIA",
         currency: "eur",
         usesBookings: true,
         publicDescription: "Entrenamiento de fuerza y acondicionamiento.",
@@ -209,6 +347,7 @@ describe("commercial foundation API", () => {
       classTypes: ["WOD", "Movilidad"],
       currency: "EUR",
       usesBookings: true,
+      locale: "ca-valencia",
       status: "trial_active",
     });
     expect(created.body.trial).toMatchObject({
@@ -223,7 +362,36 @@ describe("commercial foundation API", () => {
       milestone: 1,
       remainingDays: 31,
     });
+    expect(created.body.dataReview).toMatchObject({
+      visible: false,
+      canDeclare: false,
+      declarationBlockReason: "not-open",
+    });
+    expect(created.body.dataReview.opensAt).toBeGreaterThan(
+      created.body.dataReview.serverNow,
+    );
     expect(created.body.trial).not.toHaveProperty("conversionDraft");
+
+    for (const [locale, canonical] of [
+      ["FR-fr", "fr"],
+      ["it_IT", "it"],
+      ["oc-ES-aranes", "oc-aranes"],
+      ["ca-ES-valencia", "ca-valencia"],
+    ] as const) {
+      await request(app)
+        .patch("/api/commercial/trial")
+        .set("Cookie", adminCookie)
+        .send({ locale })
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.trial.locale).toBe(canonical);
+        });
+    }
+    await request(app)
+      .patch("/api/commercial/trial")
+      .set("Cookie", adminCookie)
+      .send({ locale: "xx" })
+      .expect(400);
 
     await request(app)
       .get("/api/commercial/public-centres")
@@ -254,6 +422,7 @@ describe("commercial foundation API", () => {
     expect(updated.body.trial).toMatchObject({
       scheduleNotes: "Horario provisional",
       subdomain: "fitness-boreal",
+      locale: "ca-valencia",
     });
 
     expect(updated.body.environment).toMatchObject({
@@ -269,7 +438,7 @@ describe("commercial foundation API", () => {
       .expect(200);
     expect(restored.body.trial).toMatchObject({
       usualCapacity: 14,
-      classTypes: ["WOD", "Open Box"],
+      classTypes: ["WOD", "Box obert"],
       scheduleNotes: "",
     });
     expect(restored.body.events[0]).toMatchObject({
@@ -545,6 +714,146 @@ describe("commercial foundation API", () => {
         contactConsent: false,
       })
       .expect(400);
+  });
+
+  it("enforces the real-data review boundary in the service and protected route", async () => {
+    const service = await import("../services/commercial-trial.js");
+    const expiresAt = Date.parse("2026-10-31T18:00:00.000Z");
+    const opensAt = expiresAt - COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS;
+    const resetPendingTrial = async (nextExpiresAt: number) => {
+      await database.db
+        .updateTable("commercialTrials")
+        .set({
+          status: "trial_active",
+          realDataDeclaration: "undeclared",
+          conversionDraft: "[]",
+          expiresAt: nextExpiresAt,
+          pausedAt: null,
+          closedAt: null,
+          dataReviewRequestedAt: null,
+          cleanupEligibleAt: null,
+        })
+        .where("facilityId", "=", "facility-alpha")
+        .executeTakeFirstOrThrow();
+    };
+
+    await resetPendingTrial(expiresAt);
+    await expect(
+      service.declareCommercialTrialData(
+        "commercial-admin",
+        "facility-alpha",
+        "yes",
+        opensAt - 1,
+      ),
+    ).rejects.toMatchObject({
+      code: "COMMERCIAL_TRIAL_DATA_REVIEW_NOT_OPEN",
+      statusCode: 409,
+    });
+    expect(
+      await database.db
+        .selectFrom("commercialTrials")
+        .select("realDataDeclaration")
+        .where("facilityId", "=", "facility-alpha")
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ realDataDeclaration: "undeclared" });
+
+    const acceptedAtBoundary = await service.declareCommercialTrialData(
+      "commercial-admin",
+      "facility-alpha",
+      "yes",
+      opensAt,
+    );
+    expect(acceptedAtBoundary).toMatchObject({
+      trial: {
+        status: "trial_conversion_review",
+        realDataDeclaration: "yes",
+      },
+      dataReview: { visible: true, canDeclare: false, opensAt },
+    });
+
+    const cleanupBoundary = expiresAt + COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS;
+    await resetPendingTrial(expiresAt);
+    await database.db
+      .updateTable("commercialTrials")
+      .set({
+        status: "trial_expired",
+        cleanupEligibleAt: cleanupBoundary,
+      })
+      .where("facilityId", "=", "facility-alpha")
+      .executeTakeFirstOrThrow();
+    await expect(
+      service.declareCommercialTrialData(
+        "commercial-admin",
+        "facility-alpha",
+        "yes",
+        cleanupBoundary,
+      ),
+    ).rejects.toMatchObject({
+      code: "COMMERCIAL_TRIAL_DATA_REVIEW_NOT_OPEN",
+      statusCode: 409,
+    });
+    expect(
+      await database.db
+        .selectFrom("commercialTrials")
+        .select(["status", "realDataDeclaration", "cleanupEligibleAt"])
+        .where("facilityId", "=", "facility-alpha")
+        .executeTakeFirstOrThrow(),
+    ).toEqual({
+      status: "trial_expired",
+      realDataDeclaration: "undeclared",
+      cleanupEligibleAt: cleanupBoundary,
+    });
+
+    const routeNow = Date.now();
+    await resetPendingTrial(
+      routeNow + COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS + 60_000,
+    );
+    await request(app)
+      .post("/api/commercial/trial/real-data-declaration")
+      .send({ decision: "yes" })
+      .expect(401);
+    await request(app)
+      .post("/api/commercial/trial/real-data-declaration")
+      .set("Cookie", memberCookie)
+      .send({ decision: "yes" })
+      .expect(403);
+    await request(app)
+      .post("/api/commercial/trial/real-data-declaration")
+      .set("Cookie", memberCookie)
+      .set("X-Facility-Id", "commercial-secondary")
+      .send({ decision: "yes" })
+      .expect(403);
+    await request(app)
+      .post("/api/commercial/trial/real-data-declaration")
+      .set("Cookie", adminCookie)
+      .send({ decision: "yes" })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.code).toBe("COMMERCIAL_TRIAL_DATA_REVIEW_NOT_OPEN");
+      });
+
+    await resetPendingTrial(Date.now() + COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS);
+    const acceptedRoute = await request(app)
+      .post("/api/commercial/trial/real-data-declaration")
+      .set("Cookie", adminCookie)
+      .send({ decision: "assistance" })
+      .expect(200);
+    expect(acceptedRoute.body).toMatchObject({
+      trial: {
+        status: "trial_paused_support",
+        realDataDeclaration: "assistance",
+      },
+      dataReview: { visible: true, canDeclare: false },
+    });
+    expect(
+      await database.db
+        .selectFrom("commercialTrials")
+        .select("realDataDeclaration")
+        .where("facilityId", "=", "commercial-secondary")
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ realDataDeclaration: "undeclared" });
+
+    await resetPendingTrial(Date.now() + COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS);
   });
 
   it("supports the three exact data decisions and only closes after no", async () => {

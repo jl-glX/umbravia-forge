@@ -155,11 +155,12 @@ describe("verified facility invitations", () => {
     email: string;
     name: string;
     role: "member" | "trainer" | "admin";
+    locale?: string;
   }) {
     return request(app)
       .post("/api/users/invitations")
       .set("Cookie", adminCookie)
-      .send({ ...input, locale: "es" })
+      .send({ ...input, locale: input.locale ?? "es" })
       .expect(201);
   }
 
@@ -230,6 +231,175 @@ describe("verified facility invitations", () => {
         acceptedPrivacy: true,
       })
       .expect(409);
+  });
+
+  it("retries a worker invitation with one new pending token in the same tenant", async () => {
+    const input = {
+      email: "retry-worker@example.com",
+      name: "Retry Worker",
+      role: "trainer" as const,
+      locale: "fr-FR",
+    };
+    const emailDelivery = await import("../services/email-delivery.js");
+    const queueSpy = vi
+      .spyOn(emailDelivery, "queueFacilityInvitationEmail")
+      .mockRejectedValueOnce(new Error("Controlled queue failure"));
+    let first!: request.Response;
+    let second!: request.Response;
+    try {
+      first = await createInvitation(input);
+      expect(first.body).toMatchObject({
+        status: "pending",
+        deliveryQueued: false,
+      });
+      second = await createInvitation(input);
+      expect(second.body).toMatchObject({
+        status: "pending",
+        deliveryQueued: true,
+      });
+    } finally {
+      queueSpy.mockRestore();
+    }
+
+    expect(second.body.testToken).not.toBe(first.body.testToken);
+    const invitations = await database.db
+      .selectFrom("facilityInvitations")
+      .select(["id", "facilityId", "invitedEmail", "status"])
+      .where("facilityId", "=", "facility-alpha")
+      .where("invitedEmail", "=", input.email)
+      .orderBy("createdAt", "asc")
+      .execute();
+    expect(invitations).toHaveLength(2);
+    expect(invitations.filter((item) => item.status === "pending")).toEqual([
+      expect.objectContaining({
+        id: second.body.id,
+        facilityId: "facility-alpha",
+        invitedEmail: input.email,
+      }),
+    ]);
+    expect(invitations.filter((item) => item.status === "revoked")).toEqual([
+      expect.objectContaining({
+        id: first.body.id,
+        facilityId: "facility-alpha",
+        invitedEmail: input.email,
+      }),
+    ]);
+    await expect(
+      database.db
+        .selectFrom("emailDeliveries")
+        .select(["recipient", "locale"])
+        .where("recipient", "=", input.email)
+        .execute(),
+    ).resolves.toEqual([{ recipient: input.email, locale: "fr" }]);
+  });
+
+  it("lets the facility owner offer administrator access", async () => {
+    const ownerInvitation = await createInvitation({
+      email: "owner-created-admin@example.com",
+      name: "Owner Created Admin",
+      role: "admin",
+      locale: "it_IT",
+    });
+    expect(ownerInvitation.body).toMatchObject({
+      role: "admin",
+      status: "pending",
+    });
+    await expect(
+      database.db
+        .selectFrom("emailDeliveries")
+        .select("locale")
+        .where("recipient", "=", "owner-created-admin@example.com")
+        .orderBy("createdAt", "desc")
+        .executeTakeFirstOrThrow(),
+    ).resolves.toEqual({ locale: "it" });
+  });
+
+  it("canonicalizes invitation locales before queueing and persistence", async () => {
+    const acceptance = {
+      password: "CanonicalLocalePassword123",
+      acceptedTerms: true,
+      acceptedPrivacy: true,
+    };
+    for (const [index, locale, canonical] of [
+      [1, "FR-fr", "fr"],
+      [2, "it_IT", "it"],
+      [3, "ca-ES-valencia", "ca-valencia"],
+      [4, "oc-ES-aranes", "oc-aranes"],
+    ] as const) {
+      const email = `canonical-locale-invitee-${index}@example.com`;
+      const created = await createInvitation({
+        email,
+        name: `Canonical Locale Invitee ${index}`,
+        role: index % 2 === 0 ? "member" : "trainer",
+        locale,
+      });
+      await expect(
+        database.db
+          .selectFrom("emailDeliveries")
+          .select("locale")
+          .where("recipient", "=", email)
+          .orderBy("createdAt", "desc")
+          .executeTakeFirstOrThrow(),
+      ).resolves.toEqual({ locale: canonical });
+
+      const acceptanceUrl = `/api/facility-invitations/${created.body.testToken}/accept-new`;
+      if (index === 1) {
+        for (const invalidLocale of [
+          "xx",
+          "oc",
+          "oc-ES",
+          "oc-FR",
+          "oc-Latn-ES",
+          "ca-FR-valencia",
+          "ca-US-valencia",
+          "oc-FR-aranes",
+        ]) {
+          await request(app)
+            .post(acceptanceUrl)
+            .send({ ...acceptance, locale: invalidLocale })
+            .expect(400);
+        }
+        await request(app).post(acceptanceUrl).send(acceptance).expect(400);
+      }
+      await request(app)
+        .post(acceptanceUrl)
+        .send({ ...acceptance, locale })
+        .expect(201);
+      await expect(
+        database.db
+          .selectFrom("users")
+          .select("locale")
+          .where("email", "=", email)
+          .executeTakeFirstOrThrow(),
+      ).resolves.toEqual({ locale: canonical });
+    }
+
+    const invalidCreate = {
+      email: "invalid-locale-invitee@example.com",
+      name: "Invalid Locale Invitee",
+      role: "member",
+    };
+    for (const locale of [
+      "xx",
+      "oc",
+      "oc-ES",
+      "oc-FR",
+      "oc-Latn-ES",
+      "ca-FR-valencia",
+      "ca-US-valencia",
+      "oc-FR-aranes",
+    ]) {
+      await request(app)
+        .post("/api/users/invitations")
+        .set("Cookie", adminCookie)
+        .send({ ...invalidCreate, locale })
+        .expect(400);
+    }
+    await request(app)
+      .post("/api/users/invitations")
+      .set("Cookie", adminCookie)
+      .send(invalidCreate)
+      .expect(400);
   });
 
   it("keeps an existing affiliation invited until the matching account accepts", async () => {

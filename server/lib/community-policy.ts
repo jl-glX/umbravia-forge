@@ -85,3 +85,22 @@ export const institutionalPrinciples = {
   conductBasedModeration:
     "Las decisiones se basan en conducta, contexto, pruebas, daño, reiteración, gravedad y proporcionalidad.",
 } as const;
+
+export const institutionalPrincipleIds = [
+  "neutrality",
+  "reciprocity",
+  "conductBasedModeration",
+] as const;
+
+export type InstitutionalPrincipleId =
+  (typeof institutionalPrincipleIds)[number];
+
+export function institutionalPrinciplesResponse(format: unknown) {
+  if (format === "keys") {
+    return {
+      version: 2 as const,
+      principleIds: institutionalPrincipleIds,
+    };
+  }
+  return institutionalPrinciples;
+}

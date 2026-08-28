@@ -3,6 +3,7 @@ import { CalendarClock, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { authFetch } from "../lib/api";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { VerifiedForm } from "../components/VerifiedForm";
@@ -122,7 +123,7 @@ export function AccountLifecyclePage() {
   };
 
   const formatDate = (timestamp: number) =>
-    new Intl.DateTimeFormat(i18n.language, {
+    new Intl.DateTimeFormat(resolveIntlLocale(i18n.language), {
       dateStyle: "long",
       timeStyle: "short",
     }).format(timestamp);

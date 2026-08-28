@@ -130,7 +130,18 @@ export function useUsers() {
     email: string;
     name: string;
     role: UserRole;
-    locale: "es" | "en" | "de" | "de-CH";
+    locale:
+      | "es"
+      | "en"
+      | "de"
+      | "de-CH"
+      | "fr"
+      | "it"
+      | "gl"
+      | "ca"
+      | "ca-valencia"
+      | "eu"
+      | "oc-aranes";
   }): Promise<FacilityInvitation> => {
     try {
       const response = await authFetch("/api/users/invitations", {
@@ -140,8 +151,7 @@ export function useUsers() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create invitation");
+        throw await userActionError(response, "Failed to create invitation");
       }
 
       const invitation = (await response.json()) as FacilityInvitation;

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+import { SUPPORTED_LOCALES } from "./supported-locales.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -57,6 +58,58 @@ describe("systemd deployment service", () => {
         /@\d/u.test(entry),
       ),
     ).toBe(true);
+  });
+
+  it("enforces the independent Cloudflare native-script allowlist", async () => {
+    const [packageSource, npmConfig] = await Promise.all([
+      readFile(path.resolve("cloudflare", "package.json"), "utf8"),
+      readFile(path.resolve("cloudflare", ".npmrc"), "utf8"),
+    ]);
+    const packageJson = JSON.parse(packageSource) as {
+      allowScripts?: Record<string, boolean>;
+      engines?: Record<string, string>;
+      packageManager?: string;
+    };
+
+    expect(packageJson.packageManager).toBe("npm@11.18.0");
+    expect(packageJson.engines).toEqual({
+      node: ">=24.15.0 <25",
+      npm: ">=11.18.0 <12",
+    });
+    expect(npmConfig).toContain("engine-strict=true");
+    expect(npmConfig).toContain("strict-allow-scripts=true");
+    expect(packageJson.allowScripts).toEqual({
+      "esbuild@0.28.1": true,
+      "workerd@1.20260820.1": true,
+    });
+  });
+
+  it("enforces native-script policy and a writable cache in the updater", async () => {
+    const [updater, updateUnit, packageAudit] = await Promise.all([
+      readFile(path.resolve("deploy", "auto-update.sh"), "utf8"),
+      readFile(path.resolve("deploy", "umbravia-forge-update.service"), "utf8"),
+      readFile(path.resolve("scripts", "audit-deployment-package.mjs"), "utf8"),
+    ]);
+
+    expect(updater).toContain(
+      "npm ci --audit=false --fund=false --strict-allow-scripts=true",
+    );
+    expect(updater).toContain(
+      'npm ci --omit=dev --audit=false --fund=false --strict-allow-scripts=true --cache "$2"',
+    );
+    expect(updater).toContain(
+      'npm rebuild argon2 --foreground-scripts --strict-allow-scripts=true --cache "$2"',
+    );
+    expect(updater).toContain(
+      "app_npm_cache=/var/lib/umbravia-forge-updater/npm-cache-app",
+    );
+    expect(updater).toContain(
+      'install -d -o "$UMBRAVIA_APP_USER" -g "$UMBRAVIA_APP_GROUP" -m 0700 "$app_npm_cache"',
+    );
+    expect(updateUnit).toContain(
+      "ReadWritePaths=/opt/umbravia-forge /var/lib/umbravia-forge-updater /run/lock",
+    );
+    expect(packageAudit).toContain('".npmrc"');
   });
 
   it("resolves Node portably instead of fixing a server-specific path", async () => {
@@ -380,6 +433,23 @@ describe("systemd deployment service", () => {
     expect(updater).toContain(
       "UMBRAVIA_APP_ENV_FILE:=/etc/umbravia-forge/umbravia-forge.env",
     );
+    expect(disableUpdates).toContain(
+      "systemctl disable --now umbravia-forge-update.timer",
+    );
+    expect(disableUpdates).toContain(
+      "systemctl is-active --quiet umbravia-forge-update.service",
+    );
+    expect(disableUpdates).toContain('exec 9>"$UPDATE_LOCK"');
+    expect(disableUpdates).toContain("flock -n 9");
+    expect(disableUpdates).not.toContain(
+      "systemctl stop umbravia-forge-update.service",
+    );
+    expect(disableUpdates).not.toContain(
+      'rm -f -- "$UPDATE_SERVICE" "$UPDATE_TIMER" "$UPDATE_LOCK"',
+    );
+    expect(disableUpdates).not.toMatch(
+      /\bumbravia-update\.(?:service|timer)\b/u,
+    );
   });
 
   it("prepares mail without exposing SMTP or replacing existing security state", async () => {
@@ -443,7 +513,124 @@ describe("systemd deployment service", () => {
     expect(updater).toContain('chmod -R u+rwX,g+rX,o-rwx "$release_dir"');
     expect(updater).toContain("restart_app_service()");
     expect(updater).toContain('systemctl reset-failed "$UMBRAVIA_APP_SERVICE"');
-    expect(updater.match(/restart_app_service/g)).toHaveLength(4);
+    expect(updater.match(/restart_app_service/g)).toHaveLength(3);
+  });
+
+  it("keeps rollback recovery ordered, read-only and recoverable", async () => {
+    const updater = await readFile(
+      path.resolve("deploy", "auto-update.sh"),
+      "utf8",
+    );
+    const recoveryStart = updater.indexOf("recover_previous_release() {");
+    const recoveryEnd = updater.indexOf(
+      "\n}\n\nrelease_is_complete()",
+      recoveryStart,
+    );
+    const recovery = updater.slice(recoveryStart, recoveryEnd);
+    const switchStart = updater.indexOf("switch_current_release() {");
+    const switchEnd = updater.indexOf(
+      "\n}\n\nrun_locale_rollback_preflight()",
+      switchStart,
+    );
+    const switchFunction = updater.slice(switchStart, switchEnd);
+    const stopStart = updater.indexOf("stop_app_service() {");
+    const stopEnd = updater.indexOf("\n}\n\nfail()", stopStart);
+    const stopFunction = updater.slice(stopStart, stopEnd);
+
+    expect(recoveryStart).toBeGreaterThan(-1);
+    expect(recovery).toContain("release_preserved=1");
+    expect(recovery).not.toContain("release_preserved=0");
+    expect(recovery).toContain("stop_app_service ||");
+    expect(recovery).toContain(
+      'run_locale_rollback_preflight "$release_dir" "$current_target"',
+    );
+    expect(recovery.indexOf("stop_app_service ||")).toBeLessThan(
+      recovery.indexOf("run_locale_rollback_preflight"),
+    );
+    expect(recovery.indexOf("run_locale_rollback_preflight")).toBeLessThan(
+      recovery.indexOf('switch_current_release "$current_target"'),
+    );
+    expect(
+      recovery.indexOf('switch_current_release "$current_target"'),
+    ).toBeLessThan(recovery.indexOf("restart_app_service"));
+    expect(recovery).not.toContain("restart_app_service || true");
+    expect(switchFunction.match(/\|\| return 1/g)).toHaveLength(3);
+    expect(stopFunction).toContain(
+      'systemctl show "$UMBRAVIA_APP_SERVICE" --property=ActiveState --value',
+    );
+    expect(stopFunction).toContain('[ "$active_state" = "inactive" ]');
+  });
+
+  it("packages a locale capability marker and a secret-free rollback preflight", async () => {
+    const [
+      audit,
+      prepare,
+      markerSource,
+      preflight,
+      environmentTemplate,
+      deploymentReadme,
+    ] = await Promise.all([
+      readFile(path.resolve("scripts", "audit-deployment-package.mjs"), "utf8"),
+      readFile(
+        path.resolve("scripts", "prepare-deployment-package.mjs"),
+        "utf8",
+      ),
+      readFile(path.resolve("deploy", "release-capabilities.json"), "utf8"),
+      readFile(
+        path.resolve("deploy", "check-locale-rollback-safety.mjs"),
+        "utf8",
+      ),
+      readFile(path.resolve("deploy", "umbravia-forge.env.template"), "utf8"),
+      readFile(path.resolve("deploy", "README.md"), "utf8"),
+    ]);
+    const marker = JSON.parse(markerSource) as {
+      schemaVersion: number;
+      supportedLocales: string[];
+    };
+
+    expect(marker).toEqual({
+      schemaVersion: 1,
+      supportedLocales: [...SUPPORTED_LOCALES],
+    });
+    for (const source of [audit, prepare]) {
+      expect(source).toContain("release-capabilities.json");
+    }
+    expect(audit).toContain("check-locale-rollback-safety.mjs");
+    expect(preflight).toContain("readonly: true");
+    expect(preflight).toContain('database.pragma("query_only = ON")');
+    expect(preflight).toContain(
+      "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY",
+    );
+    expect(preflight).toContain(
+      'SELECT locale, COUNT(*)::int AS count FROM "${table}" GROUP BY locale',
+    );
+    expect(preflight).not.toContain("payloadEncrypted");
+    expect(preflight).toContain('"da5466706a0026f018f8b211b352c793eb7a1cfd"');
+    expect(preflight).toContain('"--legacy-target-commit"');
+    expect(preflight).toContain("LEGACY_TARGET_CAPABILITIES_PRESENT");
+    const updater = await readFile(
+      path.resolve("deploy", "auto-update.sh"),
+      "utf8",
+    );
+    expect(updater).not.toContain("--legacy-target-commit");
+    expect(environmentTemplate).toContain(
+      "DATA_DIRECTORY=/var/lib/umbravia-forge",
+    );
+    expect(environmentTemplate).toContain(
+      "ENVIRONMENT_DATA_ROOT=/var/lib/umbravia-forge/environments",
+    );
+    expect(deploymentReadme).toContain(
+      "sudo install -d -o umbravia -g umbravia -m 0750 /var/lib/umbravia-forge /var/lib/umbravia-forge/environments",
+    );
+    expect(deploymentReadme).toContain(
+      '--legacy-target-commit "$LEGACY_COMMIT"',
+    );
+    expect(
+      deploymentReadme.indexOf("systemctl stop umbravia-forge.service"),
+    ).toBeLessThan(
+      deploymentReadme.indexOf('--legacy-target-commit "$LEGACY_COMMIT"'),
+    );
+    expect(deploymentReadme).toContain('ActiveState --value)" = inactive');
   });
 
   it("covers npm, readiness and health failures with the expected cleanup state", async () => {
@@ -459,9 +646,13 @@ describe("systemd deployment service", () => {
     );
     const activated = updater.indexOf("release_activated=1");
     const healthFailure = updater.indexOf(
-      '! health_check "$UMBRAVIA_LOCAL_HEALTH_URL"',
+      "if ! release_health_check",
+      activated,
     );
-    const rollbackCleanup = updater.indexOf("release_activated=0", activated);
+    const recoveryCall = updater.indexOf(
+      'recover_previous_release "la nueva release no supera la salud local o publica"',
+      healthFailure,
+    );
 
     expect(buildNpmCi).toBeGreaterThan(-1);
     expect(buildNpmCi).toBeLessThan(releaseCreated);
@@ -469,6 +660,6 @@ describe("systemd deployment service", () => {
     expect(readiness).toBeGreaterThan(releaseNpmCi);
     expect(readiness).toBeLessThan(activated);
     expect(healthFailure).toBeGreaterThan(activated);
-    expect(rollbackCleanup).toBeGreaterThan(healthFailure);
+    expect(recoveryCall).toBeGreaterThan(healthFailure);
   });
 });

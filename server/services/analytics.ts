@@ -1,5 +1,6 @@
 import { db } from "../db/client.js";
 import { parseBookingConfiguration } from "../lib/booking-configuration.js";
+import { resolveIntlLocale } from "../lib/supported-locales.js";
 
 export interface MonthlyMetrics {
   month: string;
@@ -7,6 +8,20 @@ export interface MonthlyMetrics {
   totalCancellations: number;
   totalClasses: number;
   averageOccupancy: number;
+}
+
+export function formatAnalyticsMonth(
+  year: number,
+  month: number,
+  locale: string | null | undefined,
+): string {
+  return new Date(year, month - 1).toLocaleDateString(
+    resolveIntlLocale(locale),
+    {
+      month: "long",
+      year: "numeric",
+    },
+  );
 }
 
 export interface ClassPopularity {
@@ -810,6 +825,7 @@ export async function getMonthlyMetrics(
   year: number,
   month: number,
   facilityId: string,
+  locale?: string | null,
 ): Promise<MonthlyMetrics> {
   const startDate = new Date(year, month - 1, 1).getTime();
   const endDate = new Date(year, month, 0, 23, 59, 59).getTime();
@@ -863,10 +879,7 @@ export async function getMonthlyMetrics(
       ? Math.round(totalOccupancy / classesWithOccupancy)
       : 0;
 
-  const monthName = new Date(year, month - 1).toLocaleDateString("es-ES", {
-    month: "long",
-    year: "numeric",
-  });
+  const monthName = formatAnalyticsMonth(year, month, locale);
 
   return {
     month: monthName,
