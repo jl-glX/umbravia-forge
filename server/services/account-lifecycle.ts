@@ -26,6 +26,10 @@ import type { Transaction } from "kysely";
 import type { Database } from "../db/types.js";
 import type { StagedFileRemoval } from "../lib/staged-file-removal.js";
 import { getAccountDeletionConfirmation } from "./account-deletion-confirmation.js";
+import {
+  canonicalizeLocale,
+  type SupportedLocale,
+} from "../lib/supported-locales.js";
 
 export const INACTIVITY_DELETION_OPTIONS = [6, 12, 18, 24, 36] as const;
 export type InactivityDeletionMonths =
@@ -518,8 +522,8 @@ export async function evaluateUnconfiguredInactivityReviews(
   return { evaluated: candidates.length, queued, reminders, scheduled };
 }
 
-function normalizedLocale(value: string): "es" | "en" | "de" | "de-CH" {
-  return value === "en" || value === "de" || value === "de-CH" ? value : "es";
+function normalizedLocale(value: string): SupportedLocale {
+  return canonicalizeLocale(value);
 }
 
 export async function answerInactivityReview(

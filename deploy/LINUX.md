@@ -57,15 +57,17 @@ descritas en `README.md`. Copiar
 `/opt/umbravia-forge/releases/<version>` y ejecutar allí:
 
 ```text
-sudo npm ci --omit=dev
-sudo npm rebuild argon2 --foreground-scripts
+sudo npm ci --omit=dev --strict-allow-scripts=true
+sudo npm rebuild argon2 --foreground-scripts --strict-allow-scripts=true
 sudo chown -R root:umbravia /opt/umbravia-forge/releases/<version>
 sudo chmod -R o-rwx /opt/umbravia-forge/releases/<version>
 ```
 
 La reconstrucción se limita al módulo Argon2id revisado y fijado por versión en
-`package.json`. La comprobación posterior realiza un hash y una verificación
-reales antes de activar la versión.
+`package.json`. El paquete no incluye `.npmrc`, por lo que la instalación y la
+reconstrucción fijan explícitamente la política de scripts admitidos. La
+comprobación posterior realiza un hash y una verificación reales antes de
+activar la versión.
 
 El archivo de entorno se crea fuera de la versión, en
 `/etc/umbravia-forge/umbravia-forge.env`, con propietario `root`, grupo
@@ -112,8 +114,10 @@ correctas.
 - Revisar `/var/log/caddy/umbravia-forge-access.log` para detectar aumentos de
   sondas o errores.
 - Verificar periódicamente espacio, memoria, certificado, copias y restauración.
-- Conservar la versión anterior y revertir el enlace si la salud o los flujos
-  esenciales fallan.
+- Conservar la versión anterior, pero no revertir el enlace hasta que el
+  preflight de locales de solo lectura confirme que admite todos los valores
+  persistidos. Un resultado incompatible o indeterminado exige mantener la
+  versión compatible y reparar hacia delante.
 
 ## 7. Actualización automática opcional
 
@@ -122,8 +126,23 @@ correctas.
 commit activo; nunca despliega una versión anterior ni una historia divergente.
 Cada candidato se construye en un árbol aislado, se instala como una release
 inmutable y debe superar las comprobaciones local y pública antes de quedar
-activo. Consulte `README.md` para instalar el usuario de construcción, el
+activo. Ante un fallo se detiene primero la candidata; la versión anterior solo
+se selecciona si ambas releases tienen un marcador válido, el inventario
+devuelve código `0` y la versión restaurada vuelve a estar saludable. Los
+códigos `2` o `3` conservan ambas releases y dejan la candidata seleccionada
+pero detenida para intervención manual. Consulte `README.md` para instalar el usuario de construcción, el
 archivo `/etc/umbravia-forge/update.env` y el temporizador.
+
+La raíz `/var/lib/umbravia-forge/environments` se crea durante la instalación
+aunque esté vacía. El inventario de rollback la trata como una fuente
+obligatoria: su ausencia o falta de permisos devuelve código `3`, no cero
+entornos.
+
+La primera ampliación desde una release histórica sin
+`deploy/release-capabilities.json` no se activa automáticamente. Se pausa el
+temporizador, se instala primero el updater revisado y se realiza el despliegue
+manual controlado con el inventario completo. No se modifica la release antigua
+para simular una capacidad que no declaraba.
 
 La automatización no sustituye las copias de seguridad ni autoriza cambios
 incompatibles de esquema. Las migraciones destructivas deben seguir teniendo

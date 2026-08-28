@@ -23,12 +23,18 @@ jobs:
         with:
           node-version: 24.18.0
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            cloudflare/package-lock.json
 
       - name: Use the pinned npm release
         run: npm install --global npm@11.18.0
 
       - name: Install locked dependencies
         run: npm ci
+
+      - name: Install locked Cloudflare dependencies
+        run: npm ci --prefix cloudflare --audit=false --fund=false
 
       - name: Validate Linux deployment scripts
         run: bash -n deploy/*.sh

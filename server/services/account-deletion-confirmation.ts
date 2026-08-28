@@ -43,9 +43,45 @@ function hasUsablePasswordHash(passwordHash: string): boolean {
   );
 }
 
-function supportedLocale(value: string): "es" | "en" | "de" | "de-CH" {
-  return ["es", "en", "de", "de-CH"].includes(value)
-    ? (value as "es" | "en" | "de" | "de-CH")
+function supportedLocale(
+  value: string,
+):
+  | "es"
+  | "en"
+  | "de"
+  | "de-CH"
+  | "fr"
+  | "it"
+  | "gl"
+  | "ca"
+  | "ca-valencia"
+  | "eu"
+  | "oc-aranes" {
+  return [
+    "es",
+    "en",
+    "de",
+    "de-CH",
+    "fr",
+    "it",
+    "gl",
+    "ca",
+    "ca-valencia",
+    "eu",
+    "oc-aranes",
+  ].includes(value)
+    ? (value as
+        | "es"
+        | "en"
+        | "de"
+        | "de-CH"
+        | "fr"
+        | "it"
+        | "gl"
+        | "ca"
+        | "ca-valencia"
+        | "eu"
+        | "oc-aranes")
     : "es";
 }
 

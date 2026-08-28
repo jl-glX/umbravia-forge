@@ -380,7 +380,6 @@
   "billing": {
     "eyebrow": "Umbravia Forge · Finanzverwaltung",
     "title": "Beiträge, Zahlungen und Rechnungen",
-    "description": "Verwalte Studiobeiträge, offene Zahlungen, Rechnungen und Probetrainings.",
     "connect": {
       "status": {
         "onboarding_required": "Stripe verlangt, dass die Einrichtungsleitung das Onboarding abschliesst."
@@ -657,7 +656,7 @@
     "dataReviewTitle": "Gemeinsame Datenprüfung",
     "dataReviewDescription": "Die Kontoschliessung fragt das Aufbewahrungsmodul ab und zeigt, welche Kategorien vor einer künftigen Aktion klassifiziert werden müssen.",
     "executionDisabled": "Ausführung deaktiviert",
-    "linkedRecords": "{{count}} verknüpfte Datensätze",
+    "linkedRecords": "Verknüpfte Datensätze: {{count}}",
     "dataCategories": {
       "account_profile": "Kontoprofil",
       "preferences": "Präferenzen",
@@ -693,14 +692,14 @@
     "legalDescription": "Wenn Sie das Konto löschen, können bestimmte Abrechnungs-, Sicherheits- oder Beschwerdedaten eingeschränkt aufbewahrt werden, sofern eine anwendbare rechtliche Verpflichtung besteht. Sie werden nicht für die normale Kontoaktivität verwendet.",
     "legalPending": "Daten werden nur bei einer geprüften und anwendbaren Richtlinie aufbewahrt. Ungeklärte Fälle blockieren die automatische Löschung und erfordern eine Prüfung.",
     "accountTitle": "Das vollständige Konto löschen",
-    "accountDescription": "Alle Kategorien in die Prüfung aufnehmen und die Schliessung mit einer Nachfrist von {{count}} Tagen planen.",
+    "accountDescription": "Alle Kategorien in die Prüfung aufnehmen und die Schliessung planen. Nachfrist (Tage): {{count}}.",
     "deleteAccount": "Mit der Kontolöschung fortfahren",
     "cancelAccount": "Kontoschliessung abbrechen",
     "pendingUntil": "Das Konto soll am {{date}} geschlossen werden.",
     "accountScheduled": "Die vollständige Kontoschliessung wurde geplant.",
-    "impactBookings": "{{count}} Buchungen oder Wartelistenplätze sind bei der Schliessung betroffen.",
-    "impactSessions": "{{count}} aktive Sitzungen werden widerrufen.",
-    "impactDelegations": "{{count}} ausstehende oder aktive Berechtigungen und Delegationen werden beendet.",
+    "impactBookings": "Von der Schliessung betroffene Buchungen oder Wartelistenplätze: {{count}}.",
+    "impactSessions": "Zu widerrufende aktive Sitzungen: {{count}}.",
+    "impactDelegations": "Zu beendende ausstehende oder aktive Berechtigungen und Delegationen: {{count}}.",
     "impactDownloads": "Vor der Schliessung können Sie die derzeit zum Export verfügbaren Daten herunterladen.",
     "passwordConfirmation": "Passwort bestätigen",
     "totpConfirmation": "Geben Sie den sechsstelligen Code Ihrer Authenticator-App ein",
@@ -1046,8 +1045,7 @@
     "ordersUnavailable": "Verkäufe und Bestellungen sind noch nicht aktiviert.",
     "ordersAvailable": "Sie können jetzt Ihre Bestellungen überprüfen.",
     "notAvailable": "Es ist noch keine Aktivität verfügbar.",
-    "loadFailed": "Ihre Zahlungen und Bestellungen konnten nicht geladen werden.",
-    "secureNotice": "Umbravia Forge verarbeitet in dieser Version keine Bankzahlungen und speichert keine vollständigen Kartendaten."
+    "loadFailed": "Ihre Zahlungen und Bestellungen konnten nicht geladen werden."
   },
   "trainer": {
     "title": "Trainer-Dashboard",
@@ -1553,7 +1551,7 @@
     "twoFactorDescription": "Zusätzlich zu Ihrem Passwort ist ein temporärer Authentifizierungs-App-Code erforderlich.",
     "passkeyTitle": "Biometrisches Schloss und Passschlüssel",
     "passkeyUnavailable": "Dieser Browser oder dieses Gerät bietet derzeit keinen kompatiblen integrierten Authentifikator.",
-    "passkeyPrivacy": "Ihr Fingerabdruck oder Ihr Gesicht werden auf dem Gerät überprüft und niemals an Umbravia Forge gesendet oder von Umbravia Forge gespeichert.",
+    "passkeyPrivacy": "Ihr Fingerabdruck oder Ihr Gesicht werden auf dem Gerät überprüft und niemals an Umbravia Forge gesendet oder dort gespeichert.",
     "enablePasskey": "Auf diesem Gerät aktivieren",
     "disablePasskey": "Passschlüssel deaktivieren",
     "enabled": "Ermöglicht",
@@ -1672,7 +1670,7 @@
       "email": {
         "option": "E-Mail",
         "label": "E-Mail-Adresse",
-        "placeholder": "name@beispiel.ch",
+        "placeholder": "name@example.com",
         "help": "Verwenden Sie die verifizierte Adresse des Kontos."
       },
       "username": {
@@ -1878,7 +1876,7 @@
       },
       "dataReview": {
         "title": "Wurden echte Daten eingegeben?",
-        "description": "Am Ende der Testphase bleiben 6 Stunden, um echte Daten zu melden. Bei Nein oder ausbleibender Antwort werden Testkonto, Zentrum und Umgebung gelöscht. Bei echten Daten oder Unterstützungsbedarf wird die automatische Löschung gestoppt.",
+        "description": "Diese Prüfung beginnt 6 Stunden vor dem Ende der Testphase und bleibt verfügbar, solange die Entscheidung noch anwendbar ist. Gib an, ob echte Daten eingegeben wurden. Bei Nein oder ausbleibender Antwort vor Beginn der Bereinigung werden Testkonto, Zentrum und Umgebung gelöscht. Bei echten Daten oder Unterstützungsbedarf wird die automatische Löschung gestoppt.",
         "yes": "Ja",
         "no": "Nein",
         "assistance": "Ich brauche Hilfe",
@@ -1894,7 +1892,7 @@
         "description": "Herkunft und geplante Entscheidung je Kategorie prüfen. Dieses Inventar führt keine Konvertierung aus.",
         "origin": "Herkunft",
         "decision": "Entscheidung",
-        "limit": "Grundlage für Punkt 8: Das Speichern migriert, löscht, anonymisiert oder konvertiert keine Datensätze.",
+        "limit": "Sicherheitsgrenze: Das Speichern migriert, löscht, anonymisiert oder konvertiert keine Datensätze.",
         "origins": {
           "demo_seed": "Von der Demo erzeugt",
           "user_created": "Vom Benutzer erstellt",
@@ -2026,7 +2024,7 @@
     "blockingError": "der automatische Browserschutz ist nicht verfügbar",
     "loading": "Automatischer Schutz wird vorbereitet…",
     "retry": "Verifizierung erneut versuchen",
-    "protected": "Die Cloudflare-Turnstile-Prüfung ist aktiv.",
+    "protected": "Die Cloudflare Turnstile-Prüfung ist aktiv.",
     "label": "Bestätigung durch eine Person",
     "help": "Diese Prüfung schützt Anmeldung und Registrierung vor missbräuchlicher Automatisierung.",
     "loadFailed": "Die Überprüfung konnte nicht geladen werden. Prüfe die Verbindung und versuche es erneut."
@@ -2042,6 +2040,9 @@
     "eyebrow": "Sportgemeinschaft",
     "title": "Community",
     "description": "Soziale Identität, Kontakte und Gespräche rund um das Studio und seine Kurse.",
+    "institutionalPrinciples": {
+      "conductBasedModeration": "Entscheidungen beruhen auf Verhalten, Kontext, Belegen, Schaden, Wiederholung, Schweregrad und Verhältnismässigkeit."
+    },
     "identity": "Identität und Datenschutz",
     "username": "Benutzername",
     "usernameTaken": "Dieser Benutzername wird bereits verwendet. Wähle einen anderen.",
@@ -2203,7 +2204,7 @@
     "unassigned": "Nicht zugewiesen",
     "nextFollowUp": "Nächste Nachverfolgung",
     "effectiveSegment": "Wirksames Segment",
-    "openFollowUps": "{{count}} offene Nachverfolgungen",
+    "openFollowUps": "Offene Nachverfolgungen",
     "unknownAssignee": "Verantwortliche Person nicht verfügbar",
     "unknownMember": "Mitglied nicht verfügbar",
     "chooseMember": "Mitglied auswählen",

@@ -2,17 +2,117 @@ import { createServer } from "node:net";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  SUPPORTED_LOCALES,
+  type SupportedLocale,
+} from "../lib/supported-locales.js";
+import {
   buildAccountDeletionPreparationMessage,
+  buildFacilityInvitationMessage,
   buildEmailChangeAttemptNoticeMessage,
   buildEmailChangeVerificationMessage,
   buildEmailVerificationMessage,
   buildAccountRecoveryMessage,
   renderControlledSupportMessageHtml,
+  renderUmfSupportEmailContent,
   resetEmailTransportForTests,
   resolveEmailDeliveryConfiguration,
   sendEmailVerificationCode,
   sendTransactionalEmail,
 } from "./email-delivery.js";
+
+const emailSentinels: Record<
+  SupportedLocale,
+  { verification: string; recovery: string; securityHeading: string }
+> = {
+  es: {
+    verification: "Confirma tu correo en Umbravia Forge",
+    recovery: "Recupera tu cuenta de Umbravia Forge",
+    securityHeading: "Información técnica y de seguridad",
+  },
+  en: {
+    verification: "Confirm your Umbravia Forge email",
+    recovery: "Recover your Umbravia Forge account",
+    securityHeading: "Technical and security information",
+  },
+  de: {
+    verification: "E-Mail für Umbravia Forge bestätigen",
+    recovery: "Umbravia-Forge-Konto wiederherstellen",
+    securityHeading: "Technische und sicherheitsrelevante Informationen",
+  },
+  "de-CH": {
+    verification: "E-Mail für Umbravia Forge bestätigen",
+    recovery: "Umbravia-Forge-Konto wiederherstellen",
+    securityHeading: "Technische und sicherheitsrelevante Informationen",
+  },
+  fr: {
+    verification: "Confirmez votre adresse e-mail Umbravia Forge",
+    recovery: "Récupérez votre compte Umbravia Forge",
+    securityHeading: "Informations techniques et de sécurité",
+  },
+  it: {
+    verification: "Conferma il tuo indirizzo email Umbravia Forge",
+    recovery: "Recupera il tuo account Umbravia Forge",
+    securityHeading: "Informazioni tecniche e di sicurezza",
+  },
+  gl: {
+    verification: "Confirma o teu correo de Umbravia Forge",
+    recovery: "Recupera a túa conta de Umbravia Forge",
+    securityHeading: "Información técnica e de seguridade",
+  },
+  ca: {
+    verification: "Confirma el teu correu d’Umbravia Forge",
+    recovery: "Recupera el teu compte d’Umbravia Forge",
+    securityHeading: "Informació tècnica i de seguretat",
+  },
+  "ca-valencia": {
+    verification: "Confirma el teu correu d’Umbravia Forge",
+    recovery: "Recupera el teu compte d’Umbravia Forge",
+    securityHeading: "Informació tècnica i de seguretat",
+  },
+  eu: {
+    verification: "Berretsi Umbravia Forge-ko helbide elektronikoa",
+    recovery: "Berreskuratu Umbravia Forge-ko kontua",
+    securityHeading: "Informazio teknikoa eta segurtasunekoa",
+  },
+  "oc-aranes": {
+    verification: "Confirma eth tòn corrèu electronic d’Umbravia Forge",
+    recovery: "Recupèra eth tòn compde d’Umbravia Forge",
+    securityHeading: "Informacion tecnica e de seguretat",
+  },
+};
+
+const invitationRoleNames: Record<
+  SupportedLocale,
+  Record<"admin" | "trainer" | "member", string>
+> = {
+  es: { admin: "administrador", trainer: "entrenador", member: "socio" },
+  en: { admin: "administrator", trainer: "trainer", member: "member" },
+  de: { admin: "Administrator", trainer: "Trainer", member: "Mitglied" },
+  "de-CH": {
+    admin: "Administrator",
+    trainer: "Trainer",
+    member: "Mitglied",
+  },
+  fr: { admin: "administrateur", trainer: "entraîneur", member: "membre" },
+  it: { admin: "amministratore", trainer: "istruttore", member: "membro" },
+  gl: { admin: "administrador", trainer: "adestrador", member: "socio" },
+  ca: { admin: "administrador", trainer: "entrenador", member: "soci" },
+  "ca-valencia": {
+    admin: "administrador",
+    trainer: "entrenador",
+    member: "soci",
+  },
+  eu: {
+    admin: "administratzaile",
+    trainer: "entrenatzaile",
+    member: "kide",
+  },
+  "oc-aranes": {
+    admin: "administrator",
+    trainer: "entrenador",
+    member: "membre",
+  },
+};
 
 describe("email delivery configuration", () => {
   afterEach(() => {
@@ -245,6 +345,45 @@ describe("email delivery configuration", () => {
     expect(html).toContain("[mal](javascript:alert(2))");
   });
 
+  it("keeps opaque support content literal and renders only its controlled action", () => {
+    const value =
+      "USER [abre](https://evil.example) <script>alert(1)</script> & literal";
+    const withoutAction = renderUmfSupportEmailContent({
+      kind: "opaque-with-action",
+      value,
+    });
+    expect(withoutAction.text).toBe(value);
+    expect(withoutAction.html).toContain(
+      "[abre](https://evil.example) &lt;script&gt;alert(1)&lt;/script&gt; &amp; literal",
+    );
+    expect(withoutAction.html).not.toContain("<script>");
+    expect(withoutAction.html).not.toContain("<a ");
+
+    const withAction = renderUmfSupportEmailContent({
+      kind: "opaque-with-action",
+      value,
+      action: {
+        label: "Abre UMF Support",
+        url: "https://www.umbraviaforge.com/umf-support",
+      },
+    });
+    expect(withAction.text).toBe(
+      `${value}\n\n[Abre UMF Support](https://www.umbraviaforge.com/umf-support)`,
+    );
+    expect(withAction.html).not.toContain('href="https://evil.example');
+    expect(withAction.html).toContain(
+      'href="https://www.umbraviaforge.com/umf-support"',
+    );
+    expect(withAction.html.match(/<a /g)).toHaveLength(1);
+    expect(() =>
+      renderUmfSupportEmailContent({
+        kind: "opaque-with-action",
+        value,
+        action: { label: "Unsafe", url: "javascript:alert(1)" },
+      }),
+    ).toThrow("Invalid controlled UMF Support email action");
+  });
+
   it("builds a localized recovery message without allowing name markup", () => {
     const message = buildAccountRecoveryMessage(
       "<img src=x onerror=alert(1)>",
@@ -324,5 +463,125 @@ describe("email delivery configuration", () => {
     );
     expect(message.html).toContain('width="600"');
     expect(message.html).toContain("mso-table-lspace:0pt");
+  });
+
+  it("localizes every security-message family for the canonical locale set", () => {
+    const verificationEs = buildEmailVerificationMessage(
+      "Member",
+      "123456",
+      "es",
+    );
+
+    for (const locale of SUPPORTED_LOCALES) {
+      const verification = buildEmailVerificationMessage(
+        "Member",
+        "123456",
+        locale,
+      );
+      const change = buildEmailChangeVerificationMessage(
+        "Member",
+        "123456",
+        locale,
+        6,
+      );
+      const attempt = buildEmailChangeAttemptNoticeMessage({
+        name: "Member",
+        locale,
+        recoveryUrl: "https://www.umbraviaforge.com/recover-account",
+      });
+      const recovery = buildAccountRecoveryMessage("Member", "654321", locale);
+      expect(verification.subject).toBe(emailSentinels[locale].verification);
+      expect(recovery.subject).toBe(emailSentinels[locale].recovery);
+      expect(change.subject).toBeTruthy();
+      expect(attempt.subject).toBeTruthy();
+      expect(verification.text).toContain("123456");
+      expect(change.text).toContain("123456");
+      expect(attempt.text).toContain("/recover-account");
+      expect(recovery.text).toContain("654321");
+      expect(
+        `${verification.text}${change.text}${attempt.text}${recovery.text}`,
+      ).not.toContain("undefined");
+    }
+
+    const valencianVerification = buildEmailVerificationMessage(
+      "Member",
+      "123456",
+      "ca-valencia",
+    );
+    const catalanVerification = buildEmailVerificationMessage(
+      "Member",
+      "123456",
+      "ca",
+    );
+    expect(valencianVerification.subject).toBe(catalanVerification.subject);
+    expect(valencianVerification.text).toBe(catalanVerification.text);
+    expect(
+      buildEmailVerificationMessage("Member", "123456", "xx" as never),
+    ).toEqual(verificationEs);
+  });
+
+  it("localizes admin, trainer and member invitations for every canonical locale", () => {
+    vi.stubEnv("CLIENT_ORIGIN", "https://www.umbraviaforge.com");
+    const expiresAt = Date.now() + 10 * 24 * 60 * 60 * 1000;
+    const build = (locale: string, role: "admin" | "trainer" | "member") =>
+      buildFacilityInvitationMessage({
+        email: "invitee@example.com",
+        name: "Invited Person",
+        facilityName: "Umbravia Test",
+        role,
+        token: "invitation-token",
+        locale: locale as never,
+        expiresAt,
+      });
+    for (const role of ["admin", "trainer", "member"] as const) {
+      const spanish = build("es", role);
+      for (const locale of SUPPORTED_LOCALES) {
+        const message = build(locale, role);
+        expect(message.locale).toBe(locale);
+        expect(message.payload.subject).toBeTruthy();
+        expect(message.payload.text).toContain(
+          invitationRoleNames[locale][role],
+        );
+        expect(message.payload.text).toContain("Umbravia Test");
+        expect(message.payload.text).toContain("invitation-token");
+        expect(
+          `${message.payload.subject}${message.payload.text}${message.payload.html}`,
+        ).not.toContain("undefined");
+      }
+      const valencian = build("ca-valencia", role).payload;
+      const catalan = build("ca", role).payload;
+      expect(valencian.subject).toBe(catalan.subject);
+      expect(valencian.text).toBe(catalan.text);
+      expect(valencian.html).toBe(catalan.html);
+      expect(build("xx", role)).toEqual(spanish);
+    }
+  });
+
+  it("uses resolved Intl locales and localized security details for account closure", () => {
+    const build = (locale: string) =>
+      buildAccountDeletionPreparationMessage({
+        name: "Member",
+        locale: locale as never,
+        graceEndsAt: Date.UTC(2026, 8, 12, 10, 30),
+        revokedOtherSessions: true,
+        removedTemporaryChallenges: true,
+        accountUrl: "https://www.umbraviaforge.com/account/lifecycle",
+        loginUrl: "https://www.umbraviaforge.com/login",
+        recoveryUrl: "https://www.umbraviaforge.com/recover-account",
+        feedbackUrl:
+          "https://www.umbraviaforge.com/feedback?context=account-closure",
+      });
+    const spanish = build("es");
+    for (const locale of SUPPORTED_LOCALES) {
+      const message = build(locale);
+      expect(message.subject).toBeTruthy();
+      expect(message.text).toContain("/account/lifecycle");
+      expect(message.text).toContain("/recover-account");
+      expect(message.html).toContain(`<html lang="${locale}">`);
+      expect(message.text).toContain(emailSentinels[locale].securityHeading);
+    }
+    expect(build("ca-valencia").subject).toBe(build("ca").subject);
+    expect(build("ca-valencia").text).toBe(build("ca").text);
+    expect(build("xx")).toEqual(spanish);
   });
 });

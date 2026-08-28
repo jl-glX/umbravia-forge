@@ -8,6 +8,7 @@ import {
 import { getAllowedClientOrigins } from "../lib/request-origin.js";
 import {
   OfficialStripeConnectGateway,
+  resolveStripeAccountLocale,
   type ConnectedAccountSnapshot,
   type StripeConnectGateway,
 } from "./stripe-connect-gateway.js";
@@ -180,11 +181,7 @@ export async function createStripeConnectedAccount(input: {
       409,
     );
   }
-  const locale = owner.locale.startsWith("de")
-    ? "de"
-    : owner.locale.startsWith("en")
-      ? "en"
-      : "es";
+  const locale = resolveStripeAccountLocale(owner.locale);
   const country = /^[A-Z]{2}$/.test(owner.countryCode)
     ? owner.countryCode
     : "ES";

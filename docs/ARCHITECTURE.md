@@ -226,17 +226,65 @@ challenges and queues a security notice to the previous address.
 
 ## Localization
 
-`i18next` manages interface text and language selection. Browser `Intl` handles locale-sensitive dates, time zones, numbers and currencies. Spanish, English and standard German catalogues live in `client/src/i18n/locales`; `de-CH` supplies Swiss Standard German spelling and regional overrides while inheriting the common German catalogue.
+El cambio activo amplía el contrato de `i18next`, detección y persistencia a los
+once locales internos `es`, `en`, `de`, `de-CH`, `fr`, `it`, `gl`, `ca`,
+`ca-valencia`, `eu` y `oc-aranes`. La arquitectura técnica está implementada.
+Los nueve catálogos completos comparten el conjunto canónico de 2.439 claves;
+la variante valenciana contiene 394 diferencias reales sobre catalán. Las
+revisiones independientes y la aprobación hash-pinned de coincidencias están
+materializadas para los siete recursos nuevos. Ningún idioma nuevo tiene
+revisión nativa ni la rama es entregable hasta superar la revisión final del
+diff y la validación global. `de-CH` hereda de `de` y
+`ca-valencia` de `ca`; el resto requiere un catálogo completo. El selector, el
+alta y la prueba comercial comparten una única fuente de opciones y las ordenan
+por el nombre visible mediante `Intl.Collator` del idioma activo.
 
-The billing currency allowlist includes Swiss francs (`CHF`). Amounts are formatted by `Intl.NumberFormat` with the active interface locale, so German and Swiss German use their corresponding regional conventions without custom separators.
+Cliente y servidor mantienen canonicalizadores equivalentes sin importar el
+código del servidor en el navegador. Normalizan guion bajo y caso, validan la
+sintaxis con `Intl.getCanonicalLocales`, reconocen solo los subtags exactos
+`valencia` y `aranes`, rechazan etiquetas incompatibles y persisten el código
+interno canónico. `resolveIntlLocale` traduce esos códigos a `es-ES`, `en-GB`,
+`de-DE`, `de-CH`, `fr-FR`, `it-IT`, `gl-ES`, `ca-ES`, `ca-ES-valencia`,
+`eu-ES` u `oc-ES` antes de usar `Intl`.
 
-Known demo classes are localized at display time. User-created names and descriptions remain exactly as entered.
+Los adaptadores de proveedor permanecen separados de `SupportedLocale`:
+Turnstile devuelve `auto` para vacío, desconocido o idioma no admitido; Stripe
+Connect omite la preferencia cuando su contrato no ofrece el locale. Las bases
+existentes amplían sus restricciones mediante migraciones idempotentes en
+SQLite y PostgreSQL, no solo mediante el esquema inicial. La matriz, las
+restricciones concretas, el origen y la calidad de los catálogos se detallan en
+[`LOCALIZATION.md`](./LOCALIZATION.md).
+
+La lista de monedas incluye francos suizos (`CHF`). Fechas, números y monedas
+se formatean con el locale `Intl` resuelto, sin separadores propios. Las clases
+de demostración conocidas se localizan al mostrarse; nombres, descripciones y
+cualquier otro contenido introducido por usuarios permanecen exactamente como
+se escribieron.
 
 Administrators may create up to 31 dated activity sessions in one atomic
 series. Each date has an independent identifier, capacity, bookings and
 waitlist. A shared lead time is resolved into an absolute `bookingOpensAt` for
 each session; the server remains authoritative and the client merely displays
 the corresponding countdown.
+
+La revisión de datos reales de una prueba comercial es una regla de dominio:
+permanece oculta hasta las seis horas previas a `expiresAt`, se abre en el
+límite exacto y se cierra cuando `cleanupEligibleAt` pasa a ser aplicable. La
+misma función calcula el estado serializado y autoriza o rechaza la mutación;
+la interfaz no duplica la duración. El servidor entrega su instante de cálculo
+y el cliente programa el refresco con ese delta, por lo que un reloj local
+desfasado no adelanta la tarjeta. El tránsito y renderizado pueden retrasarla
+ligeramente, nunca abrirla antes; el servidor sigue siendo la autoridad.
+
+Las actividades predeterminadas de las plantillas comerciales son texto de
+sistema, no identificadores persistidos ni contenido de usuario. El servidor
+mantiene 19 conceptos semánticos y materializa sus etiquetas según el locale
+canónico al finalizar el alta administrativa, al crear una prueba sin
+`classTypes` explícitos o al restaurar deliberadamente la plantilla. Un array
+aportado por el usuario —incluido `[]`, Unicode, puntuación y espacios de
+borde— se conserva; cambiar el tipo o el locale no reescribe filas existentes.
+La proyección histórica de plantillas de `GET /api/commercial` permanece en
+español para no romper consumidores anteriores.
 
 ## Evolution boundaries
 
@@ -284,6 +332,12 @@ cases. These modules communicate through stable account and message IDs while
 keeping billing, credentials and private account data outside community
 queries. Class-channel authorization is derived from bookings, the waitlist,
 the assigned trainer or the administrator role.
+
+The institutional-principles endpoint preserves its legacy Spanish object by
+default. Clients that request `format=keys` receive a versioned closed set of
+semantic IDs and resolve the visible copy through the active catalogue. An
+unknown ID, malformed response or future unsupported version fails closed and
+does not render remote prose or an empty principles card.
 
 The operational scope and consciously deferred decisions are recorded in
 `docs/COMMERCIAL-POINTS-22-38.md`.

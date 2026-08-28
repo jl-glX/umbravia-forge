@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { authFetch } from "../lib/api";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -286,7 +287,7 @@ export function AccountSecurityPage({
     }, t("security.compromiseSuccess"));
 
   const date = (value: number) =>
-    new Intl.DateTimeFormat(i18n.language, {
+    new Intl.DateTimeFormat(resolveIntlLocale(i18n.language), {
       dateStyle: "medium",
       timeStyle: "short",
     }).format(value);

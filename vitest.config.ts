@@ -22,6 +22,7 @@ export default defineConfig({
     include: [
       "server/**/*.test.ts",
       "client/src/**/*.test.ts",
+      "client/src/**/*.test.tsx",
       "cloudflare/**/*.test.ts",
     ],
     globalSetup: ["./scripts/testing/vitest-resource-guard.ts"],

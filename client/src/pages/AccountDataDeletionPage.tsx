@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { authFetch } from "../lib/api";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 import { VerifiedForm } from "../components/VerifiedForm";
 import { PasswordInput } from "../components/PasswordInput";
 import { useAuth } from "../hooks/useAuth";
@@ -223,7 +224,7 @@ export function AccountDataDeletionPage() {
   };
 
   const formatDate = (timestamp: number) =>
-    new Intl.DateTimeFormat(i18n.language, {
+    new Intl.DateTimeFormat(resolveIntlLocale(i18n.language), {
       dateStyle: "long",
       timeStyle: "short",
     }).format(timestamp);

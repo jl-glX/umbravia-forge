@@ -152,6 +152,63 @@ describe("progressive account signup", () => {
     expect(login.body.user).not.toHaveProperty("password");
   });
 
+  it("canonicalizes equivalent signup locales and rejects unknown or missing values", async () => {
+    for (const [index, locale, canonical] of [
+      [1, "FR-fr", "fr"],
+      [2, "it_IT", "it"],
+      [3, "ca-ES-valencia", "ca-valencia"],
+      [4, "oc-ES-aranes", "oc-aranes"],
+    ] as const) {
+      const email = `canonical-signup-${index}@example.com`;
+      await request(app)
+        .post("/api/auth/signup")
+        .send({
+          email,
+          name: "Canonical",
+          lastName: "Signup",
+          password: "ProgressivePassword123",
+          countryCode: "ES",
+          locale,
+          acceptedTerms: true,
+          acceptedPrivacy: true,
+        })
+        .expect(201);
+      await expect(
+        database.db
+          .selectFrom("users")
+          .select("locale")
+          .where("email", "=", email)
+          .executeTakeFirstOrThrow(),
+      ).resolves.toEqual({ locale: canonical });
+    }
+
+    const base = {
+      email: "invalid-locale-signup@example.com",
+      name: "Invalid",
+      lastName: "Locale",
+      password: "ProgressivePassword123",
+      countryCode: "ES",
+      acceptedTerms: true,
+      acceptedPrivacy: true,
+    };
+    for (const locale of [
+      "xx",
+      "oc",
+      "oc-ES",
+      "oc-FR",
+      "oc-Latn-ES",
+      "ca-FR-valencia",
+      "ca-US-valencia",
+      "oc-FR-aranes",
+    ]) {
+      await request(app)
+        .post("/api/auth/signup")
+        .send({ ...base, email: `${locale.toLowerCase()}@example.com`, locale })
+        .expect(400);
+    }
+    await request(app).post("/api/auth/signup").send(base).expect(400);
+  });
+
   it("creates an administrator tenant only after email verification", async () => {
     const signup = await request(app).post("/api/auth/signup").send({
       email: "new-administrator@example.com",
@@ -159,7 +216,7 @@ describe("progressive account signup", () => {
       lastName: "Administrator",
       password: "ProgressivePassword123",
       countryCode: "ES",
-      locale: "es",
+      locale: "fr",
       acceptedTerms: true,
       acceptedPrivacy: true,
       accountType: "administrator",
@@ -175,12 +232,13 @@ describe("progressive account signup", () => {
     expect(
       await database.db
         .selectFrom("administratorSignupProvisioning")
-        .select(["facilityName", "facilityType"])
+        .select(["facilityName", "facilityType", "locale"])
         .where("userId", "=", userId)
         .executeTakeFirstOrThrow(),
     ).toEqual({
       facilityName: "Centro Verificado",
       facilityType: "functional_training",
+      locale: "fr",
     });
     expect(
       await database.db
@@ -224,10 +282,19 @@ describe("progressive account signup", () => {
     expect(membership.facilityId).not.toBe("facility-alpha");
     const trial = await database.db
       .selectFrom("commercialTrials")
-      .select(["facilityId", "ownerUserId", "startedAt", "expiresAt"])
+      .select([
+        "facilityId",
+        "ownerUserId",
+        "classTypes",
+        "locale",
+        "startedAt",
+        "expiresAt",
+      ])
       .where("ownerUserId", "=", userId)
       .executeTakeFirstOrThrow();
     expect(trial.facilityId).toBe(membership.facilityId);
+    expect(trial.locale).toBe("fr");
+    expect(JSON.parse(trial.classTypes)).toEqual(["Entraînement fonctionnel"]);
     expect(trial.expiresAt - trial.startedAt).toBe(31 * 24 * 60 * 60 * 1000);
     expect(
       await database.db

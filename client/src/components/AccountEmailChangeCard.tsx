@@ -3,6 +3,7 @@ import { MailCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { authFetch } from "../lib/api";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 import { PasswordInput } from "./PasswordInput";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -44,7 +45,7 @@ export function AccountEmailChangeCard({
   accountUser,
   onAccountRefresh,
 }: AccountEmailChangeCardProps = {}) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user: commercialUser, refreshUser } = useAuth();
   const user = accountUser ?? commercialUser;
   const [newEmail, setNewEmail] = useState("");
@@ -88,7 +89,7 @@ export function AccountEmailChangeCard({
       setVerificationPending(true);
       setNotice(
         t("accountEmailChange.codeSent", {
-          time: new Intl.DateTimeFormat(undefined, {
+          time: new Intl.DateTimeFormat(resolveIntlLocale(i18n.language), {
             dateStyle: "short",
             timeStyle: "short",
           }).format(result.expiresAt),

@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Info, Lightbulb } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { AnalyticsOverview } from "../hooks/useAnalytics";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 import { localizeClass } from "../lib/classLocalization";
 import { Card } from "./ui/card";
 
@@ -325,9 +326,12 @@ export function MemberEngagementTable({
                   </td>
                   <td className="px-4 py-4 text-slate-700">
                     {member.lastSessionAt
-                      ? new Intl.DateTimeFormat(i18n.language, {
-                          dateStyle: "medium",
-                        }).format(member.lastSessionAt)
+                      ? new Intl.DateTimeFormat(
+                          resolveIntlLocale(i18n.language),
+                          {
+                            dateStyle: "medium",
+                          },
+                        ).format(member.lastSessionAt)
                       : t("analytics.notMeasured")}
                   </td>
                 </tr>

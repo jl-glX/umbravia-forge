@@ -1,23 +1,8 @@
 import i18n from "../i18n/config";
-
-const localeByLanguage: Record<string, string> = {
-  en: "en-GB",
-  es: "es-ES",
-  de: "de-DE",
-  "de-CH": "de-CH",
-};
+import { resolveIntlLocale } from "../i18n/supported-locales";
 
 function getLocale(language = i18n.resolvedLanguage): string {
-  const normalizedLanguage = language?.replace("_", "-") ?? "es";
-  const exactLocale = Object.keys(localeByLanguage).find(
-    (candidate) => candidate.toLowerCase() === normalizedLanguage.toLowerCase(),
-  );
-  const baseLanguage = normalizedLanguage.split("-")[0];
-  return (
-    (exactLocale && localeByLanguage[exactLocale]) ??
-    localeByLanguage[baseLanguage] ??
-    "es-ES"
-  );
+  return resolveIntlLocale(language);
 }
 
 export function formatDate(timestamp: number): string {

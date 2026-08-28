@@ -22,8 +22,25 @@ import {
 import { recordSecurityEvent } from "./security-events.js";
 import { readUmfSupportMailDeliveryAttachments } from "./umf-support-mail-attachments.js";
 import { getAllowedClientOrigins } from "../lib/request-origin.js";
+import {
+  canonicalizeLocale,
+  isSupportedLocale,
+  resolveIntlLocale,
+  type SupportedLocale,
+} from "../lib/supported-locales.js";
 
-type SupportedLocale = "es" | "en" | "de" | "de-CH";
+type BaseEmailLocale = Exclude<SupportedLocale, "de-CH" | "ca-valencia">;
+
+function withRegionalEmailFallbacks<T>(
+  messages: Record<BaseEmailLocale, T>,
+  regional: { deCH?: T; caValencia?: T } = {},
+): Record<SupportedLocale, T> {
+  return {
+    ...messages,
+    "de-CH": regional.deCH ?? messages.de,
+    "ca-valencia": regional.caValencia ?? messages.ca,
+  };
+}
 type EmailDeliveryPayload = {
   email: string;
   name?: string;
@@ -310,10 +327,7 @@ export function buildEmailVerificationMessage(
   locale: SupportedLocale,
   includeHeader = true,
 ): VerificationMessage {
-  const messages: Record<
-    SupportedLocale,
-    { subject: string; greeting: string; instruction: string; expiry: string }
-  > = {
+  const messages = withRegionalEmailFallbacks({
     es: {
       subject: "Confirma tu correo en Umbravia Forge",
       greeting: `Hola, ${name}:`,
@@ -337,21 +351,61 @@ export function buildEmailVerificationMessage(
       expiry:
         "Der Code läuft in 15 Minuten ab. Wenn Sie dieses Konto nicht erstellt haben, können Sie diese Nachricht ignorieren.",
     },
-    "de-CH": {
-      subject: "E-Mail für Umbravia Forge bestätigen",
-      greeting: `Hallo, ${name}:`,
+    fr: {
+      subject: "Confirmez votre adresse e-mail Umbravia Forge",
+      greeting: `Bonjour, ${name} :`,
       instruction:
-        "Verwenden Sie diesen Code, um Ihr Umbravia-Forge-Konto zu bestätigen:",
+        "Utilisez ce code pour confirmer votre compte Umbravia Forge :",
       expiry:
-        "Der Code läuft in 15 Minuten ab. Wenn Sie dieses Konto nicht erstellt haben, können Sie diese Nachricht ignorieren.",
+        "Le code expire dans 15 minutes. Si vous n’avez pas créé ce compte, vous pouvez ignorer ce message.",
     },
-  };
-  const message = messages[locale] ?? messages.es;
+    it: {
+      subject: "Conferma il tuo indirizzo email Umbravia Forge",
+      greeting: `Ciao, ${name}:`,
+      instruction:
+        "Usa questo codice per confermare il tuo account Umbravia Forge:",
+      expiry:
+        "Il codice scade tra 15 minuti. Se non hai creato questo account, puoi ignorare questo messaggio.",
+    },
+    gl: {
+      subject: "Confirma o teu correo de Umbravia Forge",
+      greeting: `Ola, ${name}:`,
+      instruction:
+        "Usa este código para confirmar a túa conta de Umbravia Forge:",
+      expiry:
+        "O código caduca en 15 minutos. Se non creaches esta conta, podes ignorar esta mensaxe.",
+    },
+    ca: {
+      subject: "Confirma el teu correu d’Umbravia Forge",
+      greeting: `Hola, ${name}:`,
+      instruction:
+        "Fes servir aquest codi per confirmar el teu compte d’Umbravia Forge:",
+      expiry:
+        "El codi caduca d’aquí a 15 minuts. Si no has creat aquest compte, pots ignorar aquest missatge.",
+    },
+    eu: {
+      subject: "Berretsi Umbravia Forge-ko helbide elektronikoa",
+      greeting: `Kaixo, ${name}:`,
+      instruction: "Erabili kode hau Umbravia Forge-ko kontua berresteko:",
+      expiry:
+        "Kodea 15 minutu barru iraungiko da. Kontu hau ez baduzu sortu, ez ikusi mezu hau.",
+    },
+    "oc-aranes": {
+      subject: "Confirma eth tòn corrèu electronic d’Umbravia Forge",
+      greeting: `Adiu, ${name}:`,
+      instruction:
+        "Utiliza aguest còdi entà confirmar eth tòn compde d’Umbravia Forge:",
+      expiry:
+        "Eth còdi caduque en 15 minutes. Se non as creat aguest compde, pòs ignorar aguest messatge.",
+    },
+  });
+  const effectiveLocale = canonicalizeLocale(locale);
+  const message = messages[effectiveLocale];
   return {
     subject: message.subject,
     text: `${message.greeting}\n\n${message.instruction}\n\n${code}\n\n${message.expiry}`,
     html: brandedVerificationHtml({
-      locale,
+      locale: effectiveLocale,
       greeting: message.greeting,
       instruction: message.instruction,
       code,
@@ -367,10 +421,7 @@ export function buildEmailChangeVerificationMessage(
   locale: SupportedLocale,
   validityHours: number,
 ): VerificationMessage {
-  const messages: Record<
-    SupportedLocale,
-    { subject: string; greeting: string; instruction: string; expiry: string }
-  > = {
+  const messages = withRegionalEmailFallbacks({
     es: {
       subject: "Confirma tu nuevo correo de Umbravia Forge",
       greeting: `Hola, ${name}:`,
@@ -391,20 +442,55 @@ export function buildEmailChangeVerificationMessage(
         "Verwenden Sie diesen Code, um die neue E-Mail-Adresse Ihres Kontos zu bestätigen:",
       expiry: `Der Code läuft in ${validityHours} Stunden ab. Wenn Sie diese Änderung nicht angefordert haben, geben Sie ihn nicht weiter und überprüfen Sie die Kontosicherheit.`,
     },
-    "de-CH": {
-      subject: "Neue E-Mail-Adresse für Umbravia Forge bestätigen",
-      greeting: `Hallo, ${name}:`,
+    fr: {
+      subject: "Confirmez votre nouvelle adresse e-mail Umbravia Forge",
+      greeting: `Bonjour, ${name} :`,
       instruction:
-        "Verwenden Sie diesen Code, um die neue E-Mail-Adresse Ihres Kontos zu bestätigen:",
-      expiry: `Der Code läuft in ${validityHours} Stunden ab. Wenn Sie diese Änderung nicht angefordert haben, geben Sie ihn nicht weiter und überprüfen Sie die Kontosicherheit.`,
+        "Utilisez ce code pour vérifier la nouvelle adresse e-mail de votre compte :",
+      expiry: `Le code expire dans ${validityHours} heures. Si vous n’avez pas demandé ce changement, ne le partagez pas et vérifiez la sécurité de votre compte.`,
     },
-  };
-  const message = messages[locale] ?? messages.es;
+    it: {
+      subject: "Conferma la nuova email di Umbravia Forge",
+      greeting: `Ciao, ${name}:`,
+      instruction:
+        "Usa questo codice per verificare il nuovo indirizzo email del tuo account:",
+      expiry: `Il codice scade tra ${validityHours} ore. Se non hai richiesto questa modifica, non condividerlo e controlla la sicurezza del tuo account.`,
+    },
+    gl: {
+      subject: "Confirma o teu novo correo de Umbravia Forge",
+      greeting: `Ola, ${name}:`,
+      instruction: "Usa este código para verificar o novo correo da túa conta:",
+      expiry: `O código caduca en ${validityHours} horas. Se non solicitaches o cambio, non o compartas e revisa a seguridade da túa conta.`,
+    },
+    ca: {
+      subject: "Confirma el teu nou correu d’Umbravia Forge",
+      greeting: `Hola, ${name}:`,
+      instruction:
+        "Fes servir aquest codi per verificar el nou correu del teu compte:",
+      expiry: `El codi caduca d’aquí a ${validityHours} hores. Si no has sol·licitat el canvi, no el comparteixis i revisa la seguretat del compte.`,
+    },
+    eu: {
+      subject: "Berretsi Umbravia Forge-ko helbide elektroniko berria",
+      greeting: `Kaixo, ${name}:`,
+      instruction:
+        "Erabili kode hau kontuaren helbide elektroniko berria egiaztatzeko:",
+      expiry: `Kodea ${validityHours} ordu barru iraungiko da. Aldaketa eskatu ez baduzu, ez partekatu eta berrikusi kontuaren segurtasuna.`,
+    },
+    "oc-aranes": {
+      subject: "Confirma eth tòn nau corrèu electronic d’Umbravia Forge",
+      greeting: `Adiu, ${name}:`,
+      instruction:
+        "Utiliza aguest còdi entà verificar eth nau corrèu electronic deth tòn compde:",
+      expiry: `Eth còdi caduque en ${validityHours} ores. Se non as demanat eth cambi, non lo compartisques e revise era seguretat deth tòn compde.`,
+    },
+  });
+  const effectiveLocale = canonicalizeLocale(locale);
+  const message = messages[effectiveLocale];
   return {
     subject: message.subject,
     text: `${message.greeting}\n\n${message.instruction}\n\n${code}\n\n${message.expiry}`,
     html: brandedVerificationHtml({
-      locale,
+      locale: effectiveLocale,
       greeting: message.greeting,
       instruction: message.instruction,
       code,
@@ -419,10 +505,7 @@ export function buildEmailChangeAttemptNoticeMessage(input: {
   locale: SupportedLocale;
   recoveryUrl: string;
 }): VerificationMessage {
-  const content: Record<
-    SupportedLocale,
-    { subject: string; greeting: string; notice: string; action: string }
-  > = {
+  const content = withRegionalEmailFallbacks({
     es: {
       subject: "Intento de cambio de correo en tu cuenta",
       greeting: `Hola, ${input.name}:`,
@@ -441,14 +524,50 @@ export function buildEmailChangeAttemptNoticeMessage(input: {
       notice: "Es wurde versucht, die E-Mail-Adresse Ihres Kontos zu ändern.",
       action: "Wenn Sie das nicht waren, stellen Sie Ihr Konto wieder her",
     },
-    "de-CH": {
-      subject: "Versuch, die E-Mail-Adresse Ihres Kontos zu ändern",
-      greeting: `Hallo, ${input.name}:`,
-      notice: "Es wurde versucht, die E-Mail-Adresse Ihres Kontos zu ändern.",
-      action: "Wenn Sie das nicht waren, stellen Sie Ihr Konto wieder her",
+    fr: {
+      subject: "Tentative de modification de l’adresse e-mail de votre compte",
+      greeting: `Bonjour, ${input.name} :`,
+      notice:
+        "Une tentative de modification de l’adresse e-mail de votre compte a eu lieu.",
+      action:
+        "Si vous n’êtes pas à l’origine de cette action, récupérez votre compte",
     },
-  };
-  const message = content[input.locale] ?? content.es;
+    it: {
+      subject: "Tentativo di modifica dell’email del tuo account",
+      greeting: `Ciao, ${input.name}:`,
+      notice:
+        "È stato effettuato un tentativo di modifica dell’email del tuo account.",
+      action: "Se non sei stato tu, recupera il tuo account",
+    },
+    gl: {
+      subject: "Intento de cambio do correo da túa conta",
+      greeting: `Ola, ${input.name}:`,
+      notice: "Houbo un intento de cambio do correo da túa conta.",
+      action: "Se non fuches ti, recupera a túa conta",
+    },
+    ca: {
+      subject: "Intent de canvi del correu del teu compte",
+      greeting: `Hola, ${input.name}:`,
+      notice: "Hi ha hagut un intent de canvi del correu del teu compte.",
+      action: "Si no has estat tu, recupera el compte",
+    },
+    eu: {
+      subject: "Kontuaren helbide elektronikoa aldatzeko saiakera",
+      greeting: `Kaixo, ${input.name}:`,
+      notice:
+        "Zure kontuaren helbide elektronikoa aldatzeko saiakera bat egon da.",
+      action: "Zuk egin ez baduzu, berreskuratu kontua",
+    },
+    "oc-aranes": {
+      subject: "Saj d’cambi deth corrèu electronic deth tòn compde",
+      greeting: `Adiu, ${input.name}:`,
+      notice:
+        "I a agut un saj de cambiar eth corrèu electronic deth tòn compde.",
+      action: "Se non as estat tu, recupèra eth tòn compde",
+    },
+  });
+  const effectiveLocale = canonicalizeLocale(input.locale);
+  const message = content[effectiveLocale];
   const safeRecoveryUrl = escapeHtml(input.recoveryUrl);
   return {
     subject: message.subject,
@@ -462,10 +581,7 @@ export function buildAccountRecoveryMessage(
   code: string,
   locale: SupportedLocale,
 ): VerificationMessage {
-  const messages: Record<
-    SupportedLocale,
-    { subject: string; greeting: string; instruction: string; expiry: string }
-  > = {
+  const messages = withRegionalEmailFallbacks({
     es: {
       subject: "Recupera tu cuenta de Umbravia Forge",
       greeting: `Hola, ${name}:`,
@@ -490,16 +606,56 @@ export function buildAccountRecoveryMessage(
       expiry:
         "Der Code läuft in 15 Minuten ab und kann nur einmal verwendet werden. Wenn Sie die Wiederherstellung nicht angefordert haben, ignorieren Sie diese Nachricht und überprüfen Sie die Sicherheit Ihres Kontos.",
     },
-    "de-CH": {
-      subject: "Umbravia-Forge-Konto wiederherstellen",
-      greeting: `Hallo, ${name}:`,
+    fr: {
+      subject: "Récupérez votre compte Umbravia Forge",
+      greeting: `Bonjour, ${name} :`,
       instruction:
-        "Verwenden Sie diesen Code, um ein neues Passwort für Ihr Umbravia-Forge-Konto festzulegen:",
+        "Utilisez ce code pour définir un nouveau mot de passe pour votre compte Umbravia Forge :",
       expiry:
-        "Der Code läuft in 15 Minuten ab und kann nur einmal verwendet werden. Wenn Sie die Wiederherstellung nicht angefordert haben, ignorieren Sie diese Nachricht und überprüfen Sie die Sicherheit Ihres Kontos.",
+        "Le code expire dans 15 minutes et ne peut être utilisé qu’une fois. Si vous n’avez pas demandé la récupération, ignorez ce message et vérifiez la sécurité de votre compte.",
     },
-  };
-  const message = messages[locale] ?? messages.es;
+    it: {
+      subject: "Recupera il tuo account Umbravia Forge",
+      greeting: `Ciao, ${name}:`,
+      instruction:
+        "Usa questo codice per impostare una nuova password per il tuo account Umbravia Forge:",
+      expiry:
+        "Il codice scade tra 15 minuti e può essere usato una sola volta. Se non hai richiesto il recupero, ignora questo messaggio e controlla la sicurezza del tuo account.",
+    },
+    gl: {
+      subject: "Recupera a túa conta de Umbravia Forge",
+      greeting: `Ola, ${name}:`,
+      instruction:
+        "Usa este código para establecer un novo contrasinal na túa conta de Umbravia Forge:",
+      expiry:
+        "O código caduca en 15 minutos e só pode utilizarse unha vez. Se non solicitaches a recuperación, ignora esta mensaxe e revisa a seguridade da túa conta.",
+    },
+    ca: {
+      subject: "Recupera el teu compte d’Umbravia Forge",
+      greeting: `Hola, ${name}:`,
+      instruction:
+        "Fes servir aquest codi per establir una contrasenya nova al teu compte d’Umbravia Forge:",
+      expiry:
+        "El codi caduca d’aquí a 15 minuts i només es pot utilitzar una vegada. Si no has sol·licitat la recuperació, ignora aquest missatge i revisa la seguretat del compte.",
+    },
+    eu: {
+      subject: "Berreskuratu Umbravia Forge-ko kontua",
+      greeting: `Kaixo, ${name}:`,
+      instruction:
+        "Erabili kode hau Umbravia Forge-ko konturako pasahitz berria ezartzeko:",
+      expiry:
+        "Kodea 15 minutu barru iraungiko da eta behin bakarrik erabil daiteke. Berreskuratzea eskatu ez baduzu, ez ikusi mezu hau eta berrikusi kontuaren segurtasuna.",
+    },
+    "oc-aranes": {
+      subject: "Recupèra eth tòn compde d’Umbravia Forge",
+      greeting: `Adiu, ${name}:`,
+      instruction:
+        "Utiliza aguest còdi entà definir ua contrasenha naua en tòn compde d’Umbravia Forge:",
+      expiry:
+        "Eth còdi caduque en 15 minutes e sonque se pòt utilizar un còp. Se non as demanat era recuperacion, ignora aguest messatge e revise era seguretat deth tòn compde.",
+    },
+  });
+  const message = messages[canonicalizeLocale(locale)];
   return {
     subject: message.subject,
     text: `${message.greeting}\n\n${message.instruction}\n\n${code}\n\n${message.expiry}`,
@@ -609,6 +765,8 @@ async function queueEncryptedDelivery(input: {
   supersedePending?: boolean;
 }): Promise<string> {
   const now = Date.now();
+  const locale = canonicalizeLocale(input.locale);
+  const payload: EmailDeliveryPayload = { ...input.payload, locale };
   const nextAttemptAt = input.nextAttemptAt ?? now;
   if (
     input.nextAttemptAt !== undefined &&
@@ -641,8 +799,8 @@ async function queueEncryptedDelivery(input: {
         platformScope: input.platformScope,
         kind: input.kind,
         recipient: input.recipient,
-        locale: input.locale,
-        payloadEncrypted: encryptPayload(id, input.payload),
+        locale,
+        payloadEncrypted: encryptPayload(id, payload),
         status: "queued",
         attempts: 0,
         maxAttempts: MAX_EMAIL_DELIVERY_ATTEMPTS,
@@ -692,7 +850,7 @@ function validateDecryptedPayload(
     typeof payload !== "object" ||
     typeof payload.email !== "string" ||
     payload.email.trim() === "" ||
-    !["es", "en", "de", "de-CH"].includes(payload.locale ?? "")
+    !isSupportedLocale(payload.locale)
   ) {
     throw new EmailQueuePayloadError();
   }
@@ -846,7 +1004,7 @@ function escapeInvitationHtml(value: string): string {
     .replace(/'/g, "&#039;");
 }
 
-export async function queueFacilityInvitationEmail(input: {
+type FacilityInvitationEmailInput = {
   email: string;
   name: string;
   facilityName: string;
@@ -854,7 +1012,12 @@ export async function queueFacilityInvitationEmail(input: {
   token: string;
   locale: SupportedLocale;
   expiresAt: number;
-}): Promise<string> {
+};
+
+export function buildFacilityInvitationMessage(
+  input: FacilityInvitationEmailInput,
+): { locale: SupportedLocale; payload: EmailDeliveryPayload } {
+  const locale = canonicalizeLocale(input.locale);
   const origin = getAllowedClientOrigins()[0];
   if (!origin) throw new Error("CLIENT_ORIGIN is required for invitations");
   const invitationUrl = `${origin}/facility-invitation?token=${encodeURIComponent(input.token)}`;
@@ -862,24 +1025,27 @@ export async function queueFacilityInvitationEmail(input: {
     1,
     Math.ceil((input.expiresAt - Date.now()) / (24 * 60 * 60 * 1000)),
   );
-  const roleNames: Record<
-    SupportedLocale,
-    Record<"admin" | "trainer" | "member", string>
-  > = {
+  const roleNames = withRegionalEmailFallbacks({
     es: { admin: "administrador", trainer: "entrenador", member: "socio" },
     en: { admin: "administrator", trainer: "trainer", member: "member" },
     de: { admin: "Administrator", trainer: "Trainer", member: "Mitglied" },
-    "de-CH": {
-      admin: "Administrator",
-      trainer: "Trainer",
-      member: "Mitglied",
+    fr: { admin: "administrateur", trainer: "entraîneur", member: "membre" },
+    it: { admin: "amministratore", trainer: "istruttore", member: "membro" },
+    gl: { admin: "administrador", trainer: "adestrador", member: "socio" },
+    ca: { admin: "administrador", trainer: "entrenador", member: "soci" },
+    eu: {
+      admin: "administratzaile",
+      trainer: "entrenatzaile",
+      member: "kide",
     },
-  };
-  const roleName = roleNames[input.locale][input.role];
-  const workerContent: Record<
-    SupportedLocale,
-    { subject: string; intro: string; action: string; expiry: string }
-  > = {
+    "oc-aranes": {
+      admin: "administrator",
+      trainer: "entrenador",
+      member: "membre",
+    },
+  });
+  const roleName = roleNames[locale][input.role];
+  const workerContent = withRegionalEmailFallbacks({
     es: {
       subject: `Verificación laboral con ${input.facilityName}`,
       intro: `${input.name}, ${input.facilityName} ha iniciado tu verificación como ${roleName}.`,
@@ -901,18 +1067,50 @@ export async function queueFacilityInvitationEmail(input: {
         "Prüfen Sie die Angaben und bestätigen oder lehnen Sie das Arbeitsverhältnis über den Link ab. Wenn Sie bereits ein Konto haben, melden Sie sich mit der E-Mail-Adresse an, die diese Nachricht erhalten hat.",
       expiry: `Der Verifizierungslink läuft in ${validityDays} Tagen ab und kann nur einmal verwendet werden.`,
     },
-    "de-CH": {
-      subject: `Mitarbeiterverifizierung mit ${input.facilityName}`,
-      intro: `${input.name}, ${input.facilityName} hat Ihre Verifizierung als ${roleName} gestartet.`,
+    fr: {
+      subject: `Vérification professionnelle avec ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} a lancé votre vérification en tant que ${roleName}.`,
       action:
-        "Prüfen Sie die Angaben und bestätigen oder lehnen Sie das Arbeitsverhältnis über den Link ab. Wenn Sie bereits ein Konto haben, melden Sie sich mit der E-Mail-Adresse an, die diese Nachricht erhalten hat.",
-      expiry: `Der Verifizierungslink läuft in ${validityDays} Tagen ab und kann nur einmal verwendet werden.`,
+        "Vérifiez les informations puis confirmez ou refusez la relation professionnelle depuis le lien. Si vous avez déjà un compte, connectez-vous avec l’adresse e-mail qui a reçu ce message.",
+      expiry: `Le lien de vérification expire dans ${validityDays} jours et ne peut être utilisé qu’une fois.`,
     },
-  };
-  const memberContent: Record<
-    SupportedLocale,
-    { subject: string; intro: string; action: string; expiry: string }
-  > = {
+    it: {
+      subject: `Verifica professionale con ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} ha avviato la tua verifica come ${roleName}.`,
+      action:
+        "Controlla i dati e conferma o rifiuta il rapporto di lavoro dal link. Se hai già un account, accedi con l’indirizzo email che ha ricevuto questo messaggio.",
+      expiry: `Il link di verifica scade tra ${validityDays} giorni e può essere usato una sola volta.`,
+    },
+    gl: {
+      subject: `Verificación laboral con ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} iniciou a túa verificación como ${roleName}.`,
+      action:
+        "Revisa os datos e confirma ou rexeita a relación laboral desde a ligazón. Se xa tes unha conta, inicia sesión co correo que recibiu esta mensaxe.",
+      expiry: `A ligazón de verificación caduca en ${validityDays} días e só pode utilizarse unha vez.`,
+    },
+    ca: {
+      subject: `Verificació laboral amb ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} ha iniciat la teva verificació com a ${roleName}.`,
+      action:
+        "Revisa les dades i confirma o rebutja la vinculació laboral des de l’enllaç. Si ja tens un compte, inicia sessió amb el correu que ha rebut aquest missatge.",
+      expiry: `L’enllaç de verificació caduca d’aquí a ${validityDays} dies i només es pot utilitzar una vegada.`,
+    },
+    eu: {
+      subject: `${input.facilityName} zentroarekiko lan-egiaztapena`,
+      intro: `${input.name}, ${input.facilityName} zentroak ${roleName} gisa egiaztatzeko prozesua hasi du.`,
+      action:
+        "Berrikusi datuak eta berretsi edo baztertu lan-lotura estekatik. Kontua baduzu, hasi saioa mezu hau jaso duen helbide elektronikoarekin.",
+      expiry: `Egiaztapen-esteka ${validityDays} egun barru iraungiko da eta behin bakarrik erabil daiteke.`,
+    },
+    "oc-aranes": {
+      subject: `Verificacion laborau damb ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} a iniciat era tua verificacion coma ${roleName}.`,
+      action:
+        "Revise es donades e confirme o refuse era vinculacion laborau des der enlàç. Se ja as un compde, inicia session damb eth corrèu que recebec aguest messatge.",
+      expiry: `Er enlàç de verificacion caduque en ${validityDays} dies e sonque se pòt utilizar un còp.`,
+    },
+  });
+  const memberContent = withRegionalEmailFallbacks({
     es: {
       subject: `Afiliación de socio con ${input.facilityName}`,
       intro: `${input.name}, ${input.facilityName} quiere vincular tu cuenta como socio.`,
@@ -934,32 +1132,75 @@ export async function queueFacilityInvitationEmail(input: {
         "Prüfen Sie die Angaben und nehmen Sie die Zuordnung über den Link an oder lehnen Sie sie ab. Wenn Sie bereits ein Konto haben, melden Sie sich mit der E-Mail-Adresse an, die diese Nachricht erhalten hat.",
       expiry: `Der Zuordnungslink läuft in ${validityDays} Tagen ab und kann nur einmal verwendet werden.`,
     },
-    "de-CH": {
-      subject: `Mitgliedszuordnung mit ${input.facilityName}`,
-      intro: `${input.name}, ${input.facilityName} möchte Ihr Konto als Mitglied verknüpfen.`,
+    fr: {
+      subject: `Affiliation de membre avec ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} souhaite associer votre compte en tant que membre.`,
       action:
-        "Prüfen Sie die Angaben und nehmen Sie die Zuordnung über den Link an oder lehnen Sie sie ab. Wenn Sie bereits ein Konto haben, melden Sie sich mit der E-Mail-Adresse an, die diese Nachricht erhalten hat.",
-      expiry: `Der Zuordnungslink läuft in ${validityDays} Tagen ab und kann nur einmal verwendet werden.`,
+        "Vérifiez les informations puis acceptez ou refusez l’affiliation depuis le lien. Si vous avez déjà un compte, connectez-vous avec l’adresse e-mail qui a reçu ce message.",
+      expiry: `Le lien d’affiliation expire dans ${validityDays} jours et ne peut être utilisé qu’une fois.`,
+    },
+    it: {
+      subject: `Affiliazione come membro con ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} vuole collegare il tuo account come ${roleName}.`,
+      action:
+        "Controlla i dati e accetta o rifiuta l’affiliazione dal link. Se hai già un account, accedi con l’indirizzo email che ha ricevuto questo messaggio.",
+      expiry: `Il link di affiliazione scade tra ${validityDays} giorni e può essere usato una sola volta.`,
+    },
+    gl: {
+      subject: `Afiliación de socio con ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} quere vincular a túa conta como ${roleName}.`,
+      action:
+        "Revisa os datos e acepta ou rexeita a afiliación desde a ligazón. Se xa tes unha conta, inicia sesión co correo que recibiu esta mensaxe.",
+      expiry: `A ligazón de afiliación caduca en ${validityDays} días e só pode utilizarse unha vez.`,
+    },
+    ca: {
+      subject: `Afiliació de soci amb ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} vol vincular el teu compte com a ${roleName}.`,
+      action:
+        "Revisa les dades i accepta o rebutja l’afiliació des de l’enllaç. Si ja tens un compte, inicia sessió amb el correu que ha rebut aquest missatge.",
+      expiry: `L’enllaç d’afiliació caduca d’aquí a ${validityDays} dies i només es pot utilitzar una vegada.`,
+    },
+    eu: {
+      subject: `${input.facilityName} zentroarekiko kide-afiliazioa`,
+      intro: `${input.name}, ${input.facilityName} zentroak zure kontua ${roleName} gisa lotu nahi du.`,
+      action:
+        "Berrikusi datuak eta onartu edo baztertu afiliazioa estekatik. Kontua baduzu, hasi saioa mezu hau jaso duen helbide elektronikoarekin.",
+      expiry: `Afiliazio-esteka ${validityDays} egun barru iraungiko da eta behin bakarrik erabil daiteke.`,
+    },
+    "oc-aranes": {
+      subject: `Afiliacion coma membre damb ${input.facilityName}`,
+      intro: `${input.name}, ${input.facilityName} vò vincular eth tòn compde coma ${roleName}.`,
+      action:
+        "Revise es donades e accèpte o refuse era afiliacion des der enlàç. Se ja as un compde, inicia session damb eth corrèu que recebec aguest messatge.",
+      expiry: `Er enlàç d’afiliacion caduque en ${validityDays} dies e sonque se pòt utilizar un còp.`,
+    },
+  });
+  const message =
+    input.role === "member" ? memberContent[locale] : workerContent[locale];
+  const htmlUrl = escapeInvitationHtml(invitationUrl);
+  return {
+    locale,
+    payload: {
+      email: input.email,
+      locale,
+      subject: message.subject,
+      text: `${message.intro}\n\n${message.action}\n${message.expiry}\n\n${invitationUrl}`,
+      html: `<p>${escapeInvitationHtml(message.intro)}</p><p>${escapeInvitationHtml(message.action)}</p><p>${escapeInvitationHtml(message.expiry)}</p><p><a href="${htmlUrl}">${htmlUrl}</a></p>`,
     },
   };
-  const message =
-    input.role === "member"
-      ? memberContent[input.locale]
-      : workerContent[input.locale];
-  const htmlUrl = escapeInvitationHtml(invitationUrl);
+}
+
+export async function queueFacilityInvitationEmail(
+  input: FacilityInvitationEmailInput,
+): Promise<string> {
+  const message = buildFacilityInvitationMessage(input);
   return queueEncryptedDelivery({
     userId: null,
     platformScope: "commercial",
     kind: "security_notice",
     recipient: input.email,
-    locale: input.locale,
-    payload: {
-      email: input.email,
-      locale: input.locale,
-      subject: message.subject,
-      text: `${message.intro}\n\n${message.action}\n${message.expiry}\n\n${invitationUrl}`,
-      html: `<p>${escapeInvitationHtml(message.intro)}</p><p>${escapeInvitationHtml(message.action)}</p><p>${escapeInvitationHtml(message.expiry)}</p><p><a href="${htmlUrl}">${htmlUrl}</a></p>`,
-    },
+    locale: message.locale,
+    payload: message.payload,
     expiresAt: input.expiresAt,
   });
 }
@@ -1003,53 +1244,97 @@ export async function queueAccountDeletionVerificationCode(input: {
   locale: SupportedLocale;
   expiresAt: number;
 }): Promise<string> {
+  const locale = canonicalizeLocale(input.locale);
   const validityMinutes = Math.max(
     1,
     Math.ceil((input.expiresAt - Date.now()) / 60_000),
   );
-  const content: Record<
-    SupportedLocale,
-    { subject: string; greeting: string; instruction: string; warning: string }
-  > = {
-    es: {
-      subject: "Código para confirmar el cierre de tu cuenta",
-      greeting: `Hola, ${input.name}.`,
-      instruction: `Introduce este código de un solo uso para confirmar la solicitud de cierre. Caduca en ${validityMinutes} minutos.`,
-      warning:
-        "Si no has solicitado cerrar la cuenta, no compartas el código y revisa la actividad de seguridad.",
+  const content = withRegionalEmailFallbacks(
+    {
+      es: {
+        subject: "Código para confirmar el cierre de tu cuenta",
+        greeting: `Hola, ${input.name}.`,
+        instruction: `Introduce este código de un solo uso para confirmar la solicitud de cierre. Caduca en ${validityMinutes} minutos.`,
+        warning:
+          "Si no has solicitado cerrar la cuenta, no compartas el código y revisa la actividad de seguridad.",
+      },
+      en: {
+        subject: "Code to confirm your account closure",
+        greeting: `Hello, ${input.name}.`,
+        instruction: `Enter this one-time code to confirm the closure request. It expires in ${validityMinutes} minutes.`,
+        warning:
+          "If you did not request an account closure, do not share the code and review your security activity.",
+      },
+      de: {
+        subject: "Code zur Bestätigung der Kontoschließung",
+        greeting: `Hallo, ${input.name}.`,
+        instruction: `Geben Sie diesen Einmalcode ein, um die Schließungsanfrage zu bestätigen. Er läuft in ${validityMinutes} Minuten ab.`,
+        warning:
+          "Wenn Sie keine Kontoschließung angefordert haben, geben Sie den Code nicht weiter und prüfen Sie Ihre Sicherheitsaktivität.",
+      },
+      fr: {
+        subject: "Code de confirmation de la fermeture de votre compte",
+        greeting: `Bonjour, ${input.name}.`,
+        instruction: `Saisissez ce code à usage unique pour confirmer la demande de fermeture. Il expire dans ${validityMinutes} minutes.`,
+        warning:
+          "Si vous n’avez pas demandé la fermeture du compte, ne partagez pas le code et vérifiez votre activité de sécurité.",
+      },
+      it: {
+        subject: "Codice per confermare la chiusura del tuo account",
+        greeting: `Ciao, ${input.name}.`,
+        instruction: `Inserisci questo codice monouso per confermare la richiesta di chiusura. Scade tra ${validityMinutes} minuti.`,
+        warning:
+          "Se non hai richiesto la chiusura dell’account, non condividere il codice e controlla l’attività di sicurezza.",
+      },
+      gl: {
+        subject: "Código para confirmar o peche da túa conta",
+        greeting: `Ola, ${input.name}.`,
+        instruction: `Introduce este código dun só uso para confirmar a solicitude de peche. Caduca en ${validityMinutes} minutos.`,
+        warning:
+          "Se non solicitaches pechar a conta, non compartas o código e revisa a actividade de seguridade.",
+      },
+      ca: {
+        subject: "Codi per confirmar el tancament del teu compte",
+        greeting: `Hola, ${input.name}.`,
+        instruction: `Introdueix aquest codi d’un sol ús per confirmar la sol·licitud de tancament. Caduca d’aquí a ${validityMinutes} minuts.`,
+        warning:
+          "Si no has sol·licitat tancar el compte, no comparteixis el codi i revisa l’activitat de seguretat.",
+      },
+      eu: {
+        subject: "Kontua ixtea berresteko kodea",
+        greeting: `Kaixo, ${input.name}.`,
+        instruction: `Sartu erabilera bakarreko kode hau ixteko eskaera berresteko. ${validityMinutes} minutu barru iraungiko da.`,
+        warning:
+          "Kontua ixtea eskatu ez baduzu, ez partekatu kodea eta berrikusi segurtasun-jarduera.",
+      },
+      "oc-aranes": {
+        subject: "Còdi entà confirmar eth barrament deth tòn compde",
+        greeting: `Adiu, ${input.name}.`,
+        instruction: `Introdusís aguest còdi d’un solet us entà confirmar era sollicitud de barrament. Caduque en ${validityMinutes} minutes.`,
+        warning:
+          "Se non as demanat barrar eth compde, non compartisques eth còdi e revise era activitat de seguretat.",
+      },
     },
-    en: {
-      subject: "Code to confirm your account closure",
-      greeting: `Hello, ${input.name}.`,
-      instruction: `Enter this one-time code to confirm the closure request. It expires in ${validityMinutes} minutes.`,
-      warning:
-        "If you did not request an account closure, do not share the code and review your security activity.",
+    {
+      deCH: {
+        subject: "Code zur Bestätigung der Kontoschliessung",
+        greeting: `Hallo, ${input.name}.`,
+        instruction: `Geben Sie diesen Einmalcode ein, um die Schliessungsanfrage zu bestätigen. Er läuft in ${validityMinutes} Minuten ab.`,
+        warning:
+          "Wenn Sie keine Kontoschliessung angefordert haben, geben Sie den Code nicht weiter und prüfen Sie Ihre Sicherheitsaktivität.",
+      },
     },
-    de: {
-      subject: "Code zur Bestätigung der Kontoschließung",
-      greeting: `Hallo, ${input.name}.`,
-      instruction: `Geben Sie diesen Einmalcode ein, um die Schließungsanfrage zu bestätigen. Er läuft in ${validityMinutes} Minuten ab.`,
-      warning:
-        "Wenn Sie keine Kontoschließung angefordert haben, geben Sie den Code nicht weiter und prüfen Sie Ihre Sicherheitsaktivität.",
-    },
-    "de-CH": {
-      subject: "Code zur Bestätigung der Kontoschliessung",
-      greeting: `Hallo, ${input.name}.`,
-      instruction: `Geben Sie diesen Einmalcode ein, um die Schliessungsanfrage zu bestätigen. Er läuft in ${validityMinutes} Minuten ab.`,
-      warning:
-        "Wenn Sie keine Kontoschliessung angefordert haben, geben Sie den Code nicht weiter und prüfen Sie Ihre Sicherheitsaktivität.",
-    },
-  };
-  const message = content[input.locale];
+  );
+  const message = content[locale];
   return queueEncryptedDelivery({
     userId: input.userId,
     platformScope: "commercial",
     kind: "security_notice",
     recipient: input.email,
-    locale: input.locale,
+    locale,
     payload: {
       email: input.email,
-      locale: input.locale,
+      locale,
       subject: message.subject,
       text: `${message.greeting}\n\n${message.instruction}\n\n${input.code}\n\n${message.warning}`,
       html: `<p>${escapeHtml(message.greeting)}</p><p>${escapeHtml(message.instruction)}</p><p style="font-size:28px;font-weight:700;letter-spacing:0.2em">${escapeHtml(input.code)}</p><p>${escapeHtml(message.warning)}</p>`,
@@ -1095,10 +1380,8 @@ export async function queueEmailChangedNotice(input: {
   locale: SupportedLocale;
   recoveryUrl: string;
 }): Promise<string> {
-  const content: Record<
-    SupportedLocale,
-    { subject: string; title: string; explanation: string; action: string }
-  > = {
+  const locale = canonicalizeLocale(input.locale);
+  const content = withRegionalEmailFallbacks({
     es: {
       subject: "El correo de tu cuenta ha cambiado",
       title: `Hola, ${input.name}:`,
@@ -1120,25 +1403,58 @@ export async function queueEmailChangedNotice(input: {
       action:
         "Wenn Sie diese Änderung nicht vorgenommen haben, starten Sie die Kontowiederherstellung und kontaktieren Sie sofort den Support.",
     },
-    "de-CH": {
-      subject: "Die E-Mail-Adresse Ihres Kontos wurde geändert",
-      title: `Hallo, ${input.name}:`,
-      explanation: `Die Anmelde-E-Mail Ihres Kontos wurde in ${input.newEmail} geändert. Ihre anderen Sitzungen wurden beendet.`,
+    fr: {
+      subject: "L’adresse e-mail de votre compte a été modifiée",
+      title: `Bonjour, ${input.name} :`,
+      explanation: `L’adresse e-mail de connexion à votre compte a été remplacée par ${input.newEmail}. Vos autres sessions ont été fermées.`,
       action:
-        "Wenn Sie diese Änderung nicht vorgenommen haben, starten Sie die Kontowiederherstellung und kontaktieren Sie sofort den Support.",
+        "Si vous n’avez pas effectué ce changement, récupérez immédiatement votre compte.",
     },
-  };
-  const message = content[input.locale] ?? content.es;
+    it: {
+      subject: "L’email del tuo account è stata modificata",
+      title: `Ciao, ${input.name}:`,
+      explanation: `L’email di accesso del tuo account è stata modificata in ${input.newEmail}. Le altre sessioni sono state chiuse.`,
+      action:
+        "Se non hai effettuato questa modifica, recupera immediatamente il tuo account.",
+    },
+    gl: {
+      subject: "O correo da túa conta cambiou",
+      title: `Ola, ${input.name}:`,
+      explanation: `O correo de acceso da túa conta cambiou a ${input.newEmail}. Pecháronse as demais sesións.`,
+      action:
+        "Se non realizaches este cambio, recupera a túa conta de inmediato.",
+    },
+    ca: {
+      subject: "El correu del teu compte ha canviat",
+      title: `Hola, ${input.name}:`,
+      explanation: `El correu d’accés del teu compte s’ha canviat a ${input.newEmail}. S’han tancat les altres sessions.`,
+      action: "Si no has fet aquest canvi, recupera el compte immediatament.",
+    },
+    eu: {
+      subject: "Zure kontuaren helbide elektronikoa aldatu da",
+      title: `Kaixo, ${input.name}:`,
+      explanation: `Zure kontuan saioa hasteko helbide elektronikoa ${input.newEmail} helbidera aldatu da. Beste saioak itxi dira.`,
+      action: "Aldaketa zuk egin ez baduzu, berreskuratu kontua berehala.",
+    },
+    "oc-aranes": {
+      subject: "Eth corrèu electronic deth tòn compde a cambiat",
+      title: `Adiu, ${input.name}:`,
+      explanation: `Eth corrèu d’accès deth tòn compde s’a cambiat a ${input.newEmail}. Es autes sessions s’an barrat.`,
+      action:
+        "Se non as hèt aguest cambi, recupèra eth tòn compde immediatament.",
+    },
+  });
+  const message = content[locale];
   const safeRecoveryUrl = escapeHtml(input.recoveryUrl);
   return queueEncryptedDelivery({
     userId: input.userId,
     platformScope: input.platformScope,
     kind: "security_notice",
     recipient: input.oldEmail,
-    locale: input.locale,
+    locale,
     payload: {
       email: input.oldEmail,
-      locale: input.locale,
+      locale,
       subject: message.subject,
       text: `${message.title}\n\n${message.explanation}\n\n${message.action}: ${input.recoveryUrl}`,
       html: `<p>${escapeHtml(message.title)}</p><p>${escapeHtml(message.explanation)}</p><p><a href="${safeRecoveryUrl}"><strong>${escapeHtml(message.action)}</strong></a></p>`,
@@ -1315,11 +1631,49 @@ export function renderControlledSupportMessageHtml(message: string): string {
   return `<p>${html.replace(/\n/g, "<br>")}</p>`;
 }
 
+export type UmfSupportEmailContent =
+  | { kind: "controlled-markdown"; value: string }
+  | {
+      kind: "opaque-with-action";
+      value: string;
+      action?: { label: string; url: string };
+    };
+
+export function renderUmfSupportEmailContent(content: UmfSupportEmailContent): {
+  text: string;
+  html: string;
+} {
+  if (content.kind === "controlled-markdown") {
+    return {
+      text: content.value,
+      html: renderControlledSupportMessageHtml(content.value),
+    };
+  }
+  const escapedValue = escapeHtml(content.value).replace(/\n/g, "<br>");
+  if (content.action === undefined) {
+    return { text: content.value, html: `<p>${escapedValue}</p>` };
+  }
+  const parsed = new URL(content.action.url);
+  if (
+    !new Set(["https:", "mailto:"]).has(parsed.protocol) ||
+    content.action.label.trim() === ""
+  ) {
+    throw new Error("Invalid controlled UMF Support email action");
+  }
+  const actionUrl = parsed.toString();
+  const text = `${content.value}\n\n[${content.action.label}](${actionUrl})`;
+  const actionHtml = `<a href="${escapeHtml(actionUrl)}" rel="noopener noreferrer">${escapeHtml(content.action.label)}</a>`;
+  return {
+    text,
+    html: `<p>${escapedValue}</p><p>${actionHtml}</p>`,
+  };
+}
+
 export async function queueUmfSupportComposedEmail(input: {
   email: string;
   locale: SupportedLocale;
   subject: string;
-  message: string;
+  content: UmfSupportEmailContent;
   scheduledAt?: number;
   replyTo?: string;
   attachmentIds?: string[];
@@ -1330,6 +1684,7 @@ export async function queueUmfSupportComposedEmail(input: {
       ? input.scheduledAt
       : undefined;
   const expiresAt = (scheduledAt ?? now) + 7 * 24 * 60 * 60 * 1000;
+  const rendered = renderUmfSupportEmailContent(input.content);
   const id = await queueEncryptedDelivery({
     userId: null,
     platformScope: "support",
@@ -1342,8 +1697,8 @@ export async function queueUmfSupportComposedEmail(input: {
       email: input.email,
       locale: input.locale,
       subject: input.subject,
-      text: input.message,
-      html: renderControlledSupportMessageHtml(input.message),
+      text: rendered.text,
+      html: rendered.html,
       replyTo: input.replyTo,
       attachmentIds: input.attachmentIds,
     },
@@ -1371,11 +1726,9 @@ export async function queueAccountInactivityReviewEmail(input: {
   reminder?: boolean;
   reviewDeliveryId?: string;
 }): Promise<string> {
+  const locale = canonicalizeLocale(input.locale);
   const isReminder = Boolean(input.reminder);
-  const content: Record<
-    SupportedLocale,
-    { subject: string; question: string; explanation: string; action: string }
-  > = {
+  const content = withRegionalEmailFallbacks({
     es: {
       subject: isReminder
         ? "Recordatorio: ¿sigues usando tu cuenta?"
@@ -1403,31 +1756,76 @@ export async function queueAccountInactivityReviewEmail(input: {
         "Seit sechs Monaten wurde keine Aktivität registriert. Melden Sie sich an und bestätigen Sie Ihre Antwort. Ohne Antwort beginnt nach Ablauf der Frist die 30-tägige Löschfrist; während dieser Frist können Sie den Vorgang abbrechen.",
       action: "Konto überprüfen",
     },
-    "de-CH": {
+    fr: {
       subject: isReminder
-        ? "Erinnerung: Nutzen Sie Ihr Konto noch?"
-        : "Nutzen Sie Ihr Umbravia-Forge-Konto noch?",
-      question: "Nutzen Sie Ihr Konto noch?",
+        ? "Rappel : utilisez-vous toujours votre compte ?"
+        : "Utilisez-vous toujours votre compte Umbravia Forge ?",
+      question: "Utilisez-vous toujours votre compte ?",
       explanation:
-        "Seit sechs Monaten wurde keine Aktivität registriert. Melden Sie sich an und bestätigen Sie Ihre Antwort. Ohne Antwort beginnt nach Ablauf der Frist die 30-tägige Löschfrist; während dieser Frist können Sie den Vorgang abbrechen.",
-      action: "Konto überprüfen",
+        "Nous n’avons enregistré aucune activité depuis six mois. Connectez-vous et confirmez votre réponse. Sans réponse avant la date indiquée, le délai de grâce de 30 jours avant suppression commencera ; vous pourrez l’annuler pendant cette période.",
+      action: "Vérifier mon compte",
     },
-  };
-  const message = content[input.locale] ?? content.es;
+    it: {
+      subject: isReminder
+        ? "Promemoria: usi ancora il tuo account?"
+        : "Usi ancora il tuo account Umbravia Forge?",
+      question: "Usi ancora il tuo account?",
+      explanation:
+        "Non abbiamo registrato attività da sei mesi. Accedi e conferma la tua risposta. Se non rispondi entro la scadenza indicata, inizierà il periodo di tolleranza di 30 giorni prima dell’eliminazione; potrai annullarla durante tale periodo.",
+      action: "Controlla il mio account",
+    },
+    gl: {
+      subject: isReminder
+        ? "Recordatorio: segues usando a túa conta?"
+        : "Segues usando a túa conta de Umbravia Forge?",
+      question: "Segues usando a túa conta?",
+      explanation:
+        "Non rexistramos actividade durante seis meses. Inicia sesión e confirma a túa resposta. Se non respondes no prazo indicado, iniciarase o período de graza de 30 días para o borrado; poderás cancelalo durante ese período.",
+      action: "Revisar a miña conta",
+    },
+    ca: {
+      subject: isReminder
+        ? "Recordatori: encara utilitzes el teu compte?"
+        : "Encara utilitzes el teu compte d’Umbravia Forge?",
+      question: "Encara utilitzes el teu compte?",
+      explanation:
+        "No hem registrat activitat durant sis mesos. Inicia sessió i confirma la resposta. Si no respons dins del termini indicat, començarà el període de gràcia de 30 dies per a l’eliminació; podràs cancel·lar-la durant aquest període.",
+      action: "Revisar el meu compte",
+    },
+    eu: {
+      subject: isReminder
+        ? "Gogorarazpena: kontua erabiltzen jarraitzen duzu?"
+        : "Umbravia Forge-ko kontua erabiltzen jarraitzen duzu?",
+      question: "Kontua erabiltzen jarraitzen duzu?",
+      explanation:
+        "Ez dugu jarduerarik erregistratu sei hilabetez. Hasi saioa eta berretsi erantzuna. Adierazitako epean erantzuten ez baduzu, ezabatu aurreko 30 eguneko grazia-epea hasiko da; epe horretan bertan behera utz dezakezu.",
+      action: "Berrikusi nire kontua",
+    },
+    "oc-aranes": {
+      subject: isReminder
+        ? "Rebrembe: encara utilizes eth tòn compde?"
+        : "Encara utilizes eth tòn compde d’Umbravia Forge?",
+      question: "Encara utilizes eth tòn compde?",
+      explanation:
+        "Non auem registrat activitat pendent sies mesi. Inicia session e confirme era tua responsa. Se non respones laguens deth tèrme indicat, començarà eth periòde de gràcia de 30 dies entath borrament; lo poderàs anullar pendent aguest periòde.",
+      action: "Revisar eth mèn compde",
+    },
+  });
+  const message = content[locale];
   const safeUrl = escapeHtml(input.actionUrl);
   const id = await queueEncryptedDelivery({
     userId: input.userId,
     platformScope: "commercial",
     kind: "security_notice",
     recipient: input.email,
-    locale: input.locale,
+    locale,
     expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
     payload: {
       email: input.email,
-      locale: input.locale,
+      locale,
       subject: message.subject,
       text: `${input.name}\n\n${message.question}\n\n${message.explanation}\n\n${input.actionUrl}`,
-      html: `<!doctype html><html lang="${escapeHtml(input.locale)}"><body style="margin:0;padding:0;background:#f4f5f6;color:#0f1720;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f5f6;border-collapse:collapse"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;border-collapse:separate"><tr><td style="padding:32px"><p style="margin:0 0 18px;font-size:16px;line-height:1.6">${escapeHtml(input.name)}</p><h1 style="margin:0 0 18px;font-size:26px;line-height:1.25">${escapeHtml(message.question)}</h1><p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#334155">${escapeHtml(message.explanation)}</p><table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td bgcolor="#f07a3a" style="border-radius:10px"><a href="${safeUrl}" style="display:inline-block;padding:13px 20px;color:#ffffff;text-decoration:none;font-weight:700">${escapeHtml(message.action)}</a></td></tr></table></td></tr></table></td></tr></table></body></html>`,
+      html: `<!doctype html><html lang="${escapeHtml(locale)}"><body style="margin:0;padding:0;background:#f4f5f6;color:#0f1720;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f5f6;border-collapse:collapse"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;border-collapse:separate"><tr><td style="padding:32px"><p style="margin:0 0 18px;font-size:16px;line-height:1.6">${escapeHtml(input.name)}</p><h1 style="margin:0 0 18px;font-size:26px;line-height:1.25">${escapeHtml(message.question)}</h1><p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#334155">${escapeHtml(message.explanation)}</p><table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td bgcolor="#f07a3a" style="border-radius:10px"><a href="${safeUrl}" style="display:inline-block;padding:13px 20px;color:#ffffff;text-decoration:none;font-weight:700">${escapeHtml(message.action)}</a></td></tr></table></td></tr></table></td></tr></table></body></html>`,
       purpose: "account_inactivity_review",
       reminder: isReminder,
       reviewDeliveryId: input.reviewDeliveryId,
@@ -1456,114 +1854,248 @@ export function buildAccountDeletionPreparationMessage(input: {
   recoveryUrl: string;
   feedbackUrl: string;
 }): VerificationMessage {
-  const date = new Intl.DateTimeFormat(input.locale, {
+  const locale = canonicalizeLocale(input.locale);
+  const date = new Intl.DateTimeFormat(resolveIntlLocale(locale), {
     dateStyle: "long",
     timeStyle: "short",
     timeZone: "UTC",
   }).format(input.graceEndsAt);
-  const content: Record<
-    SupportedLocale,
+  const content = withRegionalEmailFallbacks(
     {
-      subject: string;
-      title: string;
-      intro: string;
-      securityHeading: string;
-      kept: string;
-      cancel: string;
-      cancelAction: string;
-      signInAction: string;
-      recoveryPrompt: string;
-      recoveryAction: string;
-      feedback: string;
-      feedbackAction: string;
-      closing: string;
-    }
-  > = {
-    es: {
-      subject: "El cierre de tu cuenta se ha programado",
-      title: "Lamentamos que te marches",
-      intro: `El cierre definitivo está previsto para el ${date} (UTC).`,
-      securityHeading: "Información técnica y de seguridad",
-      kept: "Tu contraseña, la verificación en dos pasos, las passkeys y esta sesión siguen activas para que puedas entrar y cancelar el cierre.",
-      cancel:
-        "Si cambias de opinión, inicia sesión y cancela el cierre antes de que termine el periodo de gracia.",
-      cancelAction: "Revisar o cancelar el cierre",
-      signInAction: "Iniciar sesión",
-      recoveryPrompt: "¿No puedes acceder a tu cuenta?",
-      recoveryAction: "Recuperar mi cuenta",
-      feedback:
-        "Si quieres, cuéntanos qué podríamos mejorar. La encuesta es opcional y no afecta al cierre de tu cuenta.",
-      feedbackAction: "Contarnos cómo mejorar",
-      closing: "Esperamos volver a verte pronto.",
+      es: {
+        subject: "El cierre de tu cuenta se ha programado",
+        title: "Lamentamos que te marches",
+        intro: `El cierre definitivo está previsto para el ${date} (UTC).`,
+        securityHeading: "Información técnica y de seguridad",
+        kept: "Tu contraseña, la verificación en dos pasos, las passkeys y esta sesión siguen activas para que puedas entrar y cancelar el cierre.",
+        cancel:
+          "Si cambias de opinión, inicia sesión y cancela el cierre antes de que termine el periodo de gracia.",
+        cancelAction: "Revisar o cancelar el cierre",
+        signInAction: "Iniciar sesión",
+        recoveryPrompt: "¿No puedes acceder a tu cuenta?",
+        recoveryAction: "Recuperar mi cuenta",
+        feedback:
+          "Si quieres, cuéntanos qué podríamos mejorar. La encuesta es opcional y no afecta al cierre de tu cuenta.",
+        feedbackAction: "Contarnos cómo mejorar",
+        closing: "Esperamos volver a verte pronto.",
+      },
+      en: {
+        subject: "Your account closure has been scheduled",
+        title: "We are sorry to see you go",
+        intro: `Final closure is scheduled for ${date} (UTC).`,
+        securityHeading: "Technical and security information",
+        kept: "Your password, two-step verification, passkeys and this session remain active so you can sign in and cancel the closure.",
+        cancel:
+          "If you change your mind, sign in and cancel the closure before the grace period ends.",
+        cancelAction: "Review or cancel closure",
+        signInAction: "Sign in",
+        recoveryPrompt: "Cannot access your account?",
+        recoveryAction: "Recover my account",
+        feedback:
+          "If you would like, tell us what we could improve. The survey is optional and does not affect your account closure.",
+        feedbackAction: "Tell us how to improve",
+        closing: "We hope to see you again soon.",
+      },
+      de: {
+        subject: "Die Schliessung Ihres Kontos wurde geplant",
+        title: "Wir bedauern, dass Sie gehen",
+        intro: `Die endgültige Schliessung ist für den ${date} (UTC) vorgesehen.`,
+        securityHeading: "Technische und sicherheitsrelevante Informationen",
+        kept: "Passwort, Zwei-Faktor-Authentifizierung, Passkeys und diese Sitzung bleiben aktiv, damit Sie die Schliessung abbrechen können.",
+        cancel:
+          "Wenn Sie Ihre Meinung ändern, melden Sie sich an und brechen Sie die Schliessung vor Ablauf der Nachfrist ab.",
+        cancelAction: "Schliessung prüfen oder abbrechen",
+        signInAction: "Anmelden",
+        recoveryPrompt: "Sie können nicht auf Ihr Konto zugreifen?",
+        recoveryAction: "Konto wiederherstellen",
+        feedback:
+          "Wenn Sie möchten, teilen Sie uns mit, was wir verbessern können. Die Umfrage ist freiwillig und hat keinen Einfluss auf die Kontoschliessung.",
+        feedbackAction: "Verbesserungsvorschläge senden",
+        closing: "Wir hoffen, Sie bald wiederzusehen.",
+      },
+      fr: {
+        subject: "La fermeture de votre compte a été planifiée",
+        title: "Nous sommes désolés de vous voir partir",
+        intro: `La fermeture définitive est prévue le ${date} (UTC).`,
+        securityHeading: "Informations techniques et de sécurité",
+        kept: "Votre mot de passe, la vérification en deux étapes, les passkeys et cette session restent actifs afin que vous puissiez vous connecter et annuler la fermeture.",
+        cancel:
+          "Si vous changez d’avis, connectez-vous et annulez la fermeture avant la fin du délai de grâce.",
+        cancelAction: "Vérifier ou annuler la fermeture",
+        signInAction: "Se connecter",
+        recoveryPrompt: "Vous ne pouvez pas accéder à votre compte ?",
+        recoveryAction: "Récupérer mon compte",
+        feedback:
+          "Si vous le souhaitez, dites-nous ce que nous pourrions améliorer. L’enquête est facultative et n’a aucune incidence sur la fermeture de votre compte.",
+        feedbackAction: "Nous dire comment nous améliorer",
+        closing: "Nous espérons vous revoir bientôt.",
+      },
+      it: {
+        subject: "La chiusura del tuo account è stata programmata",
+        title: "Ci dispiace vederti andare via",
+        intro: `La chiusura definitiva è prevista per il ${date} (UTC).`,
+        securityHeading: "Informazioni tecniche e di sicurezza",
+        kept: "La password, la verifica in due passaggi, le passkey e questa sessione restano attive affinché tu possa accedere e annullare la chiusura.",
+        cancel:
+          "Se cambi idea, accedi e annulla la chiusura prima della fine del periodo di tolleranza.",
+        cancelAction: "Controlla o annulla la chiusura",
+        signInAction: "Accedi",
+        recoveryPrompt: "Non riesci ad accedere al tuo account?",
+        recoveryAction: "Recupera il mio account",
+        feedback:
+          "Se vuoi, raccontaci cosa potremmo migliorare. Il sondaggio è facoltativo e non influisce sulla chiusura del tuo account.",
+        feedbackAction: "Dicci come migliorare",
+        closing: "Speriamo di rivederti presto.",
+      },
+      gl: {
+        subject: "Programouse o peche da túa conta",
+        title: "Lamentamos que marches",
+        intro: `O peche definitivo está previsto para o ${date} (UTC).`,
+        securityHeading: "Información técnica e de seguridade",
+        kept: "O teu contrasinal, a verificación en dous pasos, as passkeys e esta sesión seguen activos para que poidas entrar e cancelar o peche.",
+        cancel:
+          "Se cambias de opinión, inicia sesión e cancela o peche antes de que remate o período de graza.",
+        cancelAction: "Revisar ou cancelar o peche",
+        signInAction: "Iniciar sesión",
+        recoveryPrompt: "Non podes acceder á túa conta?",
+        recoveryAction: "Recuperar a miña conta",
+        feedback:
+          "Se queres, cóntanos que poderiamos mellorar. A enquisa é opcional e non afecta ao peche da túa conta.",
+        feedbackAction: "Contarnos como mellorar",
+        closing: "Agardamos volver verte axiña.",
+      },
+      ca: {
+        subject: "S’ha programat el tancament del teu compte",
+        title: "Lamentem que te’n vagis",
+        intro: `El tancament definitiu està previst per al ${date} (UTC).`,
+        securityHeading: "Informació tècnica i de seguretat",
+        kept: "La contrasenya, la verificació en dos passos, les passkeys i aquesta sessió continuen actives perquè puguis entrar i cancel·lar el tancament.",
+        cancel:
+          "Si canvies d’opinió, inicia sessió i cancel·la el tancament abans que acabi el període de gràcia.",
+        cancelAction: "Revisar o cancel·lar el tancament",
+        signInAction: "Iniciar sessió",
+        recoveryPrompt: "No pots accedir al teu compte?",
+        recoveryAction: "Recuperar el meu compte",
+        feedback:
+          "Si vols, explica’ns què podríem millorar. L’enquesta és opcional i no afecta el tancament del teu compte.",
+        feedbackAction: "Explicar-nos com millorar",
+        closing: "Esperem tornar-te a veure aviat.",
+      },
+      eu: {
+        subject: "Zure kontuaren itxiera programatu da",
+        title: "Pena ematen digu joatea",
+        intro: `Behin betiko itxiera ${date} datarako aurreikusita dago (UTC).`,
+        securityHeading: "Informazio teknikoa eta segurtasunekoa",
+        kept: "Pasahitzak, bi urratseko egiaztapenak, passkey-ek eta saio honek aktibo jarraituko dute, saioa hasi eta itxiera bertan behera utz dezazun.",
+        cancel:
+          "Iritziz aldatzen baduzu, hasi saioa eta utzi bertan behera itxiera grazia-epea amaitu aurretik.",
+        cancelAction: "Berrikusi edo utzi bertan behera itxiera",
+        signInAction: "Hasi saioa",
+        recoveryPrompt: "Ezin duzu kontura sartu?",
+        recoveryAction: "Berreskuratu nire kontua",
+        feedback:
+          "Nahi baduzu, esan zer hobetu genezakeen. Inkesta hautazkoa da eta ez dio eragiten kontuaren itxierari.",
+        feedbackAction: "Esan nola hobetu",
+        closing: "Laster berriro ikustea espero dugu.",
+      },
+      "oc-aranes": {
+        subject: "S’a programat eth barrament deth tòn compde",
+        title: "Lamentam que te’n vages",
+        intro: `Eth barrament definitiu ei previst entath ${date} (UTC).`,
+        securityHeading: "Informacion tecnica e de seguretat",
+        kept: "Era contrasenha, era verificacion en dus passi, es passkeys e aguesta session demoren actives entà que pogues entrar e anullar eth barrament.",
+        cancel:
+          "Se càmbies de vejaire, inicia session e anulla eth barrament abans qu’acabe eth periòde de gràcia.",
+        cancelAction: "Revisar o anullar eth barrament",
+        signInAction: "Iniciar session",
+        recoveryPrompt: "Non pòs accedir ath tòn compde?",
+        recoveryAction: "Recuperar eth mèn compde",
+        feedback:
+          "Se vòs, explica-mos qué poderíem melhorar. Era enquèsta ei opcionau e non afècte eth barrament deth tòn compde.",
+        feedbackAction: "Explicar-mos com melhorar",
+        closing: "Demoram tornar-te a veir lèu.",
+      },
     },
-    en: {
-      subject: "Your account closure has been scheduled",
-      title: "We are sorry to see you go",
-      intro: `Final closure is scheduled for ${date} (UTC).`,
-      securityHeading: "Technical and security information",
-      kept: "Your password, two-step verification, passkeys and this session remain active so you can sign in and cancel the closure.",
-      cancel:
-        "If you change your mind, sign in and cancel the closure before the grace period ends.",
-      cancelAction: "Review or cancel closure",
-      signInAction: "Sign in",
-      recoveryPrompt: "Cannot access your account?",
-      recoveryAction: "Recover my account",
-      feedback:
-        "If you would like, tell us what we could improve. The survey is optional and does not affect your account closure.",
-      feedbackAction: "Tell us how to improve",
-      closing: "We hope to see you again soon.",
+    {
+      deCH: {
+        subject: "Die Schliessung Ihres Kontos wurde geplant",
+        title: "Wir bedauern, dass Sie gehen",
+        intro: `Die endgültige Schliessung ist für den ${date} (UTC) vorgesehen.`,
+        securityHeading: "Technische und sicherheitsrelevante Informationen",
+        kept: "Passwort, Zwei-Faktor-Authentifizierung, Passkeys und diese Sitzung bleiben aktiv, damit Sie die Schliessung abbrechen können.",
+        cancel:
+          "Wenn Sie Ihre Meinung ändern, melden Sie sich an und brechen Sie die Schliessung vor Ablauf der Nachfrist ab.",
+        cancelAction: "Schliessung prüfen oder abbrechen",
+        signInAction: "Anmelden",
+        recoveryPrompt: "Sie können nicht auf Ihr Konto zugreifen?",
+        recoveryAction: "Konto wiederherstellen",
+        feedback:
+          "Wenn Sie möchten, teilen Sie uns mit, was wir verbessern können. Die Umfrage ist freiwillig und hat keinen Einfluss auf die Kontoschliessung.",
+        feedbackAction: "Verbesserungsvorschläge senden",
+        closing: "Wir hoffen, Sie bald wiederzusehen.",
+      },
     },
-    de: {
-      subject: "Die Schliessung Ihres Kontos wurde geplant",
-      title: "Wir bedauern, dass Sie gehen",
-      intro: `Die endgültige Schliessung ist für den ${date} (UTC) vorgesehen.`,
-      securityHeading: "Technische und sicherheitsrelevante Informationen",
-      kept: "Passwort, Zwei-Faktor-Authentifizierung, Passkeys und diese Sitzung bleiben aktiv, damit Sie die Schliessung abbrechen können.",
-      cancel:
-        "Wenn Sie Ihre Meinung ändern, melden Sie sich an und brechen Sie die Schliessung vor Ablauf der Nachfrist ab.",
-      cancelAction: "Schliessung prüfen oder abbrechen",
-      signInAction: "Anmelden",
-      recoveryPrompt: "Sie können nicht auf Ihr Konto zugreifen?",
-      recoveryAction: "Konto wiederherstellen",
-      feedback:
-        "Wenn Sie möchten, teilen Sie uns mit, was wir verbessern können. Die Umfrage ist freiwillig und hat keinen Einfluss auf die Kontoschliessung.",
-      feedbackAction: "Verbesserungsvorschläge senden",
-      closing: "Wir hoffen, Sie bald wiederzusehen.",
+  );
+  const message = content[locale];
+  const technicalChanges = withRegionalEmailFallbacks(
+    {
+      es: {
+        sessions: "Se han cerrado las demás sesiones activas.",
+        challenges:
+          "Se han invalidado los códigos y solicitudes temporales de verificación o recuperación pendientes.",
+      },
+      en: {
+        sessions: "Your other active sessions have been closed.",
+        challenges:
+          "Pending temporary verification and recovery codes or requests have been invalidated.",
+      },
+      de: {
+        sessions: "Ihre anderen aktiven Sitzungen wurden beendet.",
+        challenges:
+          "Ausstehende temporäre Verifizierungs- und Wiederherstellungscodes oder -anfragen wurden ungültig gemacht.",
+      },
+      fr: {
+        sessions: "Vos autres sessions actives ont été fermées.",
+        challenges:
+          "Les codes et demandes temporaires de vérification ou de récupération en attente ont été invalidés.",
+      },
+      it: {
+        sessions: "Le altre sessioni attive sono state chiuse.",
+        challenges:
+          "I codici e le richieste temporanee di verifica o recupero in sospeso sono stati invalidati.",
+      },
+      gl: {
+        sessions: "Pecháronse as demais sesións activas.",
+        challenges:
+          "Invalidáronse os códigos e as solicitudes temporais de verificación ou recuperación pendentes.",
+      },
+      ca: {
+        sessions: "S’han tancat les altres sessions actives.",
+        challenges:
+          "S’han invalidat els codis i les sol·licituds temporals de verificació o recuperació pendents.",
+      },
+      eu: {
+        sessions: "Beste saio aktiboak itxi dira.",
+        challenges:
+          "Zain zeuden aldi baterako egiaztapen- edo berreskuratze-kodeak eta eskaerak baliogabetu dira.",
+      },
+      "oc-aranes": {
+        sessions: "S’an barrat es autes sessions actives.",
+        challenges:
+          "S’an invalidat es còdis e es sollicituds temporaus de verificacion o recuperacion pendentes.",
+      },
     },
-    "de-CH": {
-      subject: "Die Schliessung Ihres Kontos wurde geplant",
-      title: "Wir bedauern, dass Sie gehen",
-      intro: `Die endgültige Schliessung ist für den ${date} (UTC) vorgesehen.`,
-      securityHeading: "Technische und sicherheitsrelevante Informationen",
-      kept: "Passwort, Zwei-Faktor-Authentifizierung, Passkeys und diese Sitzung bleiben aktiv, damit Sie die Schliessung abbrechen können.",
-      cancel:
-        "Wenn Sie Ihre Meinung ändern, melden Sie sich an und brechen Sie die Schliessung vor Ablauf der Nachfrist ab.",
-      cancelAction: "Schliessung prüfen oder abbrechen",
-      signInAction: "Anmelden",
-      recoveryPrompt: "Sie können nicht auf Ihr Konto zugreifen?",
-      recoveryAction: "Konto wiederherstellen",
-      feedback:
-        "Wenn Sie möchten, teilen Sie uns mit, was wir verbessern können. Die Umfrage ist freiwillig und hat keinen Einfluss auf die Kontoschliessung.",
-      feedbackAction: "Verbesserungsvorschläge senden",
-      closing: "Wir hoffen, Sie bald wiederzusehen.",
+    {
+      deCH: {
+        sessions: "Ihre anderen aktiven Sitzungen wurden beendet.",
+        challenges:
+          "Ausstehende temporäre Verifizierungs- und Wiederherstellungscodes oder -anfragen wurden ungültig gemacht.",
+      },
     },
-  };
-  const message = content[input.locale] ?? content.es;
+  )[locale];
   const changes = [
-    input.revokedOtherSessions
-      ? input.locale === "es"
-        ? "Se han cerrado las demás sesiones activas."
-        : input.locale === "en"
-          ? "Your other active sessions have been closed."
-          : "Ihre anderen aktiven Sitzungen wurden beendet."
-      : "",
-    input.removedTemporaryChallenges
-      ? input.locale === "es"
-        ? "Se han invalidado los códigos y solicitudes temporales de verificación o recuperación pendientes."
-        : input.locale === "en"
-          ? "Pending temporary verification and recovery codes or requests have been invalidated."
-          : "Ausstehende temporäre Verifizierungs- und Wiederherstellungscodes oder -anfragen wurden ungültig gemacht."
-      : "",
+    input.revokedOtherSessions ? technicalChanges.sessions : "",
+    input.removedTemporaryChallenges ? technicalChanges.challenges : "",
   ].filter(Boolean);
   const changesText = changes.join("\n");
   const changesHtml = changes
@@ -1576,7 +2108,7 @@ export function buildAccountDeletionPreparationMessage(input: {
   return {
     subject: message.subject,
     text: `${input.name}\n\n${message.title}\n\n${message.intro}\n\n${message.securityHeading}\n${changesText ? `${changesText}\n` : ""}${message.kept}\n\n${message.cancel}\n${input.accountUrl}\n\n${message.signInAction}: ${input.loginUrl}\n${message.recoveryPrompt} ${message.recoveryAction}: ${input.recoveryUrl}\n\n${message.feedback}\n${input.feedbackUrl}\n\n${message.closing}`,
-    html: `<!doctype html><html lang="${escapeHtml(input.locale)}"><body style="margin:0;padding:0;background:#f4f5f6;color:#0f1720;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f5f6;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;border-collapse:separate;mso-table-lspace:0pt;mso-table-rspace:0pt"><tr><td style="padding:32px"><p style="margin:0 0 18px;font-size:16px;line-height:1.6">${escapeHtml(input.name)}</p><h1 style="margin:0 0 18px;font-size:26px;line-height:1.25">${escapeHtml(message.title)}</h1><p style="margin:0 0 24px;font-size:16px;line-height:1.6">${escapeHtml(message.intro)}</p><h2 style="margin:0 0 12px;font-size:18px;line-height:1.4">${escapeHtml(message.securityHeading)}</h2>${changesHtml ? `<ul style="margin:0 0 16px;padding-left:22px;line-height:1.5">${changesHtml}</ul>` : ""}<p style="margin:0 0 24px;font-size:16px;line-height:1.6">${escapeHtml(message.kept)}</p><p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:#475569">${escapeHtml(message.cancel)}</p><table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate"><tr><td bgcolor="#f07a3a" style="border-radius:10px"><a href="${safeAccountUrl}" style="display:inline-block;padding:13px 20px;color:#ffffff;text-decoration:none;font-weight:700">${escapeHtml(message.cancelAction)}</a></td></tr></table><p style="margin:18px 0 8px;font-size:15px;line-height:1.6"><a href="${safeLoginUrl}" style="color:#334155;font-weight:700">${escapeHtml(message.signInAction)}</a></p><p style="margin:0;font-size:15px;line-height:1.6;color:#475569">${escapeHtml(message.recoveryPrompt)} <a href="${safeRecoveryUrl}" style="color:#334155;font-weight:700">${escapeHtml(message.recoveryAction)}</a></p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:28px;border-top:1px solid #e5e7eb"><tr><td style="padding-top:24px"><p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#475569">${escapeHtml(message.feedback)}</p><table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate"><tr><td style="border:1px solid #334155;border-radius:10px"><a href="${safeFeedbackUrl}" style="display:inline-block;padding:12px 18px;color:#334155;text-decoration:none;font-weight:700">${escapeHtml(message.feedbackAction)}</a></td></tr></table><p style="margin:24px 0 0;font-size:16px;line-height:1.6">${escapeHtml(message.closing)}</p></td></tr></table></td></tr></table></td></tr></table></body></html>`,
+    html: `<!doctype html><html lang="${escapeHtml(locale)}"><body style="margin:0;padding:0;background:#f4f5f6;color:#0f1720;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f5f6;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;border-collapse:separate;mso-table-lspace:0pt;mso-table-rspace:0pt"><tr><td style="padding:32px"><p style="margin:0 0 18px;font-size:16px;line-height:1.6">${escapeHtml(input.name)}</p><h1 style="margin:0 0 18px;font-size:26px;line-height:1.25">${escapeHtml(message.title)}</h1><p style="margin:0 0 24px;font-size:16px;line-height:1.6">${escapeHtml(message.intro)}</p><h2 style="margin:0 0 12px;font-size:18px;line-height:1.4">${escapeHtml(message.securityHeading)}</h2>${changesHtml ? `<ul style="margin:0 0 16px;padding-left:22px;line-height:1.5">${changesHtml}</ul>` : ""}<p style="margin:0 0 24px;font-size:16px;line-height:1.6">${escapeHtml(message.kept)}</p><p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:#475569">${escapeHtml(message.cancel)}</p><table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate"><tr><td bgcolor="#f07a3a" style="border-radius:10px"><a href="${safeAccountUrl}" style="display:inline-block;padding:13px 20px;color:#ffffff;text-decoration:none;font-weight:700">${escapeHtml(message.cancelAction)}</a></td></tr></table><p style="margin:18px 0 8px;font-size:15px;line-height:1.6"><a href="${safeLoginUrl}" style="color:#334155;font-weight:700">${escapeHtml(message.signInAction)}</a></p><p style="margin:0;font-size:15px;line-height:1.6;color:#475569">${escapeHtml(message.recoveryPrompt)} <a href="${safeRecoveryUrl}" style="color:#334155;font-weight:700">${escapeHtml(message.recoveryAction)}</a></p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:28px;border-top:1px solid #e5e7eb"><tr><td style="padding-top:24px"><p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#475569">${escapeHtml(message.feedback)}</p><table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate"><tr><td style="border:1px solid #334155;border-radius:10px"><a href="${safeFeedbackUrl}" style="display:inline-block;padding:12px 18px;color:#334155;text-decoration:none;font-weight:700">${escapeHtml(message.feedbackAction)}</a></td></tr></table><p style="margin:24px 0 0;font-size:16px;line-height:1.6">${escapeHtml(message.closing)}</p></td></tr></table></td></tr></table></td></tr></table></body></html>`,
   };
 }
 

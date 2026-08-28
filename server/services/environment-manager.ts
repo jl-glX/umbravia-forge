@@ -36,7 +36,18 @@ interface ManagedEnvironmentManifest {
   name: string;
   kind: ManagedEnvironmentKind;
   status: ManagedEnvironmentStatus;
-  locale: "es" | "en" | "de" | "de-CH";
+  locale:
+    | "es"
+    | "en"
+    | "de"
+    | "de-CH"
+    | "fr"
+    | "it"
+    | "gl"
+    | "ca"
+    | "ca-valencia"
+    | "eu"
+    | "oc-aranes";
   templateKey: string;
   databaseFile: "database.sqlite";
   createdAt: number;
@@ -117,7 +128,19 @@ async function readManifest(
       "migration_ready",
       "migration_blocked",
     ].includes(parsed.status ?? "") ||
-    !["es", "en", "de", "de-CH"].includes(parsed.locale ?? "") ||
+    ![
+      "es",
+      "en",
+      "de",
+      "de-CH",
+      "fr",
+      "it",
+      "gl",
+      "ca",
+      "ca-valencia",
+      "eu",
+      "oc-aranes",
+    ].includes(parsed.locale ?? "") ||
     typeof parsed.templateKey !== "string" ||
     typeof parsed.createdAt !== "number" ||
     typeof parsed.updatedAt !== "number"

@@ -28,6 +28,7 @@ import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { ConfirmDialog } from "../components/ui/confirm-dialog";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 const CURRENCY_KEY = "umbravia-forge-billing-currency";
@@ -292,7 +293,7 @@ export function BillingPage() {
   };
 
   const money = (record: BillingRecord) =>
-    new Intl.NumberFormat(editingLanguage, {
+    new Intl.NumberFormat(resolveIntlLocale(editingLanguage), {
       style: "currency",
       currency: record.currency,
     }).format(record.amountCents / 100);

@@ -82,7 +82,18 @@ export type AccessPortal = "member" | "staff" | "support";
 export interface SignupProfile {
   lastName: string;
   countryCode: string;
-  locale: "es" | "en" | "de" | "de-CH";
+  locale:
+    | "es"
+    | "en"
+    | "de"
+    | "de-CH"
+    | "fr"
+    | "it"
+    | "gl"
+    | "ca"
+    | "ca-valencia"
+    | "eu"
+    | "oc-aranes";
   acceptedTerms: boolean;
   acceptedPrivacy: boolean;
   accountType?: "member" | "administrator";

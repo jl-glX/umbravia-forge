@@ -43,7 +43,14 @@
     "es": "Español",
     "en": "English",
     "de": "Alemán",
-    "deCH": "Alemán (Suiza)"
+    "deCH": "Alemán (Suiza)",
+    "fr": "Francés",
+    "it": "Italiano",
+    "gl": "Gallego",
+    "ca": "Catalán",
+    "caValencia": "Valenciano",
+    "eu": "Euskera",
+    "ocAranes": "Aranés"
   },
   "releaseRecovery": {
     "title": "La aplicación necesita actualizarse",
@@ -526,7 +533,7 @@
     "dataReviewTitle": "Revisión conjunta de los datos",
     "dataReviewDescription": "El cierre consulta el módulo de retención para mostrar qué categorías necesitan clasificación antes de cualquier acción futura.",
     "executionDisabled": "Ejecución desactivada",
-    "linkedRecords": "{{count}} registros vinculados",
+    "linkedRecords": "Registros vinculados: {{count}}",
     "dataCategories": {
       "account_profile": "Perfil de la cuenta",
       "preferences": "Preferencias",
@@ -562,14 +569,14 @@
     "legalDescription": "Si eliminas la cuenta, determinados datos de facturación, seguridad o gestión de reclamaciones podrían conservarse de forma restringida cuando exista una obligación legal aplicable. No se utilizarán para la actividad ordinaria de la cuenta.",
     "legalPending": "El sistema solo conserva datos cuando existe una política revisada y aplicable. Si detecta un caso no resuelto, bloquea el borrado automático y solicita revisión.",
     "accountTitle": "Borrar la cuenta completa",
-    "accountDescription": "Incluye todas las categorías en la revisión y programa el cierre con un periodo de gracia de {{count}} días.",
+    "accountDescription": "Incluye todas las categorías en la revisión y programa el cierre. Periodo de gracia (días): {{count}}.",
     "deleteAccount": "Continuar con el borrado de la cuenta",
     "cancelAccount": "Cancelar el cierre de la cuenta",
     "pendingUntil": "La cuenta está programada para cerrarse el {{date}}.",
     "accountScheduled": "El cierre completo se ha programado.",
-    "impactBookings": "{{count}} reservas o posiciones en espera se verán afectadas al ejecutar el cierre.",
-    "impactSessions": "{{count}} sesiones activas se revocarán.",
-    "impactDelegations": "{{count}} permisos o delegaciones pendientes o activas finalizarán.",
+    "impactBookings": "Reservas o posiciones en espera afectadas al ejecutar el cierre: {{count}}.",
+    "impactSessions": "Sesiones activas que se revocarán: {{count}}.",
+    "impactDelegations": "Permisos o delegaciones pendientes o activas que finalizarán: {{count}}.",
     "impactDownloads": "Antes del cierre puedes descargar los datos que la plataforma tenga disponibles para exportación.",
     "passwordConfirmation": "Confirma tu contraseña",
     "totpConfirmation": "Introduce el código de seis cifras de tu aplicación de autenticación",
@@ -1127,6 +1134,8 @@
     "sendInvitation": "Iniciar verificación",
     "invitationSecurityNotice": "El trabajador recibirá un enlace de un solo uso. Solo él podrá establecer su contraseña y confirmar la vinculación laboral con el centro.",
     "workerRoleRequired": "La verificación laboral solo admite los roles de administrador o entrenador.",
+    "invitationOwnerRequired": "Solo la persona titular del centro puede ofrecer acceso de administración.",
+    "invitationRequestFailed": "No se ha podido preparar la invitación. Revisa los datos e inténtalo de nuevo.",
     "invitationEmailNotQueued": "La verificación se ha creado, pero el correo no ha podido entrar en la cola de envío. Puedes volver a intentarlo; la nueva solicitud invalidará la anterior.",
     "pendingInvitations": "Verificaciones laborales pendientes",
     "pendingInvitationsDescription": "Mientras estén pendientes, el trabajador solo podrá consultar el centro: no podrá modificarlo ni administrar su suscripción.",
@@ -1614,7 +1623,7 @@
           },
           "payments": {
             "title": "4. Pagos y planes",
-            "body": "Umbravia Forge no tiene activados pagos comerciales en esta versión. Antes de incorporar Stripe u otro proveedor deberán definirse precios, impuestos, facturación, renovaciones, reembolsos y el reparto de responsabilidades con el centro y el proveedor de pago. Umbravia Forge no almacenará datos completos de tarjetas."
+            "body": "Umbravia Forge no tiene activados pagos comerciales en esta versión. Antes de incorporar Stripe u otro proveedor deberán definirse precios, impuestos, facturación, renovaciones, reembolsos y el reparto de responsabilidades entre Umbravia Forge, el centro y el proveedor de pago. Umbravia Forge no almacenará datos completos de tarjetas."
           },
           "cancellations": {
             "title": "5. Cancelaciones y bajas",
@@ -1882,7 +1891,7 @@
       "email": {
         "option": "Correo",
         "label": "Correo electrónico",
-        "placeholder": "nombre@ejemplo.com",
+        "placeholder": "name@example.com",
         "help": "Usa la dirección verificada de la cuenta."
       },
       "username": {
@@ -1976,6 +1985,27 @@
       "createTitle": "Configura tu centro de prueba",
       "editTitle": "Configuración del centro",
       "description": "Usa una plantilla como punto de partida. Todos los datos opcionales se pueden completar o cambiar más tarde.",
+      "templateClassTypes": {
+        "openGym": "Sala libre",
+        "guidedClass": "Clase dirigida",
+        "wod": "WOD",
+        "openBox": "Open Box",
+        "hyrox": "HYROX",
+        "stationTechnique": "Técnica de estaciones",
+        "functionalTraining": "Entrenamiento funcional",
+        "individualSession": "Sesión individual",
+        "strength": "Fuerza",
+        "technique": "Técnica",
+        "strongman": "Strongman",
+        "bodybuildingRoom": "Sala de musculación",
+        "sparring": "Sparring",
+        "yoga": "Yoga",
+        "pilates": "Pilates",
+        "indoorCycling": "Ciclo indoor",
+        "guidedActivity": "Actividad dirigida",
+        "openTraining": "Entrenamiento libre",
+        "customActivity": "Actividad personalizada"
+      },
       "centreData": "Datos del centro",
       "wizard": {
         "eyebrow": "Alta guiada del centro",
@@ -2055,7 +2085,7 @@
       },
       "dataReview": {
         "title": "¿Has introducido datos reales?",
-        "description": "Al finalizar la prueba tienes 6 horas para indicar si introdujiste datos reales. Si respondes que no o no respondes, la cuenta de prueba, el centro y su entorno se eliminarán. Si existen datos reales o necesitas revisarlos, el borrado automático se detiene.",
+        "description": "Esta revisión se abre 6 horas antes de que termine la prueba y permanece disponible mientras la decisión siga siendo aplicable. Indica si has introducido datos reales. Si respondes que no o no respondes antes de que comience la limpieza, se eliminarán la cuenta de prueba, el centro y su entorno. Si existen datos reales o necesitas revisarlos, el borrado automático se detiene.",
         "yes": "Sí",
         "no": "No",
         "assistance": "Necesito ayuda",
@@ -2071,7 +2101,7 @@
         "description": "Revisa el origen y la decisión prevista para cada categoría. Este inventario es editable y no ejecuta ninguna conversión.",
         "origin": "Origen",
         "decision": "Decisión",
-        "limit": "Base del punto 8: guardar estas decisiones no migra, borra, anonimiza ni convierte registros.",
+        "limit": "Límite de seguridad: guardar estas decisiones no migra, borra, anonimiza ni convierte registros.",
         "origins": {
           "demo_seed": "Generado por la demo",
           "user_created": "Creado por el usuario",
@@ -2220,6 +2250,11 @@
     "eyebrow": "Comunidad deportiva",
     "title": "Comunidad",
     "description": "Identidad social, contactos y conversaciones vinculadas al centro y a sus clases.",
+    "institutionalPrinciples": {
+      "neutrality": "La plataforma no condiciona el acceso a adhesiones políticas, religiosas o ideológicas.",
+      "reciprocity": "La libertad, privacidad y dignidad de cada persona exigen el mismo respeto hacia usuarios, centros y plataforma.",
+      "conductBasedModeration": "Las decisiones se basan en conducta, contexto, pruebas, daño, reiteración, gravedad y proporcionalidad."
+    },
     "identity": "Identidad y privacidad",
     "username": "Nombre de usuario",
     "usernameTaken": "Este nombre de usuario ya está en uso. Elige otro.",
@@ -2381,7 +2416,7 @@
     "unassigned": "Sin asignar",
     "nextFollowUp": "Próximo seguimiento",
     "effectiveSegment": "Segmento efectivo",
-    "openFollowUps": "{{count}} seguimientos abiertos",
+    "openFollowUps": "Seguimientos abiertos",
     "unknownAssignee": "Responsable no disponible",
     "unknownMember": "Socio no disponible",
     "chooseMember": "Selecciona un socio",

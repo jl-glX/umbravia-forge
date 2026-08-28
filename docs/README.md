@@ -1,6 +1,6 @@
 # Índice de documentación
 
-Estado revisado contra el código y las pruebas del cambio activo el 26 de agosto
+Estado revisado contra el código y las pruebas del cambio activo el 27 de agosto
 de 2026. El índice evita fijar un SHA que quede obsoleto con cada actualización:
 la sincronización se comprueba en el diff y en la validación del commit que se
 publica. Esta referencia describe el repositorio; no demuestra por sí sola el
@@ -23,6 +23,9 @@ auditoría histórica entra en conflicto con un documento vigente.
 ## Estado vigente del producto
 
 - [Arquitectura](./ARCHITECTURE.md)
+- [Localización e internacionalización](./LOCALIZATION.md), con matriz de
+  locales y fallbacks, contratos de proveedores, migraciones, procedencia de
+  catálogos, controles de calidad y deuda de mantenimiento;
 - [Subdominios por centro](./TENANT-SUBDOMAINS.md), implementados con selección
   por host, autorización por membresía, edición controlada y previsualización
   del dominio padre durante la prueba, pero desactivados hasta validar DNS, TLS,

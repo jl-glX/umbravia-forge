@@ -11,6 +11,7 @@ import { initializeCommunitySchema } from "./community-schema.js";
 import { initializeE2eeSchema } from "./e2ee-schema.js";
 import { createPostgresDatabaseRuntime } from "./postgres-client.js";
 import { resolveDatabaseProvider } from "./runtime.js";
+import { SUPPORTED_LOCALES } from "../lib/supported-locales.js";
 
 export const databaseProvider = resolveDatabaseProvider(process.env);
 const postgresRuntime =
@@ -45,6 +46,106 @@ function quoteSqliteIdentifier(identifier: string): string {
     throw new Error("Unexpected SQLite schema identifier");
   }
   return `"${identifier}"`;
+}
+
+const SQLITE_SUPPORTED_LOCALES_SQL = SUPPORTED_LOCALES.map(
+  (locale) => `'${locale}'`,
+).join(", ");
+const LEGACY_SQLITE_LOCALE_CHECK =
+  /CHECK\s*\(\s*"?locale"?\s+IN\s*\(\s*'es'\s*,\s*'en'\s*,\s*'de'\s*,\s*'de-CH'\s*\)\s*\)/i;
+const SQLITE_LOCALE_TABLES = [
+  "commercialTrials",
+  "administratorSignupProvisioning",
+  "umfSupportAccessRequests",
+] as const;
+
+function migrateSqliteLocaleChecks(database: Database.Database): void {
+  const schemas = SQLITE_LOCALE_TABLES.map((table) => {
+    const schema = database
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+      )
+      .get(table) as { sql: string } | undefined;
+    if (!schema) throw new Error(`Missing SQLite locale table: ${table}`);
+    return { table, sql: schema.sql };
+  });
+  if (
+    schemas.every(({ sql }) =>
+      SUPPORTED_LOCALES.every((locale) => sql.includes(`'${locale}'`)),
+    )
+  ) {
+    return;
+  }
+
+  const foreignKeysEnabled = Number(
+    database.pragma("foreign_keys", { simple: true }),
+  );
+  database.pragma("foreign_keys = OFF");
+  try {
+    database.transaction(() => {
+      for (const { table, sql } of schemas) {
+        if (SUPPORTED_LOCALES.every((locale) => sql.includes(`'${locale}'`))) {
+          continue;
+        }
+        if (!LEGACY_SQLITE_LOCALE_CHECK.test(sql)) {
+          throw new Error(`Unexpected SQLite locale constraint in ${table}`);
+        }
+
+        const dependentSchema = database
+          .prepare(
+            `SELECT sql
+             FROM sqlite_master
+             WHERE tbl_name = ?
+               AND type IN ('index', 'trigger')
+               AND sql IS NOT NULL
+             ORDER BY type, name`,
+          )
+          .all(table) as Array<{ sql: string }>;
+        const columns = database
+          .prepare(`PRAGMA table_info(${quoteSqliteIdentifier(table)})`)
+          .all() as Array<{ name: string }>;
+        const columnList = columns
+          .map(({ name }) => quoteSqliteIdentifier(name))
+          .join(", ");
+        const temporaryTable = `${table}_locale_migration`;
+        const updatedSchema = sql.replace(
+          LEGACY_SQLITE_LOCALE_CHECK,
+          `CHECK(locale IN (${SQLITE_SUPPORTED_LOCALES_SQL}))`,
+        );
+        const temporarySchema = updatedSchema.replace(
+          /^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_]*)/i,
+          `CREATE TABLE ${quoteSqliteIdentifier(temporaryTable)}`,
+        );
+
+        database.exec(`
+          DROP TABLE IF EXISTS ${quoteSqliteIdentifier(temporaryTable)};
+          ${temporarySchema};
+          INSERT INTO ${quoteSqliteIdentifier(temporaryTable)} (${columnList})
+          SELECT ${columnList} FROM ${quoteSqliteIdentifier(table)};
+          DROP TABLE ${quoteSqliteIdentifier(table)};
+          ALTER TABLE ${quoteSqliteIdentifier(temporaryTable)}
+            RENAME TO ${quoteSqliteIdentifier(table)};
+        `);
+        for (const { sql: dependentSql } of dependentSchema) {
+          database.exec(dependentSql);
+        }
+      }
+
+      const violations = database.pragma("foreign_key_check") as Array<{
+        table: string;
+        rowid: number;
+        parent: string;
+        fkid: number;
+      }>;
+      if (violations.length > 0) {
+        throw new Error(
+          `SQLite locale migration violated ${violations.length} foreign keys`,
+        );
+      }
+    })();
+  } finally {
+    database.pragma(`foreign_keys = ${foreignKeysEnabled ? "ON" : "OFF"}`);
+  }
 }
 
 function enforceActiveFacilityBoundary(database: Database.Database): void {
@@ -2321,7 +2422,7 @@ async function initializeSqliteSchema(
         bonusesDescription TEXT NOT NULL DEFAULT '',
         publicPageEnabled INTEGER NOT NULL DEFAULT 0 CHECK(publicPageEnabled IN (0, 1)),
         showPhonePublicly INTEGER NOT NULL DEFAULT 0 CHECK(showPhonePublicly IN (0, 1)),
-        locale TEXT NOT NULL CHECK(locale IN ('es', 'en', 'de', 'de-CH')),
+        locale TEXT NOT NULL CHECK(locale IN (${SQLITE_SUPPORTED_LOCALES_SQL})),
         currency TEXT NOT NULL,
         usesBookings INTEGER NOT NULL DEFAULT 1 CHECK(usesBookings IN (0, 1)),
         usesWaitlist INTEGER NOT NULL DEFAULT 1 CHECK(usesWaitlist IN (0, 1)),
@@ -2484,7 +2585,7 @@ async function initializeSqliteSchema(
         'martial_arts', 'yoga', 'pilates', 'indoor_cycling',
         'multidisciplinary', 'custom'
       )),
-      locale TEXT NOT NULL CHECK(locale IN ('es', 'en', 'de', 'de-CH')),
+      locale TEXT NOT NULL CHECK(locale IN (${SQLITE_SUPPORTED_LOCALES_SQL})),
       createdAt INTEGER NOT NULL,
       FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
     );
@@ -2746,7 +2847,7 @@ async function initializeSqliteSchema(
       lastName TEXT NOT NULL,
       requestedRole TEXT NOT NULL DEFAULT 'agent' CHECK(requestedRole IN ('director', 'agent')),
       activationKind TEXT NOT NULL DEFAULT 'staff' CHECK(activationKind IN ('staff', 'designated_head')),
-      locale TEXT NOT NULL CHECK(locale IN ('es', 'en', 'de', 'de-CH')),
+      locale TEXT NOT NULL CHECK(locale IN (${SQLITE_SUPPORTED_LOCALES_SQL})),
       status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected', 'activated', 'expired')),
       activationCodeHash TEXT,
       activationAttempts INTEGER NOT NULL DEFAULT 0 CHECK(activationAttempts >= 0),
@@ -3026,6 +3127,8 @@ async function initializeSqliteSchema(
       )
     `);
   }
+
+  migrateSqliteLocaleChecks(sqliteDb);
 
   const subscriptionColumns = sqliteDb
     .prepare("PRAGMA table_info(facilityCommercialSubscriptions)")

@@ -3,6 +3,7 @@ import { CreditCard, ReceiptText, ShoppingBag } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { authFetch } from "../lib/api";
 import { localizedApiErrorMessage } from "../lib/api-error";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -67,7 +68,7 @@ export function MemberPaymentsPage() {
   }, [loadSummary]);
 
   const formatAmount = (record: MemberPaymentSummary) =>
-    new Intl.NumberFormat(i18n.language, {
+    new Intl.NumberFormat(resolveIntlLocale(i18n.language), {
       style: "currency",
       currency: record.currency,
     }).format(record.amountCents / 100);

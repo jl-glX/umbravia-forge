@@ -1,0 +1,720 @@
+{
+  "tenantHost": {
+    "notFoundTitle": "Este espai no està disponible"
+  },
+  "common": {
+    "unauthorized": "No tens permís per accedir a esta secció",
+    "delete": "Suprimix"
+  },
+  "language": {
+    "en": "Anglés",
+    "fr": "Francés",
+    "ocAranes": "Aranés"
+  },
+  "releaseRecovery": {
+    "description": "Esta pestanya ha conservat fitxers d’una versió anterior. Torna a carregar la pàgina per continuar amb la versió actual."
+  },
+  "nav": {
+    "bookings": "Les meues reserves"
+  },
+  "subscription": {
+    "description": "Subscriu-te i gestiona el teu centre a l’entorn segur de Stripe. Els cobraments als socis i les sòcies continuen separats d’esta subscripció.",
+    "checkoutSuccess": "Stripe ha rebut la sol·licitud. L’accés s’actualitzarà quan arribe la confirmació signada; pots actualitzar-ne l’estat aquí.",
+    "notConfiguredDescription": "La funció està preparada, però este servidor no té una configuració activa de facturació de Stripe.",
+    "testMode": "Mode de prova: este entorn no accepta esdeveniments ni claus de Stripe Live.",
+    "liveMode": "Mode de producció: este entorn només accepta objectes i esdeveniments autoritzats de Stripe Live per a esta instal·lació.",
+    "attention": {
+      "payment_action_required": {
+        "title": "El pagament requerix autenticació",
+        "description": "Completa l’acció que demana Stripe perquè el cobrament puga continuar."
+      },
+      "invoice_finalization_failed": {
+        "description": "Revisa la factura i la configuració de facturació a Stripe. Tenir accés no demostra que la factura estiga preparada per al cobrament."
+      }
+    }
+  },
+  "support": {
+    "external": {
+      "generalDescription": "Escriu-nos per correu electrònic per demanar informació general que no requerisca obrir un incident ni fer-ne el seguiment.",
+      "safetyNotice": "No envies contrasenyes, codis d’un sol ús, dades completes de targetes de pagament ni informació mèdica o d’altra mena especialment sensible."
+    },
+    "myTickets": "Les meues sol·licituds",
+    "createDescription": "Descriu una situació concreta perquè es puga revisar i seguir de principi a fi.",
+    "removeAttachment": "Suprimix {{name}}",
+    "removeAttachmentTitle": "Suprimix el fitxer adjunt",
+    "removeAttachmentDescription": "{{name}} se suprimirà d’esta sol·licitud i del seu emmagatzematge privat.",
+    "addAgent": "Afig un agent",
+    "addAgentDescription": "Introduïx l’ID intern d’un compte existent. El compte no rep permisos generals d’administració."
+  },
+  "navigationControls": {
+    "exit": "Surt d’esta pantalla i ves a l’inici"
+  },
+  "savedAccounts": {
+    "title": "Comptes en este dispositiu",
+    "remove": "Elimina {{name}} d’este dispositiu",
+    "useAnother": "Afig o utilitza un altre compte"
+  },
+  "accountControl": {
+    "managerRecoveryActiveMethods": "Actius en este compte: {{methods}}.",
+    "managerRecoveryNoActiveMethods": "Este compte encara no té cap mètode de recuperació actiu.",
+    "managerInactivityEnabled": "La supressió per inactivitat està configurada perquè s’execute al cap de {{months}} mesos.",
+    "managerContinuityDrafts": "Representacions preparades per revisar: {{count}}. Cap no concedix accés encara.",
+    "personalSectionDescription": "Estes opcions pertanyen al teu compte d’Umbravia Forge i no depenen de la teua funció en un centre.",
+    "memberSectionDescription": "Gestiona només les reserves, els pagaments i les eines vinculades a la teua identitat de soci/sòcia.",
+    "trainerSectionDescription": "Accedix a les eines operatives assignades al teu compte d’entrenador/a.",
+    "adminSectionDescription": "Accedix a les funcions del centre sense barrejar dades ni accions d’una identitat de soci/sòcia.",
+    "linkedMemberNotice": "Les reserves i les altres funcions personals per a socis/sòcies només apareixeran aquí quan Umbravia Forge admeta explícitament vincular una identitat separada de soci/sòcia. El rol d’entrenador/a o administrador/a no concedix estes funcions per si sol.",
+    "continuityDescription": "Prepara representants amb facultats limitades sense transferir la teua identitat ni les teues credencials.",
+    "bookingsDescription": "Revisa i gestiona les teues pròximes reserves.",
+    "timerDescription": "Configura AMRAP, For Time, EMOM i Tabata per a les teues sessions.",
+    "delegationSecurity": "Les delegacions només permeten que una altra persona reserve o cancel·le en nom teu. No proporcionen accés al teu perfil, a la teua contrasenya, als teus pagaments ni a la configuració de seguretat."
+  },
+  "accountPreferences": {
+    "languageDescription": "Tria l’idioma de la interfície. El canvi s’aplica immediatament en este dispositiu.",
+    "privacyDescription": "Llig la política, exercix els teus drets i revisa per separat cada acció que afecte les teues dades.",
+    "staffMembersDescription": "Permet que el personal, excepte el titular del centre, també vincule un compte de soci/sòcia sense perdre les seues funcions laborals.",
+    "staffMembersQuestion": "Qui pot vincular un compte de soci/sòcia a més de la seua funció laboral?",
+    "yes": "Tot el personal que complisca els requisits",
+    "specificPermissionsHelp": "Selecciona persones concretes. Esta llista permet excepcions individuals fins i tot quan l’opció general està desactivada.",
+    "specificNotNeeded": "No cal seleccionar persones mentre tot el personal que complisca els requisits estiga autoritzat.",
+    "noEligibleStaff": "No hi ha cap membre del personal verificat que complisca els requisits d’este permís.",
+    "centreDataDescription": "Revisa la informació del compte comercial i protegix les dades que també es poden fer servir per iniciar la sessió.",
+    "loginPhoneDescription": "Pots fer servir este número per iniciar la sessió. Per canviar-lo, cal la contrasenya i, quan estiga activat, el segon factor.",
+    "showPhonePublicly": "Mostra este telèfon al perfil públic",
+    "showPhonePubliclyDescription": "Esta tria és independent de l’inici de sessió. Pots tornar a ocultar el número en qualsevol moment.",
+    "phonePrivateByDefault": "Afig i verifica primer un telèfon. Continuarà sent privat fins que actives esta opció.",
+    "phoneErrors": {
+      "ACCOUNT_PHONE_ALREADY_IN_USE": "Este telèfon ja està vinculat a un altre compte.",
+      "FACILITY_OWNER_REQUIRED": "Només el titular del centre pot canviar este telèfon.",
+      "COMMERCIAL_PUBLIC_PHONE_REQUIRED": "Afig un telèfon abans de fer-lo públic."
+    }
+  },
+  "accountData": {
+    "description": "Revisa com es tracten les teues dades, exercix els teus drets i mantén el tancament del compte com una decisió separada i explícita.",
+    "rightsTitle": "Exercix els teus drets",
+    "contactRights": "Escriu sobre les meues dades",
+    "exportDescription": "L’exportació automàtica encara no està disponible. No mostrem cap botó que prometa una descàrrega inexistent; mentrestant, pots sol·licitar l’accés per correu electrònic.",
+    "closureDescription": "Tancar el compte és independent de revisar o gestionar les teues dades. Continua només si vols revisar-ne les conseqüències i els requisits de seguretat."
+  },
+  "accountContinuity": {
+    "demoDescription": "Els registres creats són esborranys. No permeten iniciar sessió, suplantar el titular ni executar accions fins que no hi haja un procediment vàlid de revisió i activació.",
+    "identityNotice": "La identitat, les credencials, l’historial personal i la configuració de seguretat mai no es transferixen a la persona representant."
+  },
+  "accountIdentity": {
+    "description": "Utilitza este identificador quan el centre o l’assistència d’Umbravia Forge necessiten localitzar el teu compte sense demanar més informació personal de la necessària.",
+    "securityNotice": "Este identificador ajuda a localitzar el teu compte, però no és una contrasenya ni demostra per si sol que el compte siga teu."
+  },
+  "accountLifecycle": {
+    "description": "Decidix què ha de passar si deixes d’utilitzar Umbravia Forge i revisa qualsevol tancament programat.",
+    "disabled": "No suprimisques el compte automàticament",
+    "reviewDeletion": "Suprimix les meues dades i el meu compte",
+    "reviewNotPending": "Esta revisió ja no està pendent. Torna a carregar la pàgina per veure l’estat actual.",
+    "states": {
+      "suspended_pending_deletion": "suspés en espera de supressió"
+    },
+    "reviewStates": {
+      "policy_review_required": "Hi ha una política activa, però la decisió definitiva encara requerix revisió.",
+      "draft_policy": "Hi ha un esborrany de política que encara requerix validació."
+    },
+    "dispositions": {
+      "delete": "Se suprimirà quan s’habilite l’execució real.",
+      "delete_or_anonymize": "Se suprimirà o s’anonimitzarà segons les seues dependències.",
+      "cancel_future_anonymize_history": "Els elements futurs es cancel·laran i l’historial s’anonimitzarà quan corresponga."
+    }
+  },
+  "accountDataDeletion": {
+    "description": "Revisa l’abast i, si decidixes continuar, programa el tancament complet i efectiu del compte.",
+    "reviewDescription": "Estes categories es revisen abans de la supressió definitiva. Si és aplicable una obligació de conservació, l’execució s’atura per permetre una revisió, en lloc de suprimir informació de manera indeguda.",
+    "legalDescription": "Si suprimixes el compte, determinades dades de facturació, seguretat o gestió de reclamacions es poden conservar amb accés restringit quan hi haja una obligació legal aplicable. No s’utilitzaran per a l’activitat ordinària del compte.",
+    "legalPending": "Les dades només es conserven quan hi ha una política revisada i aplicable. Els casos no resolts bloquegen la supressió automàtica i requerixen revisió.",
+    "accountTitle": "Suprimix tot el compte",
+    "impactBookings": "Reserves o posicions a la llista d’espera afectades quan s’execute el tancament: {{count}}.",
+    "totpConfirmation": "Introduïx el codi de sis dígits de l’aplicació d’autenticació",
+    "emailCodeConfirmation": "Introduïx el codi de sis dígits enviat a l’adreça electrònica del compte",
+    "emailCodeHelp": "El codi s’enviarà a {{email}}, caducarà al cap de 15 minuts i només es podrà utilitzar des d’esta sessió.",
+    "verifiedEmailRequired": "No hi ha cap adreça electrònica verificada on es puga rebre el codi. Per seguretat, el tancament no pot continuar.",
+    "reauthenticationNotice": "El servidor exigix la contrasenya i el segon factor quan està habilitat, o bé un codi enviat a l’adreça electrònica verificada quan la 2FA no està habilitada. Si no hi ha cap contrasenya utilitzable, exigix igualment el codi per correu electrònic i que la 2FA estiga habilitada. La interfície no pot reduir este requisit.",
+    "passwordRejected": "La contrasenya no coincidix amb la d’este compte. No s’ha programat cap supressió."
+  },
+  "dataRetention": {
+    "description": "Definix esborranys tècnics que es podran revisar i activar més endavant.",
+    "safetyNotice": "L’execució està desactivada. Crear un esborrany no confirma que la durada o la base siguen jurídicament vàlides."
+  },
+  "workoutTimer": {
+    "description": "Planifica i controla les sessions amb modes configurables. Les teues preferències només s’emmagatzemen en este dispositiu.",
+    "resume": "Reprén",
+    "soundHelp": "Reproduïx un avís quan canvia l’interval i quan s’acaba el temporitzador.",
+    "modes": {
+      "amrap": {
+        "description": "Completa tantes rondes com siga possible abans que s’acabe el temps."
+      }
+    }
+  },
+  "delegations": {
+    "createHelp": "El token només es mostra una vegada. Compartix-lo únicament amb la persona autoritzada.",
+    "tokenShownOnce": "Copia este token ara: no es tornarà a mostrar sencer.",
+    "redeemHelp": "Introduïx el token que t’ha donat un altre soci o sòcia per gestionar les seues reserves.",
+    "awaitingRedemption": "En espera que algú accepte el token",
+    "durations": {
+      "indefinite": "Indefinida fins que es revoque"
+    },
+    "errors": {
+      "DELEGATION_TOKEN_INVALID": "El token no existix, ha caducat o ja no és vàlid.",
+      "DELEGATION_TOKEN_ALREADY_USED": "Este token ja l’ha acceptat una altra persona."
+    }
+  },
+  "auth": {
+    "brandTitle": "La teua vida al gimnàs, tota en un sol lloc.",
+    "brandDescription": "Planifica sessions, gestiona reserves i mantén el contacte amb la teua comunitat d’entrenament.",
+    "scheduledDeletionLoginNotice": "Si este compte té una supressió programada, un inici de sessió correcte la cancel·larà. Introduir l’adreça electrònica o equivocar-se en la contrasenya no modifica el compte.",
+    "rememberDevice": "Recorda este dispositiu durant 30 dies",
+    "passkeyIdentifierRequired": "Introduïx primer l’adreça electrònica o el número de telèfon del compte",
+    "passkeyDeviceUnavailable": "Este dispositiu no oferix cap mitjà d’autenticació integrat compatible, com ara l’autenticació mitjançant empremta digital, el reconeixement facial o un PIN. També pots utilitzar una clau de seguretat externa que hages registrat anteriorment.",
+    "verificationHelp": "Introduïx el codi de l’aplicació d’autenticació o un codi de recuperació.",
+    "alternativeCodeHelp": "Si fas servir la 2FA, introduïx aquí un codi d’autenticació o de recuperació. Umbravia Forge verificarà primer el compte i la contrasenya.",
+    "join": "Unix-te a Umbravia Forge",
+    "initialFacilityDescription": "Esta configuració inicial prepara la plantilla del teu centre. Pots editar-la lliurement des de l’àrea del compte durant el període de prova comercial.",
+    "administratorTrialNotice": "El centre i la seua prova comercial de 31 dies només es creen després de verificar l’adreça electrònica. Fins aleshores no ocupen cap entorn de client ni es comptabilitzen com a activitat real.",
+    "administratorSignupUnavailable": "La creació de centres nous no està activada en este entorn. El registre de socis i sòcies continua disponible.",
+    "passwordMismatch": "Les contrasenyes no coincidixen"
+  },
+  "home": {
+    "title": "La teua setmana d’entrenament,",
+    "description": "Reserva classes, gestiona l’horari i apunta’t a llistes d’espera. Quan quede una plaça lliure, hi accediràs automàticament.",
+    "bookings": "Les meues reserves",
+    "features": {
+      "analyticsText": "Entén la teua activitat d’un cop d’ull."
+    }
+  },
+  "adminHome": {
+    "downloadsDescription": "Accedix a les aplicacions oficials i al paquet portàtil d’Umbravia Forge."
+  },
+  "downloads": {
+    "description": "Tria l’aplicació oficial per al teu dispositiu o descarrega el paquet portàtil. Les opcions estaran disponibles a mesura que es publique cada distribució."
+  },
+  "classes": {
+    "agenda": "La teua agenda setmanal d’entrenament",
+    "title": "Troba la teua pròxima classe"
+  },
+  "bookings": {
+    "title": "Les meues reserves",
+    "reminderQuestion": "Confirma si assistiràs a esta classe",
+    "recoveryActions": {
+      "attend": "Assistix a les pròximes classes que hages reservat.",
+      "honor_confirmation": "Confirma que hi assistiràs i complix este compromís.",
+      "request_review": "Sol·licita una revisió quan hi haja un motiu justificat."
+    }
+  },
+  "sessionContent": {
+    "description": "Revisa l’estructura de l’entrenament, marca els blocs completats i conserva les teues notes personals.",
+    "commentsEnabled": "Prepara comentaris per a esta classe",
+    "addBlock": "Afig un bloc",
+    "empty": "L’entrenador/a encara no ha preparat contingut per a esta sessió."
+  },
+  "memberCommerce": {
+    "description": "Revisa en un sol lloc les quotes del centre i, quan estiguen disponibles, les compres i els incentius comercials.",
+    "paymentsDescription": "Les teues quotes, dates de venciment, rebuts i l’estat dels pagaments apareixeran aquí quan el centre active esta funció.",
+    "ordersDescription": "Esta àrea contindrà comandes, descomptes i incentius econòmics que el teu centre oferisca en el futur."
+  },
+  "trainer": {
+    "description": "Gestiona les teues classes i les persones assistents",
+    "only": "Esta pàgina només és accessible per a entrenadors/es",
+    "loading": "S’estan carregant les teues classes...",
+    "noResults": "Cap classe coincidix amb la cerca"
+  },
+  "admin": {
+    "classPermissions": {
+      "classes.delete": "Suprimix"
+    },
+    "deleteClassConfirm": "Segur que vols suprimir esta classe?",
+    "deleteClassTitle": "Suprimix la classe",
+    "deleteClassesTitle": "Suprimix {{count}} classes",
+    "deleteSelectedClasses": "Suprimix les classes seleccionades ({{count}})",
+    "addClassDate": "Afig una data",
+    "removeClassDate": "Suprimix la data",
+    "bookingOpeningHours": "Obre les reserves este nombre d’hores abans",
+    "bookingOpeningHint": "Deixa este camp buit per obrir-les immediatament. Els socis i sòcies veuran un compte enrere fins que s’òbriguen les reserves.",
+    "deleteSelected": "Suprimix {{count}}",
+    "deleteUserConfirm": "Segur que vols suprimir este usuari?",
+    "deleteUserTitle": "Suprimix el compte",
+    "deleteUserDescription": "Estàs a punt de sol·licitar la supressió de «{{name}}». Les dades que s’hagen de conservar o reassignar bloquejaran l’operació.",
+    "deleteUsersTitle": "Suprimix {{count}} comptes",
+    "invitationSecurityNotice": "La persona treballadora rebrà un enllaç d’un sol ús. Només esta persona podrà establir la seua contrasenya i confirmar la seua relació laboral amb el centre.",
+    "pendingInvitationsDescription": "Mentre la verificació estiga pendent, la persona treballadora només podrà veure el centre i no podrà modificar-lo ni gestionar-ne la subscripció.",
+    "staffMemberPolicyDescription": "Tria si el personal també pot vincular un compte de soci/sòcia. Canviar esta política no suprimix les afiliacions que ja estan actives.",
+    "staffMemberPolicyQuestion": "Permet que el personal del gimnàs cree comptes de soci/sòcia",
+    "specificStaffMemberPermissionsHelp": "Selecciona les persones autoritzades encara que l’opció general estiga desactivada, com ara entrenadors/entrenadores de competició o federats/federades.",
+    "noEligibleStaffForMemberAffiliation": "No hi ha cap membre del personal verificat que complisca els requisits per a este permís.",
+    "memberAffiliationsDescription": "Vincula un compte de soci/sòcia a este centre mitjançant un enllaç que ha d’acceptar la persona titular del compte.",
+    "memberAffiliationSecurityNotice": "El soci o la sòcia rebrà un enllaç d’un sol ús. L’afiliació només s’activarà després que la persona titular del compte l’accepte."
+  },
+  "workerVerification": {
+    "readOnlyNotice": "La teua relació laboral encara no s’ha verificat. Pots veure el centre, però el servidor bloquejarà qualsevol modificació."
+  },
+  "facilityInvitation": {
+    "description": "Comprova el centre i el rol abans de confirmar la relació. Una verificació pendent no concedix accés.",
+    "existingSignedIn": "Has iniciat la sessió com a {{email}}. La relació només es confirmarà si pertany a este compte.",
+    "chooseOwnPassword": "Crea la teua pròpia contrasenya per activar el compte. L’administrador del centre no la pot veure.",
+    "declined": "La relació s’ha rebutjat i no concedix accés.",
+    "status": {
+      "accepted": "Esta relació laboral ja s’ha verificat.",
+      "declined": "Esta relació laboral ja s’ha rebutjat.",
+      "revoked": "El centre ha invalidat esta verificació."
+    },
+    "errors": {
+      "FACILITY_INVITATION_LOGIN_REQUIRED": "Ja existix un compte per a esta adreça electrònica. Inicia la sessió per acceptar.",
+      "STAFF_MEMBER_AFFILIATION_NOT_ALLOWED": "El centre no ha autoritzat este membre del personal a vincular també un compte de soci/sòcia.",
+      "PASSWORD_POLICY_FAILED": "La contrasenya no complix els requisits de seguretat.",
+      "PASSWORD_CONFIRMATION_MISMATCH": "Les contrasenyes no coincidixen."
+    }
+  },
+  "memberAffiliationInvitation": {
+    "accepted": "S’ha confirmat l’afiliació. El teu compte ara està afiliat a este centre com a soci/sòcia.",
+    "declined": "S’ha rebutjat l’afiliació i no concedix accés al centre.",
+    "status": {
+      "accepted": "Esta afiliació ja s’ha acceptat.",
+      "declined": "Esta afiliació ja s’ha rebutjat.",
+      "revoked": "El centre ha invalidat esta afiliació."
+    }
+  },
+  "facilityBranding": {
+    "previewDescription": "Esta identitat apareixerà al tauler del centre i a les factures."
+  },
+  "billing": {
+    "description": "Gestiona les quotes del centre, els pagaments pendents i les factures. Quan Stripe Connect estiga operatiu, cada centre cobrarà directament als seus socis i sòcies.",
+    "connect": {
+      "feeNotice": "El centre assumix les comissions de processament de Stripe, que no es cobren al soci o la sòcia com un recàrrec independent.",
+      "status": {
+        "onboarding_required": "Stripe requerix que el responsable del centre complete la incorporació.",
+        "restricted": "Stripe requerix que es revise o complete informació abans de poder cobrar."
+      }
+    },
+    "notesPlaceholder": "Afig acords, condicions, desglossaments o informació que haja d’aparéixer al detall...",
+    "currencies": {
+      "CLP": "Peso xilé"
+    },
+    "add": "Afig el registre",
+    "delete": "Suprimix el registre",
+    "deleteTitle": "Suprimix el registre de facturació",
+    "deleteConfirm": "Vols suprimir permanentment este registre? Arxiva’l si l’has de conservar per revisar-lo o corregir-lo.",
+    "noNotes": "Esta factura no té notes ni condicions personalitzades.",
+    "logoConfigurationHint": "Este centre encara no ha configurat cap logotip. Afig-ne un a Administració → Identitat del centre.",
+    "print": "Imprimix"
+  },
+  "analytics": {
+    "activityDescription": "Les teues reserves, mètriques i activitat al gimnàs",
+    "trainerDescription": "Les teues classes, l’assistència i els indicadors del gimnàs",
+    "trainerOnly": "Només els entrenadors i les entrenadores poden accedir a este tauler",
+    "adminOnly": "Només els administradors poden accedir a este tauler",
+    "startBooking": "Comença a reservar classes per veure les mètriques de la teua activitat",
+    "yourNextClasses": "Les teues properes classes",
+    "yourPopularClasses": "Les teues classes més populars",
+    "currentActiveMembers": "Afiliacions actives verificades en este centre",
+    "joinedWeek": "Altes d’esta setmana",
+    "joinedMonth": "Altes d’este mes",
+    "thisMonth": "Este mes",
+    "thisMonthNumber": "Este mes ({{month}})",
+    "systemDataHint": "L’analítica apareixerà a mesura que els usuaris es registren i reserven classes",
+    "loadErrorHint": "Torna-ho a provar. Si el problema persistix, l’assistència pot identificar l’error pel seu codi sense accedir a les teues mètriques.",
+    "onlyYourClasses": "Només les teues classes del període",
+    "onlyYourParticipants": "Només els participants de les teues classes",
+    "yourPeakHours": "Hores de més demanda a les teues classes",
+    "noRecommendation": "No hi ha cap indicador operatiu clar en este període. Continua observant abans de canviar l’horari.",
+    "timeSlotPerformanceDescription": "Compara cada activitat per dia i hora locals. Les mètriques mostren què passa; no n’establixen per si soles la causa.",
+    "memberEngagementDescription": "Participació real en este centre i període. No s’hi inclouen l’adreça electrònica ni altres dades de contacte.",
+    "surveyCausalityHint": "Estes mètriques mostren què passa. Per explicar-ne el perquè, caldrà comparar-les amb les futures enquestes mensuals.",
+    "surveys": {
+      "memberDescription": "La teua experiència ajuda el centre a explicar les seues mètriques i a millorar mitjançant decisions basades en proves.",
+      "managementDescription": "Publica versions immutables i programa-les per mes. En esta base inicial no s’accepta text lliure.",
+      "addQuestion": "Afig una pregunta"
+    },
+    "period": {
+      "week": "Esta setmana",
+      "month": "Este mes"
+    },
+    "recommendations": {
+      "COLLECT_MORE_DATA": {
+        "body": "Hi ha {{value}} reserves confirmades en este període; encara no són una mostra estable."
+      }
+    }
+  },
+  "demoClasses": {
+    "pilatesCore": {
+      "description": "Enfortix la musculatura central amb pilates"
+    }
+  },
+  "legal": {
+    "draftDescription": "Umbravia Forge està en desenvolupament. Abans de publicar este text o d’acceptar pagaments, cal revisar-lo i completar-lo amb les dades reals del titular, del servei i de la política comercial.",
+    "pages": {
+      "notice": {
+        "introduction": "Este avís exposa la informació general sobre el lloc web i les normes bàsiques que regixen l’accés a Umbravia Forge durant la fase de desenvolupament.",
+        "sections": {
+          "owner": {
+            "body": "Javier López Díaz és el titular i operador d’Umbravia Forge. Actualment, Umbravia Forge és un projecte de programari en desenvolupament. Abans del llançament comercial del servei, cal afegir-hi l’adreça, la identificació fiscal, les dades registrals que siguen aplicables i un canal directe de contacte legal."
+          },
+          "purpose": {
+            "body": "Umbravia Forge proporciona eines per consultar classes, gestionar reserves i llistes d’espera, i facilitar l’administració de centres esportius. Les funcions disponibles poden canviar mentre el producte continue en desenvolupament."
+          },
+          "intellectualProperty": {
+            "body": "El disseny, el codi, la marca, els textos i la resta d’elements originals d’Umbravia Forge estan protegits per la legislació aplicable. L’accés no atorga drets per reproduir-los, distribuir-los, modificar-los o explotar-los, tret que hi haja una autorització expressa o que ho empare una llicència aplicable."
+          },
+          "links": {
+            "body": "L’aplicació pot incloure enllaços o integracions de tercers. Umbravia Forge no en controla el contingut, la disponibilitat ni les polítiques, i cada servei extern es regix pels seus propis termes."
+          },
+          "liability": {
+            "body": "Durant el desenvolupament no es garantixen la disponibilitat contínua ni el funcionament sense errors. Umbravia Forge aplicarà mesures raonables per protegir i mantenir el servei, sens perjudici de les responsabilitats que legalment no es puguen excloure."
+          }
+        }
+      },
+      "terms": {
+        "introduction": "Estos termes descriuen la base prevista de la relació entre Umbravia Forge, els centres esportius i les persones usuàries. Encara no són els termes comercials definitius.",
+        "sections": {
+          "accounts": {
+            "body": "Les persones usuàries han de proporcionar informació exacta i mantenir segures les seues credencials. Els comptes són personals. Els permisos de soci o sòcia, entrenador o entrenadora i administrador o administradora limiten les accions disponibles a la plataforma."
+          },
+          "payments": {
+            "body": "Els pagaments comercials no estan habilitats en esta versió d’Umbravia Forge. Abans d’incorporar Stripe o un altre proveïdor, cal definir els preus, els impostos, la facturació, les renovacions, els reemborsaments i les responsabilitats d’Umbravia Forge, del centre i del proveïdor de pagaments. Umbravia Forge no emmagatzemarà les dades completes de la targeta."
+          },
+          "lifecycle": {
+            "body": "El titular del compte pot configurar una preferència d’inactivitat, preparar sol·licituds selectives sobre les dades o demanar el tancament complet. Una sol·licitud de tancament inicia un període de gràcia reversible de 30 dies i crea una tasca tècnica bloquejada per a revisió; la versió actual no executa la supressió ni l’anonimització automàtiques. La reactivació requerix una acció autenticada i els canvis rellevants queden registrats."
+          },
+          "representation": {
+            "body": "El compte i la seua identitat no es transferixen. El titular pot preparar una representació limitada, revocable i amb un abast definit per a casos d’hospitalització, incapacitat o altres contingències. L’accés futur depén d’una verificació suficient, de la documentació aplicable i de l’autorització; mai no permet compartir credencials, suplantar la identitat ni heretar automàticament l’historial del compte. Les sol·licituds relatives a persones difuntes es tractaran d’acord amb la legislació aplicable i les instruccions vàlides del titular."
+          },
+          "retention": {
+            "body": "Tancar un compte no vol dir que totes les categories es puguen suprimir immediatament. Es proposa suprimir o anonimitzar els perfils, les preferències, les sessions, els factors d’autenticació, les reserves futures i les delegacions; els registres de facturació, seguretat, reclamacions o bloqueig es poden conservar amb accés restringit quan ho exigisca una obligació legal aplicable o la defensa jurídica. Els terminis i fonaments definitius s’han de validar per categoria i jurisdicció. La revisió interna de la política no és una validació jurídica i mai no habilita la supressió."
+          },
+          "changes": {
+            "title": "9. Canvis en estos termes",
+            "body": "Els termes es poden actualitzar quan canvien les funcions o la legislació. Els canvis substancials s’han de comunicar clarament i, quan escaiga, han de requerir una nova acceptació."
+          }
+        }
+      },
+      "use": {
+        "introduction": "Estes normes expliquen com utilitzar Umbravia Forge de manera segura i responsable en gestionar classes, reserves i activitats de la comunitat.",
+        "sections": {
+          "bookings": {
+            "body": "Reserveu només les classes a les quals preveieu raonablement assistir i cancel·leu-les dins del termini d’avís establert pel centre. L’ús indegut reiterat de les reserves o les llistes d’espera pot comportar restriccions proporcionades que s’hagen comunicat prèviament."
+          },
+          "health": {
+            "body": "Umbravia Forge organitza informació i reserves, però no oferix assessorament mèdic. Cada persona ha d’avaluar el seu estat de salut, seguir les indicacions professionals i informar el centre de les limitacions rellevants abans de participar en una activitat."
+          },
+          "verification": {
+            "body": "L’accés, el registre i els formularis autenticats que modifiquen dades poden requerir una verificació humana recent. La pàgina i l’API apliquen la mateixa condició. Es prohibix desactivar, automatitzar, reutilitzar indegudament o eludir la verificació. Si el proveïdor no pot carregar o validar la resposta, l’operació protegida es rebutja."
+          },
+          "accountRecovery": {
+            "body": "La recuperació, la revisió per sospita de compromís, la revocació de sessions, la rotació de l’àlies públic i els fluxos de segon factor requerixen controls més estrictes. L’àlies d’assistència no autentica. Les persones usuàries han de revisar els dispositius, les claus d’accés i els mètodes de recuperació, i comunicar les anomalies sense compartir contrasenyes ni codis."
+          },
+          "suspension": {
+            "body": "L’accés es pot restringir per riscos de seguretat, frau, infraccions greus o requisits legals. Les mesures han de ser proporcionades i, quan escaiga, han de proporcionar informació i opcions de revisió."
+          }
+        }
+      }
+    }
+  },
+  "profilePhoto": {
+    "description": "Esta imatge identifica el teu compte dins d’Umbravia Forge. És independent del logotip oficial de la plataforma i del logotip del gimnàs.",
+    "saved": "S’ha actualitzat la teua foto de perfil."
+  },
+  "security": {
+    "compromiseTitle": "Crec que han compromés el meu compte",
+    "compromiseDescription": "Verifica la teua identitat per tancar les altres sessions, invalidar els reptes pendents, marcar el compte perquè es revise i renovar-ne l’ID públic d’assistència.",
+    "compromiseAction": "Protegix el meu compte",
+    "twoFactorDescription": "Requerix un codi temporal de l’aplicació d’autenticació a més de la contrasenya.",
+    "passkeyUnavailable": "Este navegador o dispositiu no oferix actualment cap autenticador integrat compatible.",
+    "enablePasskey": "Activa-ho en este dispositiu",
+    "scanHelp": "Escaneja el codi QR amb una aplicació compatible amb TOTP. Si no el pots escanejar, introduïx manualment la clau que es mostra.",
+    "disableHelp": "Per generar codis nous o desactivar la 2FA, confirma la contrasenya i introduïx un codi vigent de l’aplicació d’autenticació o un codi de recuperació.",
+    "saveCodes": "Desa estos codis de recuperació",
+    "downloadWarning": "Emmagatzema este fitxer de manera segura. Cada codi només es pot utilitzar una vegada.",
+    "sessionsDescription": "Revisa on està obert el teu compte i tanca qualsevol accés que no reconegues.",
+    "inactivityDescription": "Tria quant de temps pot romandre inactiva una sessió abans que es tanque en qualsevol dispositiu. Esta protecció també s’aplica als comptes d’administrador.",
+    "inactivityRememberedHelp": "Este límit no amplia la durada màxima d’una sessió: una sessió que no es recorda finalitza després de 24 hores com a màxim, mentre que una sessió recordada finalitza al cap de 30 dies. Sempre s’aplica el primer límit que s’assolisca.",
+    "absoluteExpiresIn": "La sessió finalitza d’aquí a {{time}} encara que continue activa",
+    "current": "Este dispositiu",
+    "errors": {
+      "invalidConfirmation": "La confirmació de seguretat no és vàlida. Comprova la contrasenya i, quan se sol·licite, el codi de verificació."
+    }
+  },
+  "feedback": {
+    "description": "Explica’ns què funciona, què costa d’utilitzar o què podríem millorar. El missatge queda vinculat al teu compte perquè es puga investigar.",
+    "placeholder": "Descriu la teua experiència amb tant detall com siga possible...",
+    "accountClosure": {
+      "description": "Esta enquesta és opcional i no modifica ni interromp el tancament programat del compte. Explica’ns què podríem millorar."
+    }
+  },
+  "errors": {
+    "facilityMembershipRequired": "Este compte no pertany actualment a cap centre actiu. Necessites una afiliació activa per fer servir les classes, les reserves, els pagaments, les comandes i l’àrea d’ajuda del centre."
+  },
+  "emailVerification": {
+    "title": "Confirma la teua adreça electrònica",
+    "description": "Introduïx el codi temporal per demostrar que controles l’adreça utilitzada durant el registre."
+  },
+  "recovery": {
+    "description": "Tria com vols localitzar el compte. El codi temporal sempre s’envia a la seua adreça electrònica verificada.",
+    "lookup": {
+      "public_id": {
+        "help": "L’ID només localitza el compte; no t’autentica ni substituïx el codi enviat a l’adreça electrònica verificada."
+      }
+    },
+    "codeSent": "Si hi ha un compte recuperable que coincidisca amb estes dades, se n’enviarà un codi de sis dígits a l’adreça electrònica verificada. Comprova també la carpeta de correu brossa.",
+    "confirmPassword": "Repetix la contrasenya nova",
+    "resetPassword": "Definix la contrasenya nova",
+    "errors": {
+      "passwordMismatch": "Les contrasenyes no coincidixen.",
+      "resetFailed": "El codi no és vàlid o ha caducat, o bé la contrasenya no complix els requisits."
+    },
+    "securityNotice": "Obrir un enllaç o visitar esta pantalla no reactiva cap compte ni cancel·la la supressió. Caldrà completar la verificació correctament.",
+    "methods": {
+      "password": {
+        "description": "Definix una contrasenya nova després de validar el codi temporal enviat per correu electrònic."
+      }
+    }
+  },
+  "commercial": {
+    "public": {
+      "menuLink": "Descobrix Umbravia Forge",
+      "cards": {
+        "editable": {
+          "description": "Partix d’una plantilla i canvia’n el vocabulari, la capacitat, les activitats i les regles."
+        },
+        "respectful": {
+          "description": "Tu decidixes quan necessites ajuda o una conversa comercial."
+        }
+      }
+    },
+    "trial": {
+      "wizard": {
+        "steps": {
+          "identity": {
+            "description": "Definix el nom, l’especialitat i la configuració bàsica que farà servir la plataforma."
+          },
+          "address": {
+            "description": "Reserva una adreça fàcil de reconéixer. El domini principal sempre pertany a Umbravia Forge i no es pot canviar."
+          },
+          "review": {
+            "description": "Revisa totes les seccions abans de desar. Podràs editar-les més endavant des d’esta mateixa àrea."
+          },
+          "branding": {
+            "title": "Presenta la teua identitat visual",
+            "description": "Afig el logotip i el color que identificaran el centre en el seu espai públic i privat."
+          },
+          "location": {
+            "description": "Estes dades apareixeran al perfil públic perquè la gent sàpiga on trobar-te."
+          },
+          "socials": {
+            "description": "Afig només el lloc web i les xarxes socials que vullgues mostrar al perfil públic del centre."
+          }
+        }
+      },
+      "errors": {
+        "notEditable": "Este centre ja no accepta canvis de configuració en el seu estat actual.",
+        "subdomainUnavailable": "Este subdomini ja pertany a un altre centre. Tria’n un de diferent.",
+        "subdomainLocked": "El subdomini només es pot canviar mentre el període de prova comercial estiga actiu."
+      },
+      "editPolicy": {
+        "trial": "Durant el període de prova comercial, pots editar esta configuració tantes vegades com calga."
+      },
+      "dataReview": {
+        "description": "Esta revisió s’obre 6 hores abans que acabe la prova comercial i continua disponible mentre la decisió encara siga aplicable. Indica si hi has introduït dades reals. Si respons que no o no respons abans que comence la neteja, se suprimiran el compte de prova comercial, el centre i el seu entorn. La supressió automàtica s’atura si hi ha dades reals o si sol·licites assistència.",
+        "states": {
+          "yes": "La prova comercial es posa en pausa per revisar i classificar les dades abans de qualsevol conversió. No es convertix res automàticament.",
+          "assistance": "La prova comercial es posa en pausa per fer-ne una revisió assistida. Esta base no inicia trucades ni contactes automàtics."
+        }
+      },
+      "conversionDraft": {
+        "description": "Revisa l’origen i la decisió previstos per a cada categoria. Este inventari és editable i no executa cap conversió.",
+        "limit": "Límit de seguretat: desar estes decisions no migra, suprimix, anonimitza ni convertix registres."
+      },
+      "environment": {
+        "sharedNotice": "Explora els mòduls i les dades de demostració disponibles. En esta etapa, l’entorn encara compartix la base de dades local del projecte i no és una instància de producció aïllada.",
+        "restoreLimit": "La restauració només restablix la configuració de la plantilla. No suprimix usuaris, reserves ni factures de l’aplicació compartida."
+      },
+      "fields": {
+        "subdomainHelpActive": "En desar-la, l’adreça nova substituïx immediatament l’anterior. El compte i els seus permisos continuen determinant l’accés.",
+        "subdomainHelpReserved": "L’adreça completa és una vista prèvia. El nom es reservarà per al centre i no es publicarà fins que s’activen el DNS i l’encaminament del subdomini.",
+        "usesBookingsHelp": "Els socis i les sòcies podran reservar una plaça a les activitats que publiques.",
+        "usesWaitlistHelp": "Les places que s’alliberen es poden oferir per ordre a les persones que estiguen en espera.",
+        "offersHelp": "Estos són els preus comercials del centre per als seus socis i sòcies; no modifiquen el pla que el centre paga a Umbravia Forge.",
+        "publicPageEnabledHelp": "Publica’l quan n’estigues segur, retira’l sense perdre les dades o continua editant-lo després de la prova comercial.",
+        "deletePublicPage": "Suprimix el perfil"
+      }
+    },
+    "directory": {
+      "title": "Troba un centre que s’adapte a tu",
+      "empty": "Ara mateix no hi ha cap centre publicat que coincidisca amb la cerca.",
+      "noDescription": "Este centre encara no ha afegit cap presentació pública.",
+      "notFound": "Este perfil no està publicat"
+    }
+  },
+  "captcha": {
+    "help": "Esta comprovació protegix l’inici de sessió i el registre de l’automatització abusiva."
+  },
+  "formVerification": {
+    "description": "Verifica que ets una persona abans d’accedir a este formulari. L’autorització continua sent vàlida durant esta sessió i l’API rebutja els enviaments no verificats."
+  },
+  "community": {
+    "description": "Identitat social, contactes i converses vinculats al centre i a les seues classes.",
+    "usernameTaken": "Este nom d’usuari ja està en ús. Tria’n un altre.",
+    "removeMessageTitle": "Suprimix el missatge",
+    "removeMessageDescription": "El contingut ja no es mostrarà. Se suprimiran els fitxers adjunts que hi tingues associats; els fitxers d’altres socis i sòcies es conservaran sense l’enllaç. Els missatges denunciats s’han de resoldre mitjançant la moderació.",
+    "channelUnavailable": "Este canal no accepta missatges nous en l’estat actual.",
+    "channelStatuses": {
+      "community_suspended": "Suspés"
+    },
+    "addAcceptedContact": "Afig un contacte acceptat",
+    "attachmentLimits": "PNG, JPEG, WebP, PDF o text; 5 MB com a màxim, llevat que el centre ho configure d’una altra manera.",
+    "removeAttachmentTitle": "Suprimix el fitxer adjunt de la comunitat",
+    "leaveDescription": "Ja no podràs accedir als missatges ni als fitxers adjunts d’esta comunitat.",
+    "removeMemberDescription": "{{name}} ja no tindrà accés a esta comunitat."
+  },
+  "crm": {
+    "description": "Organitza l’atenció als socis i les sòcies d’este centre mitjançant indicadors operatius, personal responsable i seguiments revisables.",
+    "summary": {
+      "attention": "Requerixen atenció"
+    },
+    "membersDescription": "Els suggeriments utilitzen les reserves i l’assistència d’este centre. Pots mantenir-los o establir una classificació manual.",
+    "noMembers": "No hi ha cap soci ni sòcia que coincidisca amb els filtres."
+  },
+  "privacyPolicy": {
+    "pendingBody": "Abans del llançament públic, cal publicar el canal de privacitat verificat, l’adreça professional, la identificació aplicable i l’inventari definitiu d’encarregats del tractament i de transferències. Estes dades no s’han inventat.",
+    "introduction": "Esta política explica com es tracten les dades personals a Umbravia Forge i UMF Support. S’ha contrastat amb el codi, les migracions i les proves actuals; per si sola, no demostra que hi haja cap proveïdor extern o servidor actiu.",
+    "sections": {
+      "controller": {
+        "body": "El responsable dels tractaments propis de la plataforma és Javier López Díaz, titular d’Umbravia Forge. Abans del llançament públic, es publicarà aquí un canal verificat de contacte legal o de privacitat. Fins que no es valide, no es mostrarà cap adreça que puga crear una falsa expectativa de servei."
+      },
+      "roles": {
+        "body": "Umbravia Forge és responsable dels tractaments relacionats amb la identitat de la plataforma, la seguretat, les relacions contractuals o precontractuals, les subscripcions i l’assistència corporativa. Cada centre pot actuar com a responsable independent del tractament de les dades dels seus socis i sòcies i del seu personal. Cal un contracte d’encàrrec del tractament quan Umbravia Forge actua per compte d’un centre i d’acord amb les seues instruccions. Els permisos d’UMF Support estan separats dels permisos del centre."
+      },
+      "purposes": {
+        "body": "Les dades s’utilitzen per crear i protegir comptes, prestar les funcions contractades, gestionar pagaments i facturació, atendre l’assistència i els drets, prevenir el frau i els abusos, mantenir la continuïtat i complir la legislació. Les bases són el contracte o les mesures precontractuals, les obligacions legals, els interessos legítims en matèria de seguretat, assistència i millora, i el consentiment quan una funció opcional el requerix. Les dades no es venen ni s’utilitzen per a publicitat de tercers."
+      },
+      "sources": {
+        "body": "Les dades provenen de la persona, d’un centre autoritzat, de l’ús de la plataforma i dels proveïdors necessaris, com ara Stripe. Un centre que afija dades d’una altra persona ha de tenir autoritat per fer-ho i informar-la. Els camps obligatoris són necessaris per al registre o per a la funció sol·licitada; no proporcionar-los pot impedir que es preste esta funció."
+      },
+      "recipients": {
+        "body": "Es pot donar accés al centre seleccionat i al personal autoritzat, al personal corporatiu amb els permisos mínims, als proveïdors contractats d’allotjament, correu, xarxa, seguretat o operacions, a Stripe per als pagaments i a les autoritats quan siga obligatori. Abans del llançament públic, es publicarà la llista efectiva d’encarregats del tractament, finalitats i ubicacions."
+      },
+      "transfers": {
+        "body": "Les transferències només es faran quan siguen necessàries i estiguen emparades per un mecanisme vàlid, com ara una decisió d’adequació o garanties apropiades. La política definitiva identificarà els proveïdors situats fora de l’EEE i com es poden obtenir les garanties. El codi d’una integració no demostra que estiga activa."
+      },
+      "retention": {
+        "body": "Les dades es conserven mentre el compte, la condició de soci o sòcia, el contracte, el tiquet o la finalitat continuen actius i, posteriorment, d’acord amb els requisits fiscals, de seguretat, d’incidents i de reclamacions legals. En tancar el compte, s’aplica un període de gràcia i es revisen les dependències, la titularitat del centre, la conservació i els bloquejos. La supressió no elimina automàticament les dades que s’han de conservar ni pot afectar els drets d’altres persones. Els criteris específics s’han d’aprovar abans del llançament públic."
+      },
+      "rights": {
+        "body": "Les persones poden sol·licitar l’accés, la rectificació, la supressió, l’oposició, la limitació del tractament i la portabilitat quan siguen aplicables, retirar el consentiment i presentar una reclamació davant l’Agència Espanyola de Protecció de Dades. Els controls del compte permeten diverses d’estes operacions. La bústia pública de privacitat estarà integrada amb UMF Support i només s’anunciarà després de validar la recepció d’entrada, la creació de tiquets, les respostes i el lliurament. Es pot sol·licitar informació per confirmar la identitat."
+      },
+      "minors": {
+        "body": "Umbravia Forge no està dissenyat perquè un menor establisca una relació contractual directa. Un centre que tracte dades de menors ha de determinar l’edat, l’autoritat i el consentiment aplicables, informar-ne els representants i utilitzar els controls parentals disponibles."
+      },
+      "security": {
+        "body": "Els controls inclouen l’autorització al servidor, la separació entre centres, sessions revocables, MFA i claus d’accés opcionals, límits contra els abusos, el xifratge dels camps i les cues privats, comprovacions d’integritat i pistes d’auditoria. Cap mesura elimina tots els riscos. Els codis d’UMF Support són d’un sol ús, caduquen i només s’emmagatzemen com a resums criptogràfics; l’assistència corporativa no compartix permisos ni taules amb l’assistència als socis i sòcies de cada centre."
+      },
+      "cookies": {
+        "body": "Els mecanismes estrictament necessaris permeten gestionar les sessions, la seguretat, l’idioma i les preferències tècniques. Cloudflare Turnstile pot protegir els formularis quan estiga configurat. No s’habilitaran galetes publicitàries o analítiques no essencials sense la informació i el consentiment exigits."
+      },
+      "changes": {
+        "body": "La data només s’actualitza després de contrastar el contingut amb el servei real. Els canvis substancials es comunicaran i, quan la base jurídica o l’abast ho exigisquen, se sol·licitarà una nova acceptació."
+      }
+    }
+  },
+  "umfSupportAccess": {
+    "register": {
+      "description": "Crea un compte d’UMF Support independent i, després, verifica’n la bústia. L’accés a l’espai de treball es concedix per separat."
+    },
+    "verify": {
+      "description": "Introduïx el codi de sis dígits enviat a la bústia. La verificació de l’adreça electrònica no concedix permisos administratius."
+    },
+    "verificationSent": "S’ha creat el compte. Introduïx el codi enviat a la bústia indicada.",
+    "awaitingAdministratorApproval": "S’ha verificat l’adreça electrònica. El compte espera que el titular de l’espai de treball n’aprove l’accés.",
+    "passwordMismatch": "Les contrasenyes no coincidixen.",
+    "invalidCredentials": "L’adreça electrònica o la contrasenya d’UMF Support són incorrectes. Les credencials comercials d’Umbravia Forge no permeten accedir a este espai de treball.",
+    "restrictedNotice": "El compte d’UMF Support està separat de tots els comptes comercials i no en compartix els permisos"
+  },
+  "umfCorporateAccount": {
+    "boundary": "Este compte, les seues sessions, els mètodes d’accés i els permisos de l’espai de treball estan separats de tots els comptes de soci/sòcia, entrenador/a o centre, fins i tot quan compartixen la mateixa adreça electrònica.",
+    "pendingApprovalBody": "La identitat d’UMF Support està verificada i la seua configuració de seguretat ja està disponible. Els tiquets, el correu electrònic i les funcions d’administració continuen inaccessibles fins que el titular de l’espai de treball n’aprove l’accés. Un compte comercial que faça servir la mateixa adreça electrònica i qualsevol sol·licitud de supressió que hi estiga associada es gestionen per separat."
+  },
+  "accountEmailChange": {
+    "description": "L’adreça electrònica actual només se substituïx després de verificar la contrasenya i el codi enviat a la bústia nova. La sol·licitud és vàlida durant 6 hores; fins aleshores, l’adreça electrònica actual continua activa i rep immediatament un avís de seguretat.",
+    "inUse": "Esta adreça electrònica ja s’utilitza o té una verificació pendent.",
+    "unchanged": "L’adreça electrònica nova coincidix amb l’actual."
+  },
+  "umfSupport": {
+    "operationsFrozenDescription": "Els tiquets i el correu electrònic es gestionen a Open Helpdesk. Este espai de treball en conserva l’historial i es limita a la gestió de comptes comercials.",
+    "functions": {
+      "commercialTrialsHint": "Comptes d’administrador i estat de les seues proves comercials.",
+      "corporateAdministratorsHint": "Concedix o revoca l’accés a este espai de treball."
+    },
+    "descriptions": {
+      "inbox": "Missatges rebuts pels canals configurats per a este espai de treball.",
+      "outbox": "Missatges pendents, reintents i errors d’enviament que requerixen atenció.",
+      "commercialTrials": "Revisa els comptes d’administrador comercial, la seua verificació i el centre de prova comercial associat.",
+      "access": "Preautoritza adreces electròniques i tria’n el rol abans que puguen crear un compte."
+    },
+    "commercialTrials": {
+      "pauseAlerts": {
+        "empty": "No hi ha cap prova comercial en pausa que requerisca atenció.",
+        "actionRequired": "La prova comercial roman aturada fins que UMF Support la revise i decidisca si cal contactar-hi o reprendre-la."
+      },
+      "accountListHint": "Restringit al titular de l’espai de treball. Les credencials no es compartixen i una sessió d’UMF Support no es convertix mai en una sessió comercial.",
+      "actionsHint": "L’adreça electrònica comercial continua visible perquè hi pugues contactar sense accedir al compte ni compartir credencials.",
+      "resume": "Reprén la prova comercial",
+      "delete": "Suprimix el període de prova comercial",
+      "deleteDialog": {
+        "title": "Suprimix l’entorn de prova comercial de {{facility}}",
+        "description": "Estàs a punt de dur a terme una operació irreversible a {{facility}}, que té {{email}} com a compte de contacte. Revisa’n l’abast i confirma la teua identitat corporativa.",
+        "removedBody": "El centre de prova comercial, la seua configuració, les dades operatives i qualsevol perfil públic associat.",
+        "mfaRequiredBody": "Les supressions permanents requerixen la contrasenya i un codi vigent de l’aplicació d’autenticació.",
+        "securityHelp": "Introduïx el codi de sis dígits que mostra ara l’aplicació d’autenticació. La contrasenya i el codi no s’emmagatzemen.",
+        "confirm": "Confirma i suprimix l’entorn"
+      }
+    },
+    "mail": {
+      "insertLink": "Inserix l’enllaç",
+      "removeAttachment": "Suprimix el fitxer adjunt",
+      "deliveryIssues": "{{count}} enviament requerix atenció",
+      "deliveryIssues_other": "{{count}} enviaments requerixen atenció",
+      "emptyFolder": "No hi ha cap comunicació en esta carpeta."
+    },
+    "notifications": {
+      "masterHint": "Les alertes romanen desactivades per canal fins que les actives explícitament.",
+      "pushHint": "El servidor envia les notificacions Web Push als dispositius que autoritzes.",
+      "pushUnavailable": "Les notificacions Web Push romanen desactivades fins que les credencials VAPID del servidor estiguen configurades i validades.",
+      "enableDevice": "Autoritza este dispositiu",
+      "events": {
+        "conversation_received": {
+          "hint": "Un client afig informació a una incidència."
+        }
+      }
+    },
+    "reportsTo": "Depén de {{name}}",
+    "thisDevice": "este dispositiu",
+    "pendingAdministratorAccountsHint": "La verificació de l’adreça electrònica demostra el control de la bústia, però no concedix accés a la plataforma.",
+    "collaborationDraftNotice": "L’organigrama i els departaments s’han deixat com a esborrany. Estos espais només són informatius i no concedixen mai permisos tècnics.",
+    "addCompanyStaff": "Afig al personal de l’empresa",
+    "emptyTickets": "No hi ha cap tiquet en esta vista.",
+    "emptyMailbox": "Esta bústia és buida.",
+    "emailReadiness": {
+      "inboundAddressMissing": "El correu electrònic entrant està desactivat perquè encara no s’ha configurat cap adreça per a la bústia d’este espai de treball d’UMF Support.",
+      "inboundDisabled": "El correu electrònic entrant està desactivat al servidor. L’adreça existix, però Email Routing i el webhook de l’espai de treball encara no estan activats."
+    },
+    "notices": {
+      "pushEnabled": "Este dispositiu ara pot rebre notificacions Web Push d’UMF Support.",
+      "roleDelegated": "S’ha proposat la delegació; encara no concedix accés.",
+      "commercialTrial": {
+        "resume": "La prova comercial de {{facility}} s’ha représ i ha recuperat el temps que havia estat en pausa."
+      }
+    },
+    "errors": {
+      "browserNotAllowed": "Este navegador no està habilitat per a les notificacions Web Push d’UMF Support.",
+      "pushUnsupported": "Este navegador o dispositiu no admet les notificacions Web Push.",
+      "codes": {
+        "INVALID_SECURITY_CONFIRMATION_INPUT": "Introduïx la contrasenya i un codi de verificació de sis dígits."
+      }
+    }
+  },
+  "unauthorized": {
+    "description": "No tens permís per accedir a esta pàgina. El teu rol actual no et permet veure este contingut."
+  }
+}

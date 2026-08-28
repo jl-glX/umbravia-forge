@@ -55,7 +55,7 @@ describe("commercial trial tenant migration", () => {
         usualCapacity INTEGER,
         classTypes TEXT NOT NULL DEFAULT '[]',
         scheduleNotes TEXT NOT NULL DEFAULT '',
-        locale TEXT NOT NULL,
+        locale TEXT NOT NULL CHECK(locale IN ('es', 'en', 'de', 'de-CH')),
         currency TEXT NOT NULL,
         usesBookings INTEGER NOT NULL DEFAULT 1,
         usesWaitlist INTEGER NOT NULL DEFAULT 1,

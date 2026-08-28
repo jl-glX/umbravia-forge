@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { TFunction } from "i18next";
 import {
   Activity,
   AlertTriangle,
@@ -35,6 +36,16 @@ import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import {
+  sortedLanguageOptions,
+  type LanguageOption,
+} from "../i18n/language-options";
+import type { SupportedLocale } from "../i18n/supported-locales";
+import { scheduleCommercialTrialDataReviewRefreshIfNeeded } from "../lib/commercial-trial-data-review";
+import {
+  formatCommercialTrialRequestError,
+  readCommercialTrialResponse,
+} from "../lib/commercial-trial-errors";
 
 const emptyForm = {
   facilityName: "",
@@ -42,7 +53,7 @@ const emptyForm = {
   subdomain: "",
   classTypes: "",
   scheduleNotes: "",
-  locale: "es" as "es" | "en" | "de" | "de-CH",
+  locale: "es" as SupportedLocale,
   currency: "EUR",
   usesBookings: true,
   usesWaitlist: true,
@@ -86,6 +97,21 @@ const wizardStepIcons = {
   review: ClipboardCheck,
 } satisfies Record<WizardStep, typeof Building2>;
 
+export function CommercialTrialLanguageValue({
+  locale,
+  languageOptions,
+}: {
+  locale: SupportedLocale;
+  languageOptions: readonly LanguageOption[];
+}) {
+  const label = languageOptions.find((option) => option.code === locale)?.label;
+  return (
+    <dd className="font-semibold text-slate-900" data-locale-code={locale}>
+      {label}
+    </dd>
+  );
+}
+
 function suggestSubdomain(value: string): string {
   return value
     .normalize("NFKD")
@@ -97,24 +123,127 @@ function suggestSubdomain(value: string): string {
     .replace(/-+$/g, "");
 }
 
-type CommercialTrialErrorBody = {
-  error?: string;
-  code?: string;
-  retryAfterSeconds?: number;
-};
+export function CommercialTrialEnvironmentCard({
+  overview,
+  saving,
+  t,
+  onRestore,
+}: {
+  overview: CommercialTrialOverview | null;
+  saving: boolean;
+  t: TFunction;
+  onRestore: () => void;
+}) {
+  if (!overview) return null;
+  return (
+    <Card className="mt-8 p-6 md:p-8" data-testid="trial-environment-card">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <Database className="text-violet-700" />
+            <h2 className="text-xl font-bold text-slate-950">
+              {t("commercial.trial.environment.title")}
+            </h2>
+          </div>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            {t("commercial.trial.environment.sharedNotice")}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={saving || overview.trial.status !== "trial_active"}
+          onClick={onRestore}
+        >
+          <RefreshCw /> {t("commercial.trial.environment.restore")}
+        </Button>
+      </div>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {Object.entries(overview.environment.counts).map(([name, value]) => (
+          <div key={name} className="rounded-xl bg-slate-50 p-4">
+            <p className="text-2xl font-black text-slate-950">{value}</p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {t(`commercial.trial.environment.counts.${name}`)}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+        {t("commercial.trial.environment.restoreLimit")}
+      </p>
+    </Card>
+  );
+}
 
-class CommercialTrialRequestError extends Error {
-  constructor(
-    message: string,
-    readonly code?: string,
-    readonly retryAfterSeconds?: number,
-  ) {
-    super(message);
-  }
+export function CommercialTrialDataReviewCard({
+  overview,
+  saving,
+  t,
+  onDeclare,
+  onClose,
+}: {
+  overview: CommercialTrialOverview | null;
+  saving: boolean;
+  t: TFunction;
+  onDeclare: (decision: "yes" | "no" | "assistance") => void;
+  onClose: () => void;
+}) {
+  if (!overview?.dataReview?.visible) return null;
+  return (
+    <Card className="mt-8 p-6 md:p-8" data-testid="trial-data-review-card">
+      <div className="flex items-center gap-3">
+        <CircleHelp className="text-blue-700" />
+        <h2 className="text-xl font-bold text-slate-950">
+          {t("commercial.trial.dataReview.title")}
+        </h2>
+      </div>
+      <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+        {t("commercial.trial.dataReview.description")}
+      </p>
+      {overview.trial.realDataDeclaration === "undeclared" &&
+      overview.dataReview.canDeclare ? (
+        <div className="mt-5 flex flex-wrap gap-3">
+          {(["yes", "no", "assistance"] as const).map((decision) => (
+            <Button
+              key={decision}
+              type="button"
+              variant={decision === "yes" ? "default" : "outline"}
+              disabled={saving}
+              onClick={() => onDeclare(decision)}
+            >
+              {t(`commercial.trial.dataReview.${decision}`)}
+            </Button>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+          {t(
+            `commercial.trial.dataReview.states.${overview.trial.realDataDeclaration}`,
+          )}
+        </div>
+      )}
+      {overview.trial.realDataDeclaration === "no" &&
+        overview.trial.status !== "trial_closed" && (
+          <Button
+            type="button"
+            variant="destructive"
+            className="mt-5"
+            disabled={saving}
+            onClick={onClose}
+          >
+            <Trash2 /> {t("commercial.trial.dataReview.close")}
+          </Button>
+        )}
+    </Card>
+  );
 }
 
 export function CommercialTrialPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const languageOptions = sortedLanguageOptions(
+    (key) => t(key),
+    i18n.resolvedLanguage ?? i18n.language,
+  );
   const [overview, setOverview] = useState<CommercialTrialOverview | null>(
     null,
   );
@@ -130,25 +259,7 @@ export function CommercialTrialPage() {
   const formRef = useRef<HTMLFormElement>(null);
 
   const formatRequestError = useCallback(
-    (cause: unknown) => {
-      if (cause instanceof CommercialTrialRequestError) {
-        if (cause.code === "COMMERCIAL_TRIALS_DISABLED")
-          return t("commercial.trial.errors.provisioningDisabled");
-        if (cause.code === "COMMERCIAL_TRIAL_EDIT_COOLDOWN")
-          return t("commercial.trial.errors.editCooldown", {
-            count: Math.max(1, Math.ceil((cause.retryAfterSeconds ?? 60) / 60)),
-          });
-        if (cause.code === "COMMERCIAL_TRIAL_NOT_EDITABLE")
-          return t("commercial.trial.errors.notEditable");
-        if (cause.code === "COMMERCIAL_TRIAL_SUBDOMAIN_INVALID")
-          return t("commercial.trial.errors.subdomainInvalid");
-        if (cause.code === "COMMERCIAL_TRIAL_SUBDOMAIN_UNAVAILABLE")
-          return t("commercial.trial.errors.subdomainUnavailable");
-        if (cause.code === "COMMERCIAL_TRIAL_SUBDOMAIN_LOCKED")
-          return t("commercial.trial.errors.subdomainLocked");
-      }
-      return cause instanceof Error ? cause.message : String(cause);
-    },
+    (cause: unknown) => formatCommercialTrialRequestError(cause, t),
     [t],
   );
 
@@ -158,16 +269,9 @@ export function CommercialTrialPage() {
         ...init,
         headers: { "Content-Type": "application/json", ...init?.headers },
       });
-      const body = (await response.json()) as CommercialTrialErrorBody;
-      if (!response.ok)
-        throw new CommercialTrialRequestError(
-          body.error ?? t("commercial.trial.requestFailed"),
-          body.code,
-          body.retryAfterSeconds,
-        );
-      return body as T;
+      return readCommercialTrialResponse<T>(response);
     },
-    [t],
+    [],
   );
 
   const load = useCallback(async () => {
@@ -221,14 +325,24 @@ export function CommercialTrialPage() {
         setSubdomainTouched(true);
       }
       setError("");
+      return true;
     } catch (cause) {
       setError(formatRequestError(cause));
+      return false;
     } finally {
       setLoading(false);
     }
   }, [formatRequestError, request]);
 
   useEffect(() => void load(), [load]);
+
+  useEffect(() => {
+    if (!overview?.dataReview) return;
+    return scheduleCommercialTrialDataReviewRefreshIfNeeded({
+      dataReview: overview.dataReview,
+      refresh: load,
+    });
+  }, [load, overview]);
 
   const persistForm = async (publicPageEnabled = form.publicPageEnabled) => {
     setSaving(true);
@@ -591,10 +705,11 @@ export function CommercialTrialPage() {
                   })
                 }
               >
-                <option value="es">Español</option>
-                <option value="en">English</option>
-                <option value="de">Deutsch</option>
-                <option value="de-CH">Deutsch (CH)</option>
+                {languageOptions.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -1026,9 +1141,10 @@ export function CommercialTrialPage() {
                       <dt className="text-slate-500">
                         {t("commercial.trial.fields.language")}
                       </dt>
-                      <dd className="font-semibold text-slate-900">
-                        {form.locale}
-                      </dd>
+                      <CommercialTrialLanguageValue
+                        locale={form.locale}
+                        languageOptions={languageOptions}
+                      />
                     </div>
                     <div>
                       <dt className="text-slate-500">
@@ -1296,48 +1412,12 @@ export function CommercialTrialPage() {
           </Card>
         )}
         {configurationWizard}
-        {overview && (
-          <Card className="mt-8 p-6 md:p-8">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3">
-                  <Database className="text-violet-700" />
-                  <h2 className="text-xl font-bold text-slate-950">
-                    {t("commercial.trial.environment.title")}
-                  </h2>
-                </div>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                  {t("commercial.trial.environment.sharedNotice")}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={saving || overview.trial.status !== "trial_active"}
-                onClick={() => void restoreConfiguration()}
-              >
-                <RefreshCw /> {t("commercial.trial.environment.restore")}
-              </Button>
-            </div>
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              {Object.entries(overview.environment.counts).map(
-                ([name, value]) => (
-                  <div key={name} className="rounded-xl bg-slate-50 p-4">
-                    <p className="text-2xl font-black text-slate-950">
-                      {value}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      {t(`commercial.trial.environment.counts.${name}`)}
-                    </p>
-                  </div>
-                ),
-              )}
-            </div>
-            <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-              {t("commercial.trial.environment.restoreLimit")}
-            </p>
-          </Card>
-        )}
+        <CommercialTrialEnvironmentCard
+          overview={overview}
+          saving={saving}
+          t={t}
+          onRestore={() => void restoreConfiguration()}
+        />
         {conversionDraft && (
           <Card className="mt-8 p-6 md:p-8">
             <h2 className="text-xl font-bold text-slate-950">
@@ -1414,52 +1494,13 @@ export function CommercialTrialPage() {
             </p>
           </Card>
         )}
-        {overview && (
-          <Card className="mt-8 p-6 md:p-8">
-            <div className="flex items-center gap-3">
-              <CircleHelp className="text-blue-700" />
-              <h2 className="text-xl font-bold text-slate-950">
-                {t("commercial.trial.dataReview.title")}
-              </h2>
-            </div>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              {t("commercial.trial.dataReview.description")}
-            </p>
-            {overview.trial.realDataDeclaration === "undeclared" ? (
-              <div className="mt-5 flex flex-wrap gap-3">
-                {(["yes", "no", "assistance"] as const).map((decision) => (
-                  <Button
-                    key={decision}
-                    type="button"
-                    variant={decision === "yes" ? "default" : "outline"}
-                    disabled={saving}
-                    onClick={() => void declareData(decision)}
-                  >
-                    {t(`commercial.trial.dataReview.${decision}`)}
-                  </Button>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-                {t(
-                  `commercial.trial.dataReview.states.${overview.trial.realDataDeclaration}`,
-                )}
-              </div>
-            )}
-            {overview.trial.realDataDeclaration === "no" &&
-              overview.trial.status !== "trial_closed" && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  className="mt-5"
-                  disabled={saving}
-                  onClick={() => void closeTrial()}
-                >
-                  <Trash2 /> {t("commercial.trial.dataReview.close")}
-                </Button>
-              )}
-          </Card>
-        )}
+        <CommercialTrialDataReviewCard
+          overview={overview}
+          saving={saving}
+          t={t}
+          onDeclare={(decision) => void declareData(decision)}
+          onClose={() => void closeTrial()}
+        />
       </div>
     </main>
   );

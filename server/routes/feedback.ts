@@ -36,8 +36,7 @@ feedbackRouter.post(
         .execute();
       void notifyUmfSupportAdministrators({
         event: "feedback_received",
-        title: "Nueva retroalimentación para Umbravia Forge",
-        message: `Se ha recibido una aportación en la categoría ${req.body.category}.`,
+        category: req.body.category,
         url: "/umf-support",
       }).catch(() => undefined);
       res.status(201).json({ submitted: true });

@@ -1,5 +1,200 @@
 # Relevo operativo
 
+## Continuidad del cambio activo — localización, 27 de agosto de 2026
+
+- El contrato técnico admite once locales persistidos: `es`, `en`, `de`,
+  `de-CH`, `fr`, `it`, `gl`, `ca`, `ca-valencia`, `eu` y `oc-aranes`.
+  `de-CH` hereda de `de` y `ca-valencia` hereda de `ca`; el resto usa un
+  catálogo completo. La matriz de códigos, fallback y formatos `Intl` se
+  mantiene en `docs/LOCALIZATION.md`.
+- Cliente y servidor validan la sintaxis BCP 47 antes de canonicalizar. La
+  persistencia conserva `ca-valencia` y `oc-aranes`, mientras que los
+  adaptadores de Turnstile y Stripe aplican sus propios contratos de proveedor
+  y una salida neutral para valores desconocidos o no admitidos.
+- Las migraciones de actualización reconstruyen de forma idempotente las tres
+  tablas SQLite con restricciones antiguas y reemplazan las tres restricciones
+  PostgreSQL efectivas. La prueba SQLite ejecuta dos veces el recorrido sobre
+  datos anteriores y conserva filas, relaciones, índices y triggers. La prueba
+  PostgreSQL solo inspecciona el SQL, el historial y los tres nombres efectivos:
+  no ejecuta v59 contra un servidor ni prueba datos, relaciones o idempotencia
+  real. Esa evidencia queda pendiente en staging autorizado; no se ha
+  inspeccionado ni modificado una base de producción.
+- El cableado técnico incluye selector ordenado por el texto visible, detección
+  y persistencia, correos, invitaciones, analítica, soporte y formatos
+  regionales. Los nueve catálogos completos comparten 2.439 claves,
+  `ca-valencia` contiene 394 diferencias regionales y `de-CH` mantiene 1.803
+  overrides históricos. La auditoría aranesa y las coincidencias semánticas
+  hash-pinned están cerradas. La rama aún no es entregable: faltan cerrar el
+  rollback seguro, la revisión final del diff, el formato y la validación
+  completa.
+- La política versionada `scripts/localization-policy.json` conserva los seis
+  locales completos previstos, las 51 claves del piloto francés, la allowlist
+  técnica, las tablas manuales `language.*`, el modelo/revisión/hash del piloto
+  y las excepciones fijadas. `server/locales.test.ts` separa catálogos
+  mantenidos y generados, rechaza marcas o tokens técnicos añadidos y ejecuta
+  el barrido reproducible de exactos y residuales contra inglés, español y los
+  otros candidatos. Las excepciones lingüísticas ya fijadas son individuales y
+  reproducibles; cualquier excepción adicional exige locale, clave, evidencia,
+  motivo y hash del valor o de las firmas.
+- Las salidas francesas de OPUS, M2M100 y dos pilotos SalamandraTA-2B se
+  descartaron por contaminación o errores semánticos. El candidato francés se
+  ensambló después por secciones independientes. Francés, italiano, gallego,
+  catalán, euskera y aranés están materializados con las 2.439 claves
+  canónicas; la estructura, las revisiones independientes por catálogo y las
+  coincidencias cruzadas hash-pinned están cerradas. `ca-valencia` materializa 394
+  diferencias reales sobre catalán. Ningún locale nuevo debe presentarse como
+  revisado por una persona nativa ni validado en producción. El estado real por
+  locale y las evidencias exigidas se mantienen en `docs/LOCALIZATION.md`.
+- El inventario completo de deuda deliberada está en `docs/LOCALIZATION.md` e
+  incluye la consolidación de uniones y guardas de locale, la reducción de los
+  1.803 overrides históricos de `de-CH`, la ampliación de la herramienta local
+  Linux limitada a `es|en|de` y la divergencia entre los estados prospectivos
+  `trial_created`/`trial_converted` y los cinco estados que hoy admiten ambos
+  esquemas. Conversión sigue desactivada; esta entrega no amplía ese `CHECK`.
+  Cada entrada conserva riesgo, prioridad, área, disparador y cierre verificable.
+- Ese inventario incluye también las fronteras históricas de errores del
+  cliente. Autenticación pública y prueba comercial ya fallan cerrado mediante
+  códigos admitidos; facturación, comunidad, carga inicial de seguridad,
+  gestión de usuarios y los hooks de clases, reservas y analítica permanecen
+  pendientes de clasificación y adaptadores por flujo. La coincidencia de un
+  patrón no se presenta como exposición confirmada sin una prueba del
+  consumidor.
+- La pregunta de datos reales de una prueba comercial se oculta hasta las seis
+  horas previas al final y deja de admitir decisiones cuando comienza el
+  cleanup. Servidor y respuesta usan la misma regla; la interfaz busca un único
+  refresco exitoso con el delta del reloj servidor, reintenta cada 30 segundos
+  solo si falla y se detiene tras éxito o cancelación. No confía en el reloj
+  local. Por seguridad, el tránsito puede hacer que aparezca ligeramente tarde,
+  nunca antes del límite. No se ha validado este temporizador en producción.
+- Las 19 actividades predeterminadas de las plantillas comerciales se
+  materializan en el locale canónico al crear sin `classTypes`, finalizar el
+  alta administrativa o restaurar expresamente la plantilla. Un array
+  explícito, incluido `[]`, conserva orden, Unicode, puntuación y espacios; un
+  cambio de tipo o locale no reescribe texto ya persistido. La respuesta
+  histórica de plantillas continúa en español. Los tres principios
+  institucionales de comunidad mantienen también la respuesta histórica y
+  ofrecen de forma optativa IDs versionados que el cliente resuelve con el
+  catálogo activo; entradas desconocidas fallan cerrado.
+- Las respuestas por correo a tickets externos de UMF Support conservan el
+  fallback histórico `es`: esos tickets no guardan locale ni requester interno
+  del que heredarlo. Builders y cola admiten once locales, pero este consumidor
+  no está localizado de extremo a extremo. No ampliar el esquema sin una fuente
+  fiable; el inventario de `docs/LOCALIZATION.md` exige persistencia canónica,
+  migración segura y prueba completa antes de retirar el fallback.
+- Las notificaciones automáticas de UMF Support separan contenido opaco de
+  Markdown controlado. Asuntos, identificadores, prioridades y categorías de
+  una persona se copian literalmente en texto y se escapan en HTML; solo el CTA
+  same-origin construido por el servidor puede crear un enlace. Los borradores
+  redactados por personal conservan el renderer Markdown explícito. Las
+  pruebas de renderer, cola cifrada, SMTP y push cubren un asunto que intenta
+  inyectar un enlace y mantienen un único enlace oficial.
+
+### Operación, señales de fallo y reversión
+
+- Señales de fallo: una opción vacía, duplicada o mostrada como `language.*`;
+  una variante válida rechazada con `400`; errores `CHECK constraint failed`;
+  una carga cifrada de correo que no valida; `lang` o nombres de mes en un
+  idioma distinto al persistido; HTML, URL o `{{marcadores}}` alterados; o
+  Turnstile forzado a español ante una etiqueta inválida; también cualquier
+  enlace HTML originado en un campo opaco de una notificación UMF. Ante cualquiera de
+  ellas, detener la publicación y conservar el diff, la fila/locale anonimizado
+  y la prueba que reproduce el límite afectado.
+- Antes de publicar, esas señales se observan mediante
+  `language-options.test.ts`, `server/locales.test.ts`, las matrices de rutas y
+  migraciones y las pruebas de cola SMTP cifrada. En un entorno autorizado,
+  revisar además respuestas `400` de las cuatro entradas de locale, errores de
+  restricción en el registro de base, entregas fallidas en la cola y una
+  comprobación visual del selector/`lang`; esas comprobaciones operativas aún no
+  se han ejecutado y no deben darse por satisfechas desde el repositorio.
+- Las ampliaciones de restricciones de base son un superconjunto y no deben
+  revertirse reconstruyendo tablas para volver a un `CHECK` más estrecho. Antes
+  de considerar el artefacto anterior, un operador autorizado debe ejecutar un
+  preflight de solo lectura que agrupe `locale` y cuente filas en `users`,
+  `emailDeliveries`, `commercialTrials`, `administratorSignupProvisioning` y
+  `umfSupportAccessRequests`. También debe resolver la raíz efectiva de
+  entornos: `ENVIRONMENT_DATA_ROOT` cuando esté definida o,
+  en su defecto, `environments` dentro de `DATA_DIRECTORY` (que por defecto es
+  `data`). Allí debe recorrer todos los `*/environment.json` y registrar
+  cualquier locale distinto de `es`, `en`, `de` o `de-CH`. Las colas cifradas
+  se cubren por su columna canónica `emailDeliveries.locale`; no se descifran ni
+  exportan cargas en este control.
+  El resultado anonimizado, la revisión desplegada y la hora forman parte de la
+  autorización de rollback.
+- Solo si ese inventario completo devuelve cero filas y cero manifiestos con un
+  locale nuevo puede evaluarse volver a la aplicación anterior dejando el
+  esquema ampliado. Si aparece cualquiera, el artefacto viejo puede rechazar un
+  usuario, una entrega cifrada o un entorno administrado aunque los tres
+  `CHECK` ampliados sigan siendo válidos: mantener la versión compatible y
+  corregir hacia delante, o preparar por separado una migración explícita con
+  copia y autorización operativa. Nunca reescribir valores, vaciar colas ni
+  reducir restricciones como parte de un rollback automático.
+- Cada release nueva empaqueta `deploy/release-capabilities.json` y el
+  comprobador `deploy/check-locale-rollback-safety.mjs`. El comprobador abre
+  SQLite en modo de solo lectura y `query_only`, o PostgreSQL en una transacción
+  `REPEATABLE READ READ ONLY`; solo devuelve fuente, locale y recuento. Código
+  `0` significa inventario compatible, `2` que existen locales no admitidos por
+  la release anterior y `3` que el inventario o las capacidades no se pudieron
+  demostrar. Cualquier valor nulo, desconocido, tabla, raíz o manifiesto
+  ausente, ruta persistente divergente o marcador inválido produce `3` sin
+  imprimir el dato ni una credencial.
+- El actualizador ejecuta una comprobación preliminar antes de detener la
+  aplicación y otra con el servicio detenido antes de activar. Una release
+  histórica sin marcador queda bloqueada en la fase preliminar y permanece
+  sirviendo tráfico; la primera ampliación de locales requiere despliegue manual
+  controlado con el temporizador pausado. No se añade metadata a mano a una
+  release inmutable. En fallos de arranque o salud, la candidata se detiene y
+  solo se vuelve a la anterior si un inventario autoritativo devuelve `0`; se
+  conserva la candidata y se exige salud de la versión restaurada. Con códigos
+  `2` o `3` no se cambia el enlace y el servicio queda detenido para reparación
+  hacia delante o intervención autorizada.
+- La transición inicial desde el commit histórico
+  `da5466706a0026f018f8b211b352c793eb7a1cfd` dispone de una excepción manual
+  vinculada a ese commit y a sus dos marcadores de release. El procedimiento
+  ejecutable está en `deploy/README.md`: exige aplicación detenida, inventario
+  autoritativo con `--legacy-target-commit`, código `0`, cambio atómico del
+  enlace y salud antes de reactivar el temporizador. El modo automático nunca
+  pasa esa opción y ningún otro commit puede usarla.
+- La migración PostgreSQL v59 elimina y vuelve a crear tres restricciones
+  validadas dentro de la transacción general. Antes de staging se deben registrar
+  nombres y tamaños de tablas, definir ventana, `lock_timeout` y
+  `statement_timeout`, observar locks durante la ejecución y documentar
+  abortado/reintento. No cambiar el SQL a ciegas ni presentar las pruebas
+  estructurales como medición de ese impacto.
+- La reversión de catálogos/código consiste en retirar el release antes de
+  activarlo o volver al artefacto anterior únicamente bajo la condición
+  anterior. No elimina filas, preferencias ni relaciones. Turnstile y Stripe
+  no requieren revertir configuración externa porque los cambios son
+  adaptadores locales y no mutan sus cuentas.
+- Esta puerta está probada con fixtures locales y contratos estáticos del
+  updater, pero no se ha ejecutado contra PostgreSQL, systemd, datos ni releases
+  reales de staging o producción. Antes del primer despliegue se deben pausar
+  las actualizaciones, instalar y verificar el updater situado en
+  `/usr/local/sbin/umbravia-forge-update` y ensayar el procedimiento en staging.
+
+### Incorporación de un locale futuro
+
+1. Añadir el código a las fuentes canónicas de cliente y servidor, su catálogo
+   completo o fallback regional, su etiqueta visible en todos los catálogos y
+   su resolución `Intl`.
+2. Canonicalizar entrada, persistencia, correo y HTML sin traducir contenido del
+   usuario; adaptar cada proveedor solo contra su contrato documentado.
+3. Ampliar esquema inicial y migraciones idempotentes para instalaciones
+   existentes, con datos previos y relaciones en la prueba de actualización.
+   En SQLite, la función de actualización debe reconocer explícitamente cada
+   conjunto anterior admitido; una futura ampliación de once a más locales
+   necesita una regresión 11→superconjunto y no puede depender solo del patrón
+   histórico de cuatro locales.
+4. Registrar fuente, revisión, licencia, integridad y nivel lingüístico; superar
+   igualdad de claves, estructura protegida, control semántico sin umbral y
+   muestreo sensible.
+5. Recorrer la prueba de deriva de códigos/catálogos/fallbacks/validadores, las
+   rutas de entrada y el selector real. Después ejecutar formato, diff y la
+   puerta global antes de crear commits.
+
+Las pruebas focalizadas ya ejecutadas se enumerarán con su resultado final tras
+materializar, auditar y revisar los catálogos candidatos. No se ha validado en producción ningún catálogo nuevo,
+esquema real, envío de correo, selector, Turnstile ni Stripe de esta rama.
+
 ## Continuidad operativa — diagnóstico aislado de Cloudflare, 26 de agosto de 2026
 
 - La sonda Caddy `cf-test.umbraviaforge.com` continúa aislada del sitio y solo
@@ -373,7 +568,12 @@ historial de trabajo.
   y el secreto del webhook permanece como secreto de ejecución. Esta frontera
   evita que un despliegue de Wrangler retire el endpoint añadido manualmente en
   el panel. La preparación versionada no demuestra que el Worker, su regla de
-  Email Routing o el flujo real estén activos.
+  Email Routing o el flujo real estén activos. Esa raíz declara por sí misma
+  `packageManager: npm@11.18.0` y los rangos Node 24/npm 11 requeridos por
+  `allowScripts`; el lockfile refleja los mismos motores. En Workers Builds se
+  debe seleccionar Node 24 y verificar en el log que la instalación usa npm
+  11.18.0 antes de `npm ci`/`npx wrangler deploy`. El repositorio y CI local no
+  demuestran qué versiones ha usado el proveedor en un despliegue real.
 - La entrega desde el Worker corporativo apunta al servidor de origen de la
   misma zona, no a otro Worker. `cloudflare/wrangler.jsonc` fija
   `global_fetch_private_origin` para evitar una segunda entrada por el frontal

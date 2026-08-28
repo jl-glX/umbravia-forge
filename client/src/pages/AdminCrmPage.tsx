@@ -16,6 +16,7 @@ import {
   useCrmWorkspace,
 } from "../hooks/useCrm";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 
 const SEGMENTS: CrmMemberSegment[] = [
   "onboarding",
@@ -71,7 +72,7 @@ export function AdminCrmPage() {
 
   const dateFormatter = useMemo(
     () =>
-      new Intl.DateTimeFormat(i18n.language, {
+      new Intl.DateTimeFormat(resolveIntlLocale(i18n.language), {
         dateStyle: "medium",
       }),
     [i18n.language],

@@ -46,7 +46,10 @@ Umbravia Forge reúne en una misma base técnica la actividad diaria de un centr
 - **Forge Analytics:** ocupación, asistencia, cancelaciones, demanda y comparativas por actividad, franja horaria y centro.
 - **Forge CRM:** segmentación operativa, responsables y seguimientos por centro, sin mezclar datos entre tenants.
 - **Suscripción SaaS:** Checkout, portal y señales firmadas de Stripe separados del libro administrativo de cobros a socios.
-- **Forge Support:** tickets, conversaciones privadas, notas internas, adjuntos protegidos, SLA y base de conocimiento.
+- **Forge Support:** tickets, conversaciones privadas, notas internas,
+  adjuntos protegidos, SLA y base de conocimiento implementados, pero con la
+  interfaz congelada y desactivada; la experiencia actual deriva a canales
+  externos mientras esa frontera permanezca cerrada.
 - **UMF Support:** aplicación web corporativa separada para incidencias de plataforma, cuentas verificadas con aprobación administrativa, panel de correo y canal de privacidad.
 - **Cuentas y continuidad:** verificación de correo, recuperación de acceso, MFA, passkeys, sesiones revocables y cierre reversible de cuenta.
 - **Forge Notify:** cola transaccional cifrada, reintentos acotados, trazabilidad, saneamiento periódico y transporte de correo desacoplado.
@@ -94,7 +97,17 @@ Las decisiones y fronteras completas están documentadas en [Arquitectura](./doc
 | Calidad   | Vitest, ESLint, Prettier, auditoría de dependencias y GitHub Actions                                               |
 | Edge      | Cloudflare Turnstile y despliegues separados del Worker de entrada de correo                                       |
 
-La interfaz está disponible en español, inglés, alemán y alemán suizo, con formatos regionales mediante `Intl`.
+El cambio activo materializa los locales internos `es`, `en`, `de`, `de-CH`,
+`fr`, `it`, `gl`, `ca`, `ca-valencia`, `eu` y `oc-aranes`. Las auditorías
+internas estructurales, lingüísticas y de coincidencias hash-pinned están
+cerradas, pero la rama no será entregable hasta superar la revisión final del
+diff y la validación global. Las variantes
+regionales heredan de su catálogo base y los formatos pasan por una resolución
+explícita hacia etiquetas compatibles con `Intl`. La capacidad técnica de
+seleccionar o persistir un locale no equivale a disponibilidad lingüística,
+revisión nativa ni validación en producción; el estado verificable de cada
+catálogo se mantiene en
+[`docs/LOCALIZATION.md`](docs/LOCALIZATION.md).
 
 ## Desarrollo local
 

@@ -106,10 +106,33 @@ const capabilities: readonly RecoveryCapability[] = [
   },
 ];
 
-type RecoveryLocale = "es" | "en" | "de" | "de-CH";
+type RecoveryLocale =
+  | "es"
+  | "en"
+  | "de"
+  | "de-CH"
+  | "fr"
+  | "it"
+  | "gl"
+  | "ca"
+  | "ca-valencia"
+  | "eu"
+  | "oc-aranes";
 
 function normalizedLocale(value: string): RecoveryLocale {
-  return ["es", "en", "de", "de-CH"].includes(value)
+  return [
+    "es",
+    "en",
+    "de",
+    "de-CH",
+    "fr",
+    "it",
+    "gl",
+    "ca",
+    "ca-valencia",
+    "eu",
+    "oc-aranes",
+  ].includes(value)
     ? (value as RecoveryLocale)
     : "es";
 }

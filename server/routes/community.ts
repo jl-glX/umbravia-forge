@@ -18,7 +18,7 @@ import {
   contactStatuses,
   communityStatuses,
   facilityLinkStatuses,
-  institutionalPrinciples,
+  institutionalPrinciplesResponse,
   parentalControlStatuses,
   profileVisibilities,
 } from "../lib/community-policy.js";
@@ -255,8 +255,8 @@ async function canManageChannel(
   return false;
 }
 
-communityRouter.get("/principles", (_req, res) =>
-  res.json(institutionalPrinciples),
+communityRouter.get("/principles", (req, res) =>
+  res.json(institutionalPrinciplesResponse(req.query.format)),
 );
 
 communityRouter.get("/search/messages", async (req, res, next) => {

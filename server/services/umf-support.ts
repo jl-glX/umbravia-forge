@@ -42,6 +42,7 @@ import {
 } from "./auth.js";
 import { isPasswordWithinHashLimit } from "../lib/password-policy.js";
 import { getUmfSupportMailReadiness } from "./umf-support-mail-readiness.js";
+import { canonicalizeLocaleOrNull } from "../lib/supported-locales.js";
 import { recordSecurityEvent } from "./security-events.js";
 import {
   createEmailVerificationChallenge,
@@ -611,9 +612,8 @@ export async function registerUmfSupportAccount(
   if (!/^[A-Z]{2}$/.test(countryCode)) {
     throw new UmfSupportValidationError("countryCode is invalid");
   }
-  const locale = requiredText(input.locale ?? "es", "locale", 5) as
-    "es" | "en" | "de" | "de-CH";
-  if (!new Set(["es", "en", "de", "de-CH"]).has(locale)) {
+  const locale = canonicalizeLocaleOrNull(input.locale ?? "es");
+  if (!locale) {
     throw new UmfSupportValidationError("locale is invalid");
   }
   const name = requiredText(input.name, "name", 100);
@@ -1989,8 +1989,31 @@ export async function sendUmfSupportMailDraft(
     .where("id", "=", auth.userId)
     .where("identityRealm", "=", "corporate_support")
     .executeTakeFirst();
-  const locale = ["es", "en", "de", "de-CH"].includes(user?.locale ?? "")
-    ? (user!.locale as "es" | "en" | "de" | "de-CH")
+  const locale = [
+    "es",
+    "en",
+    "de",
+    "de-CH",
+    "fr",
+    "it",
+    "gl",
+    "ca",
+    "ca-valencia",
+    "eu",
+    "oc-aranes",
+  ].includes(user?.locale ?? "")
+    ? (user!.locale as
+        | "es"
+        | "en"
+        | "de"
+        | "de-CH"
+        | "fr"
+        | "it"
+        | "gl"
+        | "ca"
+        | "ca-valencia"
+        | "eu"
+        | "oc-aranes")
     : "es";
   const deliveryIds: string[] = [];
   try {
@@ -2000,7 +2023,7 @@ export async function sendUmfSupportMailDraft(
           email,
           locale,
           subject: content.subject,
-          message: content.body,
+          content: { kind: "controlled-markdown", value: content.body },
           scheduledAt: dispatchAt,
           attachmentIds: attachments.map((attachment) => attachment.id),
         }),

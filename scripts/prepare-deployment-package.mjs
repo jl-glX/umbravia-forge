@@ -1,8 +1,23 @@
-import { cp, mkdir, rm } from "node:fs/promises";
+import { cp, mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 
 const root = process.cwd();
 const output = path.join(root, ".deployment-package");
+const releaseCapabilities = JSON.parse(
+  await readFile(
+    path.join(root, "deploy", "release-capabilities.json"),
+    "utf8",
+  ),
+);
+if (
+  releaseCapabilities.schemaVersion !== 1 ||
+  !Array.isArray(releaseCapabilities.supportedLocales) ||
+  releaseCapabilities.supportedLocales.length === 0 ||
+  new Set(releaseCapabilities.supportedLocales).size !==
+    releaseCapabilities.supportedLocales.length
+) {
+  throw new Error("Deployment release capabilities are invalid.");
+}
 
 await rm(output, { recursive: true, force: true });
 await mkdir(path.join(output, "scripts"), { recursive: true });

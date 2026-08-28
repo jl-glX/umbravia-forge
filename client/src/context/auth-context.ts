@@ -1,4 +1,6 @@
 import { createContext } from "react";
+import type { PublicAuthErrorCode } from "../lib/public-auth-errors";
+import type { SupportedLocale } from "../i18n/supported-locales";
 
 export type UserRole = "member" | "trainer" | "admin";
 export type FacilityRole = "owner" | "admin" | "trainer" | "member";
@@ -33,7 +35,7 @@ export interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   isInitializing: boolean;
-  error: string | null;
+  error: PublicAuthErrorCode | null;
   clearError: () => void;
   signup: (input: {
     email: string;
@@ -41,7 +43,7 @@ export interface AuthContextValue {
     lastName: string;
     password: string;
     countryCode: string;
-    locale: "es" | "en" | "de" | "de-CH";
+    locale: SupportedLocale;
     acceptedTerms: boolean;
     acceptedPrivacy: boolean;
     captchaToken: string;

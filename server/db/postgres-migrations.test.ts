@@ -124,6 +124,91 @@ describe("PostgreSQL migrations", () => {
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS "showPhonePublicly"');
   });
 
+  it("expands the three effective locale constraints for existing databases", () => {
+    const migration = postgresMigrationSql().find((sql) =>
+      sql.includes('DROP CONSTRAINT IF EXISTS "commercialTrials_locale_check"'),
+    );
+    expect(migration).toBeDefined();
+    for (const constraint of [
+      "commercialTrials_locale_check",
+      "administratorSignupProvisioning_locale_check",
+      "umfSupportAccessRequests_locale_check",
+    ]) {
+      expect(migration).toContain(`DROP CONSTRAINT IF EXISTS "${constraint}"`);
+      expect(migration).toContain(`ADD CONSTRAINT "${constraint}"`);
+    }
+    for (const locale of [
+      "fr",
+      "it",
+      "gl",
+      "ca",
+      "ca-valencia",
+      "eu",
+      "oc-aranes",
+    ]) {
+      expect(migration).toContain(`'${locale}'`);
+    }
+    expect(migration?.match(/ADD CONSTRAINT/g)).toHaveLength(3);
+  });
+
+  it("keeps four historical declarations but only one provisioning constraint", () => {
+    const migrationSql = postgresMigrationSql();
+    const migrations = postgresMigrationVersions().map((version, index) => ({
+      version,
+      sql: migrationSql[index],
+    }));
+    expect(migrations.filter(({ version }) => version === 1)).toHaveLength(1);
+    expect(migrations.find(({ version }) => version === 1)?.sql).toBe(
+      postgresInitialSchema,
+    );
+
+    const expansion = migrations.filter(({ version }) => version === 59);
+    expect(expansion).toHaveLength(1);
+    const historicalSql = migrations
+      .filter(({ version }) => version !== 59)
+      .map(({ sql }) => sql)
+      .join("\n");
+    const localeCheckedTables = [
+      ...historicalSql.matchAll(
+        /CREATE TABLE IF NOT EXISTS "([^"]+)"\s*\(([\s\S]*?)\n\);/g,
+      ),
+    ]
+      .filter((match) =>
+        /"locale"\s+TEXT\s+NOT NULL\s+CHECK\s*\("locale"\s+IN\s*\(/.test(
+          match[2],
+        ),
+      )
+      .map((match) => match[1]);
+
+    expect(localeCheckedTables).toHaveLength(4);
+    expect(
+      Object.fromEntries(
+        [
+          "commercialTrials",
+          "administratorSignupProvisioning",
+          "umfSupportAccessRequests",
+        ].map((tableName) => [
+          tableName,
+          localeCheckedTables.filter((value) => value === tableName).length,
+        ]),
+      ),
+    ).toEqual({
+      commercialTrials: 1,
+      administratorSignupProvisioning: 2,
+      umfSupportAccessRequests: 1,
+    });
+    expect(expansion[0].sql.match(/ADD CONSTRAINT/g)).toHaveLength(3);
+    expect(expansion[0].sql).toMatch(
+      /ALTER TABLE "commercialTrials"[\s\S]*?ADD CONSTRAINT "commercialTrials_locale_check"/,
+    );
+    expect(expansion[0].sql).toMatch(
+      /ALTER TABLE "administratorSignupProvisioning"[\s\S]*?ADD CONSTRAINT "administratorSignupProvisioning_locale_check"/,
+    );
+    expect(expansion[0].sql).toMatch(
+      /ALTER TABLE "umfSupportAccessRequests"[\s\S]*?ADD CONSTRAINT "umfSupportAccessRequests_locale_check"/,
+    );
+  });
+
   it("keeps legacy activity identifiers out of the resulting schema", () => {
     const activityMigration =
       postgresMigrationSql().find((sql) =>

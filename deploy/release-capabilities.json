@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "supportedLocales": [
+    "es",
+    "en",
+    "de",
+    "de-CH",
+    "fr",
+    "it",
+    "gl",
+    "ca",
+    "ca-valencia",
+    "eu",
+    "oc-aranes"
+  ]
+}

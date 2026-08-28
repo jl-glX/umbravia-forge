@@ -9,6 +9,7 @@ import {
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { authFetch } from "../lib/api";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 import { VerifiedForm } from "../components/VerifiedForm";
 
 type RepresentationScope =
@@ -58,7 +59,10 @@ export function AccountContinuityPage() {
   const [error, setError] = useState<string | null>(null);
 
   const dateFormatter = useMemo(
-    () => new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" }),
+    () =>
+      new Intl.DateTimeFormat(resolveIntlLocale(i18n.language), {
+        dateStyle: "medium",
+      }),
     [i18n.language],
   );
 

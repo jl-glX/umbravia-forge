@@ -20,6 +20,10 @@ describe("UMF Support corporate API", () => {
     directory = await mkdtemp(join(tmpdir(), "umf-corporate-support-"));
     vi.stubEnv("DATA_DIRECTORY", directory);
     vi.stubEnv("NODE_ENV", "test");
+    // The locale matrix intentionally performs more registrations than the
+    // production per-IP ceiling. Raise it only for this isolated suite before
+    // importing the application so the assertions reach locale validation.
+    vi.stubEnv("SIGNUP_RATE_LIMIT_MAX_REQUESTS", "100");
     vi.stubEnv("UMF_SUPPORT_OPERATIONAL_WORKSPACE_ENABLED", "true");
     vi.stubEnv("PRIVATE_CONTENT_ENCRYPTION_ENABLED", "true");
     vi.stubEnv(
@@ -718,6 +722,63 @@ describe("UMF Support corporate API", () => {
         .where("id", "=", lateDraft.body.draft.id)
         .executeTakeFirstOrThrow(),
     ).resolves.toEqual({ status: "scheduled" });
+  });
+
+  it.each([
+    ["ca-valencia", "ca-valencia"],
+    ["oc-aranes", "oc-aranes"],
+    ["ca-ES-valencia", "ca-valencia"],
+    ["fr-FR", "fr"],
+  ] as const)(
+    "persists the canonical support registration locale %s as %s",
+    async (requestedLocale, persistedLocale) => {
+      const email = `support-locale-${requestedLocale.toLowerCase()}@example.com`;
+      const registered = await request(app)
+        .post("/api/umf-support/register")
+        .send({
+          email,
+          name: "Locale",
+          lastName: "Support",
+          password: "LocaleSupportPassword123",
+          countryCode: "ES",
+          locale: requestedLocale,
+          acceptedTerms: true,
+          acceptedPrivacy: true,
+        })
+        .expect(201);
+
+      await expect(
+        database.db
+          .selectFrom("users")
+          .select("locale")
+          .where("id", "=", registered.body.user.id)
+          .executeTakeFirstOrThrow(),
+      ).resolves.toEqual({ locale: persistedLocale });
+    },
+  );
+
+  it("rejects an unknown support registration locale", async () => {
+    await request(app)
+      .post("/api/umf-support/register")
+      .send({
+        email: "support-locale-unknown@example.com",
+        name: "Locale",
+        lastName: "Unknown",
+        password: "LocaleSupportPassword123",
+        countryCode: "ES",
+        locale: "xx",
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+      })
+      .expect(400);
+
+    await expect(
+      database.db
+        .selectFrom("users")
+        .select("id")
+        .where("email", "=", "support-locale-unknown@example.com")
+        .executeTakeFirst(),
+    ).resolves.toBeUndefined();
   });
 
   it("keeps the former public request and activation endpoints closed", async () => {

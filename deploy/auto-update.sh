@@ -34,10 +34,17 @@ log() {
 restart_app_service() {
   # A release that exits repeatedly can exhaust systemd's StartLimitBurst
   # while the updater waits for the health endpoint. Clear that transient
-  # counter before both activation and rollback so the selected release is
-  # actually allowed to start.
+  # counter before activation or a compatible recovery so the selected release
+  # is actually allowed to start.
   systemctl reset-failed "$UMBRAVIA_APP_SERVICE" 2>/dev/null || true
   systemctl restart "$UMBRAVIA_APP_SERVICE"
+}
+
+stop_app_service() {
+  systemctl stop "$UMBRAVIA_APP_SERVICE" || return 1
+  active_state=$(systemctl show "$UMBRAVIA_APP_SERVICE" --property=ActiveState --value) ||
+    return 1
+  [ "$active_state" = "inactive" ]
 }
 
 fail() {
@@ -100,6 +107,64 @@ health_check() {
   return 1
 }
 
+release_health_check() {
+  health_check "$UMBRAVIA_LOCAL_HEALTH_URL" || return 1
+  if [ -n "$UMBRAVIA_PUBLIC_HEALTH_URL" ]; then
+    health_check "$UMBRAVIA_PUBLIC_HEALTH_URL" || return 1
+  fi
+}
+
+switch_current_release() {
+  target=$1
+  rm -f -- "$next_link" || return 1
+  ln -s "$target" "$next_link" || return 1
+  mv -Tf "$next_link" "$UMBRAVIA_CURRENT_LINK" || return 1
+}
+
+run_locale_rollback_preflight() {
+  candidate=$1
+  target=$2
+  run_as "$UMBRAVIA_APP_USER" node \
+    "$candidate/deploy/check-locale-rollback-safety.mjs" \
+    --environment-file "$UMBRAVIA_APP_ENV_FILE" \
+    --candidate-release "$candidate" \
+    --target-release "$target"
+}
+
+recover_previous_release() {
+  failure_reason=$1
+  release_preserved=1
+  log "ERR $failure_reason; deteniendo la candidata antes de evaluar la recuperacion" >&2
+
+  stop_app_service ||
+    fail "no se pudo confirmar la parada de la release candidata; se conservan ambas releases"
+
+  [ -n "$current_target" ] && [ -d "$current_target" ] ||
+    fail "no existe una release anterior verificable; current conserva la candidata y el servicio queda detenido"
+
+  if run_locale_rollback_preflight "$release_dir" "$current_target"; then
+    rollback_preflight_status=0
+  else
+    rollback_preflight_status=$?
+  fi
+  if [ "$rollback_preflight_status" -ne 0 ]; then
+    fail "rollback automatico bloqueado por el preflight de locales (codigo $rollback_preflight_status); current no cambia y el servicio queda detenido"
+  fi
+
+  switch_current_release "$current_target" ||
+    fail "no se pudo seleccionar atomicamente la release anterior; se conservan ambas releases"
+  if ! restart_app_service || ! release_health_check; then
+    stop_app_service ||
+      fail "la release anterior no esta saludable y no se pudo confirmar su parada; se conservan ambas releases"
+    switch_current_release "$release_dir" ||
+      fail "la release anterior no esta saludable y no se pudo restaurar el enlace de la candidata"
+    fail "la release anterior no supera la salud; la candidata queda seleccionada pero detenida y ambas releases se conservan"
+  fi
+
+  release_activated=0
+  log "release anterior restaurada, saludable y compatible; la candidata se conserva para revision"
+}
+
 release_is_complete() {
   candidate=$1
   expected_commit=$2
@@ -108,6 +173,8 @@ release_is_complete() {
   [ "$(sed -n '1p' "$candidate/.umbravia-release-commit")" = "$expected_commit" ] || return 1
   [ -r "$candidate/package.json" ] || return 1
   [ -x "$candidate/deploy/check-linux-readiness.sh" ] || return 1
+  [ -r "$candidate/deploy/check-locale-rollback-safety.mjs" ] || return 1
+  [ -r "$candidate/deploy/release-capabilities.json" ] || return 1
 }
 
 remove_incomplete_release() {
@@ -191,6 +258,9 @@ if [ -L "$UMBRAVIA_CURRENT_LINK" ]; then
 fi
 previous_target="$current_target"
 
+[ -n "$current_target" ] && [ -d "$current_target" ] ||
+  fail "no existe una release activa anterior; el actualizador automatico no realiza el despliegue inicial"
+
 if [ "$current_commit" = "$remote_commit" ]; then
   log "sin cambios: $remote_commit ya esta desplegado"
   exit 0
@@ -221,6 +291,7 @@ esac
 worktree_added=0
 release_created=0
 release_activated=0
+release_preserved=0
 cleanup() {
   if [ "$worktree_added" -eq 1 ]; then
     run_as "$UMBRAVIA_BUILD_USER" git -C "$UMBRAVIA_SOURCE_DIR" worktree remove --force "$build_root" >/dev/null 2>&1 || true
@@ -228,7 +299,9 @@ cleanup() {
   if [ -d "$build_root" ]; then
     rm -rf -- "$build_root"
   fi
-  if [ "$release_created" -eq 1 ] && [ "$release_activated" -eq 0 ]; then
+  if [ "$release_created" -eq 1 ] &&
+    [ "$release_activated" -eq 0 ] &&
+    [ "$release_preserved" -eq 0 ]; then
     remove_incomplete_release "$release_dir" "actualizacion no activada"
   fi
 }
@@ -242,7 +315,7 @@ worktree_added=1
 run_as "$UMBRAVIA_BUILD_USER" sh -c '
   set -eu
   cd "$1"
-  npm ci --audit=false --fund=false
+  npm ci --audit=false --fund=false --strict-allow-scripts=true
   VITE_TURNSTILE_SITE_KEY=$2 npm run deploy:package
 ' sh "$build_root" "$VITE_TURNSTILE_SITE_KEY"
 
@@ -251,12 +324,14 @@ install -d -o "$UMBRAVIA_APP_USER" -g "$UMBRAVIA_APP_GROUP" -m 0750 "$release_di
 release_created=1
 cp -a "$build_root/.deployment-package/." "$release_dir/"
 chown -R "$UMBRAVIA_APP_USER:$UMBRAVIA_APP_GROUP" "$release_dir"
+app_npm_cache=/var/lib/umbravia-forge-updater/npm-cache-app
+install -d -o "$UMBRAVIA_APP_USER" -g "$UMBRAVIA_APP_GROUP" -m 0700 "$app_npm_cache"
 run_as "$UMBRAVIA_APP_USER" sh -c '
   set -eu
   cd "$1"
-  npm ci --omit=dev --audit=false --fund=false
-  npm rebuild argon2 --foreground-scripts
-' sh "$release_dir"
+  npm ci --omit=dev --audit=false --fund=false --strict-allow-scripts=true --cache "$2"
+  npm rebuild argon2 --foreground-scripts --strict-allow-scripts=true --cache "$2"
+' sh "$release_dir" "$app_npm_cache"
 printf '%s\n' "$remote_commit" >"$release_dir/.umbravia-release-commit"
 chmod 0755 "$release_dir/deploy/check-linux-readiness.sh"
 chown -R root:"$UMBRAVIA_APP_GROUP" "$release_dir"
@@ -274,30 +349,47 @@ printf '%s\n' "$remote_commit" >"$release_dir/.umbravia-release-complete"
 chown root:"$UMBRAVIA_APP_GROUP" "$release_dir/.umbravia-release-complete"
 chmod 0640 "$release_dir/.umbravia-release-complete"
 
-ln -s "$release_dir" "$next_link"
-mv -Tf "$next_link" "$UMBRAVIA_CURRENT_LINK"
+log "comprobando de forma preliminar la compatibilidad de rollback"
+if run_locale_rollback_preflight "$release_dir" "$current_target"; then
+  preliminary_preflight_status=0
+else
+  preliminary_preflight_status=$?
+fi
+if [ "$preliminary_preflight_status" -ne 0 ]; then
+  release_preserved=1
+  fail "activacion bloqueada por el preflight preliminar de locales (codigo $preliminary_preflight_status); la release activa sigue en servicio"
+fi
+
+log "deteniendo la release activa para cerrar escrituras antes del preflight"
+stop_app_service || {
+  release_preserved=1
+  fail "no se pudo confirmar la parada de la release activa; la candidata se conserva"
+}
+
+if run_locale_rollback_preflight "$release_dir" "$current_target"; then
+  activation_preflight_status=0
+else
+  activation_preflight_status=$?
+fi
+if [ "$activation_preflight_status" -ne 0 ]; then
+  release_preserved=1
+  fail "activacion bloqueada por el preflight de locales (codigo $activation_preflight_status); current no cambia y el servicio queda detenido"
+fi
+
+switch_current_release "$release_dir" || {
+  release_preserved=1
+  fail "no se pudo activar atomicamente la candidata; el servicio queda detenido"
+}
 release_activated=1
 
 log "activando $remote_commit"
-if ! restart_app_service || ! health_check "$UMBRAVIA_LOCAL_HEALTH_URL"; then
-  log "ERR la nueva release no supera la salud local; restaurando la anterior" >&2
-  if [ -n "$current_target" ] && [ -d "$current_target" ]; then
-    ln -s "$current_target" "$next_link"
-    mv -Tf "$next_link" "$UMBRAVIA_CURRENT_LINK"
-    restart_app_service || true
-    release_activated=0
-  fi
+if ! restart_app_service; then
+  recover_previous_release "la nueva release no pudo arrancar"
   exit 1
 fi
 
-if [ -n "$UMBRAVIA_PUBLIC_HEALTH_URL" ] && ! health_check "$UMBRAVIA_PUBLIC_HEALTH_URL"; then
-  log "ERR la nueva release no supera la salud publica; restaurando la anterior" >&2
-  if [ -n "$current_target" ] && [ -d "$current_target" ]; then
-    ln -s "$current_target" "$next_link"
-    mv -Tf "$next_link" "$UMBRAVIA_CURRENT_LINK"
-    restart_app_service || true
-    release_activated=0
-  fi
+if ! release_health_check; then
+  recover_previous_release "la nueva release no supera la salud local o publica"
   exit 1
 fi
 

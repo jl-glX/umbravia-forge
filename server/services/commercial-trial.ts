@@ -10,8 +10,14 @@ import {
   COMMERCIAL_TRIAL_DATA_REVIEW_GRACE_MS,
   COMMERCIAL_TRIAL_MS,
   commercialTemplates,
+  getCommercialTrialDataReviewAvailability,
   getTrialNotice,
 } from "../lib/commercial-trial.js";
+import { localizedCommercialTemplateClassTypes } from "../lib/commercial-template-localization.js";
+import {
+  canonicalizeLocale,
+  type SupportedLocale,
+} from "../lib/supported-locales.js";
 import {
   createFacilitySlug,
   createTrialSubdomain,
@@ -37,7 +43,7 @@ type TrialInput = {
   subdomain?: string;
   classTypes?: string[];
   scheduleNotes?: string;
-  locale?: "es" | "en" | "de" | "de-CH";
+  locale?: SupportedLocale;
   currency?: string;
   usesBookings?: boolean;
   usesWaitlist?: boolean;
@@ -161,7 +167,12 @@ export async function finalizeAdministratorSignupInTransaction(
       trainerCount: null,
       spaceCount: null,
       usualCapacity: template.usualCapacity,
-      classTypes: JSON.stringify(template.classTypes),
+      classTypes: JSON.stringify(
+        localizedCommercialTemplateClassTypes(
+          pending.facilityType,
+          pending.locale,
+        ),
+      ),
       scheduleNotes: "",
       locale: pending.locale,
       currency: "EUR",
@@ -262,7 +273,10 @@ function subdomainUnavailableError() {
   );
 }
 
-function serializeTrial<T extends { classTypes: string }>(trial: T) {
+function serializeTrial<T extends { classTypes: string }>(
+  trial: T,
+  now = Date.now(),
+) {
   const publicTrial = { ...trial } as T & { conversionDraft?: string };
   delete publicTrial.conversionDraft;
   return {
@@ -282,6 +296,7 @@ function serializeTrial<T extends { classTypes: string }>(trial: T) {
     notice: getTrialNotice(
       (trial as T & { startedAt: number }).startedAt,
       (trial as T & { expiresAt: number }).expiresAt,
+      now,
     ),
   };
 }
@@ -683,14 +698,13 @@ export async function evaluateDueCommercialTrialCleanups(now = Date.now()) {
   };
 }
 
-async function expireIfNeeded(facilityId: string) {
+async function expireIfNeeded(facilityId: string, now = Date.now()) {
   const trial = await db
     .selectFrom("commercialTrials")
     .selectAll()
     .where("facilityId", "=", facilityId)
     .executeTakeFirst();
-  if (trial?.status === "trial_active" && trial.expiresAt <= Date.now()) {
-    const now = Date.now();
+  if (trial?.status === "trial_active" && trial.expiresAt <= now) {
     await db
       .updateTable("commercialTrials")
       .set({
@@ -809,8 +823,11 @@ async function insertCommercialRequest(
   return { id, kind, status: "open" as const };
 }
 
-export async function getCommercialTrialOverview(facilityId: string) {
-  const trial = await expireIfNeeded(facilityId);
+export async function getCommercialTrialOverview(
+  facilityId: string,
+  now = Date.now(),
+) {
+  const trial = await expireIfNeeded(facilityId, now);
   if (!trial) return null;
   const tenantOrigin = tenantOriginForSlug(trial.subdomain);
   const [counts, events, requests, branding] = await Promise.all([
@@ -843,8 +860,10 @@ export async function getCommercialTrialOverview(facilityId: string) {
       .where("id", "=", facilityId)
       .executeTakeFirstOrThrow(),
   ]);
+  const dataReview = getCommercialTrialDataReviewAvailability(trial, now);
   return {
-    trial: serializeTrial(trial),
+    trial: serializeTrial(trial, now),
+    dataReview: { ...dataReview, serverNow: now },
     branding,
     environment: {
       isolation: "shared_local_demo" as const,
@@ -985,6 +1004,7 @@ export async function createCommercialTrial(
     .where("status", "=", "active")
     .executeTakeFirstOrThrow();
   const template = commercialTemplates[input.facilityType];
+  const effectiveLocale = canonicalizeLocale(input.locale);
   const now = Date.now();
   const subdomain = input.subdomain
     ? normalizeEditableSubdomain(input.subdomain)
@@ -1008,7 +1028,13 @@ export async function createCommercialTrial(
     trainerCount: null,
     spaceCount: null,
     usualCapacity: template.usualCapacity,
-    classTypes: JSON.stringify(input.classTypes ?? template.classTypes),
+    classTypes: JSON.stringify(
+      input.classTypes ??
+        localizedCommercialTemplateClassTypes(
+          input.facilityType,
+          effectiveLocale,
+        ),
+    ),
     scheduleNotes: input.scheduleNotes ?? "",
     publicDescription: input.publicDescription ?? "",
     addressLine: input.addressLine ?? "",
@@ -1025,7 +1051,7 @@ export async function createCommercialTrial(
     bonusesDescription: input.bonusesDescription ?? "",
     publicPageEnabled: input.publicPageEnabled ? 1 : 0,
     showPhonePublicly: input.showPhonePublicly ? 1 : 0,
-    locale: input.locale ?? ("es" as const),
+    locale: effectiveLocale,
     currency: (input.currency ?? "EUR").toUpperCase(),
     usesBookings: input.usesBookings === false ? 0 : 1,
     usesWaitlist: (input.usesWaitlist ?? template.usesWaitlist) ? 1 : 0,
@@ -1263,7 +1289,9 @@ export async function restoreCommercialTrialConfiguration(
     .updateTable("commercialTrials")
     .set({
       usualCapacity: template.usualCapacity,
-      classTypes: JSON.stringify(template.classTypes),
+      classTypes: JSON.stringify(
+        localizedCommercialTemplateClassTypes(trial.facilityType, trial.locale),
+      ),
       usesBookings: 1,
       usesWaitlist: template.usesWaitlist ? 1 : 0,
       scheduleNotes: "",
@@ -1326,6 +1354,7 @@ export async function declareCommercialTrialData(
   actorUserId: string,
   facilityId: string,
   decision: Exclude<RealDataDeclaration, "undeclared">,
+  now = Date.now(),
 ) {
   return withCoordinatedManagerOperation(
     "account",
@@ -1333,12 +1362,22 @@ export async function declareCommercialTrialData(
     "declare-commercial-trial-data",
     [`commercial-trial:${facilityId}`],
     async () => {
-      const trial = await expireIfNeeded(facilityId);
+      const trial = await expireIfNeeded(facilityId, now);
       if (!trial) throw domainError("Commercial trial not found", 404);
-      if (trial.status !== "trial_active" && trial.status !== "trial_expired") {
+      const dataReview = getCommercialTrialDataReviewAvailability(trial, now);
+      if (!dataReview.canDeclare) {
+        if (
+          dataReview.declarationBlockReason === "not-open" ||
+          dataReview.declarationBlockReason === "cleanup-started"
+        ) {
+          throw domainError(
+            "The real-data review is not available",
+            409,
+            "COMMERCIAL_TRIAL_DATA_REVIEW_NOT_OPEN",
+          );
+        }
         throw domainError("This trial cannot enter another data review");
       }
-      const now = Date.now();
       const status =
         decision === "yes"
           ? ("trial_conversion_review" as const)
@@ -1366,7 +1405,7 @@ export async function declareCommercialTrialData(
       await recordEvent(trial.id, actorUserId, "real_data_declared", {
         decision,
       });
-      return getCommercialTrialOverview(facilityId);
+      return getCommercialTrialOverview(facilityId, now);
     },
   );
 }

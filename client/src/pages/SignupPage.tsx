@@ -10,6 +10,8 @@ import { ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { isPasswordWithinHashLimit } from "../lib/passwordPolicy";
 import { CaptchaWidget } from "../components/CaptchaWidget";
+import { sortedLanguageOptions } from "../i18n/language-options";
+import { formatPublicAuthError } from "../lib/public-auth-errors";
 
 const API_BASE =
   typeof window !== "undefined" && window.location.hostname === "localhost"
@@ -26,7 +28,18 @@ export function SignupPage() {
     password: "",
     confirmPassword: "",
     countryCode: "ES",
-    locale: "es" as "es" | "en" | "de" | "de-CH",
+    locale: "es" as
+      | "es"
+      | "en"
+      | "de"
+      | "de-CH"
+      | "fr"
+      | "it"
+      | "gl"
+      | "ca"
+      | "ca-valencia"
+      | "eu"
+      | "oc-aranes",
     acceptedTerms: false,
     acceptedPrivacy: false,
     captchaToken: "",
@@ -40,6 +53,11 @@ export function SignupPage() {
   const [administratorSignupEnabled, setAdministratorSignupEnabled] =
     useState(false);
   const { t, i18n } = useTranslation();
+  const languageOptions = sortedLanguageOptions(
+    (key) => t(key),
+    i18n.resolvedLanguage ?? i18n.language,
+  );
+  const displayedError = error ? formatPublicAuthError(error, t) : null;
 
   useEffect(() => {
     fetch(`${API_BASE}/api/commercial`)
@@ -171,9 +189,11 @@ export function SignupPage() {
       title={t("auth.createTitle")}
       description={t("auth.createDescription")}
     >
-      {(error || validationError) && (
+      {(displayedError || validationError) && (
         <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3.5">
-          <p className="text-sm text-red-600">{error || validationError}</p>
+          <p className="text-sm text-red-600">
+            {displayedError || validationError}
+          </p>
         </div>
       )}
 
@@ -469,10 +489,11 @@ export function SignupPage() {
                   }
                   className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3"
                 >
-                  <option value="es">Español</option>
-                  <option value="en">English</option>
-                  <option value="de">Deutsch</option>
-                  <option value="de-CH">Deutsch (Schweiz)</option>
+                  {languageOptions.map((option) => (
+                    <option key={option.code} value={option.code}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <label className="flex gap-3 rounded-xl border border-slate-200 p-3 text-sm">

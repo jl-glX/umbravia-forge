@@ -8,6 +8,10 @@ import {
 } from "../lib/private-content-crypto.js";
 import type { AuthenticatedUser } from "../middleware/authorization.js";
 import {
+  canonicalizeLocale,
+  type SupportedLocale,
+} from "../lib/supported-locales.js";
+import {
   deliverQueuedEmail,
   queueUmfSupportComposedEmail,
 } from "./email-delivery.js";
@@ -319,13 +323,217 @@ export async function revokeUmfSupportPushSubscription(
   return { revoked: true };
 }
 
-type SupportNotification = {
-  event: UmfSupportNotificationEvent;
-  title: string;
-  message: string;
+type SupportNotificationBase = {
   url?: string;
   excludeUserId?: string;
 };
+
+export type SupportAdministratorNotification =
+  | (SupportNotificationBase & {
+      event: "ticket_created" | "problem_reported";
+      ticketPublicId: string;
+      subject: string;
+      priority: string;
+      category: string;
+    })
+  | (SupportNotificationBase & {
+      event: "conversation_received";
+      ticketPublicId: string;
+      subject: string;
+    })
+  | (SupportNotificationBase & {
+      event: "inbound_email";
+      ticketPublicId: string;
+    })
+  | (SupportNotificationBase & {
+      event: "feedback_received";
+      category: string;
+    });
+
+type NotificationCopy = {
+  ticket: string;
+  problem: string;
+  priority: string;
+  category: string;
+  conversation: string;
+  inbound: string;
+  inboundBody: string;
+  feedback: string;
+  feedbackBody: string;
+  cta: string;
+};
+
+type PrimaryNotificationLocale = Exclude<
+  SupportedLocale,
+  "de-CH" | "ca-valencia"
+>;
+
+const notificationCopy: Record<PrimaryNotificationLocale, NotificationCopy> = {
+  es: {
+    ticket: "Nuevo aviso",
+    problem: "Nuevo problema",
+    priority: "prioridad",
+    category: "categoría",
+    conversation: "Nueva respuesta en",
+    inbound: "Correo recibido en",
+    inboundBody:
+      "UMF Support ha recibido un correo nuevo o una respuesta autenticada.",
+    feedback: "Nueva aportación para Umbravia Forge",
+    feedbackBody: "Se ha recibido una aportación en la categoría",
+    cta: "Abre UMF Support",
+  },
+  en: {
+    ticket: "New alert",
+    problem: "New problem report",
+    priority: "priority",
+    category: "category",
+    conversation: "New reply in",
+    inbound: "Email received in",
+    inboundBody: "UMF Support received a new email or an authenticated reply.",
+    feedback: "New feedback for Umbravia Forge",
+    feedbackBody: "Feedback was received in the category",
+    cta: "Open UMF Support",
+  },
+  de: {
+    ticket: "Neue Meldung",
+    problem: "Neue Problemmeldung",
+    priority: "Priorität",
+    category: "Kategorie",
+    conversation: "Neue Antwort in",
+    inbound: "E-Mail eingegangen in",
+    inboundBody:
+      "UMF Support hat eine neue E-Mail oder eine authentifizierte Antwort erhalten.",
+    feedback: "Neue Rückmeldung für Umbravia Forge",
+    feedbackBody:
+      "In der folgenden Kategorie ist eine Rückmeldung eingegangen:",
+    cta: "UMF Support öffnen",
+  },
+  fr: {
+    ticket: "Nouvelle alerte",
+    problem: "Nouveau problème signalé",
+    priority: "priorité",
+    category: "catégorie",
+    conversation: "Nouvelle réponse dans",
+    inbound: "E-mail reçu dans",
+    inboundBody:
+      "UMF Support a reçu un nouvel e-mail ou une réponse authentifiée.",
+    feedback: "Nouvel avis pour Umbravia Forge",
+    feedbackBody: "Un avis a été reçu dans la catégorie",
+    cta: "Ouvrir UMF Support",
+  },
+  it: {
+    ticket: "Nuova segnalazione",
+    problem: "Nuovo problema segnalato",
+    priority: "priorità",
+    category: "categoria",
+    conversation: "Nuova risposta in",
+    inbound: "E-mail ricevuta in",
+    inboundBody:
+      "UMF Support ha ricevuto una nuova e-mail o una risposta autenticata.",
+    feedback: "Nuovo feedback per Umbravia Forge",
+    feedbackBody: "È stato ricevuto un feedback nella categoria",
+    cta: "Apri UMF Support",
+  },
+  gl: {
+    ticket: "Novo aviso",
+    problem: "Novo problema comunicado",
+    priority: "prioridade",
+    category: "categoría",
+    conversation: "Nova resposta en",
+    inbound: "Correo recibido en",
+    inboundBody:
+      "UMF Support recibiu un novo correo ou unha resposta autenticada.",
+    feedback: "Nova achega para Umbravia Forge",
+    feedbackBody: "Recibiuse unha achega na categoría",
+    cta: "Abrir UMF Support",
+  },
+  ca: {
+    ticket: "Nou avís",
+    problem: "Nou problema notificat",
+    priority: "prioritat",
+    category: "categoria",
+    conversation: "Nova resposta a",
+    inbound: "Correu rebut a",
+    inboundBody:
+      "UMF Support ha rebut un correu nou o una resposta autenticada.",
+    feedback: "Nova aportació per a Umbravia Forge",
+    feedbackBody: "S'ha rebut una aportació en la categoria",
+    cta: "Obre UMF Support",
+  },
+  eu: {
+    ticket: "Abisu berria",
+    problem: "Arazo berri baten jakinarazpena",
+    priority: "lehentasuna",
+    category: "kategoria",
+    conversation: "Erantzun berria hemen:",
+    inbound: "Mezua jaso da hemen:",
+    inboundBody:
+      "UMF Support zerbitzuak mezu berri bat edo autentifikatutako erantzun bat jaso du.",
+    feedback: "Umbravia Forge-rentzako ekarpen berria",
+    feedbackBody: "Ekarpen bat jaso da kategoria honetan:",
+    cta: "Ireki UMF Support",
+  },
+  "oc-aranes": {
+    ticket: "Nau avís",
+    problem: "Nau problèma notificat",
+    priority: "prioritat",
+    category: "categoria",
+    conversation: "Naua responsa en",
+    inbound: "Corrèu recebut en",
+    inboundBody:
+      "UMF Support a recebut un corrèu nau o ua responsa autentificada.",
+    feedback: "Naua aportacion entà Umbravia Forge",
+    feedbackBody: "S'a recebut ua aportacion ena categoria",
+    cta: "Daurís UMF Support",
+  },
+};
+
+function notificationCopyFor(locale: SupportedLocale): NotificationCopy {
+  if (locale === "de-CH") return notificationCopy.de;
+  if (locale === "ca-valencia") return notificationCopy.ca;
+  return notificationCopy[locale];
+}
+
+export function renderUmfSupportAdministratorNotification(
+  notification: SupportAdministratorNotification,
+  requestedLocale: unknown,
+): {
+  locale: SupportedLocale;
+  title: string;
+  message: string;
+  url: string;
+  event: UmfSupportNotificationEvent;
+} {
+  const locale = canonicalizeLocale(requestedLocale);
+  const copy = notificationCopyFor(locale);
+  let title: string;
+  let message: string;
+  if (
+    notification.event === "ticket_created" ||
+    notification.event === "problem_reported"
+  ) {
+    title = `${
+      notification.event === "problem_reported" ? copy.problem : copy.ticket
+    } ${notification.ticketPublicId}`;
+    message = `${notification.subject} · ${copy.priority} ${notification.priority} · ${copy.category} ${notification.category}`;
+  } else if (notification.event === "conversation_received") {
+    title = `${copy.conversation} ${notification.ticketPublicId}`;
+    message = notification.subject;
+  } else if (notification.event === "inbound_email") {
+    title = `${copy.inbound} ${notification.ticketPublicId}`;
+    message = copy.inboundBody;
+  } else {
+    title = copy.feedback;
+    message = `${copy.feedbackBody} ${notification.category}.`;
+  }
+  return {
+    locale,
+    title,
+    message,
+    url: notification.url ?? "/umf-support",
+    event: notification.event,
+  };
+}
 
 function controlledSupportEmailUrl(value?: string): string | undefined {
   if (!value?.startsWith("/umf-support")) return undefined;
@@ -347,7 +555,7 @@ async function sendPush(
     id: string;
     subscriptionProtected: string;
   },
-  notification: SupportNotification,
+  notification: ReturnType<typeof renderUmfSupportAdministratorNotification>,
 ): Promise<void> {
   const configuration = pushConfiguration();
   if (!configuration) return;
@@ -401,7 +609,7 @@ async function sendPush(
 }
 
 export async function notifyUmfSupportAdministrators(
-  notification: SupportNotification,
+  notification: SupportAdministratorNotification,
 ): Promise<void> {
   const staff = await db
     .selectFrom("umfSupportStaff")
@@ -430,16 +638,25 @@ export async function notifyUmfSupportAdministrators(
     const channels = parsePreferences(member.eventPreferences)[
       notification.event
     ];
+    const rendered = renderUmfSupportAdministratorNotification(
+      notification,
+      member.locale,
+    );
     if (channels.email) {
       try {
-        const supportUrl = controlledSupportEmailUrl(notification.url);
+        const supportUrl = controlledSupportEmailUrl(rendered.url);
+        const copy = notificationCopyFor(rendered.locale);
         const deliveryId = await queueUmfSupportComposedEmail({
           email: member.email,
-          locale: ["es", "en", "de", "de-CH"].includes(member.locale)
-            ? (member.locale as "es" | "en" | "de" | "de-CH")
-            : "es",
-          subject: notification.title,
-          message: `${notification.message}${supportUrl ? `\n\n[Abre UMF Support](${supportUrl})` : ""}`,
+          locale: rendered.locale,
+          subject: rendered.title,
+          content: {
+            kind: "opaque-with-action",
+            value: rendered.message,
+            action: supportUrl
+              ? { label: copy.cta, url: supportUrl }
+              : undefined,
+          },
         });
         void deliverQueuedEmail(deliveryId).catch(() => undefined);
       } catch {
@@ -468,9 +685,7 @@ export async function notifyUmfSupportAdministrators(
           .where("status", "=", "active")
           .execute();
         await Promise.all(
-          subscriptions.map((subscription) =>
-            sendPush(subscription, notification),
-          ),
+          subscriptions.map((subscription) => sendPush(subscription, rendered)),
         );
       }
     }

@@ -1,5 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import {
+  evaluateNpmAuditReport,
+  parseNpmAuditReport,
+} from "./lib/npm-audit-policy.mjs";
 import { resolveNpmInvocation } from "./lib/npm-invocation.mjs";
 
 const temporaryExceptions = new Map([
@@ -27,10 +32,10 @@ const temporaryExceptions = new Map([
   ],
 ]);
 
-function runAudit() {
+function runAudit(directory) {
   const invocation = resolveNpmInvocation(["audit", "--json"]);
   const result = spawnSync(invocation.command, invocation.args, {
-    cwd: process.cwd(),
+    cwd: resolve(process.cwd(), directory),
     env: process.env,
     encoding: "utf8",
     shell: false,
@@ -40,70 +45,41 @@ function runAudit() {
     throw result.error;
   }
 
-  if (!result.stdout) {
-    process.stderr.write(result.stderr);
-    process.exit(result.status ?? 1);
-  }
-
-  return JSON.parse(result.stdout);
+  return parseNpmAuditReport(result);
 }
 
-function advisoryUrls(vulnerability) {
-  return new Set(
-    vulnerability.via
-      .filter((entry) => typeof entry === "object" && entry !== null)
-      .map((entry) => entry.url)
-      .filter(Boolean),
+const projects = [
+  { name: "raíz", directory: ".", exceptions: temporaryExceptions },
+  { name: "Cloudflare", directory: "cloudflare", exceptions: new Map() },
+];
+for (const project of projects) {
+  const report = runAudit(project.directory);
+  const lockfile = JSON.parse(
+    await readFile(resolve(project.directory, "package-lock.json"), "utf8"),
   );
-}
-
-function vulnerableDependencies(vulnerability) {
-  return new Set(
-    vulnerability.via.filter((entry) => typeof entry === "string"),
-  );
-}
-
-const report = runAudit();
-const lockfile = JSON.parse(await readFile("package-lock.json", "utf8"));
-const blocking = [];
-
-for (const [name, vulnerability] of Object.entries(
-  report.vulnerabilities ?? {},
-)) {
-  const exception = temporaryExceptions.get(name);
-  const urls = advisoryUrls(vulnerability);
-  const dependencies = vulnerableDependencies(vulnerability);
-  const packageVersion = lockfile.packages?.[`node_modules/${name}`]?.version;
-  const advisoriesMatch =
-    urls.size > 0 &&
-    dependencies.size === 0 &&
-    [...urls].every((url) => exception?.advisories.has(url));
-  const dependenciesMatch =
-    dependencies.size > 0 &&
-    urls.size === 0 &&
-    [...dependencies].every((dependency) =>
-      exception?.viaPackages.has(dependency),
-    );
-  const exceptionMatches =
-    exception &&
-    (advisoriesMatch || dependenciesMatch) &&
-    exception.versions.has(packageVersion);
-
-  if (exceptionMatches) {
+  const { allowed, blocking } = evaluateNpmAuditReport({
+    report,
+    lockfile,
+    temporaryExceptions: project.exceptions,
+  });
+  for (const exception of allowed) {
     console.warn(
-      `Excepción temporal verificada para ${name}@${packageVersion}: ${exception.reason}`,
+      `Excepción temporal verificada para ${exception.name}@${exception.packageVersion}: ${exception.reason}`,
     );
-    continue;
   }
-
-  blocking.push({ name, packageVersion, vulnerability });
-}
-
-if (blocking.length > 0) {
-  console.error(JSON.stringify({ vulnerabilities: blocking }, null, 2));
-  process.exit(1);
+  if (blocking.length > 0) {
+    console.error(
+      JSON.stringify(
+        { project: project.name, vulnerabilities: blocking },
+        null,
+        2,
+      ),
+    );
+    process.exit(1);
+  }
+  console.log(`Auditoría de dependencias superada para ${project.name}.`);
 }
 
 console.log(
-  "Auditoría superada: no hay vulnerabilidades sin una excepción explícita y acotada.",
+  "Auditoría superada: no hay informes incompletos ni vulnerabilidades sin una excepción explícita y acotada.",
 );

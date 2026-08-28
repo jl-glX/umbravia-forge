@@ -14,7 +14,18 @@ const MAX_ATTEMPTS = 5;
 export type PendingEmailVerificationProfile = {
   email: string;
   name: string;
-  locale: "es" | "en" | "de" | "de-CH";
+  locale:
+    | "es"
+    | "en"
+    | "de"
+    | "de-CH"
+    | "fr"
+    | "it"
+    | "gl"
+    | "ca"
+    | "ca-valencia"
+    | "eu"
+    | "oc-aranes";
 };
 
 function hashCode(
@@ -67,7 +78,19 @@ export async function getPendingEmailVerificationProfile(
     .where("id", "=", userId)
     .executeTakeFirst();
   if (!user || user.accountStatus !== "pending_verification") return null;
-  const locale = ["es", "en", "de", "de-CH"].includes(user.locale)
+  const locale = [
+    "es",
+    "en",
+    "de",
+    "de-CH",
+    "fr",
+    "it",
+    "gl",
+    "ca",
+    "ca-valencia",
+    "eu",
+    "oc-aranes",
+  ].includes(user.locale)
     ? (user.locale as PendingEmailVerificationProfile["locale"])
     : "es";
   return {

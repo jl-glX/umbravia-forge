@@ -1,6 +1,7 @@
 import { CheckCircle2, ClipboardList, Loader } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { resolveIntlLocale } from "../i18n/supported-locales";
 import {
   submitSurveyResponse,
   useAvailableSurveyCampaigns,
@@ -8,7 +9,7 @@ import {
 } from "../hooks/useAnalyticsSurveys";
 
 export function AnalyticsSurveyParticipation() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data, loading, error, reload } = useAvailableSurveyCampaigns();
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [submitting, setSubmitting] = useState<string | null>(null);
@@ -118,7 +119,9 @@ export function AnalyticsSurveyParticipation() {
                 <p className="mt-2 text-xs font-medium text-slate-500">
                   {t(`analytics.surveys.privacy.${campaign.privacyMode}`)} ·{" "}
                   {t("analytics.surveys.closes", {
-                    date: new Date(campaign.closesAt).toLocaleDateString(),
+                    date: new Date(campaign.closesAt).toLocaleDateString(
+                      resolveIntlLocale(i18n.language),
+                    ),
                   })}
                 </p>
               </div>

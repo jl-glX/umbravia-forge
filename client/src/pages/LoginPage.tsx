@@ -25,6 +25,10 @@ import {
   clearAppNavigationHistory,
   getSessionStorage,
 } from "../lib/app-navigation-history";
+import {
+  formatPublicAuthError,
+  normalizePublicAuthError,
+} from "../lib/public-auth-errors";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -52,8 +56,9 @@ export function LoginPage() {
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaResetSignal, setCaptchaResetSignal] = useState(0);
   const { t } = useTranslation();
-  const displayedError =
-    error === "INVALID_CREDENTIALS" ? t("auth.invalidCredentials") : error;
+  const displayedError = error
+    ? formatPublicAuthError(error, t, { identifier })
+    : null;
   const selectSavedAccount = (account: SavedAccount) => {
     setAccessPortal(account.accessPortal);
     setIdentifier(account.identifier);
@@ -198,7 +203,7 @@ export function LoginPage() {
     } catch (err) {
       setCaptchaToken("");
       setCaptchaResetSignal((value) => value + 1);
-      const errorCode = err instanceof Error ? err.message : "";
+      const errorCode = normalizePublicAuthError(err).code;
       if (errorCode === "PASSKEY_NOT_CONFIGURED") {
         setValidationError(
           t("auth.passkeyNotConfigured", { identifier: identifier.trim() }),

@@ -1,7 +1,10 @@
 # Dependency update policy
 
-Umbravia Forge keeps direct dependencies pinned to exact versions and uses the
-committed lockfile as the reproducible source for installations.
+Umbravia Forge keeps direct dependencies pinned to exact versions. The root
+application and the independent `cloudflare/` Worker project each use their
+own committed lockfile and `.npmrc` as the reproducible source for
+installations; the second project is not an npm workspace and must never be
+inferred from the root installation.
 
 ## Supported toolchain
 
@@ -23,17 +26,34 @@ still passes.
 1. Start from a clean branch and keep `package.json` plus `package-lock.json`
    together in the same change.
 2. Update a coherent dependency group without using peer-dependency bypasses.
-3. Run `npm run CI`. This performs a clean locked installation, all project
-   checks and a vulnerability audit.
+3. Run `npm run CI`. This performs clean locked installations for the root and
+   `cloudflare/`, all project checks and a vulnerability audit of both trees.
 4. Review the resulting diff and application behavior before merging.
 
 `npm run CI --force` is also safe: the runner deliberately removes npm's force
 flag from its child processes. It never rewrites dependency declarations or
-the lockfile, and it fails if either protected file changes during validation.
+either lockfile, and it fails if any of the four protected manifests/lockfiles
+changes during validation.
 
 Do not use `npm audit fix --force` as an update strategy. Major upgrades are
 reviewed independently. Dependabot groups compatible minor and patch updates;
 major releases remain isolated for explicit migration and testing.
+
+Dependabot monitors `/` and `/cloudflare` independently. CI installs both
+lockfiles without deploying Workers or reading provider credentials. The audit
+gate accepts only an npm audit v2 payload with complete metadata. Every `via`
+entry must be a valid advisory URL or a named vulnerable parent. A derived
+exception is accepted only when that parent is present in the same report and
+has already matched its own exact advisory, package version and exception.
+Transport/registry errors, invalid JSON, missing metadata, malformed `via`
+objects, orphaned dependency chains and unexpected report versions fail closed
+for either tree.
+
+Rollback of this control consists of reverting the Dependabot entry, the
+Cloudflare install step and the paired audit project in the same change. Do not
+remove only the failing audit: restore the previous commit while investigating
+registry availability or lockfile compatibility, and do not deploy from a
+partially validated dependency tree.
 
 ## GitHub Dependency Review
 
